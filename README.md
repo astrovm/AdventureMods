@@ -9,8 +9,9 @@ Adventure Mods automates what would otherwise be a tedious manual process: insta
 - Automatic detection of SADX and SA2 Steam installations (including external drives)
 - Step-by-step setup wizard for each game
 - GE-Proton and .NET runtime configuration via protontricks
-- SADX mod installer download and launch
-- SA2 Mod Manager installation with 13 curated recommended mods from GameBanana
+- Native mod installation for both games — no Windows installers needed
+- SA Mod Manager installation for both SADX and SA2
+- 35 curated SADX mods and 13 curated SA2 mods with per-mod selection
 - Download progress tracking
 - Works inside a Flatpak sandbox with host command support
 
@@ -63,15 +64,15 @@ cargo build
 2. **Dependency Check** — Ensures protontricks and ProtonUp-Qt are available, installing them from Flathub if needed
 3. **Runtime Setup** — Guides GE-Proton configuration and installs .NET Framework 4.8 via protontricks
 4. **Mod Installation**
-   - **SADX**: Downloads and launches the SADX Mod Installer through the game's Wine prefix
-   - **SA2**: Installs SA Mod Manager, then downloads selected mods from GameBanana
+   - **SADX**: Installs the SADX Mod Loader, SA Mod Manager, and up to 35 recommended mods from dcmods, GameBanana, GitHub, and GitLab
+   - **SA2**: Installs SA Mod Manager and up to 13 recommended mods from GameBanana
 
 ## Technology
 
 - **Rust** with **GTK4** and **libadwaita** for a native GNOME desktop experience
 - **Meson** build system with Cargo integration
 - **Flatpak** sandbox with `flatpak-spawn --host` for protontricks and other host commands
-- **GameBanana API v11** for mod download URL resolution
+- Mod downloads from **GameBanana**, **dcmods.unreliable.network**, **GitHub**, and **GitLab**
 
 ## License
 
