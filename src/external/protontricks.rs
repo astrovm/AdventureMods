@@ -103,9 +103,10 @@ fn launch_args(app_id: u32, exe_path: &str, use_flatpak: bool) -> Vec<String> {
     }
 }
 
-/// Install .NET runtime via protontricks (dotnet48).
+/// Install .NET runtimes via protontricks (dotnet48 and dotnetdesktop8).
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
-    let output = run(app_id, &["dotnet48"]).await?;
+    // Run quietly to avoid forcing the user to click through multiple installers
+    let output = run(app_id, &["-q", "dotnet48", "dotnetdesktop8"]).await?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!("Failed to install .NET: {stderr}");
