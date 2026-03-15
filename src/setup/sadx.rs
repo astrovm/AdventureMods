@@ -127,6 +127,27 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         },
         description: "Enables Steam achievements with mods",
     },
+    ModEntry {
+        name: "HD GUI 2",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
+        },
+        description: "High resolution GUI textures for menus, HUD and icons",
+    },
+    ModEntry {
+        name: "SADX Launcher",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/AppLauncher.7z",
+        },
+        description: "Tool to configure game controls and settings",
+    },
+    ModEntry {
+        name: "Icon Data",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/icondata.7z",
+        },
+        description: "Custom game window icons",
+    },
     // --- GitHub release mods ---
     ModEntry {
         name: "ESRGAN-AI HD Textures",
@@ -352,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 35);
+        assert_eq!(RECOMMENDED_MODS.len(), 38);
     }
 
     #[test]
