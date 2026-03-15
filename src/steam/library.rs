@@ -161,6 +161,83 @@ mod tests {
     }
 
     #[test]
+    fn test_find_game_app_present_but_dir_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        // App ID is in VDF but game directory doesn't exist on disk
+        let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
+        assert!(find_game_in_libraries(&vdf, GameKind::SADX).is_none());
+    }
+
+    #[test]
+    fn test_find_game_missing_apps_key() {
+        // Folder has "path" but no "apps" subkey
+        let mut folder = HashMap::new();
+        folder.insert(
+            "path".to_string(),
+            vdf::VdfValue::String("/some/path".to_string()),
+        );
+
+        let mut folders = HashMap::new();
+        folders.insert("0".to_string(), vdf::VdfValue::Map(folder));
+
+        let mut root = HashMap::new();
+        root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+
+        let vdf = vdf::VdfValue::Map(root);
+        assert!(find_game_in_libraries(&vdf, GameKind::SADX).is_none());
+    }
+
+    #[test]
+    fn test_find_game_missing_path_key() {
+        // Folder has "apps" with matching ID but no "path" key
+        let mut apps = HashMap::new();
+        apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
+
+        let mut folder = HashMap::new();
+        folder.insert("apps".to_string(), vdf::VdfValue::Map(apps));
+
+        let mut folders = HashMap::new();
+        folders.insert("0".to_string(), vdf::VdfValue::Map(folder));
+
+        let mut root = HashMap::new();
+        root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+
+        let vdf = vdf::VdfValue::Map(root);
+        assert!(find_game_in_libraries(&vdf, GameKind::SADX).is_none());
+    }
+
+    #[test]
+    fn test_find_game_libraryfolders_is_string() {
+        // libraryfolders is a string instead of a map — should return None
+        let mut root = HashMap::new();
+        root.insert(
+            "libraryfolders".to_string(),
+            vdf::VdfValue::String("oops".to_string()),
+        );
+        let vdf = vdf::VdfValue::Map(root);
+        assert!(find_game_in_libraries(&vdf, GameKind::SADX).is_none());
+    }
+
+    #[test]
+    fn test_find_both_games_in_same_library() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sadx_dir = tmp
+            .path()
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        let sa2_dir = tmp
+            .path()
+            .join("steamapps/common")
+            .join(GameKind::SA2.install_dir());
+        std::fs::create_dir_all(&sadx_dir).unwrap();
+        std::fs::create_dir_all(&sa2_dir).unwrap();
+
+        let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250", "213610"]);
+        assert_eq!(find_game_in_libraries(&vdf, GameKind::SADX), Some(sadx_dir));
+        assert_eq!(find_game_in_libraries(&vdf, GameKind::SA2), Some(sa2_dir));
+    }
+
+    #[test]
     fn test_multiple_libraries() {
         let tmp = tempfile::tempdir().unwrap();
         let game_dir = tmp

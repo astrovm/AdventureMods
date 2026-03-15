@@ -350,4 +350,103 @@ mod tests {
         let val = root.get("root").unwrap().get("key").unwrap().as_str().unwrap();
         assert_eq!(val, "second");
     }
+
+    #[test]
+    fn test_parse_consecutive_escapes() {
+        // Two backslashes followed by n: should produce literal `\n` (backslash + n)
+        let input = r#""root" { "a" "a\\\\b" "b" "x\\ny" }"#;
+        let root = parse(input).unwrap();
+        let m = root.get("root").unwrap();
+        assert_eq!(m.get("a").unwrap().as_str().unwrap(), "a\\\\b");
+        assert_eq!(m.get("b").unwrap().as_str().unwrap(), "x\\ny");
+    }
+
+    #[test]
+    fn test_parse_unknown_escape() {
+        // Unknown escape like \x should be kept as-is: backslash + x
+        let input = r#""root" { "key" "abc\xdef" }"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            "abc\\xdef"
+        );
+    }
+
+    #[test]
+    fn test_parse_numeric_keys() {
+        // VDF often uses numeric keys as pseudo-arrays (like libraryfolders.vdf)
+        let input = r#""root" { "0" "first" "1" "second" "2" "third" }"#;
+        let root = parse(input).unwrap();
+        let m = root.get("root").unwrap();
+        assert_eq!(m.get("0").unwrap().as_str().unwrap(), "first");
+        assert_eq!(m.get("1").unwrap().as_str().unwrap(), "second");
+        assert_eq!(m.get("2").unwrap().as_str().unwrap(), "third");
+    }
+
+    #[test]
+    fn test_vdfvalue_get_chained_missing() {
+        let root = parse(r#""root" { "a" { "b" "val" } }"#).unwrap();
+        // Valid chain
+        assert_eq!(
+            root.get("root").and_then(|v| v.get("a")).and_then(|v| v.get("b")).and_then(|v| v.as_str()),
+            Some("val")
+        );
+        // Missing intermediate key
+        assert!(root.get("root").and_then(|v| v.get("x")).and_then(|v| v.get("b")).is_none());
+        // get() on a string value
+        assert!(root.get("root").and_then(|v| v.get("a")).and_then(|v| v.get("b")).and_then(|v| v.get("anything")).is_none());
+    }
+
+    #[test]
+    fn test_parse_only_whitespace_between_entries() {
+        // No separators other than whitespace between key-value pairs
+        let input = "\"root\"{\"a\"\"1\"\"b\"\"2\"}";
+        let root = parse(input).unwrap();
+        let m = root.get("root").unwrap();
+        assert_eq!(m.get("a").unwrap().as_str().unwrap(), "1");
+        assert_eq!(m.get("b").unwrap().as_str().unwrap(), "2");
+    }
+
+    #[test]
+    fn test_parse_comment_at_eof_no_newline() {
+        let input = "\"root\" \"value\" // trailing comment";
+        let root = parse(input).unwrap();
+        assert_eq!(root.get("root").unwrap().as_str().unwrap(), "value");
+    }
+
+    #[test]
+    fn test_parse_map_with_mixed_value_types() {
+        let input = r#"
+"root"
+{
+    "string_val"    "hello"
+    "sub_map"
+    {
+        "nested"    "world"
+    }
+    "another"       "test"
+}
+"#;
+        let root = parse(input).unwrap();
+        let m = root.get("root").unwrap();
+        assert_eq!(m.get("string_val").unwrap().as_str().unwrap(), "hello");
+        assert!(m.get("sub_map").unwrap().as_map().is_some());
+        assert_eq!(
+            m.get("sub_map").unwrap().get("nested").unwrap().as_str().unwrap(),
+            "world"
+        );
+        assert_eq!(m.get("another").unwrap().as_str().unwrap(), "test");
+    }
+
+    #[test]
+    fn test_parse_no_root_value() {
+        // Bare key with no value following
+        assert!(parse(r#""key""#).is_none());
+    }
+
+    #[test]
+    fn test_parse_unquoted_key_fails() {
+        // VDF requires quoted keys
+        assert!(parse("root { }").is_none());
+    }
 }

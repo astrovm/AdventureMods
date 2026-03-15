@@ -165,6 +165,16 @@ mod tests {
     }
 
     #[test]
+    fn test_mod_names_unique() {
+        let names: HashSet<&str> = RECOMMENDED_MODS.iter().map(|m| m.name).collect();
+        assert_eq!(
+            names.len(),
+            RECOMMENDED_MODS.len(),
+            "Duplicate mod names in RECOMMENDED_MODS"
+        );
+    }
+
+    #[test]
     fn test_mod_entries_have_names_and_descriptions() {
         for m in RECOMMENDED_MODS {
             assert!(!m.name.is_empty(), "Mod has empty name");

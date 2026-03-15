@@ -118,4 +118,34 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         assert!(find_exe_in_dir(tmp.path()).is_none());
     }
+
+    #[test]
+    fn test_find_exe_ignores_non_exe() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("readme.txt"), b"text").unwrap();
+        std::fs::write(tmp.path().join("data.bin"), b"data").unwrap();
+        std::fs::write(tmp.path().join("script.sh"), b"#!/bin/sh").unwrap();
+        assert!(find_exe_in_dir(tmp.path()).is_none());
+    }
+
+    #[test]
+    fn test_find_exe_multiple_returns_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("a.exe"), b"fake").unwrap();
+        std::fs::write(tmp.path().join("b.exe"), b"fake").unwrap();
+        // Should find one of them (not panic or return None)
+        let result = find_exe_in_dir(tmp.path());
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_find_exe_deeply_nested() {
+        let tmp = tempfile::tempdir().unwrap();
+        let deep = tmp.path().join("a/b/c/d");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(deep.join("deep.exe"), b"fake").unwrap();
+        let result = find_exe_in_dir(tmp.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().to_str().unwrap().contains("deep.exe"));
+    }
 }

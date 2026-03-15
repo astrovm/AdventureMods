@@ -165,6 +165,69 @@ mod tests {
     }
 
     #[test]
+    fn test_all_steps_have_nonempty_text() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            for step in steps_for_game(kind) {
+                assert!(!step.id.is_empty(), "Step has empty id");
+                assert!(!step.title.is_empty(), "Step '{}' has empty title", step.id);
+                assert!(
+                    !step.description.is_empty(),
+                    "Step '{}' has empty description",
+                    step.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_external_action_steps_have_labels() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            for step in steps_for_game(kind) {
+                if let StepKind::ExternalAction { button_label } = step.kind {
+                    assert!(
+                        !button_label.is_empty(),
+                        "Step '{}' has empty button label",
+                        step.id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_sadx_has_download_step() {
+        let steps = steps_for_game(GameKind::SADX);
+        assert!(
+            steps.iter().any(|s| matches!(s.kind, StepKind::Download)),
+            "SADX should have at least one Download step"
+        );
+    }
+
+    #[test]
+    fn test_sa2_has_mod_selection_step() {
+        let steps = steps_for_game(GameKind::SA2);
+        assert!(
+            steps.iter().any(|s| matches!(s.kind, StepKind::ModSelection)),
+            "SA2 should have a ModSelection step"
+        );
+    }
+
+    #[test]
+    fn test_sa2_mod_selection_before_download_mods() {
+        let steps = steps_for_game(GameKind::SA2);
+        let select_pos = steps.iter().position(|s| s.id == "select_mods");
+        let download_pos = steps.iter().position(|s| s.id == "download_mods");
+        assert!(
+            select_pos.is_some() && download_pos.is_some(),
+            "SA2 must have select_mods and download_mods steps"
+        );
+        assert!(
+            select_pos.unwrap() < download_pos.unwrap(),
+            "select_mods must come before download_mods"
+        );
+    }
+
+    #[test]
     fn test_step_sequences() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
