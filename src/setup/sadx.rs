@@ -236,6 +236,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
 
 /// Download and install the SADX Mod Loader into the game directory.
 ///
+/// The mod loader hooks into the game via a CHRMODELS.dll proxy:
+/// 1. Archive contents go into `mods/.modloader/`
+/// 2. Original `System/CHRMODELS.dll` is backed up to `System/CHRMODELS_orig.dll`
+/// 3. `SADXModLoader.dll` is copied to `System/CHRMODELS.dll`
+///
+/// When `sonic.exe` starts, it loads the fake CHRMODELS.dll which is actually
+/// the mod loader. The mod loader then loads the original via CHRMODELS_orig.dll.
+///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
 pub fn install_mod_loader(
     game_path: &Path,
@@ -246,9 +254,28 @@ pub fn install_mod_loader(
 
     download::download_file(SADX_MOD_LOADER_URL, &archive_path, progress)?;
 
-    // Extract directly into the game directory (the archive contains
-    // the mod loader DLL and supporting files for the game root)
-    archive::extract(&archive_path, game_path)?;
+    // Extract into mods/.modloader/
+    let modloader_dir = game_path.join("mods").join(".modloader");
+    std::fs::create_dir_all(&modloader_dir)?;
+    archive::extract(&archive_path, &modloader_dir)?;
+
+    // Backup original System/CHRMODELS.dll if not already backed up
+    let system_dir = game_path.join("System");
+    let chrmodels = system_dir.join("CHRMODELS.dll");
+    let chrmodels_orig = system_dir.join("CHRMODELS_orig.dll");
+    if chrmodels.is_file() && !chrmodels_orig.exists() {
+        std::fs::rename(&chrmodels, &chrmodels_orig)
+            .context("Failed to backup System/CHRMODELS.dll")?;
+        tracing::info!("Backed up CHRMODELS.dll to CHRMODELS_orig.dll");
+    }
+
+    // Copy SADXModLoader.dll as System/CHRMODELS.dll (the proxy hook)
+    let loader_dll = modloader_dir.join("SADXModLoader.dll");
+    if !loader_dll.is_file() {
+        anyhow::bail!("SADXModLoader.dll not found in archive");
+    }
+    std::fs::copy(&loader_dll, &chrmodels)
+        .context("Failed to copy SADXModLoader.dll to System/CHRMODELS.dll")?;
 
     tracing::info!("SADX Mod Loader installed to {}", game_path.display());
     Ok(())
