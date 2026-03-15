@@ -227,9 +227,13 @@ pub fn convert_steam_to_2004(
     }
 
     // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
-    let game_str = game_path
+    // Canonicalize to resolve symlinks, which is important for host-mounted drives
+    let game_canonical = game_path.canonicalize().context("Failed to canonicalize game path")?;
+    let game_str = game_canonical
         .to_str()
-        .context("Game path is not valid UTF-8")?;
+        .context("Game path is not valid UTF-8")?
+        .trim_end_matches('/'); // Remove trailing slash for hpatchz
+
     let patch_str = patch_file
         .to_str()
         .context("Patch file path is not valid UTF-8")?;

@@ -51,27 +51,38 @@ fn run_args(app_id: u32, args: &[&str], use_flatpak: bool) -> Vec<String> {
 
 /// Install .NET runtimes via protontricks (dotnet48 and dotnetdesktop8).
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
-    // Run quietly to avoid forcing the user to click through multiple installers
-    let output = run(app_id, &["-q", "dotnet48", "dotnetdesktop8"]).await?;
+    // Install components separately for better reliability
+    let components = ["dotnet48", "dotnetdesktop8"];
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
+    for component in components {
+        tracing::info!("Installing {} via protontricks...", component);
+        let output = run(app_id, &["-q", component]).await?;
 
-        // protontricks often exits with code 1 if there are warnings about missing
-        // library folders or other non-fatal issues, even if the command succeeded.
-        // If we see typical winetricks/protontricks progress markers, we can assume
-        // it at least tried to run.
-        let is_warning = stderr.contains("WARNING") || stderr.contains("fixme:");
-        let started = stdout.contains("Executing") || stderr.contains("Executing");
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let code = output.status.code().unwrap_or(-1);
 
-        if output.status.code() == Some(1) && (is_warning || started) {
-            tracing::warn!("protontricks exited with code 1 but appears to have executed: {}", stderr);
-            return Ok(());
+            // protontricks/winetricks often exit with non-zero codes for warnings
+            // 1: General warning/error
+            // 67: Often related to network/files but sometimes just noise
+            let is_warning = stderr.contains("WARNING") || stderr.contains("fixme:");
+            let started = stdout.contains("Executing") || stderr.contains("Executing");
+            let already_installed = stdout.contains("already installed") || stderr.contains("already installed");
+
+            if (code == 1 || code == 67) && (is_warning || started || already_installed) {
+                tracing::warn!(
+                    "protontricks exited with code {} for {} but appears to have executed or is already installed",
+                    code,
+                    component
+                );
+                continue;
+            }
+
+            anyhow::bail!("Failed to install {}: {} (code {})", component, stderr, code);
         }
-
-        anyhow::bail!("Failed to install .NET: {stderr}");
     }
+
     Ok(())
 }
 
