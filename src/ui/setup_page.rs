@@ -349,7 +349,7 @@ impl AdventureModsSetupPage {
 
             let result: anyhow::Result<()> = match step_id {
                 "download_installer" => {
-                    let temp = std::env::temp_dir().join("adventure-mods");
+                    let temp = game.path.join("adventure-mods-setup");
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
                             let _ = tx.send_blocking((dl, total));
