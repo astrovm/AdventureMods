@@ -69,6 +69,19 @@ impl AdventureModsWindow {
     }
 
     fn setup_settings(&self) {
+        let schema_source = gio::SettingsSchemaSource::default();
+        let has_schema = schema_source
+            .is_some_and(|s| s.lookup(crate::config::APP_ID, true).is_some());
+
+        if !has_schema {
+            tracing::warn!(
+                "GSettings schema '{}' not found — using default window size",
+                crate::config::APP_ID
+            );
+            self.set_default_size(800, 600);
+            return;
+        }
+
         let settings = gio::Settings::new(crate::config::APP_ID);
 
         self.set_default_size(

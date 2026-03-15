@@ -1,4 +1,6 @@
 use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -12,7 +14,7 @@ mod imp {
 
     use super::*;
 
-    #[derive(Debug, Default, gtk::CompositeTemplate)]
+    #[derive(Default, gtk::CompositeTemplate)]
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/setup_page.ui")]
     pub struct AdventureModsSetupPage {
         #[template_child]
@@ -30,6 +32,15 @@ mod imp {
         pub current_step: Cell<usize>,
         pub all_steps: RefCell<Vec<steps::SetupStep>>,
         pub selected_mods: RefCell<Vec<usize>>,
+        pub installer_path: RefCell<Option<std::path::PathBuf>>,
+        pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
+        pub is_error: Cell<bool>,
+    }
+
+    impl std::fmt::Debug for AdventureModsSetupPage {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("AdventureModsSetupPage").finish()
+        }
     }
 
     #[glib::object_subclass]
@@ -87,6 +98,13 @@ impl AdventureModsSetupPage {
         let imp = self.imp();
         let step_idx = imp.current_step.get();
         let all_steps = imp.all_steps.borrow();
+        imp.is_error.set(false);
+
+        // Cancel any in-flight operation
+        if let Some(flag) = imp.cancel_flag.borrow().as_ref() {
+            flag.store(true, Ordering::Relaxed);
+        }
+        imp.cancel_flag.replace(None);
 
         let Some(step) = all_steps.get(step_idx) else {
             return;
@@ -113,7 +131,6 @@ impl AdventureModsSetupPage {
                     .build();
                 content_box.append(&spinner);
 
-                // Run the auto step
                 self.run_auto_step(step.id);
             }
             steps::StepKind::Info => {
@@ -132,9 +149,16 @@ impl AdventureModsSetupPage {
 
                 let step_id = step.id;
                 let game = imp.game.borrow().clone();
-                action_button.connect_clicked(move |_| {
+                let installer_path = imp.installer_path.borrow().clone();
+                action_button.connect_clicked(move |btn| {
+                    btn.set_sensitive(false);
                     if let Some(ref game) = game {
-                        Self::run_external_action(step_id, game.clone());
+                        Self::run_external_action(
+                            step_id,
+                            game.clone(),
+                            installer_path.clone(),
+                            btn.clone(),
+                        );
                     }
                 });
 
@@ -148,15 +172,50 @@ impl AdventureModsSetupPage {
                     .show_text(true)
                     .hexpand(true)
                     .build();
-                content_box.append(&progress_bar);
 
-                self.run_download_step(step.id, progress_bar);
+                let cancel_flag = Arc::new(AtomicBool::new(false));
+                imp.cancel_flag.replace(Some(cancel_flag.clone()));
+
+                let cancel_button = gtk::Button::builder()
+                    .label("Cancel")
+                    .halign(gtk::Align::Center)
+                    .css_classes(vec!["destructive-action".to_string()])
+                    .build();
+
+                let flag = cancel_flag.clone();
+                let obj = self.clone();
+                cancel_button.connect_clicked(move |btn| {
+                    flag.store(true, Ordering::Relaxed);
+                    btn.set_sensitive(false);
+                    btn.set_label("Cancelling...");
+                    // Re-show the step so user can retry
+                    let obj2 = obj.clone();
+                    glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
+                        obj2.show_current_step();
+                    });
+                });
+
+                content_box.append(&progress_bar);
+                content_box.append(&cancel_button);
+
+                self.run_download_step(step.id, progress_bar, cancel_flag);
             }
             steps::StepKind::ModSelection => {
                 imp.next_button.set_label("Install Selected");
                 imp.next_button.set_sensitive(true);
 
-                // Pre-select all mods
+                let scrolled = gtk::ScrolledWindow::builder()
+                    .hscrollbar_policy(gtk::PolicyType::Never)
+                    .vscrollbar_policy(gtk::PolicyType::Automatic)
+                    .max_content_height(300)
+                    .propagate_natural_height(true)
+                    .build();
+
+                let list_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Vertical)
+                    .spacing(6)
+                    .build();
+
                 let mut selected = Vec::new();
                 for (i, mod_entry) in sa2::RECOMMENDED_MODS.iter().enumerate() {
                     let check = gtk::CheckButton::builder()
@@ -177,10 +236,13 @@ impl AdventureModsSetupPage {
                         }
                     });
 
-                    content_box.append(&check);
+                    list_box.append(&check);
                     selected.push(i);
                 }
                 imp.selected_mods.replace(selected);
+
+                scrolled.set_child(Some(&list_box));
+                content_box.append(&scrolled);
             }
         }
     }
@@ -191,9 +253,7 @@ impl AdventureModsSetupPage {
 
         glib::spawn_future_local(async move {
             let result = match step_id {
-                "check_deps" => {
-                    common::ensure_protontricks().await
-                }
+                "check_deps" => common::ensure_protontricks().await,
                 "dotnet" => {
                     if let Some(ref game) = game {
                         common::install_dotnet(game.kind.app_id()).await
@@ -207,32 +267,55 @@ impl AdventureModsSetupPage {
             match result {
                 Ok(()) => {
                     obj.imp().next_button.set_sensitive(true);
-                    // Auto-advance
                     obj.advance_step();
                 }
                 Err(e) => {
-                    obj.show_error(&format!("Error: {e}"));
+                    obj.show_error(&format!("{e}"));
                 }
             }
         });
     }
 
-    fn run_external_action(step_id: &'static str, _game: Game) {
+    fn run_external_action(
+        step_id: &'static str,
+        _game: Game,
+        installer_path: Option<std::path::PathBuf>,
+        button: gtk::Button,
+    ) {
         glib::spawn_future_local(async move {
-            match step_id {
+            let result = match step_id {
                 "ge_proton" => {
-                    let _ = common::ensure_protonup().await;
-                    let _ = common::launch_protonup().await;
+                    if let Err(e) = common::ensure_protonup().await {
+                        Err(e)
+                    } else {
+                        common::launch_protonup().await
+                    }
                 }
                 "run_installer" => {
-                    // SADX installer launch is handled separately
+                    if let Some(path) = installer_path {
+                        sadx::run_installer(&path).await
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "Installer not found. Go back and re-download."
+                        ))
+                    }
                 }
-                _ => {}
+                _ => Ok(()),
+            };
+
+            button.set_sensitive(true);
+            if let Err(e) = result {
+                tracing::error!("External action '{step_id}' failed: {e}");
             }
         });
     }
 
-    fn run_download_step(&self, step_id: &'static str, progress_bar: gtk::ProgressBar) {
+    fn run_download_step(
+        &self,
+        step_id: &'static str,
+        progress_bar: gtk::ProgressBar,
+        cancel_flag: Arc<AtomicBool>,
+    ) {
         let obj = self.clone();
         let game = self.imp().game.borrow().clone();
 
@@ -271,26 +354,50 @@ impl AdventureModsSetupPage {
             let result = match step_id {
                 "download_installer" => {
                     let temp = std::env::temp_dir().join("adventure-mods");
-                    sadx::download_installer(&temp, progress_fn).await.map(|_| ())
+                    match sadx::download_installer(&temp, progress_fn).await {
+                        Ok(path) => {
+                            obj.imp().installer_path.replace(Some(path));
+                            Ok(())
+                        }
+                        Err(e) => Err(e),
+                    }
                 }
                 "install_mod_manager" => {
                     sa2::install_mod_manager(&game.path, progress_fn).await
                 }
                 "download_mods" => {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
-                    let mut result = Ok(());
-                    for idx in selected {
-                        if let Some(mod_entry) = sa2::RECOMMENDED_MODS.get(idx) {
+                    let total = selected.len();
+                    for (i, idx) in selected.iter().enumerate() {
+                        if cancel_flag.load(Ordering::Relaxed) {
+                            return; // Cancelled — show_current_step already called
+                        }
+                        if let Some(mod_entry) = sa2::RECOMMENDED_MODS.get(*idx) {
+                            progress_bar.set_text(Some(&format!(
+                                "[{}/{}] {}",
+                                i + 1,
+                                total,
+                                mod_entry.name,
+                            )));
+                            progress_bar.set_fraction((i as f64) / (total as f64));
                             if let Err(e) = sa2::install_mod(&game.path, mod_entry, None).await {
                                 tracing::error!("Failed to install {}: {e}", mod_entry.name);
-                                result = Err(e);
+                                obj.show_error(&format!(
+                                    "Failed to install {}: {e}",
+                                    mod_entry.name
+                                ));
+                                return;
                             }
                         }
                     }
-                    result
+                    Ok(())
                 }
                 _ => Ok(()),
             };
+
+            if cancel_flag.load(Ordering::Relaxed) {
+                return; // Was cancelled
+            }
 
             match result {
                 Ok(()) => {
@@ -298,7 +405,7 @@ impl AdventureModsSetupPage {
                     obj.advance_step();
                 }
                 Err(e) => {
-                    obj.show_error(&format!("Error: {e}"));
+                    obj.show_error(&format!("{e}"));
                 }
             }
         });
@@ -316,7 +423,12 @@ impl AdventureModsSetupPage {
     }
 
     fn on_next_clicked(&self) {
-        self.advance_step();
+        if self.imp().is_error.get() {
+            // Retry: re-run the current step
+            self.show_current_step();
+        } else {
+            self.advance_step();
+        }
     }
 
     fn on_back_clicked(&self) {
@@ -330,8 +442,9 @@ impl AdventureModsSetupPage {
 
     fn show_error(&self, message: &str) {
         let imp = self.imp();
-        let content_box = &imp.content_box;
+        imp.is_error.set(true);
 
+        let content_box = &imp.content_box;
         while let Some(child) = content_box.first_child() {
             content_box.remove(&child);
         }

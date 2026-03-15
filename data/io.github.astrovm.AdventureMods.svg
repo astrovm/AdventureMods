@@ -2,15 +2,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#62a0ea"/>
+      <stop offset="0%" stop-color="#3584e4"/>
       <stop offset="100%" stop-color="#1a5fb4"/>
     </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f9f06b"/>
+      <stop offset="100%" stop-color="#e5a50a"/>
+    </linearGradient>
   </defs>
+  <!-- Background -->
   <rect width="128" height="128" rx="16" fill="url(#bg)"/>
-  <g transform="translate(64,64)" fill="white">
-    <circle r="32" fill="none" stroke="white" stroke-width="4"/>
-    <polygon points="0,-28 24,14 -24,14" fill="white"/>
-    <circle r="6" cy="-6"/>
+  <!-- Golden ring -->
+  <circle cx="64" cy="52" r="26" fill="none" stroke="url(#ring)" stroke-width="8"/>
+  <circle cx="64" cy="52" r="26" fill="none" stroke="white" stroke-width="2" opacity="0.3"/>
+  <!-- Ring shine -->
+  <ellipse cx="54" cy="40" rx="6" ry="8" fill="white" opacity="0.35" transform="rotate(-20 54 40)"/>
+  <!-- Wrench/gear overlay for "mods" -->
+  <g transform="translate(64, 96)" fill="white">
+    <rect x="-24" y="-10" width="48" height="20" rx="4" fill="white" opacity="0.15"/>
+    <text x="0" y="6" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="white">MODS</text>
   </g>
-  <text x="64" y="110" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="white">MODS</text>
 </svg>

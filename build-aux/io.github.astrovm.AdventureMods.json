@@ -41,21 +41,6 @@
             ]
         },
         {
-            "name": "unrar",
-            "buildsystem": "simple",
-            "build-commands": [
-                "make -f makefile",
-                "install -Dm755 unrar /app/bin/unrar"
-            ],
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://www.rarlab.com/rar/unrarsrc-7.1.6.tar.gz",
-                    "sha256": "a]PLACEHOLDER_UPDATE_HASH"
-                }
-            ]
-        },
-        {
             "name": "adventure-mods",
             "buildsystem": "meson",
             "config-opts": [
