@@ -41,6 +41,20 @@
             ]
         },
         {
+            "name": "hdiffpatch",
+            "buildsystem": "simple",
+            "build-commands": [
+                "install -Dm755 hpatchz /app/bin/hpatchz"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip",
+                    "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a"
+                }
+            ]
+        },
+        {
             "name": "adventure-mods",
             "buildsystem": "meson",
             "config-opts": [

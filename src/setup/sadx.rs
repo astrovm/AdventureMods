@@ -10,6 +10,10 @@ use super::common::{ModEntry, ModSource};
 const SADX_MOD_LOADER_URL: &str =
     "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXModLoader.7z";
 
+/// Direct URL for the Steam-to-2004 conversion tools archive.
+const STEAM_TOOLS_URL: &str =
+    "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/steam_tools.7z";
+
 /// Base URL for mods hosted on dcmods.unreliable.network.
 #[cfg(test)]
 const DCMODS_BASE: &str =
@@ -233,6 +237,66 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Enhanced Chao Garden gameplay",
     },
 ];
+
+/// Convert the Steam version of SADX to the 2004 version using HDiffPatch.
+///
+/// The Steam version of sonic.exe is binary-incompatible with the mod loader.
+/// This downloads `steam_tools.7z` (containing `patch_steam_inst.dat`) and
+/// applies a directory diff patch that converts ~124 game files to the 2004
+/// version that the mod loader expects.
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn convert_steam_to_2004(
+    game_path: &Path,
+    progress: Option<download::ProgressFn>,
+) -> Result<()> {
+    // Skip if already converted (CHRMODELS_orig.dll exists from a previous run)
+    let chrmodels_orig = game_path.join("System").join("CHRMODELS_orig.dll");
+    if chrmodels_orig.exists() {
+        tracing::info!("Game appears already converted (CHRMODELS_orig.dll exists), skipping");
+        return Ok(());
+    }
+
+    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+    let archive_path = temp_dir.path().join("steam_tools.7z");
+
+    download::download_file(STEAM_TOOLS_URL, &archive_path, progress)?;
+
+    let extract_dir = temp_dir.path().join("steam_tools");
+    archive::extract(&archive_path, &extract_dir)?;
+
+    let patch_file = extract_dir.join("patch_steam_inst.dat");
+    if !patch_file.is_file() {
+        anyhow::bail!("patch_steam_inst.dat not found in steam_tools.7z");
+    }
+
+    // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
+    let game_str = game_path
+        .to_str()
+        .context("Game path is not valid UTF-8")?;
+    let patch_str = patch_file
+        .to_str()
+        .context("Patch file path is not valid UTF-8")?;
+
+    tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
+
+    let output = std::process::Command::new("hpatchz")
+        .arg("-f")
+        .arg(game_str)
+        .arg(patch_str)
+        .arg(game_str)
+        .output()
+        .context("Failed to run hpatchz — is HDiffPatch installed?")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
+    }
+
+    tracing::info!("Steam-to-2004 conversion complete");
+    Ok(())
+}
 
 /// Download and install the SADX Mod Loader into the game directory.
 ///

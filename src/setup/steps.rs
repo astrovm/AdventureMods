@@ -58,6 +58,12 @@ fn sadx_steps() -> Vec<SetupStep> {
             kind: StepKind::Auto,
         },
         SetupStep {
+            id: "convert_steam",
+            title: "Convert Steam to 2004",
+            description: "Downloading conversion tools and patching the Steam version to the 2004 version required by the mod loader...",
+            kind: StepKind::Download,
+        },
+        SetupStep {
             id: "install_mod_loader",
             title: "Install SADX Mod Loader",
             description: "Downloading and installing SADX Mod Loader...",
@@ -152,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 9);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 10);
     }
 
     #[test]

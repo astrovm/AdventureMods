@@ -342,6 +342,21 @@ impl AdventureModsSetupPage {
 
             let game_kind = game.kind;
             let result: anyhow::Result<()> = match step_id {
+                "convert_steam" => {
+                    let game_path = game.path.clone();
+                    let progress_fn: Option<crate::external::download::ProgressFn> =
+                        Some(Box::new(move |dl, total| {
+                            let _ = tx.send_blocking((dl, total));
+                        }));
+                    match gio::spawn_blocking(move || {
+                        sadx::convert_steam_to_2004(&game_path, progress_fn)
+                    })
+                    .await
+                    {
+                        Ok(inner) => inner,
+                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
+                    }
+                }
                 "install_mod_loader" => {
                     let game_path = game.path.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
