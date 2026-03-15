@@ -57,8 +57,8 @@ No tokio — the app uses GLib's async runtime:
 ### Steam Detection
 `steam/vdf.rs` is a custom recursive-descent parser for Valve's VDF format. `steam/library.rs` reads `libraryfolders.vdf` to find SADX (appid 71250) and SA2 (appid 213610) install paths across multiple Steam library folders.
 
-### Mod Downloads
-`external/download.rs` uses reqwest with streaming (`bytes_stream()`) for progress tracking. GameBanana file IDs are resolved to download URLs via the v11 API (`/apiv11/File/{id}?_csvProperties=_sDownloadUrl,_sFile`). SA2 has 13 recommended mods defined in `setup/sa2.rs::RECOMMENDED_MODS` with their GameBanana file IDs.
+### Mod Installation
+Both games share a common mod installation pipeline in `setup/common.rs`: `ModEntry` structs with a `ModSource` enum (`GameBanana { file_id }` | `DirectUrl { url }`), plus shared `install_mod_manager()` and `install_mod()` functions. `external/download.rs` uses reqwest with streaming (`bytes_stream()`) for progress tracking. GameBanana mods are downloaded via mmdl URLs; direct URLs point to dcmods.unreliable.network, GitHub releases, or GitLab archives. SA2 has 13 recommended mods (`setup/sa2.rs`), SADX has 35 (`setup/sadx.rs`). SADX also installs a separate mod loader via `sadx::install_mod_loader()`.
 
 ## Key Conventions
 
