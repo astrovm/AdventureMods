@@ -1,105 +1,131 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use tempfile;
 
 use crate::external::{archive, download};
 
-/// SA Mod Manager GameBanana file ID.
-const SA_MOD_MANAGER_FILE_ID: u64 = 1098414;
+/// GitHub release URL for SA Mod Manager (x64).
+const SA_MOD_MANAGER_URL: &str =
+    "https://github.com/X-Hax/SA-Mod-Manager/releases/latest/download/release_x64.zip";
 
-/// Recommended SA2 mods with their GameBanana file IDs.
+/// Recommended SA2 mods with their GameBanana mmdl file IDs.
 pub struct ModEntry {
     pub name: &'static str,
     pub file_id: u64,
     pub description: &'static str,
 }
 
+/// Download URL for a GameBanana mod file.
+fn gamebanana_download_url(file_id: u64) -> String {
+    format!("https://gamebanana.com/mmdl/{file_id}")
+}
+
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
-        name: "SA2 Input Controls Fix",
-        file_id: 862057,
-        description: "Fixes input issues with modern controllers",
-    },
-    ModEntry {
-        name: "SA2 Volume Controls",
-        file_id: 1098269,
-        description: "Adds proper volume control options",
-    },
-    ModEntry {
-        name: "SA2 Fixes",
-        file_id: 1045498,
-        description: "Various bug fixes and improvements",
-    },
-    ModEntry {
-        name: "Character Select Plus",
-        file_id: 1023625,
-        description: "Enhanced character selection screen",
-    },
-    ModEntry {
         name: "SA2 Render Fix",
-        file_id: 996892,
+        file_id: 1388911,
         description: "Fixes various rendering issues",
     },
     ModEntry {
-        name: "SA2 Chao World Extended",
-        file_id: 693344,
-        description: "Extends Chao World with new features",
-    },
-    ModEntry {
-        name: "SA2 HD GUI",
-        file_id: 798498,
-        description: "High-definition GUI textures",
-    },
-    ModEntry {
-        name: "SA2 Battle Network",
-        file_id: 1112698,
-        description: "Online multiplayer support",
-    },
-    ModEntry {
-        name: "Results Screen Enhancement",
-        file_id: 982072,
-        description: "Improved results screen",
-    },
-    ModEntry {
-        name: "SA2 Camera",
-        file_id: 862055,
-        description: "Improved camera controls",
-    },
-    ModEntry {
-        name: "SA2 Physics Swap",
-        file_id: 862056,
-        description: "Adventure-style physics option",
-    },
-    ModEntry {
-        name: "SA2 Cutscene Revamp",
-        file_id: 862058,
+        name: "Cutscene Revamp",
+        file_id: 440737,
         description: "Improved in-game cutscenes",
     },
     ModEntry {
-        name: "SA2 60FPS",
-        file_id: 1100400,
-        description: "Stable 60 FPS gameplay",
+        name: "Retranslated Story -COMPLETE-",
+        file_id: 1388469,
+        description: "Accurate retranslation of the story",
+    },
+    ModEntry {
+        name: "HD GUI: SA2 Edition",
+        file_id: 409120,
+        description: "High-definition GUI textures",
+    },
+    ModEntry {
+        name: "IMPRESSive",
+        file_id: 1213103,
+        description: "Visual enhancements and effects",
+    },
+    ModEntry {
+        name: "Stage Atmosphere Tweaks",
+        file_id: 884395,
+        description: "Improved stage lighting and atmosphere",
+    },
+    ModEntry {
+        name: "SA2 Volume Controls",
+        file_id: 835829,
+        description: "Adds proper volume control options",
+    },
+    ModEntry {
+        name: "Mech Sound Improvement",
+        file_id: 893090,
+        description: "Better mech stage sound effects",
+    },
+    ModEntry {
+        name: "SA2 Input Controls",
+        file_id: 1255952,
+        description: "Fixes input issues with modern controllers",
+    },
+    ModEntry {
+        name: "Better Radar",
+        file_id: 860716,
+        description: "Improved treasure hunting radar",
+    },
+    ModEntry {
+        name: "HedgePanel - Sonic + Shadow Tweaks",
+        file_id: 454296,
+        description: "Gameplay tweaks for Sonic and Shadow",
+    },
+    ModEntry {
+        name: "Sonic: New Tricks",
+        file_id: 915082,
+        description: "Additional moves for Sonic",
+    },
+    ModEntry {
+        name: "Retranslated Hints",
+        file_id: 1388468,
+        description: "Accurate retranslation of hint messages",
     },
 ];
 
 /// Download and install SA Mod Manager into the game directory.
+///
+/// Downloads from GitHub, extracts, and replaces Launcher.exe with
+/// SAModManager.exe (backing up the original).
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
 pub fn install_mod_manager(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    let (url, filename) = download::resolve_gamebanana_url(SA_MOD_MANAGER_FILE_ID)
-        .context("Failed to resolve SA Mod Manager download URL")?;
-
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
-    let archive_path = temp_dir.path().join(&filename);
+    let archive_path = temp_dir.path().join("SAModManager.zip");
 
-    download::download_file(&url, &archive_path, progress)?;
+    download::download_file(SA_MOD_MANAGER_URL, &archive_path, progress)?;
 
-    // Extract to game directory
-    archive::extract(&archive_path, game_path)?;
+    // Extract to a temp subdirectory
+    let extract_dir = temp_dir.path().join("extracted");
+    archive::extract(&archive_path, &extract_dir)?;
+
+    // Copy SAModManager.exe to game directory
+    let manager_exe = extract_dir.join("SAModManager.exe");
+    if !manager_exe.is_file() {
+        anyhow::bail!("SAModManager.exe not found in release archive");
+    }
+
+    let dest_exe = game_path.join("SAModManager.exe");
+    std::fs::copy(&manager_exe, &dest_exe)
+        .context("Failed to copy SAModManager.exe to game directory")?;
+
+    // Backup original Launcher.exe and replace with mod manager
+    let launcher = game_path.join("Launcher.exe");
+    let launcher_bak = game_path.join("Launcher.exe.bak");
+    if launcher.is_file() && !launcher_bak.exists() {
+        std::fs::rename(&launcher, &launcher_bak)
+            .context("Failed to backup Launcher.exe")?;
+    }
+    std::fs::rename(&dest_exe, &launcher)
+        .context("Failed to install mod manager as Launcher.exe")?;
 
     tracing::info!("SA Mod Manager installed to {}", game_path.display());
     Ok(())
@@ -113,25 +139,20 @@ pub fn install_mod(
     mod_entry: &ModEntry,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    let (url, filename) = download::resolve_gamebanana_url(mod_entry.file_id)
-        .with_context(|| {
-            format!(
-                "Failed to resolve download URL for {}",
-                mod_entry.name
-            )
-        })?;
+    let url = gamebanana_download_url(mod_entry.file_id);
 
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
     let temp_dir = tempfile::tempdir()?;
-    let archive_path = temp_dir.path().join(&filename);
 
+    // Download — the mmdl endpoint redirects, and the filename comes from
+    // the Content-Disposition header. We just save to a generic name.
+    let archive_path = temp_dir.path().join("mod_download");
     download::download_file(&url, &archive_path, progress)?;
 
-    // Extract into a folder named after the mod
-    let mod_dir = mods_dir.join(mod_entry.name.replace(' ', "_"));
-    archive::extract(&archive_path, &mod_dir)?;
+    // Extract directly into the mods directory
+    archive::extract(&archive_path, &mods_dir)?;
 
     tracing::info!("Installed mod: {}", mod_entry.name);
     Ok(())
@@ -184,5 +205,13 @@ mod tests {
                 m.name
             );
         }
+    }
+
+    #[test]
+    fn test_gamebanana_download_url() {
+        assert_eq!(
+            gamebanana_download_url(1388911),
+            "https://gamebanana.com/mmdl/1388911"
+        );
     }
 }

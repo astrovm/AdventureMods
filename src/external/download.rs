@@ -20,20 +20,6 @@ pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Re
     rt.block_on(download_file_async(url, dest, progress))
 }
 
-/// Resolve a GameBanana file ID to its download URL using the v11 API.
-///
-/// This function creates its own tokio runtime internally,
-/// so it must be called from a blocking thread (e.g. `gio::spawn_blocking`),
-/// NOT from an async context.
-pub fn resolve_gamebanana_url(file_id: u64) -> Result<(String, String)> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("Failed to create tokio runtime")?;
-
-    rt.block_on(resolve_gamebanana_url_async(file_id))
-}
-
 async fn download_file_async(
     url: &str,
     dest: &Path,
@@ -74,32 +60,4 @@ async fn download_file_async(
 
     file.flush()?;
     Ok(())
-}
-
-async fn resolve_gamebanana_url_async(file_id: u64) -> Result<(String, String)> {
-    let api_url = format!(
-        "https://gamebanana.com/apiv11/File/{file_id}?_csvProperties=_sDownloadUrl,_sFile"
-    );
-
-    let client = reqwest::Client::new();
-    let response = client
-        .get(&api_url)
-        .send()
-        .await
-        .with_context(|| format!("Failed to query GameBanana API for file {file_id}"))?
-        .error_for_status()?;
-
-    let response: serde_json::Value = response.json().await?;
-
-    let download_url = response["_sDownloadUrl"]
-        .as_str()
-        .context("Missing _sDownloadUrl in GameBanana response")?
-        .to_string();
-
-    let filename = response["_sFile"]
-        .as_str()
-        .context("Missing _sFile in GameBanana response")?
-        .to_string();
-
-    Ok((download_url, filename))
 }
