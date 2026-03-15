@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/io/github/astrovm/AdventureMods">
+    <file preprocess="xml-stripblanks">resources/ui/window.ui</file>
+    <file preprocess="xml-stripblanks">resources/ui/welcome_page.ui</file>
+    <file preprocess="xml-stripblanks">resources/ui/game_card.ui</file>
+    <file preprocess="xml-stripblanks">resources/ui/setup_page.ui</file>
+    <file preprocess="xml-stripblanks">resources/ui/progress_page.ui</file>
+    <file>resources/style.css</file>
+  </gresource>
+</gresources>

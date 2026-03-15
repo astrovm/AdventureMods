@@ -1,0 +1,24 @@
+.game-card {
+    padding: 12px;
+}
+
+.game-card-title {
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+.game-card-status-installed {
+    color: @success_color;
+}
+
+.game-card-status-missing {
+    color: @warning_color;
+}
+
+.setup-step-current {
+    font-weight: bold;
+}
+
+.progress-bar {
+    min-height: 8px;
+}

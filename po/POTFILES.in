@@ -1,0 +1,7 @@
+data/io.github.astrovm.AdventureMods.desktop.in
+data/io.github.astrovm.AdventureMods.metainfo.xml.in
+data/resources/ui/window.ui
+data/resources/ui/welcome_page.ui
+data/resources/ui/game_card.ui
+data/resources/ui/setup_page.ui
+data/resources/ui/progress_page.ui

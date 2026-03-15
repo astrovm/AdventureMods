@@ -1,0 +1,82 @@
+use adw::prelude::*;
+use adw::subclass::prelude::*;
+use gtk::glib;
+
+use crate::steam::game::Game;
+use crate::ui::game_card::AdventureModsGameCard;
+
+mod imp {
+    use super::*;
+
+    #[derive(Debug, Default, gtk::CompositeTemplate)]
+    #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/welcome_page.ui")]
+    pub struct AdventureModsWelcomePage {
+        #[template_child]
+        pub status_page: TemplateChild<adw::StatusPage>,
+        #[template_child]
+        pub games_box: TemplateChild<gtk::Box>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for AdventureModsWelcomePage {
+        const NAME: &'static str = "AdventureModsWelcomePage";
+        type Type = super::AdventureModsWelcomePage;
+        type ParentType = adw::Bin;
+
+        fn class_init(klass: &mut Self::Class) {
+            AdventureModsGameCard::ensure_type();
+            klass.bind_template();
+        }
+
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
+        }
+    }
+
+    impl ObjectImpl for AdventureModsWelcomePage {}
+    impl WidgetImpl for AdventureModsWelcomePage {}
+    impl BinImpl for AdventureModsWelcomePage {}
+}
+
+glib::wrapper! {
+    pub struct AdventureModsWelcomePage(ObjectSubclass<imp::AdventureModsWelcomePage>)
+        @extends gtk::Widget, adw::Bin;
+}
+
+impl AdventureModsWelcomePage {
+    pub fn set_games(&self, games: Vec<Game>, nav_view: adw::NavigationView) {
+        let games_box = &self.imp().games_box;
+
+        // Clear existing children
+        while let Some(child) = games_box.first_child() {
+            games_box.remove(&child);
+        }
+
+        if games.is_empty() {
+            let label = gtk::Label::builder()
+                .label("No Sonic Adventure games detected.\nMake sure they are installed via Steam.")
+                .justify(gtk::Justification::Center)
+                .build();
+            games_box.append(&label);
+            return;
+        }
+
+        for game in games {
+            let card = AdventureModsGameCard::new(&game);
+
+            let game_clone = game.clone();
+            let nav_view_clone = nav_view.clone();
+            card.connect_setup_clicked(move || {
+                let setup_page =
+                    crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
+                let nav_page = adw::NavigationPage::builder()
+                    .title(game_clone.kind.name())
+                    .child(&setup_page)
+                    .build();
+                nav_view_clone.push(&nav_page);
+            });
+
+            games_box.append(&card);
+        }
+    }
+}

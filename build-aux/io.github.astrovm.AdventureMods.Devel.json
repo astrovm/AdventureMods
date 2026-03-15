@@ -1,0 +1,57 @@
+{
+    "id": "io.github.astrovm.AdventureMods.Devel",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "48",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "adventure-mods",
+    "finish-args": [
+        "--share=network",
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--device=dri",
+        "--socket=wayland",
+        "--filesystem=~/.steam:ro",
+        "--filesystem=~/.local/share/Steam:rw",
+        "--talk-name=org.freedesktop.Flatpak"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "env": {
+            "RUST_BACKTRACE": "1",
+            "CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse"
+        }
+    },
+    "modules": [
+        {
+            "name": "p7zip",
+            "buildsystem": "simple",
+            "build-commands": [
+                "make 7z",
+                "make install DEST_DIR= DEST_HOME=/app"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/p7zip-project/p7zip/archive/refs/tags/v17.05.tar.gz",
+                    "sha256": "d2788f892571058c08d27095c22154571571d7f6f9dfdc9f7f073a0a90d4905e"
+                }
+            ]
+        },
+        {
+            "name": "adventure-mods",
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dprofile=development"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": ".."
+                }
+            ]
+        }
+    ]
+}

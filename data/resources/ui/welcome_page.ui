@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="AdventureModsWelcomePage" parent="AdwBin">
+    <property name="child">
+      <object class="AdwStatusPage" id="status_page">
+        <property name="icon-name">io.github.astrovm.AdventureMods</property>
+        <property name="title" translatable="yes">Adventure Mods</property>
+        <property name="description" translatable="yes">Set up Sonic Adventure mods on Linux</property>
+        <property name="child">
+          <object class="GtkBox" id="games_box">
+            <property name="orientation">vertical</property>
+            <property name="spacing">18</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
+          </object>
+        </property>
+      </object>
+    </property>
+  </template>
+</interface>

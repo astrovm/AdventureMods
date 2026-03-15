@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.astrovm.AdventureMods</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Adventure Mods</name>
+  <summary>Set up Sonic Adventure mods on Linux</summary>
+  <description>
+    <p>
+      Adventure Mods helps you install and configure mods for Sonic Adventure DX
+      and Sonic Adventure 2 on Linux with Steam and Proton. It automates the
+      download, extraction, and setup of mod managers and recommended mods.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/astrovm/AdventureMods</url>
+  <url type="bugtracker">https://github.com/astrovm/AdventureMods/issues</url>
+  <url type="vcs-browser">https://github.com/astrovm/AdventureMods</url>
+  <developer id="io.github.astrovm">
+    <name>astrovm</name>
+  </developer>
+  <launchable type="desktop-id">io.github.astrovm.AdventureMods.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <branding>
+    <color type="primary" scheme_preference="light">#62a0ea</color>
+    <color type="primary" scheme_preference="dark">#1a5fb4</color>
+  </branding>
+  <releases>
+    <release version="0.1.0" date="2026-03-15">
+      <description>
+        <p>Initial release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
