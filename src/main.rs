@@ -12,6 +12,10 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 
 fn main() -> ExitCode {
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     tracing_subscriber::fmt::init();
 
     glib::set_application_name("Adventure Mods");
