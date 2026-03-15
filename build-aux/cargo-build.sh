@@ -25,6 +25,11 @@ directory = "$MESON_SOURCE_ROOT/cargo/vendor"
 TOML
 fi
 
+# Copy Meson-generated config.rs so Cargo uses the correct build-time constants
+if [ -f "$MESON_BUILD_ROOT/src/config.rs" ]; then
+    cp "$MESON_BUILD_ROOT/src/config.rs" "$MESON_SOURCE_ROOT/src/config.rs"
+fi
+
 if [ "$BUILDTYPE" = "release" ]; then
     echo "RELEASE MODE"
     cargo build --manifest-path "$MESON_SOURCE_ROOT"/Cargo.toml --release && \
