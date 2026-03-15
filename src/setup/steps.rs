@@ -134,3 +134,48 @@ fn sa2_steps() -> Vec<SetupStep> {
         },
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_sadx_step_count() {
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 7);
+    }
+
+    #[test]
+    fn test_sa2_step_count() {
+        assert_eq!(steps_for_game(GameKind::SA2).len(), 8);
+    }
+
+    #[test]
+    fn test_sadx_step_ids_unique() {
+        let steps = steps_for_game(GameKind::SADX);
+        let ids: HashSet<&str> = steps.iter().map(|s| s.id).collect();
+        assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SADX");
+    }
+
+    #[test]
+    fn test_sa2_step_ids_unique() {
+        let steps = steps_for_game(GameKind::SA2);
+        let ids: HashSet<&str> = steps.iter().map(|s| s.id).collect();
+        assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SA2");
+    }
+
+    #[test]
+    fn test_step_sequences() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let steps = steps_for_game(kind);
+            let first = steps.first().unwrap();
+            let last = steps.last().unwrap();
+
+            assert_eq!(first.id, "check_deps");
+            assert!(matches!(first.kind, StepKind::Auto));
+
+            assert_eq!(last.id, "complete");
+            assert!(matches!(last.kind, StepKind::Info));
+        }
+    }
+}

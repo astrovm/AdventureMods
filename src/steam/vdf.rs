@@ -214,4 +214,140 @@ mod tests {
             "/mnt/games/SteamLibrary"
         );
     }
+
+    #[test]
+    fn test_parse_simple_key_value() {
+        let input = r#""root" "hello""#;
+        let root = parse(input).unwrap();
+        assert_eq!(root.get("root").unwrap().as_str().unwrap(), "hello");
+    }
+
+    #[test]
+    fn test_parse_empty_map() {
+        let input = r#""root" {}"#;
+        let root = parse(input).unwrap();
+        let map = root.get("root").unwrap().as_map().unwrap();
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_parse_nested_maps() {
+        let input = r#"
+"a"
+{
+    "b"
+    {
+        "c"
+        {
+            "d"     "deep"
+        }
+    }
+}
+"#;
+        let root = parse(input).unwrap();
+        let val = root
+            .get("a")
+            .unwrap()
+            .get("b")
+            .unwrap()
+            .get("c")
+            .unwrap()
+            .get("d")
+            .unwrap()
+            .as_str()
+            .unwrap();
+        assert_eq!(val, "deep");
+    }
+
+    #[test]
+    fn test_parse_escape_sequences() {
+        let input = r#""root" { "a" "line1\nline2" "b" "tab\there" "c" "back\\slash" "d" "a\"quote" }"#;
+        let root = parse(input).unwrap();
+        let m = root.get("root").unwrap();
+        assert_eq!(m.get("a").unwrap().as_str().unwrap(), "line1\nline2");
+        assert_eq!(m.get("b").unwrap().as_str().unwrap(), "tab\there");
+        assert_eq!(m.get("c").unwrap().as_str().unwrap(), "back\\slash");
+        assert_eq!(m.get("d").unwrap().as_str().unwrap(), "a\"quote");
+    }
+
+    #[test]
+    fn test_parse_comments() {
+        let input = r#"
+// This is a comment
+"root"
+{
+    // Another comment
+    "key"       "value"
+    // End comment
+}
+"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            "value"
+        );
+    }
+
+    #[test]
+    fn test_parse_empty_string_value() {
+        let input = r#""root" { "key" "" }"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            ""
+        );
+    }
+
+    #[test]
+    fn test_parse_whitespace_variations() {
+        let input = "\"root\"\t\t{\r\n\t\"key\"\t\t\"value\"\r\n}";
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            "value"
+        );
+    }
+
+    #[test]
+    fn test_parse_malformed_unclosed_quote() {
+        let input = r#""root" { "key" "unclosed }"#;
+        assert!(parse(input).is_none());
+    }
+
+    #[test]
+    fn test_parse_malformed_unclosed_brace() {
+        let input = r#""root" { "key" "value""#;
+        // Missing closing brace — parse_map will consume to end without finding }
+        // This may still parse depending on implementation; the key point is it doesn't panic
+        let _ = parse(input);
+    }
+
+    #[test]
+    fn test_parse_empty_input() {
+        assert!(parse("").is_none());
+        assert!(parse("   ").is_none());
+        assert!(parse("// just a comment\n").is_none());
+    }
+
+    #[test]
+    fn test_vdfvalue_accessors() {
+        let string_val = VdfValue::String("hello".to_string());
+        assert_eq!(string_val.as_str(), Some("hello"));
+        assert!(string_val.as_map().is_none());
+        assert!(string_val.get("anything").is_none());
+
+        let map_val = VdfValue::Map(HashMap::new());
+        assert!(map_val.as_str().is_none());
+        assert!(map_val.as_map().is_some());
+        assert!(map_val.get("missing").is_none());
+    }
+
+    #[test]
+    fn test_parse_duplicate_keys() {
+        let input = r#""root" { "key" "first" "key" "second" }"#;
+        let root = parse(input).unwrap();
+        // HashMap: last inserted wins
+        let val = root.get("root").unwrap().get("key").unwrap().as_str().unwrap();
+        assert_eq!(val, "second");
+    }
 }

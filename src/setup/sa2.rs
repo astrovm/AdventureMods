@@ -134,3 +134,43 @@ pub async fn install_mod(
     tracing::info!("Installed mod: {}", mod_entry.name);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_recommended_mods_count() {
+        assert_eq!(RECOMMENDED_MODS.len(), 13);
+    }
+
+    #[test]
+    fn test_mod_file_ids_nonzero() {
+        for m in RECOMMENDED_MODS {
+            assert!(m.file_id > 0, "Mod '{}' has zero file_id", m.name);
+        }
+    }
+
+    #[test]
+    fn test_mod_file_ids_unique() {
+        let ids: HashSet<u64> = RECOMMENDED_MODS.iter().map(|m| m.file_id).collect();
+        assert_eq!(
+            ids.len(),
+            RECOMMENDED_MODS.len(),
+            "Duplicate file_ids in RECOMMENDED_MODS"
+        );
+    }
+
+    #[test]
+    fn test_mod_entries_have_names_and_descriptions() {
+        for m in RECOMMENDED_MODS {
+            assert!(!m.name.is_empty(), "Mod has empty name");
+            assert!(
+                !m.description.is_empty(),
+                "Mod '{}' has empty description",
+                m.name
+            );
+        }
+    }
+}

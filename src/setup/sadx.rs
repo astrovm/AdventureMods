@@ -75,3 +75,46 @@ pub async fn run_installer(installer_path: &Path) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_exe_flat() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("setup.exe"), b"fake").unwrap();
+        let result = find_exe_in_dir(tmp.path());
+        assert!(result.is_some());
+        assert!(result.unwrap().ends_with("setup.exe"));
+    }
+
+    #[test]
+    fn test_find_exe_nested() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sub = tmp.path().join("subdir");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("installer.exe"), b"fake").unwrap();
+        let result = find_exe_in_dir(tmp.path());
+        assert!(result.is_some());
+        assert!(result
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("installer.exe"));
+    }
+
+    #[test]
+    fn test_find_exe_case_insensitive() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("Setup.EXE"), b"fake").unwrap();
+        let result = find_exe_in_dir(tmp.path());
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_find_exe_empty_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(find_exe_in_dir(tmp.path()).is_none());
+    }
+}

@@ -34,3 +34,30 @@ impl GameKind {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sadx_app_id() {
+        assert_eq!(GameKind::SADX.app_id(), 71250);
+    }
+
+    #[test]
+    fn test_sa2_app_id() {
+        assert_eq!(GameKind::SA2.app_id(), 213610);
+    }
+
+    #[test]
+    fn test_game_names() {
+        assert_eq!(GameKind::SADX.name(), "Sonic Adventure DX");
+        assert_eq!(GameKind::SA2.name(), "Sonic Adventure 2");
+    }
+
+    #[test]
+    fn test_game_install_dirs() {
+        assert_eq!(GameKind::SADX.install_dir(), "Sonic Adventure DX");
+        assert_eq!(GameKind::SA2.install_dir(), "Sonic Adventure 2");
+    }
+}
