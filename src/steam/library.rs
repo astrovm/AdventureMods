@@ -51,16 +51,9 @@ fn find_game_in_libraries(
     None
 }
 
-pub fn detect_games() -> Vec<Game> {
-    let vdf_path = match library_folders_path() {
-        Some(p) => p,
-        None => {
-            tracing::warn!("Could not find libraryfolders.vdf");
-            return Vec::new();
-        }
-    };
-
-    let content = match std::fs::read_to_string(&vdf_path) {
+/// Detect games from a specific VDF file path.
+pub fn detect_games_from_vdf(vdf_path: &Path) -> Vec<Game> {
+    let content = match std::fs::read_to_string(vdf_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!("Failed to read {}: {}", vdf_path.display(), e);
@@ -88,6 +81,18 @@ pub fn detect_games() -> Vec<Game> {
     }
 
     games
+}
+
+pub fn detect_games() -> Vec<Game> {
+    let vdf_path = match library_folders_path() {
+        Some(p) => p,
+        None => {
+            tracing::warn!("Could not find libraryfolders.vdf");
+            return Vec::new();
+        }
+    };
+
+    detect_games_from_vdf(&vdf_path)
 }
 
 #[cfg(test)]
@@ -235,6 +240,83 @@ mod tests {
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250", "213610"]);
         assert_eq!(find_game_in_libraries(&vdf, GameKind::SADX), Some(sadx_dir));
         assert_eq!(find_game_in_libraries(&vdf, GameKind::SA2), Some(sa2_dir));
+    }
+
+    #[test]
+    fn test_detect_games_from_vdf_both_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lib_path = tmp.path().join("lib");
+
+        // Create both game directories
+        let sadx_dir = lib_path
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        let sa2_dir = lib_path
+            .join("steamapps/common")
+            .join(GameKind::SA2.install_dir());
+        std::fs::create_dir_all(&sadx_dir).unwrap();
+        std::fs::create_dir_all(&sa2_dir).unwrap();
+
+        // Write a VDF file referencing both games
+        let vdf_path = tmp.path().join("libraryfolders.vdf");
+        let vdf_content = format!(
+            r#""libraryfolders"
+{{
+    "0"
+    {{
+        "path"		"{}"
+        "apps"
+        {{
+            "71250"		"0"
+            "213610"	"0"
+        }}
+    }}
+}}"#,
+            lib_path.to_str().unwrap()
+        );
+        std::fs::write(&vdf_path, &vdf_content).unwrap();
+
+        let games = detect_games_from_vdf(&vdf_path);
+        assert_eq!(games.len(), 2);
+        assert!(games.iter().any(|g| g.kind == GameKind::SADX));
+        assert!(games.iter().any(|g| g.kind == GameKind::SA2));
+    }
+
+    #[test]
+    fn test_detect_games_from_vdf_none_present() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        // Write a VDF file with no matching app IDs
+        let vdf_path = tmp.path().join("libraryfolders.vdf");
+        let vdf_content = format!(
+            r#""libraryfolders"
+{{
+    "0"
+    {{
+        "path"		"{}"
+        "apps"
+        {{
+            "400"		"0"
+            "500"		"0"
+        }}
+    }}
+}}"#,
+            tmp.path().to_str().unwrap()
+        );
+        std::fs::write(&vdf_path, &vdf_content).unwrap();
+
+        let games = detect_games_from_vdf(&vdf_path);
+        assert!(games.is_empty());
+    }
+
+    #[test]
+    fn test_detect_games_from_vdf_corrupt() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vdf_path = tmp.path().join("libraryfolders.vdf");
+        std::fs::write(&vdf_path, "this is not valid VDF content {{{").unwrap();
+
+        let games = detect_games_from_vdf(&vdf_path);
+        assert!(games.is_empty());
     }
 
     #[test]

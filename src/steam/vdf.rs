@@ -449,4 +449,46 @@ mod tests {
         // VDF requires quoted keys
         assert!(parse("root { }").is_none());
     }
+
+    #[test]
+    fn test_parse_deeply_nested_100_levels() {
+        let mut input = String::new();
+        for i in 0..100 {
+            input.push_str(&format!("\"l{i}\" {{\n"));
+        }
+        input.push_str("\"leaf\" \"value\"\n");
+        for _ in 0..100 {
+            input.push_str("}\n");
+        }
+        let root = parse(&input).unwrap();
+
+        // Walk down to the leaf
+        let mut current = &root;
+        for i in 0..100 {
+            current = current.get(&format!("l{i}")).unwrap();
+        }
+        assert_eq!(current.get("leaf").unwrap().as_str().unwrap(), "value");
+    }
+
+    #[test]
+    fn test_parse_long_string_value() {
+        let long_value = "x".repeat(100_000);
+        let input = format!("\"root\" \"{}\"", long_value);
+        let root = parse(&input).unwrap();
+        assert_eq!(root.get("root").unwrap().as_str().unwrap(), long_value);
+    }
+
+    #[test]
+    fn test_parse_many_keys() {
+        let mut input = String::from("\"root\" {\n");
+        for i in 0..10_000 {
+            input.push_str(&format!("\"key_{i}\" \"{i}\"\n"));
+        }
+        input.push('}');
+        let root = parse(&input).unwrap();
+        let map = root.get("root").unwrap().as_map().unwrap();
+        assert_eq!(map.len(), 10_000);
+        assert_eq!(map.get("key_0").unwrap().as_str().unwrap(), "0");
+        assert_eq!(map.get("key_9999").unwrap().as_str().unwrap(), "9999");
+    }
 }

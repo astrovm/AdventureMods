@@ -228,6 +228,18 @@ mod tests {
     }
 
     #[test]
+    fn test_dotnet_step_exists_for_both_games() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let steps = steps_for_game(kind);
+            assert!(
+                steps.iter().any(|s| s.id == "dotnet"),
+                "{:?} should have a dotnet step",
+                kind
+            );
+        }
+    }
+
+    #[test]
     fn test_step_sequences() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);

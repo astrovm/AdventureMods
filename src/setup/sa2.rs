@@ -214,4 +214,43 @@ mod tests {
             "https://gamebanana.com/mmdl/1388911"
         );
     }
+
+    #[test]
+    fn test_sa_mod_manager_url_valid() {
+        assert!(SA_MOD_MANAGER_URL.starts_with("https://github.com/"));
+        assert!(SA_MOD_MANAGER_URL.contains("/releases/"));
+        assert!(SA_MOD_MANAGER_URL.ends_with(".zip"));
+    }
+
+    #[test]
+    fn test_mod_names_safe_for_filesystem() {
+        for m in RECOMMENDED_MODS {
+            assert!(
+                !m.name.contains('/'),
+                "Mod name '{}' contains '/'",
+                m.name
+            );
+            assert!(
+                !m.name.contains('\\'),
+                "Mod name '{}' contains '\\'",
+                m.name
+            );
+            assert!(
+                !m.name.contains('\0'),
+                "Mod name '{}' contains null byte",
+                m.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_install_mod_dir_construction() {
+        let game_path = std::path::Path::new("/fake/game/dir");
+        let mods_dir = game_path.join("mods");
+        assert!(mods_dir.ends_with("mods"));
+        assert_eq!(
+            mods_dir,
+            std::path::PathBuf::from("/fake/game/dir/mods")
+        );
+    }
 }
