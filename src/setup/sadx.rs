@@ -21,90 +21,23 @@ const DCMODS_BASE: &str =
 
 /// Recommended SADX mods.
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
-    // --- dcmods DirectUrl mods ---
-    ModEntry {
-        name: "SADX: Fixed Edition",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXFE.7z",
-        },
-        description: "Comprehensive bug fix and restoration mod",
-    },
-    ModEntry {
-        name: "Dreamcast Conversion",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
-        },
-        description: "Restores Dreamcast visuals and features",
-    },
-    ModEntry {
-        name: "Dreamcast Characters Pack",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
-        },
-        description: "Original Dreamcast character models",
-    },
-    ModEntry {
-        name: "Lantern Engine",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
-        },
-        description: "Dreamcast-accurate lighting engine",
-    },
-    ModEntry {
-        name: "Sound Overhaul",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
-        },
-        description: "Restored and improved sound effects",
-    },
-    ModEntry {
-        name: "Dreamcast DLC",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DLCs.7z",
-        },
-        description: "Restored Dreamcast downloadable content",
-    },
     ModEntry {
         name: "ADX Audio",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
         },
         description: "High-quality ADX audio replacement",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
-        name: "Super Sonic",
+        name: "SADX: Fixed Edition",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXFE.7z",
         },
-        description: "Playable Super Sonic in action stages",
-    },
-    ModEntry {
-        name: "Frame Limit",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-frame-limit.7z",
-        },
-        description: "Accurate frame rate limiter",
-    },
-    ModEntry {
-        name: "Idle Chatter",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
-        },
-        description: "Restores character idle voice lines",
-    },
-    ModEntry {
-        name: "Pause Hide",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
-        },
-        description: "Hide HUD when pausing for screenshots",
-    },
-    ModEntry {
-        name: "Onion Blur",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-onion-blur.7z",
-        },
-        description: "Dreamcast-style motion blur effect",
+        description: "Comprehensive bug fix and restoration mod",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
         name: "Smooth Camera",
@@ -112,13 +45,44 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/smooth-cam.7z",
         },
         description: "Smoother camera movement",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
-        name: "SADX Style Water",
+        name: "Pause Hide",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
         },
-        description: "Improved water rendering",
+        description: "Hide HUD when pausing for screenshots",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "Frame Limit",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-frame-limit.7z",
+        },
+        description: "Accurate frame rate limiter",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "Onion Blur",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-onion-blur.7z",
+        },
+        description: "Dreamcast-style motion blur effect",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg"),
+    },
+    ModEntry {
+        name: "Idle Chatter",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
+        },
+        description: "Restores character idle voice lines",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
         name: "Steam Achievements",
@@ -126,6 +90,80 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://mm.reimuhakurei.net/sadxmods/SteamAchievements.7z",
         },
         description: "Enables Steam achievements with mods",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "Lantern Engine",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
+        },
+        description: "Dreamcast-accurate lighting engine",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg"),
+    },
+    ModEntry {
+        name: "Dreamcast Conversion",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
+        },
+        description: "Restores Dreamcast visuals and features",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg"),
+    },
+    ModEntry {
+        name: "Dreamcast DLC",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DLCs.7z",
+        },
+        description: "Restored Dreamcast downloadable content",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "SADX Style Water",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
+        },
+        description: "Improved water rendering",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
+    },
+    ModEntry {
+        name: "Sound Overhaul",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
+        },
+        description: "Restored and improved sound effects",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "Time of Day",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/TrainDaytime.7z",
+        },
+        description: "Dynamic time-of-day lighting changes",
+        before_image: None,
+        after_image: None,
+    },
+    ModEntry {
+        name: "Dreamcast Characters Pack",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
+        },
+        description: "Original Dreamcast character models",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg"),
+    },
+    ModEntry {
+        name: "Super Sonic",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
+        },
+        description: "Playable Super Sonic in action stages",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
         name: "HD GUI 2",
@@ -133,6 +171,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
         },
         description: "High resolution GUI textures for menus, HUD and icons",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
     },
     ModEntry {
         name: "SADX Launcher",
@@ -140,6 +180,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/AppLauncher.7z",
         },
         description: "Tool to configure game controls and settings",
+        before_image: None,
+        after_image: None,
     },
     ModEntry {
         name: "Icon Data",
@@ -147,100 +189,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/icondata.7z",
         },
         description: "Custom game window icons",
-    },
-    // --- GitHub release mods ---
-    ModEntry {
-        name: "ESRGAN-AI HD Textures",
-        source: ModSource::DirectUrl {
-            url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
-        },
-        description: "AI-upscaled high-definition textures",
-    },
-    ModEntry {
-        name: "AI HD FMVs",
-        source: ModSource::DirectUrl {
-            url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
-        },
-        description: "AI-upscaled high-definition FMV cutscenes",
-    },
-    // --- GitLab mods ---
-    ModEntry {
-        name: "Time of Day",
-        source: ModSource::DirectUrl {
-            url: "https://gitlab.com/PiKeyAr/sadx-timeofday-mod/-/archive/1.21/sadx-timeofday-mod-1.21.zip",
-        },
-        description: "Dynamic time-of-day lighting changes",
-    },
-    // --- GameBanana mods ---
-    ModEntry {
-        name: "Sonic Adventure Retranslated",
-        source: ModSource::GameBanana { file_id: 384650 },
-        description: "Accurate retranslation of the game text",
-    },
-    ModEntry {
-        name: "HUD Plus",
-        source: ModSource::GameBanana { file_id: 1309612 },
-        description: "Enhanced heads-up display",
-    },
-    ModEntry {
-        name: "New Tricks",
-        source: ModSource::GameBanana { file_id: 1102800 },
-        description: "Additional moves and abilities",
-    },
-    ModEntry {
-        name: "SADX No Limit",
-        source: ModSource::GameBanana { file_id: 1070925 },
-        description: "Removes various game limits",
-    },
-    ModEntry {
-        name: "Better Tails AI",
-        source: ModSource::GameBanana { file_id: 1148657 },
-        description: "Improved Tails companion AI behavior",
-    },
-    ModEntry {
-        name: "Active Mouths",
-        source: ModSource::GameBanana { file_id: 622235 },
-        description: "Characters move their mouths when speaking",
-    },
-    ModEntry {
-        name: "Autodemo Windy Valley",
-        source: ModSource::GameBanana { file_id: 789172 },
-        description: "Restored Windy Valley auto-demo stage",
-    },
-    ModEntry {
-        name: "Autodemo Speed Highway",
-        source: ModSource::GameBanana { file_id: 412296 },
-        description: "Restored Speed Highway auto-demo stage",
-    },
-    ModEntry {
-        name: "Autodemo Red Mountain",
-        source: ModSource::GameBanana { file_id: 429274 },
-        description: "Restored Red Mountain auto-demo stage",
-    },
-    ModEntry {
-        name: "Hill Top",
-        source: ModSource::GameBanana { file_id: 1032244 },
-        description: "Restored Hill Top stage from beta builds",
-    },
-    ModEntry {
-        name: "Character Select Mod",
-        source: ModSource::GameBanana { file_id: 520468 },
-        description: "Play as any character in any stage",
-    },
-    ModEntry {
-        name: "Multiplayer",
-        source: ModSource::GameBanana { file_id: 1046512 },
-        description: "Local multiplayer support",
-    },
-    ModEntry {
-        name: "Fixes, Adds and Beta Restores",
-        source: ModSource::GameBanana { file_id: 429267 },
-        description: "Miscellaneous fixes and beta content",
-    },
-    ModEntry {
-        name: "Chao Gameplay",
-        source: ModSource::GameBanana { file_id: 781777 },
-        description: "Enhanced Chao Garden gameplay",
+        before_image: None,
+        after_image: None,
     },
 ];
 
@@ -348,6 +298,113 @@ pub fn install_mod_loader(
         .context("Failed to copy SADXModLoader.dll to System/CHRMODELS.dll")?;
 
     tracing::info!("SADX Mod Loader installed to {}", game_path.display());
+    Ok(())
+}
+
+/// Create a default `SADXModLoader.ini` with recommended patches and load order.
+pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
+    let mods_dir = game_path.join("mods");
+    let ini_path = mods_dir.join("SADXModLoader.ini");
+
+    let mut content = String::from("[SADXModLoader]\n");
+    content.push_str("ShowConsole=0\n");
+    content.push_str("CheckForUpdates=1\n");
+    content.push_str("UpdateHelper=1\n\n");
+
+    content.push_str("[ModOrder]\n");
+    for (i, mod_entry) in selected_mods.iter().enumerate() {
+        // Assume the mod directory name is a sanitized version of the mod name
+        // Most dcmods archives extract to a folder named after the mod
+        let mod_dir = match mod_entry.name {
+            "SADX: Fixed Edition" => "SADXFE",
+            "Dreamcast Conversion" => "DreamcastConversion",
+            "Dreamcast Characters Pack" => "SA1_Chars",
+            "Lantern Engine" => "sadx-dc-lighting",
+            "Sound Overhaul" => "SoundOverhaul",
+            "Dreamcast DLC" => "DLC",
+            "ADX Audio" => "ADXAudio",
+            "Super Sonic" => "sadx-super-sonic",
+            "Frame Limit" => "sadx-frame-limit",
+            "Idle Chatter" => "idle-chatter",
+            "Pause Hide" => "pause-hide",
+            "Onion Blur" => "sadx-onion-blur",
+            "Smooth Camera" => "smooth-cam",
+            "SADX Style Water" => "sadx-style-water",
+            "Steam Achievements" => "SteamAchievements",
+            "HD GUI 2" => "HD_DCStyle",
+            "SADX Launcher" => "AppLauncher",
+            "Icon Data" => "icondata",
+            "Time of Day" => "TrainDaytime",
+            _ => mod_entry.name,
+        };
+        content.push_str(&format!("Mod{}={}\n", i + 1, mod_dir));
+    }
+
+    content.push_str("\n[Patches]\n");
+    let patches = [
+        ("HRDirect3D9", 1),
+        ("SoftShadows", 1),
+        ("LightBlur", 1),
+        ("DisableScreenSaver", 1),
+        ("SCFix", 1),
+        ("FovFix", 1),
+        ("ChaosPuddleFix", 1),
+        ("ChunkSideFix", 1),
+        ("E-102Fix", 1),
+        ("FogFix", 1),
+        ("SkyboxFix", 1),
+        ("MaterialFix", 1),
+        ("NodeFix", 1),
+        ("EffectFix", 1),
+        ("UIFix", 1),
+        ("ExtendedSave", 1),
+        ("GBIXFix", 1),
+        ("CameraFix", 1),
+    ];
+    for (name, val) in patches {
+        content.push_str(&format!("{}={}\n", name, val));
+    }
+
+    content.push_str("\n[Codes]\n");
+    let codes = [
+        ("Sonic/Metal Sonic: Remove Spin Dash lighting", 1),
+        ("Sonic: Improved homing attack", 1),
+        ("Tails: High speed flight", 1),
+        ("Knuckles: Improved climbing", 1),
+    ];
+    for (name, val) in codes {
+        content.push_str(&format!("{}={}\n", name, val));
+    }
+
+    std::fs::write(&ini_path, content).context("Failed to write SADXModLoader.ini")?;
+    tracing::info!("Configured SADX Mod Loader at {}", ini_path.display());
+
+    configure_game(game_path)?;
+
+    Ok(())
+}
+
+/// Create a default `sonic.ini` with recommended game settings.
+pub fn configure_game(game_path: &Path) -> Result<()> {
+    let system_dir = game_path.join("System");
+    let ini_path = system_dir.join("sonic.ini");
+
+    let content = "[sonicDX]\n\
+                   framerate=1\n\
+                   fogemulation=0\n\
+                   sound3d=1\n\
+                   screensize=0\n\
+                   cliplevel=0\n\
+                   sevoice=1\n\
+                   bgm=1\n\
+                   screen=0\n\
+                   mousemode=0\n\
+                   bgmv=100\n\
+                   voicev=100\n";
+
+    std::fs::write(&ini_path, content).context("Failed to write sonic.ini")?;
+    tracing::info!("Configured SADX game settings at {}", ini_path.display());
+
     Ok(())
 }
 

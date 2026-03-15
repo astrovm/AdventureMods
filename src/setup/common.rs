@@ -24,6 +24,8 @@ pub struct ModEntry {
     pub name: &'static str,
     pub source: ModSource,
     pub description: &'static str,
+    pub before_image: Option<&'static str>,
+    pub after_image: Option<&'static str>,
 }
 
 /// Resolve a `ModSource` to a download URL string.

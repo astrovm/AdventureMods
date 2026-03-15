@@ -204,27 +204,107 @@ impl AdventureModsSetupPage {
                 imp.next_button.set_label("Install Selected");
                 imp.next_button.set_sensitive(true);
 
+                let main_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Horizontal)
+                    .spacing(24)
+                    .hexpand(true)
+                    .build();
+
                 let scrolled = gtk::ScrolledWindow::builder()
                     .hscrollbar_policy(gtk::PolicyType::Never)
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .max_content_height(300)
+                    .max_content_height(400)
                     .propagate_natural_height(true)
+                    .min_content_width(350)
                     .build();
 
-                let list_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Vertical)
-                    .spacing(6)
+                let list_box = gtk::ListBox::builder()
+                    .selection_mode(gtk::SelectionMode::None)
+                    .css_classes(vec!["boxed-list".to_string()])
                     .build();
+
+                let preview_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Vertical)
+                    .spacing(12)
+                    .valign(gtk::Align::Start)
+                    .width_request(400)
+                    .build();
+
+                let before_label = gtk::Label::builder()
+                    .label("Before")
+                    .halign(gtk::Align::Start)
+                    .css_classes(vec!["caption".to_string()])
+                    .build();
+                let before_image = gtk::Picture::builder()
+                    .can_shrink(true)
+                    .content_fit(gtk::ContentFit::Cover)
+                    .height_request(200)
+                    .build();
+
+                let after_label = gtk::Label::builder()
+                    .label("After")
+                    .halign(gtk::Align::Start)
+                    .css_classes(vec!["caption".to_string()])
+                    .build();
+                let after_image = gtk::Picture::builder()
+                    .can_shrink(true)
+                    .content_fit(gtk::ContentFit::Cover)
+                    .height_request(200)
+                    .build();
+
+                preview_box.append(&before_label);
+                preview_box.append(&before_image);
+                preview_box.append(&after_label);
+                preview_box.append(&after_image);
+
+                preview_box.set_visible(false);
 
                 let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
                 let mods_list = game_kind
                     .map(|k| common::recommended_mods_for_game(k))
                     .unwrap_or(&[]);
                 let mut selected = Vec::new();
+
                 for (i, mod_entry) in mods_list.iter().enumerate() {
+                    let row_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .spacing(12)
+                        .margin_start(12)
+                        .margin_end(12)
+                        .margin_top(12)
+                        .margin_bottom(12)
+                        .build();
+
                     let check = gtk::CheckButton::builder()
-                        .label(format!("{} — {}", mod_entry.name, mod_entry.description))
                         .active(true)
+                        .build();
+
+                    let text_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Vertical)
+                        .spacing(2)
+                        .build();
+
+                    let name_label = gtk::Label::builder()
+                        .label(mod_entry.name)
+                        .halign(gtk::Align::Start)
+                        .css_classes(vec!["heading".to_string()])
+                        .build();
+
+                    let desc_label = gtk::Label::builder()
+                        .label(mod_entry.description)
+                        .halign(gtk::Align::Start)
+                        .wrap(true)
+                        .css_classes(vec!["caption".to_string()])
+                        .build();
+
+                    text_box.append(&name_label);
+                    text_box.append(&desc_label);
+
+                    row_box.append(&check);
+                    row_box.append(&text_box);
+
+                    let list_row = gtk::ListBoxRow::builder()
+                        .child(&row_box)
                         .build();
 
                     let obj_clone = self.clone();
@@ -240,13 +320,35 @@ impl AdventureModsSetupPage {
                         }
                     });
 
-                    list_box.append(&check);
+                    // Preview update on row focus/selection
+                    let b_img = before_image.clone();
+                    let a_img = after_image.clone();
+                    let p_box = preview_box.clone();
+                    let mod_entry_clone = mod_entry;
+                    
+                    let gesture = gtk::EventControllerMotion::new();
+                    gesture.connect_enter(move |_, _, _| {
+                        if let Some(before) = mod_entry_clone.before_image {
+                            b_img.set_resource(Some(before));
+                            p_box.set_visible(true);
+                        } else {
+                            p_box.set_visible(false);
+                        }
+                        if let Some(after) = mod_entry_clone.after_image {
+                            a_img.set_resource(Some(after));
+                        }
+                    });
+                    list_row.add_controller(gesture);
+
+                    list_box.append(&list_row);
                     selected.push(i);
                 }
                 imp.selected_mods.replace(selected);
 
                 scrolled.set_child(Some(&list_box));
-                content_box.append(&scrolled);
+                main_box.append(&scrolled);
+                main_box.append(&preview_box);
+                content_box.append(&main_box);
             }
         }
     }
@@ -394,6 +496,7 @@ impl AdventureModsSetupPage {
                     let was_cancelled = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
                     match gio::spawn_blocking(move || {
+                        let mut selected_entries = Vec::new();
                         for (i, idx) in selected.iter().enumerate() {
                             if cancel_flag.load(Ordering::Relaxed) {
                                 return Err(anyhow::anyhow!("cancelled"));
@@ -401,8 +504,15 @@ impl AdventureModsSetupPage {
                             if let Some(mod_entry) = mods_list.get(*idx) {
                                 let _ = tx.send_blocking((i as u64, Some(total as u64)));
                                 common::install_mod(&game_path, mod_entry, None)?;
+                                selected_entries.push(mod_entry);
                             }
                         }
+
+                        // Configure SADX mod loader if applicable
+                        if game_kind == crate::steam::game::GameKind::SADX {
+                            sadx::configure_mod_loader(&game_path, &selected_entries)?;
+                        }
+
                         Ok(())
                     })
                     .await

@@ -7,5 +7,17 @@
     <file preprocess="xml-stripblanks">resources/ui/setup_page.ui</file>
     <file preprocess="xml-stripblanks">resources/ui/progress_page.ui</file>
     <file>resources/style.css</file>
+    <file>resources/images/dc_conv_before.jpg</file>
+    <file>resources/images/dc_conv_after.jpg</file>
+    <file>resources/images/dc_chars_before.jpg</file>
+    <file>resources/images/dc_chars_after.jpg</file>
+    <file>resources/images/lantern_before.jpg</file>
+    <file>resources/images/lantern_after.jpg</file>
+    <file>resources/images/onion_blur_before.jpg</file>
+    <file>resources/images/onion_blur_after.jpg</file>
+    <file>resources/images/water_before.jpg</file>
+    <file>resources/images/water_after.jpg</file>
+    <file>resources/images/hd_gui_before.jpg</file>
+    <file>resources/images/hd_gui_after.jpg</file>
   </gresource>
 </gresources>
