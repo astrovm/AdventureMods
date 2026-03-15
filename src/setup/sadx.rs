@@ -223,21 +223,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restored Hill Top stage from beta builds",
     },
     ModEntry {
-        name: "DX Characters Refined",
-        source: ModSource::GameBanana { file_id: 1498662 },
-        description: "Improved DX character models",
-    },
-    ModEntry {
-        name: "DC Textures for DX Characters",
-        source: ModSource::GameBanana { file_id: 1281669 },
-        description: "Dreamcast textures applied to DX models",
-    },
-    ModEntry {
-        name: "DX Consistent Models",
-        source: ModSource::GameBanana { file_id: 1278768 },
-        description: "Consistent character models across scenes",
-    },
-    ModEntry {
         name: "Character Select Mod",
         source: ModSource::GameBanana { file_id: 520468 },
         description: "Play as any character in any stage",
@@ -373,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 38);
+        assert_eq!(RECOMMENDED_MODS.len(), 35);
     }
 
     #[test]
