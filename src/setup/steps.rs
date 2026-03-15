@@ -58,23 +58,33 @@ fn sadx_steps() -> Vec<SetupStep> {
             kind: StepKind::Auto,
         },
         SetupStep {
-            id: "download_installer",
-            title: "Download Mod Installer",
-            description: "Downloading the SADX Mod Installer...",
+            id: "install_mod_loader",
+            title: "Install SADX Mod Loader",
+            description: "Downloading and installing SADX Mod Loader...",
             kind: StepKind::Download,
         },
         SetupStep {
-            id: "run_installer",
-            title: "Run Mod Installer",
-            description: "A Windows installer will open. Follow the prompts to install mods, selecting the Sonic Adventure DX game folder when asked. Click Continue when the installer finishes.",
-            kind: StepKind::ExternalAction {
-                button_label: "Launch Installer",
-            },
+            id: "install_mod_manager",
+            title: "Install SA Mod Manager",
+            description: "Downloading and installing SA Mod Manager...",
+            kind: StepKind::Download,
+        },
+        SetupStep {
+            id: "select_mods",
+            title: "Select Mods",
+            description: "Choose which recommended mods to install for Sonic Adventure DX:",
+            kind: StepKind::ModSelection,
+        },
+        SetupStep {
+            id: "download_mods",
+            title: "Download Mods",
+            description: "Downloading and installing selected mods...",
+            kind: StepKind::Download,
         },
         SetupStep {
             id: "complete",
             title: "Setup Complete",
-            description: "Sonic Adventure DX mods are installed! Launch the game through Steam — the mod loader should activate automatically.",
+            description: "Sonic Adventure DX mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods.",
             kind: StepKind::Info,
         },
     ]
@@ -142,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 7);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 9);
     }
 
     #[test]

@@ -1,6 +1,8 @@
 pub const APP_ID: &str = @APP_ID@;
 pub const VERSION: &str = @VERSION@;
+#[allow(dead_code)]
 pub const GETTEXT_PACKAGE: &str = @GETTEXT_PACKAGE@;
+#[allow(dead_code)]
 pub const LOCALEDIR: &str = @LOCALEDIR@;
 pub const PKGDATADIR: &str = @PKGDATADIR@;
 pub const PROFILE: &str = @PROFILE@;

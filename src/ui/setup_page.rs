@@ -6,7 +6,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 
-use crate::setup::{common, sa2, sadx, steps};
+use crate::setup::{common, sadx, steps};
 use crate::steam::game::Game;
 
 mod imp {
@@ -32,7 +32,6 @@ mod imp {
         pub current_step: Cell<usize>,
         pub all_steps: RefCell<Vec<steps::SetupStep>>,
         pub selected_mods: RefCell<Vec<usize>>,
-        pub installer_path: RefCell<Option<std::path::PathBuf>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
     }
@@ -150,14 +149,12 @@ impl AdventureModsSetupPage {
 
                 let step_id = step.id;
                 let game = imp.game.borrow().clone();
-                let installer_path = imp.installer_path.borrow().clone();
                 action_button.connect_clicked(move |btn| {
                     btn.set_sensitive(false);
                     if let Some(ref game) = game {
                         Self::run_external_action(
                             step_id,
                             game.clone(),
-                            installer_path.clone(),
                             btn.clone(),
                         );
                     }
@@ -217,8 +214,12 @@ impl AdventureModsSetupPage {
                     .spacing(6)
                     .build();
 
+                let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
+                let mods_list = game_kind
+                    .map(|k| common::recommended_mods_for_game(k))
+                    .unwrap_or(&[]);
                 let mut selected = Vec::new();
-                for (i, mod_entry) in sa2::RECOMMENDED_MODS.iter().enumerate() {
+                for (i, mod_entry) in mods_list.iter().enumerate() {
                     let check = gtk::CheckButton::builder()
                         .label(format!("{} — {}", mod_entry.name, mod_entry.description))
                         .active(true)
@@ -280,7 +281,6 @@ impl AdventureModsSetupPage {
     fn run_external_action(
         step_id: &'static str,
         _game: Game,
-        installer_path: Option<std::path::PathBuf>,
         button: gtk::Button,
     ) {
         glib::spawn_future_local(async move {
@@ -290,15 +290,6 @@ impl AdventureModsSetupPage {
                         Err(e)
                     } else {
                         common::launch_protonup().await
-                    }
-                }
-                "run_installer" => {
-                    if let Some(path) = installer_path {
-                        sadx::run_installer(&path).await
-                    } else {
-                        Err(anyhow::anyhow!(
-                            "Installer not found. Go back and re-download."
-                        ))
                     }
                 }
                 _ => Ok(()),
@@ -347,23 +338,20 @@ impl AdventureModsSetupPage {
                 }
             });
 
+            let game_kind = game.kind;
             let result: anyhow::Result<()> = match step_id {
-                "download_installer" => {
-                    let temp = game.path.join("adventure-mods-setup");
+                "install_mod_loader" => {
+                    let game_path = game.path.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
                             let _ = tx.send_blocking((dl, total));
                         }));
                     match gio::spawn_blocking(move || {
-                        sadx::download_installer(&temp, progress_fn)
+                        sadx::install_mod_loader(&game_path, progress_fn)
                     })
                     .await
                     {
-                        Ok(Ok(path)) => {
-                            obj.imp().installer_path.replace(Some(path));
-                            Ok(())
-                        }
-                        Ok(Err(e)) => Err(e),
+                        Ok(inner) => inner,
                         Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
                     }
                 }
@@ -374,7 +362,7 @@ impl AdventureModsSetupPage {
                             let _ = tx.send_blocking((dl, total));
                         }));
                     match gio::spawn_blocking(move || {
-                        sa2::install_mod_manager(&game_path, progress_fn)
+                        common::install_mod_manager(&game_path, progress_fn)
                     })
                     .await
                     {
@@ -387,14 +375,15 @@ impl AdventureModsSetupPage {
                     let total = selected.len();
                     let game_path = game.path.clone();
                     let was_cancelled = cancel_flag.clone();
+                    let mods_list = common::recommended_mods_for_game(game_kind);
                     match gio::spawn_blocking(move || {
                         for (i, idx) in selected.iter().enumerate() {
                             if cancel_flag.load(Ordering::Relaxed) {
                                 return Err(anyhow::anyhow!("cancelled"));
                             }
-                            if let Some(mod_entry) = sa2::RECOMMENDED_MODS.get(*idx) {
+                            if let Some(mod_entry) = mods_list.get(*idx) {
                                 let _ = tx.send_blocking((i as u64, Some(total as u64)));
-                                sa2::install_mod(&game_path, mod_entry, None)?;
+                                common::install_mod(&game_path, mod_entry, None)?;
                             }
                         }
                         Ok(())
