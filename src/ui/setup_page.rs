@@ -120,6 +120,8 @@ impl AdventureModsSetupPage {
             content_box.remove(&child);
         }
 
+        let is_last_step = step_idx + 1 >= all_steps.len();
+
         match &step.kind {
             steps::StepKind::Auto => {
                 imp.next_button.set_label("Continue");
@@ -134,7 +136,7 @@ impl AdventureModsSetupPage {
                 self.run_auto_step(step.id);
             }
             steps::StepKind::Info => {
-                imp.next_button.set_label("Continue");
+                imp.next_button.set_label(if is_last_step { "Finish" } else { "Continue" });
                 imp.next_button.set_sensitive(true);
             }
             steps::StepKind::ExternalAction { button_label } => {
@@ -431,7 +433,18 @@ impl AdventureModsSetupPage {
             // Retry: re-run the current step
             self.show_current_step();
         } else {
-            self.advance_step();
+            let imp = self.imp();
+            let next = imp.current_step.get() + 1;
+            let total = imp.all_steps.borrow().len();
+            if next >= total {
+                // Last step — navigate back to the welcome page
+                if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
+                    let nav_view: adw::NavigationView = nav_view.downcast().unwrap();
+                    nav_view.pop();
+                }
+            } else {
+                self.advance_step();
+            }
         }
     }
 
