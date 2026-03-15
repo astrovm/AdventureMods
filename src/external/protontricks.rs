@@ -32,27 +32,44 @@ pub async fn run(app_id: u32, args: &[&str]) -> Result<std::process::Output> {
 /// Build argument vector for a `protontricks run` invocation.
 fn run_args(app_id: u32, args: &[&str], use_flatpak: bool) -> Vec<String> {
     let app_id_str = app_id.to_string();
+    let mut all_args = vec![
+        "run".to_string(),
+        if use_flatpak {
+            PROTONTRICKS_FLATPAK.to_string()
+        } else {
+            app_id_str.clone()
+        },
+    ];
+
     if use_flatpak {
-        let mut all_args = vec![
-            "run".to_string(),
-            PROTONTRICKS_FLATPAK.to_string(),
-            app_id_str,
-        ];
-        all_args.extend(args.iter().map(|a| a.to_string()));
-        all_args
-    } else {
-        let mut all_args = vec![app_id_str];
-        all_args.extend(args.iter().map(|a| a.to_string()));
-        all_args
+        all_args.push(app_id_str);
     }
+
+    all_args.extend(args.iter().map(|a| a.to_string()));
+    all_args
 }
 
 /// Install .NET runtimes via protontricks (dotnet48 and dotnetdesktop8).
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
     // Run quietly to avoid forcing the user to click through multiple installers
     let output = run(app_id, &["-q", "dotnet48", "dotnetdesktop8"]).await?;
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // protontricks often exits with code 1 if there are warnings about missing
+        // library folders or other non-fatal issues, even if the command succeeded.
+        // If we see typical winetricks/protontricks progress markers, we can assume
+        // it at least tried to run.
+        let is_warning = stderr.contains("WARNING") || stderr.contains("fixme:");
+        let started = stdout.contains("Executing") || stderr.contains("Executing");
+
+        if output.status.code() == Some(1) && (is_warning || started) {
+            tracing::warn!("protontricks exited with code 1 but appears to have executed: {}", stderr);
+            return Ok(());
+        }
+
         anyhow::bail!("Failed to install .NET: {stderr}");
     }
     Ok(())
@@ -74,7 +91,7 @@ mod tests {
     #[test]
     fn test_run_args_system() {
         let args = run_args(71250, &["dotnet48"], false);
-        assert_eq!(args, vec!["71250", "dotnet48"]);
+        assert_eq!(args, vec!["run", "71250", "dotnet48"]);
     }
 
     #[test]

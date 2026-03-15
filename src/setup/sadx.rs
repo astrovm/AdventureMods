@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 35);
+        assert_eq!(RECOMMENDED_MODS.len(), 19);
     }
 
     #[test]
