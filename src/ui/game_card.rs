@@ -62,7 +62,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct AdventureModsGameCard(ObjectSubclass<imp::AdventureModsGameCard>)
-        @extends gtk::Widget, gtk::Box;
+        @extends gtk::Widget, gtk::Box,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl AdventureModsGameCard {

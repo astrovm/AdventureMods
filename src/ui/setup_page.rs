@@ -80,7 +80,8 @@ mod imp {
 
 glib::wrapper! {
     pub struct AdventureModsSetupPage(ObjectSubclass<imp::AdventureModsSetupPage>)
-        @extends gtk::Widget, adw::Bin;
+        @extends gtk::Widget, adw::Bin,
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
 impl AdventureModsSetupPage {
