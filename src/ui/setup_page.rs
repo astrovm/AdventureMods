@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::glib;
+use gtk::{gio, glib};
 
 use crate::setup::{common, sa2, sadx, steps};
 use crate::steam::game::Game;
@@ -347,58 +347,72 @@ impl AdventureModsSetupPage {
                 }
             });
 
-            let progress_fn: Option<crate::external::download::ProgressFn> =
-                Some(Box::new(move |dl, total| {
-                    let _ = tx.send_blocking((dl, total));
-                }));
-
-            let result = match step_id {
+            let result: anyhow::Result<()> = match step_id {
                 "download_installer" => {
                     let temp = std::env::temp_dir().join("adventure-mods");
-                    match sadx::download_installer(&temp, progress_fn).await {
-                        Ok(path) => {
+                    let progress_fn: Option<crate::external::download::ProgressFn> =
+                        Some(Box::new(move |dl, total| {
+                            let _ = tx.send_blocking((dl, total));
+                        }));
+                    match gio::spawn_blocking(move || {
+                        sadx::download_installer(&temp, progress_fn)
+                    })
+                    .await
+                    {
+                        Ok(Ok(path)) => {
                             obj.imp().installer_path.replace(Some(path));
                             Ok(())
                         }
-                        Err(e) => Err(e),
+                        Ok(Err(e)) => Err(e),
+                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
                     }
                 }
                 "install_mod_manager" => {
-                    sa2::install_mod_manager(&game.path, progress_fn).await
+                    let game_path = game.path.clone();
+                    let progress_fn: Option<crate::external::download::ProgressFn> =
+                        Some(Box::new(move |dl, total| {
+                            let _ = tx.send_blocking((dl, total));
+                        }));
+                    match gio::spawn_blocking(move || {
+                        sa2::install_mod_manager(&game_path, progress_fn)
+                    })
+                    .await
+                    {
+                        Ok(inner) => inner,
+                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
+                    }
                 }
                 "download_mods" => {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total = selected.len();
-                    for (i, idx) in selected.iter().enumerate() {
-                        if cancel_flag.load(Ordering::Relaxed) {
-                            return; // Cancelled — show_current_step already called
-                        }
-                        if let Some(mod_entry) = sa2::RECOMMENDED_MODS.get(*idx) {
-                            progress_bar.set_text(Some(&format!(
-                                "[{}/{}] {}",
-                                i + 1,
-                                total,
-                                mod_entry.name,
-                            )));
-                            progress_bar.set_fraction((i as f64) / (total as f64));
-                            if let Err(e) = sa2::install_mod(&game.path, mod_entry, None).await {
-                                tracing::error!("Failed to install {}: {e}", mod_entry.name);
-                                obj.show_error(&format!(
-                                    "Failed to install {}: {e}",
-                                    mod_entry.name
-                                ));
-                                return;
+                    let game_path = game.path.clone();
+                    let was_cancelled = cancel_flag.clone();
+                    match gio::spawn_blocking(move || {
+                        for (i, idx) in selected.iter().enumerate() {
+                            if cancel_flag.load(Ordering::Relaxed) {
+                                return Err(anyhow::anyhow!("cancelled"));
+                            }
+                            if let Some(mod_entry) = sa2::RECOMMENDED_MODS.get(*idx) {
+                                let _ = tx.send_blocking((i as u64, Some(total as u64)));
+                                sa2::install_mod(&game_path, mod_entry, None)?;
                             }
                         }
+                        Ok(())
+                    })
+                    .await
+                    {
+                        Ok(Ok(())) => Ok(()),
+                        Ok(Err(e)) => {
+                            if was_cancelled.load(Ordering::Relaxed) {
+                                return; // Was cancelled
+                            }
+                            Err(e)
+                        }
+                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
                     }
-                    Ok(())
                 }
                 _ => Ok(()),
             };
-
-            if cancel_flag.load(Ordering::Relaxed) {
-                return; // Was cancelled
-            }
 
             match result {
                 Ok(()) => {

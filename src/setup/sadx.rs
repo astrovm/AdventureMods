@@ -9,16 +9,17 @@ use crate::steam::game::GameKind;
 const SADX_INSTALLER_FILE_ID: u64 = 1035580;
 
 /// Download the SADX Mod Installer.
-pub async fn download_installer(
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn download_installer(
     dest_dir: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<std::path::PathBuf> {
     let (url, filename) = download::resolve_gamebanana_url(SADX_INSTALLER_FILE_ID)
-        .await
         .context("Failed to resolve SADX installer download URL")?;
 
     let dest_file = dest_dir.join(&filename);
-    download::download_file(&url, &dest_file, progress).await?;
+    download::download_file(&url, &dest_file, progress)?;
 
     // If it's an archive, extract it
     let ext = dest_file
@@ -28,7 +29,7 @@ pub async fn download_installer(
 
     if matches!(ext, "7z" | "zip" | "rar") {
         let extract_dir = dest_dir.join("sadx_installer");
-        archive::extract(&dest_file, &extract_dir).await?;
+        archive::extract(&dest_file, &extract_dir)?;
         // Find the .exe in the extracted files
         if let Some(exe) = find_exe_in_dir(&extract_dir) {
             return Ok(exe);

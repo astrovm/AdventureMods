@@ -84,34 +84,36 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
 ];
 
 /// Download and install SA Mod Manager into the game directory.
-pub async fn install_mod_manager(
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn install_mod_manager(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
     let (url, filename) = download::resolve_gamebanana_url(SA_MOD_MANAGER_FILE_ID)
-        .await
         .context("Failed to resolve SA Mod Manager download URL")?;
 
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join(&filename);
 
-    download::download_file(&url, &archive_path, progress).await?;
+    download::download_file(&url, &archive_path, progress)?;
 
     // Extract to game directory
-    archive::extract(&archive_path, game_path).await?;
+    archive::extract(&archive_path, game_path)?;
 
     tracing::info!("SA Mod Manager installed to {}", game_path.display());
     Ok(())
 }
 
 /// Download and install a single mod into the game's mods directory.
-pub async fn install_mod(
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn install_mod(
     game_path: &Path,
     mod_entry: &ModEntry,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
     let (url, filename) = download::resolve_gamebanana_url(mod_entry.file_id)
-        .await
         .with_context(|| {
             format!(
                 "Failed to resolve download URL for {}",
@@ -125,11 +127,11 @@ pub async fn install_mod(
     let temp_dir = tempfile::tempdir()?;
     let archive_path = temp_dir.path().join(&filename);
 
-    download::download_file(&url, &archive_path, progress).await?;
+    download::download_file(&url, &archive_path, progress)?;
 
     // Extract into a folder named after the mod
     let mod_dir = mods_dir.join(mod_entry.name.replace(' ', "_"));
-    archive::extract(&archive_path, &mod_dir).await?;
+    archive::extract(&archive_path, &mod_dir)?;
 
     tracing::info!("Installed mod: {}", mod_entry.name);
     Ok(())

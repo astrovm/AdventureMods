@@ -7,7 +7,34 @@ use futures_util::StreamExt;
 pub type ProgressFn = Box<dyn Fn(u64, Option<u64>) + Send>;
 
 /// Download a file from a URL with progress reporting.
-pub async fn download_file(
+///
+/// This function creates its own tokio runtime internally,
+/// so it must be called from a blocking thread (e.g. `gio::spawn_blocking`),
+/// NOT from an async context.
+pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Result<()> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("Failed to create tokio runtime")?;
+
+    rt.block_on(download_file_async(url, dest, progress))
+}
+
+/// Resolve a GameBanana file ID to its download URL using the v11 API.
+///
+/// This function creates its own tokio runtime internally,
+/// so it must be called from a blocking thread (e.g. `gio::spawn_blocking`),
+/// NOT from an async context.
+pub fn resolve_gamebanana_url(file_id: u64) -> Result<(String, String)> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("Failed to create tokio runtime")?;
+
+    rt.block_on(resolve_gamebanana_url_async(file_id))
+}
+
+async fn download_file_async(
     url: &str,
     dest: &Path,
     progress: Option<ProgressFn>,
@@ -49,8 +76,7 @@ pub async fn download_file(
     Ok(())
 }
 
-/// Resolve a GameBanana file ID to its download URL using the v11 API.
-pub async fn resolve_gamebanana_url(file_id: u64) -> Result<(String, String)> {
+async fn resolve_gamebanana_url_async(file_id: u64) -> Result<(String, String)> {
     let api_url = format!(
         "https://gamebanana.com/apiv11/File/{file_id}?_csvProperties=_sDownloadUrl,_sFile"
     );
