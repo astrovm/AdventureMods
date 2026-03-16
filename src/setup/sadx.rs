@@ -29,6 +29,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "High-quality ADX audio replacement",
         before_image: None,
         after_image: None,
+        dir_name: Some("ADXAudio"),
     },
     ModEntry {
         name: "SADX: Fixed Edition",
@@ -38,6 +39,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Comprehensive bug fix and restoration mod",
         before_image: None,
         after_image: None,
+        dir_name: Some("SADXFE"),
     },
     ModEntry {
         name: "Smooth Camera",
@@ -47,6 +49,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Smoother camera movement",
         before_image: None,
         after_image: None,
+        dir_name: Some("smooth-cam"),
     },
     ModEntry {
         name: "Pause Hide",
@@ -56,6 +59,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Hide HUD when pausing for screenshots",
         before_image: None,
         after_image: None,
+        dir_name: Some("pause-hide"),
     },
     ModEntry {
         name: "Frame Limit",
@@ -65,6 +69,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Accurate frame rate limiter",
         before_image: None,
         after_image: None,
+        dir_name: Some("sadx-frame-limit"),
     },
     ModEntry {
         name: "Onion Blur",
@@ -74,6 +79,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Dreamcast-style motion blur effect",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg"),
+        dir_name: Some("sadx-onion-blur"),
     },
     ModEntry {
         name: "Idle Chatter",
@@ -83,6 +89,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restores character idle voice lines",
         before_image: None,
         after_image: None,
+        dir_name: Some("idle-chatter"),
     },
     ModEntry {
         name: "Steam Achievements",
@@ -92,6 +99,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Enables Steam achievements with mods",
         before_image: None,
         after_image: None,
+        dir_name: Some("SteamAchievements"),
     },
     ModEntry {
         name: "Lantern Engine",
@@ -101,6 +109,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Dreamcast-accurate lighting engine",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg"),
+        dir_name: Some("sadx-dc-lighting"),
     },
     ModEntry {
         name: "Dreamcast Conversion",
@@ -110,6 +119,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restores Dreamcast visuals and features",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg"),
+        dir_name: Some("DreamcastConversion"),
     },
     ModEntry {
         name: "Dreamcast DLC",
@@ -119,6 +129,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restored Dreamcast downloadable content",
         before_image: None,
         after_image: None,
+        dir_name: Some("DLC"),
     },
     ModEntry {
         name: "SADX Style Water",
@@ -128,6 +139,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Improved water rendering",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
+        dir_name: Some("sadx-style-water"),
     },
     ModEntry {
         name: "Sound Overhaul",
@@ -137,6 +149,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restored and improved sound effects",
         before_image: None,
         after_image: None,
+        dir_name: Some("SoundOverhaul"),
     },
     ModEntry {
         name: "Time of Day",
@@ -146,6 +159,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Dynamic time-of-day lighting changes",
         before_image: None,
         after_image: None,
+        dir_name: Some("TrainDaytime"),
     },
     ModEntry {
         name: "Dreamcast Characters Pack",
@@ -155,6 +169,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Original Dreamcast character models",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg"),
+        dir_name: Some("SA1_Chars"),
     },
     ModEntry {
         name: "Super Sonic",
@@ -164,6 +179,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Playable Super Sonic in action stages",
         before_image: None,
         after_image: None,
+        dir_name: Some("sadx-super-sonic"),
     },
     ModEntry {
         name: "HD GUI 2",
@@ -173,6 +189,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "High resolution GUI textures for menus, HUD and icons",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
+        dir_name: Some("HD_DCStyle"),
     },
     ModEntry {
         name: "SADX Launcher",
@@ -182,6 +199,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Tool to configure game controls and settings",
         before_image: None,
         after_image: None,
+        dir_name: Some("AppLauncher"),
     },
     ModEntry {
         name: "Icon Data",
@@ -191,6 +209,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Custom game window icons",
         before_image: None,
         after_image: None,
+        dir_name: Some("icondata"),
     },
 ];
 
@@ -475,6 +494,8 @@ fn mod_dir_name(name: &str) -> &str {
 pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
     // SA Mod Manager runs under Wine/Proton and expects Windows-style paths.
     let game_dir_wine = format!("Z:{}", game_path.to_string_lossy().replace('/', "\\"));
+    // JSON strings need doubled backslashes so they survive parsing (\ → \\).
+    let game_dir_wine_json = game_dir_wine.replace('\\', "\\\\");
     let sa_manager_dir = game_path.join("SAManager");
     let profiles_dir = sa_manager_dir.join("SADX").join("profiles");
     std::fs::create_dir_all(&profiles_dir)?;
@@ -506,7 +527,7 @@ pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Re
   ],
   "KeepModOrder": false
 }}"#,
-        game_dir_wine
+        game_dir_wine_json
     );
     let manager_path = sa_manager_dir.join("Manager.json");
     std::fs::write(&manager_path, manager_json).context("Failed to write Manager.json")?;
@@ -530,7 +551,8 @@ pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Re
         if i > 0 {
             enabled_mods.push_str(",\n");
         }
-        enabled_mods.push_str(&format!("    \"{}\"", mod_dir_name(mod_entry.name)));
+        let dir = mod_entry.dir_name.unwrap_or(mod_entry.name);
+        enabled_mods.push_str(&format!("    \"{}\"", dir));
     }
 
     let default_json = format!(
@@ -868,8 +890,8 @@ mod tests {
         assert!(content.contains("\"Name\": \"Sonic Adventure DX\""));
         assert!(content.contains("\"Executable\": \"sonic.exe\""));
 
-        // Wine path should start with Z: and use backslashes
-        let wine_path = format!("Z:{}", tmp.path().to_string_lossy().replace('/', "\\"));
+        // Wine path should start with Z: and use escaped backslashes in JSON
+        let wine_path = format!("Z:{}", tmp.path().to_string_lossy().replace('/', "\\\\"));
         assert!(
             content.contains(&wine_path),
             "Manager.json should contain Wine path: {wine_path}"
@@ -889,9 +911,9 @@ mod tests {
 
         let enabled = parsed["EnabledMods"].as_array().unwrap();
         assert_eq!(enabled.len(), 3);
-        assert_eq!(enabled[0], mod_dir_name(RECOMMENDED_MODS[0].name));
-        assert_eq!(enabled[1], mod_dir_name(RECOMMENDED_MODS[1].name));
-        assert_eq!(enabled[2], mod_dir_name(RECOMMENDED_MODS[2].name));
+        assert_eq!(enabled[0], RECOMMENDED_MODS[0].dir_name.unwrap());
+        assert_eq!(enabled[1], RECOMMENDED_MODS[1].dir_name.unwrap());
+        assert_eq!(enabled[2], RECOMMENDED_MODS[2].dir_name.unwrap());
 
         // Patches and codes should be present
         assert!(!parsed["EnabledGamePatches"].as_array().unwrap().is_empty());
@@ -906,7 +928,7 @@ mod tests {
         let content = std::fs::read_to_string(tmp.path().join("SAManager/Manager.json")).unwrap();
         let expected = format!(
             "\"Directory\": \"Z:{}\"",
-            tmp.path().to_string_lossy().replace('/', "\\")
+            tmp.path().to_string_lossy().replace('/', "\\\\")
         );
         assert!(
             content.contains(&expected),

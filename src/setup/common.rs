@@ -26,6 +26,9 @@ pub struct ModEntry {
     pub description: &'static str,
     pub before_image: Option<&'static str>,
     pub after_image: Option<&'static str>,
+    /// Expected directory name inside `mods/`. Used when a flat archive
+    /// (no top-level subdirectory) needs to be wrapped in the correct folder.
+    pub dir_name: Option<&'static str>,
 }
 
 /// Resolve a `ModSource` to a download URL string.
@@ -166,7 +169,8 @@ pub fn install_mod(
 
     if staging_dir.join("mod.ini").is_file() {
         // Flat archive — move everything into a named subdirectory.
-        let dest = mods_dir.join(mod_entry.name);
+        let folder = mod_entry.dir_name.unwrap_or(mod_entry.name);
+        let dest = mods_dir.join(folder);
         move_dir_contents(&staging_dir, &dest)?;
     } else {
         // Archive already contains subdirectory structure.
