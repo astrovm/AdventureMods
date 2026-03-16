@@ -459,32 +459,6 @@ pub fn install_mod_loader(
     Ok(())
 }
 
-/// Map a mod display name to its extracted directory name.
-fn mod_dir_name(name: &str) -> &str {
-    match name {
-        "SADX: Fixed Edition" => "SADXFE",
-        "Dreamcast Conversion" => "DreamcastConversion",
-        "Dreamcast Characters Pack" => "SA1_Chars",
-        "Lantern Engine" => "sadx-dc-lighting",
-        "Sound Overhaul" => "SoundOverhaul",
-        "Dreamcast DLC" => "DLC",
-        "ADX Audio" => "ADXAudio",
-        "Super Sonic" => "sadx-super-sonic",
-        "Frame Limit" => "sadx-frame-limit",
-        "Idle Chatter" => "idle-chatter",
-        "Pause Hide" => "pause-hide",
-        "Onion Blur" => "sadx-onion-blur",
-        "Smooth Camera" => "smooth-cam",
-        "SADX Style Water" => "sadx-style-water",
-        "Steam Achievements" => "SteamAchievements",
-        "HD GUI 2" => "HD_DCStyle",
-        "SADX Launcher" => "AppLauncher",
-        "Icon Data" => "icondata",
-        "Time of Day" => "TrainDaytime",
-        _ => name,
-    }
-}
-
 /// Configure SA Mod Manager with JSON profile files matching the official installer.
 ///
 /// Writes three files:
@@ -821,38 +795,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    // --- mod_dir_name() tests ---
-
-    #[test]
-    fn test_mod_dir_name_mappings() {
-        assert_eq!(mod_dir_name("SADX: Fixed Edition"), "SADXFE");
-        assert_eq!(mod_dir_name("Dreamcast Conversion"), "DreamcastConversion");
-        assert_eq!(mod_dir_name("Dreamcast Characters Pack"), "SA1_Chars");
-        assert_eq!(mod_dir_name("Lantern Engine"), "sadx-dc-lighting");
-        assert_eq!(mod_dir_name("Sound Overhaul"), "SoundOverhaul");
-        assert_eq!(mod_dir_name("Dreamcast DLC"), "DLC");
-        assert_eq!(mod_dir_name("ADX Audio"), "ADXAudio");
-        assert_eq!(mod_dir_name("Super Sonic"), "sadx-super-sonic");
-        assert_eq!(mod_dir_name("Frame Limit"), "sadx-frame-limit");
-        assert_eq!(mod_dir_name("Idle Chatter"), "idle-chatter");
-        assert_eq!(mod_dir_name("Pause Hide"), "pause-hide");
-        assert_eq!(mod_dir_name("Onion Blur"), "sadx-onion-blur");
-        assert_eq!(mod_dir_name("Smooth Camera"), "smooth-cam");
-        assert_eq!(mod_dir_name("SADX Style Water"), "sadx-style-water");
-        assert_eq!(mod_dir_name("Steam Achievements"), "SteamAchievements");
-        assert_eq!(mod_dir_name("HD GUI 2"), "HD_DCStyle");
-        assert_eq!(mod_dir_name("SADX Launcher"), "AppLauncher");
-        assert_eq!(mod_dir_name("Icon Data"), "icondata");
-        assert_eq!(mod_dir_name("Time of Day"), "TrainDaytime");
-    }
-
-    #[test]
-    fn test_mod_dir_name_unknown_returns_input() {
-        assert_eq!(mod_dir_name("Unknown Mod"), "Unknown Mod");
-        assert_eq!(mod_dir_name(""), "");
-        assert_eq!(mod_dir_name("Some Random Name"), "Some Random Name");
     }
 
     // --- configure_mod_loader() tests ---
