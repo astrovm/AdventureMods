@@ -80,9 +80,6 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("sonic.exe").exists()
         }
 
-        // SADX mod loader: installed when mods/.modloader/ has SADXModLoader.dll
-        "install_mod_loader" => p.join("mods/.modloader/SADXModLoader.dll").is_file(),
-
         // SA Mod Manager: installed when the original exe was backed up
         "install_mod_manager" => {
             p.join("Launcher.exe.bak").exists()

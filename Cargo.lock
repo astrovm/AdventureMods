@@ -16,7 +16,6 @@ dependencies = [
  "libadwaita",
  "reqwest",
  "rustls",
- "serde_json",
  "tempfile",
  "tokio",
  "tracing",

@@ -500,22 +500,6 @@ impl AdventureModsSetupPage {
                         Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
                     }
                 }
-                "install_mod_loader" => {
-                    let game_path = game.path.clone();
-                    let tx_clone = tx.clone();
-                    let progress_fn: Option<crate::external::download::ProgressFn> =
-                        Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, String::new()));
-                        }));
-                    match gio::spawn_blocking(move || {
-                        sadx::install_mod_loader(&game_path, progress_fn)
-                    })
-                    .await
-                    {
-                        Ok(inner) => inner,
-                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
-                    }
-                }
                 "install_mod_manager" => {
                     let game_path = game.path.clone();
                     let tx_clone = tx.clone();
@@ -539,7 +523,6 @@ impl AdventureModsSetupPage {
                     let was_cancelled = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
                     match gio::spawn_blocking(move || {
-                        let mut selected_entries = Vec::new();
                         for (i, idx) in selected.iter().enumerate() {
                             if cancel_flag.load(Ordering::Relaxed) {
                                 return Err(anyhow::anyhow!("cancelled"));
@@ -547,16 +530,9 @@ impl AdventureModsSetupPage {
                             if let Some(mod_entry) = mods_list.get(*idx) {
                                 let status = format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
                                 let _ = tx.send_blocking((i as u64, Some(total_count as u64), status));
-                                
-                                common::install_mod(&game_path, mod_entry, None)?;
-                                selected_entries.push(mod_entry);
-                            }
-                        }
 
-                        // Configure SADX mod loader if applicable
-                        if game_kind == crate::steam::game::GameKind::SADX {
-                            let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring...".to_string()));
-                            sadx::configure_mod_loader(&game_path, &selected_entries)?;
+                                common::install_mod(&game_path, mod_entry, None)?;
+                            }
                         }
 
                         Ok(())

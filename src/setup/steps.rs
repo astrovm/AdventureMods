@@ -64,12 +64,6 @@ fn sadx_steps() -> Vec<SetupStep> {
             kind: StepKind::Download,
         },
         SetupStep {
-            id: "install_mod_loader",
-            title: "Install SADX Mod Loader",
-            description: "Downloading and installing SADX Mod Loader...",
-            kind: StepKind::Download,
-        },
-        SetupStep {
             id: "install_mod_manager",
             title: "Install SA Mod Manager",
             description: "Downloading and installing SA Mod Manager...",
@@ -158,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 10);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 9);
     }
 
     #[test]
