@@ -28,7 +28,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "IMPRESSive",
         source: ModSource::GameBanana { file_id: 1213103 },
-        description: "Visual enhancements and effects",
+        description: "UI display enhancements and formatting improvements",
         before_image: None,
         after_image: None,
         dir_name: None,
@@ -60,7 +60,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "SA2 Input Controls",
         source: ModSource::GameBanana { file_id: 1514050 },
-        description: "Fixes input issues with modern controllers",
+        description: "Adjusts oversensitive controls for better handling",
         before_image: None,
         after_image: None,
         dir_name: None,
@@ -84,7 +84,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Sonic: New Tricks",
         source: ModSource::GameBanana { file_id: 915082 },
-        description: "Additional moves for Sonic",
+        description: "New tricks for speed characters",
         before_image: None,
         after_image: None,
         dir_name: None,

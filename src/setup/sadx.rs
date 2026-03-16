@@ -32,7 +32,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXFE.7z",
         },
-        description: "Comprehensive bug fix and restoration mod",
+        description: "Comprehensive bug fix mod for the PC port",
         before_image: None,
         after_image: None,
         dir_name: Some("SADXFE"),
@@ -42,7 +42,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/smooth-cam.7z",
         },
-        description: "Smoother camera movement",
+        description: "Smooth first-person camera (analog instead of 8-directional)",
         before_image: None,
         after_image: None,
         dir_name: Some("smooth-cam"),
@@ -52,7 +52,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
         },
-        description: "Hide HUD when pausing for screenshots",
+        description: "Press X+Y to hide the pause menu for screenshots",
         before_image: None,
         after_image: None,
         dir_name: Some("pause-hide"),
@@ -82,7 +82,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
         },
-        description: "Restores character idle voice lines",
+        description: "Press a button to hear character commentary about the current stage",
         before_image: None,
         after_image: None,
         dir_name: Some("idle-chatter"),
@@ -132,7 +132,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
         },
-        description: "Improved water rendering",
+        description: "Restores the ocean wave effect in Emerald Coast",
         before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
         dir_name: Some("sadx-style-water"),
@@ -152,7 +152,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/TrainDaytime.7z",
         },
-        description: "Dynamic time-of-day lighting changes",
+        description: "Change the time of day by taking the train after beating the story",
         before_image: None,
         after_image: None,
         dir_name: Some("TrainDaytime"),
