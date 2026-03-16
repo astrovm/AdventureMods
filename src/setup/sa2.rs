@@ -10,9 +10,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Retranslated Story -COMPLETE-",
-        source: ModSource::DirectUrl {
-            url: "https://files.gamebanana.com/mods/retranslated_story_-complete-_v23_aca0e.rar",
-        },
+        source: ModSource::GameBanana { file_id: 1601215 },
         description: "Accurate retranslation of the story",
         before_image: None,
         after_image: None,
@@ -54,9 +52,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SA2 Input Controls",
-        source: ModSource::DirectUrl {
-            url: "https://files.gamebanana.com/mods/sa2-input-controls-v3.7z",
-        },
+        source: ModSource::GameBanana { file_id: 1514050 },
         description: "Fixes input issues with modern controllers",
         before_image: None,
         after_image: None,
