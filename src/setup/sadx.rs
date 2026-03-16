@@ -257,6 +257,17 @@ pub fn convert_steam_to_2004(
     let patch_str = patch_file.to_string_lossy().to_string();
     let out_str = out_dir.to_string_lossy().trim_end_matches('/').to_string();
 
+    // hpatchz patch was built on Windows with "System" (capitalized).
+    // Steam on Linux may extract it as "system" (lowercase).
+    // Rename to match the patch's expectations on case-sensitive filesystems.
+    let system_lower = game_path.join("system");
+    let system_upper = game_path.join("System");
+    if system_lower.is_dir() && !system_upper.exists() {
+        std::fs::rename(&system_lower, &system_upper)
+            .context("Failed to rename system → System for case-sensitive patching")?;
+        tracing::info!("Renamed system → System for case-sensitive filesystem compatibility");
+    }
+
     tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
 
     let output = std::process::Command::new("hpatchz")
