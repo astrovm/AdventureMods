@@ -187,26 +187,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
         dir_name: Some("HD_DCStyle"),
     },
-    ModEntry {
-        name: "SADX Launcher",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/AppLauncher.7z",
-        },
-        description: "Tool to configure game controls and settings",
-        before_image: None,
-        after_image: None,
-        dir_name: Some("AppLauncher"),
-    },
-    ModEntry {
-        name: "Icon Data",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/icondata.7z",
-        },
-        description: "Custom game window icons",
-        before_image: None,
-        after_image: None,
-        dir_name: Some("icondata"),
-    },
 ];
 
 /// Convert the Steam version of SADX to the 2004 version using HDiffPatch.
@@ -407,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 19);
+        assert_eq!(RECOMMENDED_MODS.len(), 17);
     }
 
     #[test]
