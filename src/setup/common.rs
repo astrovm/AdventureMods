@@ -11,6 +11,14 @@ use super::{sa2, sadx};
 const SA_MOD_MANAGER_URL: &str =
     "https://github.com/X-Hax/SA-Mod-Manager/releases/latest/download/release_x64.zip";
 
+/// GitHub release URL for SADX Mod Loader.
+const SADX_MOD_LOADER_URL: &str =
+    "https://github.com/X-Hax/sadx-mod-loader/releases/latest/download/SADXModLoader.7z";
+
+/// GitHub release URL for SA2 Mod Loader.
+const SA2_MOD_LOADER_URL: &str =
+    "https://github.com/X-Hax/sa2-mod-loader/releases/latest/download/SA2ModLoader.7z";
+
 /// Source for downloading a mod.
 pub enum ModSource {
     GameBanana { file_id: u64 },
@@ -79,9 +87,11 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         }
 
         // SA Mod Manager: installed when the original exe was backed up
+        // Also check for the Mod Loader DLLs themselves
         "install_mod_manager" => {
-            p.join("Launcher.exe.bak").exists()
-                || p.join("Sonic Adventure DX.exe.bak").exists()
+            (p.join("Launcher.exe.bak").exists()
+                || p.join("Sonic Adventure DX.exe.bak").exists())
+                && (p.join("SADXModLoader.dll").exists() || p.join("SA2ModLoader.dll").exists())
         }
 
         // Mod selection: always show so the user can change their picks
@@ -135,14 +145,16 @@ pub async fn install_dotnet(app_id: u32) -> Result<()> {
     protontricks::install_dotnet(app_id).await
 }
 
-/// Download and install SA Mod Manager into the game directory.
+/// Download and install SA Mod Manager and the mod loader into the game directory.
 ///
-/// Downloads from GitHub, extracts, and replaces Launcher.exe with
-/// SAModManager.exe (backing up the original).
+/// Downloads the manager from GitHub, extracts, and replaces Launcher.exe with
+/// SAModManager.exe (backing up the original). Then downloads and extracts
+/// the mod loader DLLs.
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
 pub fn install_mod_manager(
     game_path: &Path,
+    game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
@@ -189,7 +201,35 @@ pub fn install_mod_manager(
         ))?;
     }
 
-    tracing::info!("SA Mod Manager installed to {}", game_path.display());
+    // Now install the mod loader itself
+    install_mod_loader(game_path, game_kind, None)?;
+
+    tracing::info!("SA Mod Manager and loader installed to {}", game_path.display());
+    Ok(())
+}
+
+/// Download and install the mod loader into the game directory.
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn install_mod_loader(
+    game_path: &Path,
+    game_kind: GameKind,
+    progress: Option<download::ProgressFn>,
+) -> Result<()> {
+    let url = match game_kind {
+        GameKind::SADX => SADX_MOD_LOADER_URL,
+        GameKind::SA2 => SA2_MOD_LOADER_URL,
+    };
+
+    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+    let archive_path = temp_dir.path().join("ModLoader.7z");
+
+    download::download_file(url, &archive_path, progress)?;
+
+    // Extract directly into the game directory
+    archive::extract(&archive_path, game_path)?;
+
+    tracing::info!("Mod loader installed to {}", game_path.display());
     Ok(())
 }
 

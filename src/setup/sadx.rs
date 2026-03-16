@@ -307,42 +307,37 @@ pub fn convert_steam_to_2004(
 
 /// Rename directories to match the casing the hpatchz patch expects.
 ///
-/// The patch was created on Windows (case-insensitive). Steam on Linux may
-/// extract directories with different casing. Known mismatches:
-/// - `SoundData/VOICE_JP` → `SoundData/voice_jp`
-/// - `SoundData/VOICE_US` → `SoundData/voice_us`
-/// - `SoundData/SE` → `SoundData/se`
-/// - `SoundData/*/WMA` → `SoundData/*/wma`
+/// The hpatchz directory patch was created on a case-insensitive Windows filesystem.
+/// On case-sensitive Linux filesystems, hpatchz will fail to find "old" files to patch
+/// if their casing doesn't exactly match the manifest (which is often lowercase).
+/// Steam on Linux may extract directories with different casing (e.g. VOICE_JP instead of voice_jp).
 fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
-    let rename_if_needed = |src: &Path, dst: &Path| -> Result<()> {
-        if src.is_dir() && !dst.exists() {
-            std::fs::rename(src, dst).with_context(|| {
+    // List of known directory casing mismatches between Steam and the patch manifest.
+    let renames = [
+        ("SoundData/VOICE_JP", "SoundData/voice_jp"),
+        ("SoundData/VOICE_US", "SoundData/voice_us"),
+        ("SoundData/SE", "SoundData/se"),
+        ("SoundData/voice_jp/WMA", "SoundData/voice_jp/wma"),
+        ("SoundData/voice_us/WMA", "SoundData/voice_us/wma"),
+    ];
+
+    for (old, new) in renames {
+        let old_path = game_path.join(old);
+        let new_path = game_path.join(new);
+
+        if old_path.is_dir() && !new_path.exists() {
+            std::fs::rename(&old_path, &new_path).with_context(|| {
                 format!(
                     "Failed to rename {} → {}",
-                    src.display(),
-                    dst.display()
+                    old_path.display(),
+                    new_path.display()
                 )
             })?;
             tracing::info!(
                 "Renamed {} → {} for patch compatibility",
-                src.file_name().unwrap_or_default().to_string_lossy(),
-                dst.file_name().unwrap_or_default().to_string_lossy()
+                old,
+                new
             );
-        }
-        Ok(())
-    };
-
-    let sound_data = game_path.join("SoundData");
-    if sound_data.is_dir() {
-        rename_if_needed(&sound_data.join("VOICE_JP"), &sound_data.join("voice_jp"))?;
-        rename_if_needed(&sound_data.join("VOICE_US"), &sound_data.join("voice_us"))?;
-        rename_if_needed(&sound_data.join("SE"), &sound_data.join("se"))?;
-
-        for dir_name in &["voice_jp", "voice_us"] {
-            let voice_dir = sound_data.join(dir_name);
-            if voice_dir.is_dir() {
-                rename_if_needed(&voice_dir.join("WMA"), &voice_dir.join("wma"))?;
-            }
         }
     }
 

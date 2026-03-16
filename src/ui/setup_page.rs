@@ -496,13 +496,14 @@ impl AdventureModsSetupPage {
                 }
                 "install_mod_manager" => {
                     let game_path = game.path.clone();
+                    let game_kind = game.kind;
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
                             let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
                     match gio::spawn_blocking(move || {
-                        common::install_mod_manager(&game_path, progress_fn)
+                        common::install_mod_manager(&game_path, game_kind, progress_fn)
                     })
                     .await
                     {

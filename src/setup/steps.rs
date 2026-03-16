@@ -57,8 +57,8 @@ fn sadx_steps() -> Vec<SetupStep> {
         },
         SetupStep {
             id: "install_mod_manager",
-            title: "Install SA Mod Manager",
-            description: "Downloading and installing SA Mod Manager...",
+            title: "Install Mod Manager & Loader",
+            description: "Downloading and installing SA Mod Manager and the mod loader...",
             kind: StepKind::Download,
         },
         SetupStep {
@@ -104,8 +104,8 @@ fn sa2_steps() -> Vec<SetupStep> {
         },
         SetupStep {
             id: "install_mod_manager",
-            title: "Install SA Mod Manager",
-            description: "Downloading and installing SA Mod Manager...",
+            title: "Install Mod Manager & Loader",
+            description: "Downloading and installing SA Mod Manager and the mod loader...",
             kind: StepKind::Download,
         },
         SetupStep {
