@@ -206,10 +206,27 @@ pub fn convert_steam_to_2004(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
+    // Detect the system directory (can be System or system on Linux)
+    let system_dir = if game_path.join("System").is_dir() {
+        game_path.join("System")
+    } else if game_path.join("system").is_dir() {
+        game_path.join("system")
+    } else {
+        // Default to System but we'll likely fail later anyway if missing
+        game_path.join("System")
+    };
+
     // Skip if already converted (CHRMODELS_orig.dll exists from a previous run)
-    let chrmodels_orig = game_path.join("System").join("CHRMODELS_orig.dll");
+    let chrmodels_orig = system_dir.join("CHRMODELS_orig.dll");
     if chrmodels_orig.exists() {
         tracing::info!("Game appears already converted (CHRMODELS_orig.dll exists), skipping");
+        return Ok(());
+    }
+
+    // Secondary check: if SADXModLoader.dll exists in root AND sonic.exe exists, 
+    // it's likely already converted.
+    if game_path.join("SADXModLoader.dll").exists() && game_path.join("sonic.exe").exists() {
+        tracing::info!("Game appears already converted (SADXModLoader.dll and sonic.exe exist), skipping");
         return Ok(());
     }
 
@@ -227,36 +244,22 @@ pub fn convert_steam_to_2004(
     }
 
     // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
+    // We use a separate output directory to avoid hpatchz failing due to 
+    // in-place modification conflicts or permission issues with its own temp dir.
+    let out_dir = temp_dir.path().join("patched_game");
+    std::fs::create_dir_all(&out_dir)?;
+
     let game_str = game_path.to_string_lossy().trim_end_matches('/').to_string();
     let patch_str = patch_file.to_string_lossy().to_string();
+    let out_str = out_dir.to_string_lossy().trim_end_matches('/').to_string();
 
     tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
-
-    // Diagnostics
-    if let Ok(metadata) = std::fs::symlink_metadata(game_path) {
-        if metadata.is_symlink() {
-            if let Ok(target) = std::fs::read_link(game_path) {
-                tracing::info!("Game path is a symlink pointing to: {}", target.display());
-            }
-        }
-    }
-
-    // Check if we can actually read a key file in the directory
-    let steam_exe = game_path.join("Sonic Adventure DX.exe");
-    if !steam_exe.exists() {
-        tracing::warn!("'Sonic Adventure DX.exe' not found in game directory. Patch might fail.");
-    } else {
-        match std::fs::File::open(&steam_exe) {
-            Ok(_) => tracing::info!("Successfully opened 'Sonic Adventure DX.exe' for reading"),
-            Err(e) => tracing::error!("Failed to open 'Sonic Adventure DX.exe': {e} (Permission or sandbox issue?)"),
-        }
-    }
 
     let output = std::process::Command::new("hpatchz")
         .arg("-f")
         .arg(&game_str)
         .arg(&patch_str)
-        .arg(&game_str)
+        .arg(&out_str)
         .output()
         .context("Failed to run hpatchz — is HDiffPatch installed?")?;
 
@@ -266,40 +269,56 @@ pub fn convert_steam_to_2004(
         
         tracing::error!("hpatchz failed. Stderr:\n{}", stderr);
         
-        // If it failed due to "open oldFile ERROR", it's likely a sandbox/symlink issue.
-        // Try canonicalizing as a fallback.
+        // If it failed due to "open oldFile ERROR", it's likely a source file mismatch.
         if stderr.contains("open oldFile ERROR!") || stderr.contains("check oldPathType") {
-            tracing::info!("Attempting fallback with canonicalized path...");
-            if let Ok(game_canonical) = game_path.canonicalize() {
-                let game_can_str = game_canonical.to_string_lossy().trim_end_matches('/').to_string();
-                tracing::info!("Canonical path: {}", game_can_str);
-                
-                let output2 = std::process::Command::new("hpatchz")
-                    .arg("-f")
-                    .arg(&game_can_can_str(&game_can_str))
-                    .arg(&patch_str)
-                    .arg(&game_can_can_str(&game_can_str))
-                    .output();
-                
-                if let Ok(o) = output2 {
-                    if o.status.success() {
-                        tracing::info!("Steam-to-2004 conversion complete via canonical path");
-                        return Ok(());
-                    }
-                    tracing::error!("Fallback failed as well. Stderr:\n{}", String::from_utf8_lossy(&o.stderr));
-                }
-            }
+             tracing::error!("Source file mismatch detected. This usually happens if the game is already modded or corrupted.");
+             anyhow::bail!("Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}");
         }
 
         anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
     }
 
+    // Success! Now we move the patched files back to the game directory.
+    // hpatchz in directory mode produces a new directory with the patched files.
+    // We want to merge/overwrite these into the game directory.
+    tracing::info!("Patch applied successfully to temp dir, moving files back...");
+    
+    // Move files from out_dir to game_path
+    move_dir_contents(&out_dir, game_path)?;
+
     tracing::info!("Steam-to-2004 conversion complete");
     Ok(())
 }
 
-fn game_can_can_str(s: &str) -> String {
-    s.trim_end_matches('/').to_string()
+fn move_dir_contents(from: &Path, to: &Path) -> Result<()> {
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        let dest = to.join(name);
+
+        if path.is_dir() {
+            if dest.exists() && !dest.is_dir() {
+                std::fs::remove_file(&dest)?;
+            }
+            if !dest.exists() {
+                std::fs::create_dir_all(&dest)?;
+            }
+            move_dir_contents(&path, &dest)?;
+        } else {
+            if dest.exists() && dest.is_dir() {
+                std::fs::remove_dir_all(&dest)?;
+            }
+            // Overwrite existing files
+            std::fs::rename(&path, &dest).or_else(|_| {
+                // Fallback to copy+remove if rename fails (e.g. across filesystems)
+                std::fs::copy(&path, &dest)?;
+                std::fs::remove_file(&path)?;
+                Ok::<(), std::io::Error>(())
+            })?;
+        }
+    }
+    Ok(())
 }
 
 /// Download and install the SADX Mod Loader into the game directory.
@@ -317,6 +336,15 @@ pub fn install_mod_loader(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
+    // Detect the system directory (can be System or system on Linux)
+    let system_dir = if game_path.join("System").is_dir() {
+        game_path.join("System")
+    } else if game_path.join("system").is_dir() {
+        game_path.join("system")
+    } else {
+        game_path.join("System")
+    };
+
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join("SADXModLoader.7z");
 
@@ -328,12 +356,11 @@ pub fn install_mod_loader(
     archive::extract(&archive_path, &modloader_dir)?;
 
     // Backup original System/CHRMODELS.dll if not already backed up
-    let system_dir = game_path.join("System");
     let chrmodels = system_dir.join("CHRMODELS.dll");
     let chrmodels_orig = system_dir.join("CHRMODELS_orig.dll");
     if chrmodels.is_file() && !chrmodels_orig.exists() {
         std::fs::rename(&chrmodels, &chrmodels_orig)
-            .context("Failed to backup System/CHRMODELS.dll")?;
+            .context("Failed to backup CHRMODELS.dll to CHRMODELS_orig.dll")?;
         tracing::info!("Backed up CHRMODELS.dll to CHRMODELS_orig.dll");
     }
 
@@ -434,7 +461,14 @@ pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Re
 
 /// Create a default `sonic.ini` with recommended game settings.
 pub fn configure_game(game_path: &Path) -> Result<()> {
-    let system_dir = game_path.join("System");
+    // Detect the system directory (can be System or system on Linux)
+    let system_dir = if game_path.join("System").is_dir() {
+        game_path.join("System")
+    } else if game_path.join("system").is_dir() {
+        game_path.join("system")
+    } else {
+        game_path.join("System")
+    };
     let ini_path = system_dir.join("sonic.ini");
 
     let content = "[sonicDX]\n\
