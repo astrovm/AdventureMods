@@ -87,12 +87,21 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("sonic.exe").exists()
         }
 
-        // SA Mod Manager: installed when the original exe was backed up
-        // Also check for the Mod Loader DLLs in the correct x64 location
+        // SA Mod Manager: installed when the original exe was backed up,
+        // the mod loader DLLs are extracted, and the DLL swap has been done.
         "install_mod_manager" => {
-            (p.join("Launcher.exe.bak").exists() || p.join("Sonic Adventure DX.exe.bak").exists())
-                && (p.join("mods/.modloader/SADXModLoader.dll").exists()
-                    || p.join("mods/.modloader/SA2ModLoader.dll").exists())
+            let exe_backed_up = p.join("Launcher.exe.bak").exists()
+                || p.join("Sonic Adventure DX.exe.bak").exists();
+            let loader_extracted = p.join("mods/.modloader/SADXModLoader.dll").exists()
+                || p.join("mods/.modloader/SA2ModLoader.dll").exists();
+            let system_dir = if p.join("System").is_dir() {
+                p.join("System")
+            } else {
+                p.join("system")
+            };
+            let dll_swapped = system_dir.join("CHRMODELS_orig.dll").exists()
+                || p.join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll").exists();
+            exe_backed_up && loader_extracted && dll_swapped
         }
 
         // Mod selection: always show so the user can change their picks
@@ -261,6 +270,93 @@ pub fn install_mod_loader(
     archive::extract(&archive_path, &loader_dir)?;
 
     tracing::info!("Mod loader installed to {}", loader_dir.display());
+
+    // Perform the DLL replacement so the game loads the mod loader on startup.
+    install_loader_dll(game_path, game_kind)?;
+
+    Ok(())
+}
+
+/// Replace the game's data DLL with the mod loader DLL.
+///
+/// This is how the mod loader hooks into the game: the original DLL that the
+/// game executable loads at startup is backed up (with an `_orig` suffix) and
+/// the mod loader DLL is copied in its place.
+///
+/// - SADX: `System/CHRMODELS.dll` → `System/CHRMODELS_orig.dll`
+/// - SA2:  `resource/gd_PC/DLL/Win32/Data_DLL.dll` → `…/Data_DLL_orig.dll`
+fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
+    let (loader_dll_name, data_dll_path, orig_dll_path) = match game_kind {
+        GameKind::SADX => {
+            // Handle case-insensitive System directory
+            let system_dir = if game_path.join("System").is_dir() {
+                game_path.join("System")
+            } else {
+                game_path.join("system")
+            };
+            (
+                "SADXModLoader.dll",
+                system_dir.join("CHRMODELS.dll"),
+                system_dir.join("CHRMODELS_orig.dll"),
+            )
+        }
+        GameKind::SA2 => {
+            let dll_dir = game_path.join("resource/gd_PC/DLL/Win32");
+            (
+                "SA2ModLoader.dll",
+                dll_dir.join("Data_DLL.dll"),
+                dll_dir.join("Data_DLL_orig.dll"),
+            )
+        }
+    };
+
+    let loader_dll = game_path
+        .join("mods/.modloader")
+        .join(loader_dll_name);
+
+    if !loader_dll.is_file() {
+        anyhow::bail!(
+            "Mod loader DLL not found at {}",
+            loader_dll.display()
+        );
+    }
+
+    // Already swapped — nothing to do
+    if orig_dll_path.is_file() {
+        tracing::info!("Original DLL already backed up, refreshing mod loader DLL");
+        std::fs::copy(&loader_dll, &data_dll_path).context(format!(
+            "Failed to copy mod loader DLL to {}",
+            data_dll_path.display()
+        ))?;
+        return Ok(());
+    }
+
+    if !data_dll_path.is_file() {
+        tracing::warn!(
+            "Game data DLL not found at {}, skipping DLL replacement",
+            data_dll_path.display()
+        );
+        return Ok(());
+    }
+
+    // Back up the original game DLL
+    std::fs::rename(&data_dll_path, &orig_dll_path).context(format!(
+        "Failed to back up {} to {}",
+        data_dll_path.display(),
+        orig_dll_path.display()
+    ))?;
+
+    // Copy the mod loader DLL in place of the original
+    std::fs::copy(&loader_dll, &data_dll_path).context(format!(
+        "Failed to copy mod loader DLL to {}",
+        data_dll_path.display()
+    ))?;
+
+    tracing::info!(
+        "DLL replacement complete: {} → {}",
+        loader_dll_name,
+        data_dll_path.display()
+    );
     Ok(())
 }
 
