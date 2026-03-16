@@ -291,16 +291,6 @@ pub fn convert_steam_to_2004(
     // Move files from out_dir to game_path
     move_dir_contents(&out_dir, game_path)?;
 
-    // The patched output uses lowercase "system" (matching the patch).
-    // Rename back to "System" since the mod loader and configure_game() expect it.
-    let system_lower = game_path.join("system");
-    let system_upper = game_path.join("System");
-    if system_lower.is_dir() && !system_upper.exists() {
-        std::fs::rename(&system_lower, &system_upper)
-            .context("Failed to rename system → System after patching")?;
-        tracing::info!("Renamed system → System for mod loader compatibility");
-    }
-
     tracing::info!("Steam-to-2004 conversion complete");
     Ok(())
 }
