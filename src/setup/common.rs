@@ -60,11 +60,11 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         // Info / external-action steps: always show to the user
         "steam_config" | "ge_proton" => false,
 
-        // .NET: check Proton prefix for dotnet48 marker
+        // Runtimes: check Proton prefix for dotnetdesktop8 marker
         "dotnet" => {
             let prefix = proton_prefix(p, game.kind.app_id());
             prefix
-                .join("drive_c/windows/Microsoft.NET/Framework/v4.0.30319")
+                .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
                 .is_dir()
         }
 
@@ -150,7 +150,7 @@ pub async fn launch_protonup() -> Result<()> {
     flatpak::launch_flatpak(PROTONUP_QT_FLATPAK, &[]).await
 }
 
-/// Install .NET Framework 4.8 for the given game's prefix.
+/// Install .NET Desktop Runtime 8.0 and VC++ Redistributable for the given game's prefix.
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
     protontricks::install_dotnet(app_id).await
 }

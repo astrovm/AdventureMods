@@ -49,10 +49,10 @@ fn run_args(app_id: u32, args: &[&str], use_flatpak: bool) -> Vec<String> {
     all_args
 }
 
-/// Install .NET runtimes via protontricks (dotnet48 and dotnetdesktop8).
+/// Install runtimes via protontricks (.NET Desktop 8.0 + VC++ Redist).
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
     // Install components separately for better reliability
-    let components = ["dotnet48", "dotnetdesktop8"];
+    let components = ["dotnetdesktop8", "vcrun2022"];
 
     for component in components {
         tracing::info!("Installing {} via protontricks...", component);
