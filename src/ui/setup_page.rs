@@ -6,7 +6,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 
-use crate::setup::{common, sadx, sadx_config, steps};
+use crate::setup::{common, sa2_config, sadx, sadx_config, steps};
 use crate::steam::game::Game;
 
 mod imp {
@@ -535,14 +535,16 @@ impl AdventureModsSetupPage {
                             }
                         }
 
-                        // Generate SA Mod Manager config files for SADX
+                        // Generate SA Mod Manager config files
+                        let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring...".to_string()));
+                        let selected_entries: Vec<&common::ModEntry> = selected
+                            .iter()
+                            .filter_map(|idx| mods_list.get(*idx))
+                            .collect();
                         if game_kind == crate::steam::game::GameKind::SADX {
-                            let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring...".to_string()));
-                            let selected_entries: Vec<&common::ModEntry> = selected
-                                .iter()
-                                .filter_map(|idx| mods_list.get(*idx))
-                                .collect();
                             sadx_config::generate_sadx_config(&game_path, &selected_entries)?;
+                        } else {
+                            sa2_config::generate_sa2_config(&game_path, &selected_entries)?;
                         }
 
                         Ok(())
