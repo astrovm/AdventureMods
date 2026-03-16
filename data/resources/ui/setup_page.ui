@@ -10,10 +10,11 @@
         <property name="margin-top">24</property>
         <property name="margin-bottom">24</property>
         <property name="valign">center</property>
-        <property name="halign">center</property>
+        <property name="halign">fill</property>
         <child>
           <object class="GtkLabel" id="step_title">
             <property name="wrap">true</property>
+            <property name="halign">center</property>
             <style>
               <class name="title-1"/>
             </style>
@@ -23,6 +24,7 @@
           <object class="GtkLabel" id="step_description">
             <property name="wrap">true</property>
             <property name="justify">center</property>
+            <property name="halign">center</property>
           </object>
         </child>
         <child>

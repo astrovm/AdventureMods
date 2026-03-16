@@ -209,8 +209,8 @@ impl AdventureModsSetupPage {
                 let main_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
                     .spacing(24)
-                    .hexpand(true)
-                    .halign(gtk::Align::Fill)
+                    .hexpand(false)
+                    .halign(gtk::Align::Center)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
@@ -218,8 +218,8 @@ impl AdventureModsSetupPage {
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
                     .max_content_height(400)
                     .propagate_natural_height(true)
-                    .min_content_width(350)
-                    .hexpand(true)
+                    .width_request(400)
+                    .hexpand(false)
                     .build();
 
                 let list_box = gtk::ListBox::builder()
