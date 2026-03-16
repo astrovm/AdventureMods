@@ -587,8 +587,18 @@ impl AdventureModsSetupPage {
 
         if let Some(monitor) = monitor {
             let geometry = monitor.geometry();
-            (geometry.width() as u32, geometry.height() as u32)
+            let scale = monitor.scale_factor();
+            let (width, height) = (
+                (geometry.width() * scale) as u32,
+                (geometry.height() * scale) as u32
+            );
+            tracing::info!(
+                "Detected resolution: {}x{} (Logical: {}x{}, Scale: {})",
+                width, height, geometry.width(), geometry.height(), scale
+            );
+            (width, height)
         } else {
+            tracing::warn!("Could not detect monitor resolution, using fallback {}x{}", default_res.0, default_res.1);
             default_res
         }
     }
