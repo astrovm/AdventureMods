@@ -230,7 +230,9 @@ impl AdventureModsSetupPage {
                     .orientation(gtk::Orientation::Vertical)
                     .spacing(12)
                     .valign(gtk::Align::Start)
+                    .halign(gtk::Align::End)
                     .width_request(400)
+                    .hexpand(false)
                     .build();
 
                 let before_label = gtk::Label::builder()
@@ -241,6 +243,7 @@ impl AdventureModsSetupPage {
                 let before_image = gtk::Picture::builder()
                     .can_shrink(true)
                     .content_fit(gtk::ContentFit::Cover)
+                    .width_request(400)
                     .height_request(200)
                     .build();
 
@@ -252,6 +255,7 @@ impl AdventureModsSetupPage {
                 let after_image = gtk::Picture::builder()
                     .can_shrink(true)
                     .content_fit(gtk::ContentFit::Cover)
+                    .width_request(400)
                     .height_request(200)
                     .build();
 
