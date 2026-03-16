@@ -18,10 +18,23 @@
         "--filesystem=host",
         "--talk-name=org.freedesktop.Flatpak"
     ],
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/share/pkgconfig",
+        "/share/aclocal",
+        "/man",
+        "/share/man",
+        "/share/gtk-doc",
+        "/share/vala",
+        "*.la",
+        "*.a"
+    ],
     "build-options": {
         "append-path": "/usr/lib/sdk/rust-stable/bin",
         "env": {
             "RUST_BACKTRACE": "1",
+            "RUSTFLAGS": "-D warnings",
             "CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse"
         }
     },

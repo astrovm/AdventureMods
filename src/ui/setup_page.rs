@@ -241,7 +241,7 @@ impl AdventureModsSetupPage {
                     .css_classes(vec!["caption".to_string()])
                     .build();
                 let before_image = gtk::Picture::builder()
-                    .can_shrink(true)
+                    .can_shrink(false)
                     .content_fit(gtk::ContentFit::Cover)
                     .width_request(400)
                     .height_request(200)
@@ -253,7 +253,7 @@ impl AdventureModsSetupPage {
                     .css_classes(vec!["caption".to_string()])
                     .build();
                 let after_image = gtk::Picture::builder()
-                    .can_shrink(true)
+                    .can_shrink(false)
                     .content_fit(gtk::ContentFit::Cover)
                     .width_request(400)
                     .height_request(200)

@@ -12,8 +12,6 @@ mod imp {
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/welcome_page.ui")]
     pub struct AdventureModsWelcomePage {
         #[template_child]
-        pub status_page: TemplateChild<adw::StatusPage>,
-        #[template_child]
         pub games_box: TemplateChild<gtk::Box>,
     }
 
