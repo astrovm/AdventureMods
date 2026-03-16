@@ -107,18 +107,29 @@ pub fn install_mod_manager(
     std::fs::copy(&manager_exe, &dest_exe)
         .context("Failed to copy SAModManager.exe to game directory")?;
 
-    // SA2 has a Launcher.exe — replace it with the mod manager so Steam
-    // launches the mod manager instead. SADX uses sonic.exe directly and
-    // has no launcher, so we just leave SAModManager.exe in place.
+    // Replace the game's Steam launch executable with the mod manager so
+    // Steam launches the mod manager, which then launches the real game exe.
+    // SA2 uses Launcher.exe; SADX uses "Sonic Adventure DX.exe".
     let launcher = game_path.join("Launcher.exe");
-    if launcher.is_file() {
-        let launcher_bak = game_path.join("Launcher.exe.bak");
-        if !launcher_bak.exists() {
-            std::fs::rename(&launcher, &launcher_bak)
-                .context("Failed to backup Launcher.exe")?;
+    let sadx_exe = game_path.join("Sonic Adventure DX.exe");
+    let steam_exe = if launcher.is_file() {
+        Some(launcher)
+    } else if sadx_exe.is_file() {
+        Some(sadx_exe)
+    } else {
+        None
+    };
+
+    if let Some(steam_exe) = steam_exe {
+        let bak = steam_exe.with_extension("exe.bak");
+        if !bak.exists() {
+            std::fs::rename(&steam_exe, &bak)
+                .context(format!("Failed to backup {}", steam_exe.display()))?;
         }
-        std::fs::rename(&dest_exe, &launcher)
-            .context("Failed to install mod manager as Launcher.exe")?;
+        std::fs::rename(&dest_exe, &steam_exe).context(format!(
+            "Failed to install mod manager as {}",
+            steam_exe.display()
+        ))?;
     }
 
     tracing::info!("SA Mod Manager installed to {}", game_path.display());
