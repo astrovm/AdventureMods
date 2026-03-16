@@ -159,6 +159,16 @@ pub fn install_mod_manager(
     game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
+    // Skip if already installed
+    let loader_dll = match game_kind {
+        GameKind::SADX => "SADXModLoader.dll",
+        GameKind::SA2 => "SA2ModLoader.dll",
+    };
+    if game_path.join("mods/.modloader").join(loader_dll).exists() {
+        tracing::info!("SA Mod Manager and loader already present, skipping installation");
+        return Ok(());
+    }
+
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join("SAModManager.zip");
 
@@ -218,6 +228,16 @@ pub fn install_mod_loader(
     game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
+    let loader_dll = match game_kind {
+        GameKind::SADX => "SADXModLoader.dll",
+        GameKind::SA2 => "SA2ModLoader.dll",
+    };
+
+    if game_path.join("mods/.modloader").join(loader_dll).exists() {
+        tracing::info!("Mod loader already present, skipping installation");
+        return Ok(());
+    }
+
     let url = match game_kind {
         GameKind::SADX => SADX_MOD_LOADER_URL,
         GameKind::SA2 => SA2_MOD_LOADER_URL,
