@@ -219,8 +219,8 @@ pub fn convert_steam_to_2004(
         return Ok(());
     }
 
-    if game_path.join("SADXModLoader.dll").exists() {
-        tracing::info!("Game appears already converted (SADXModLoader.dll exists), skipping");
+    if game_path.join("mods/.modloader/SADXModLoader.dll").exists() {
+        tracing::info!("Game appears already converted (SADXModLoader.dll exists in .modloader), skipping");
         return Ok(());
     }
 

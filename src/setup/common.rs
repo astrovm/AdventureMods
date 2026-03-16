@@ -83,15 +83,17 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
             };
             system_dir.join("CHRMODELS_orig.dll").exists()
                 || p.join("SADXModLoader.dll").exists()
+                || p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("sonic.exe").exists()
         }
 
         // SA Mod Manager: installed when the original exe was backed up
-        // Also check for the Mod Loader DLLs themselves
+        // Also check for the Mod Loader DLLs in the correct x64 location
         "install_mod_manager" => {
             (p.join("Launcher.exe.bak").exists()
                 || p.join("Sonic Adventure DX.exe.bak").exists())
-                && (p.join("SADXModLoader.dll").exists() || p.join("SA2ModLoader.dll").exists())
+                && (p.join("mods/.modloader/SADXModLoader.dll").exists()
+                    || p.join("mods/.modloader/SA2ModLoader.dll").exists())
         }
 
         // Mod selection: always show so the user can change their picks
@@ -226,10 +228,12 @@ pub fn install_mod_loader(
 
     download::download_file(url, &archive_path, progress)?;
 
-    // Extract directly into the game directory
-    archive::extract(&archive_path, game_path)?;
+    // Extract into mods/.modloader (expected by the x64 Mod Manager)
+    let loader_dir = game_path.join("mods").join(".modloader");
+    std::fs::create_dir_all(&loader_dir).context("Failed to create mods/.modloader directory")?;
+    archive::extract(&archive_path, &loader_dir)?;
 
-    tracing::info!("Mod loader installed to {}", game_path.display());
+    tracing::info!("Mod loader installed to {}", loader_dir.display());
     Ok(())
 }
 
