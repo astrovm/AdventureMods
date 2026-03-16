@@ -8,7 +8,9 @@ use super::common::ModEntry;
 
 /// Convert a Linux path to a Wine Z: drive path with backslashes.
 fn linux_to_wine_path(path: &Path) -> String {
-    format!("Z:{}", path.to_string_lossy().replace('/', "\\"))
+    // Resolve symlinks so Wine sees the canonical path
+    let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    format!("Z:{}", resolved.to_string_lossy().replace('/', "\\"))
 }
 
 /// Generate all SA Mod Manager v4 configuration files for SADX.
