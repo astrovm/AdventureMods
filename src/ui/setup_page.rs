@@ -89,7 +89,9 @@ impl AdventureModsSetupPage {
         let all_steps = steps::steps_for_game(game.kind);
         obj.imp().all_steps.replace(all_steps);
         obj.imp().game.replace(Some(game));
-        obj.imp().current_step.set(0);
+        
+        let initial_step = obj.skip_completed_steps(0);
+        obj.imp().current_step.set(initial_step);
         obj.show_current_step();
         obj
     }
@@ -549,9 +551,30 @@ impl AdventureModsSetupPage {
         let total = imp.all_steps.borrow().len();
 
         if next < total {
-            imp.current_step.set(next);
+            let next_skipped = self.skip_completed_steps(next);
+            imp.current_step.set(next_skipped);
             self.show_current_step();
         }
+    }
+
+    fn skip_completed_steps(&self, start_idx: usize) -> usize {
+        let imp = self.imp();
+        let all_steps = imp.all_steps.borrow();
+        let game = imp.game.borrow().clone().unwrap();
+        let mut idx = start_idx;
+
+        // Skip steps that are already complete, but NEVER skip the last step
+        // (the completion screen).
+        while idx < all_steps.len() - 1 {
+            let step = &all_steps[idx];
+            if common::is_step_complete(step.id, &game) {
+                tracing::info!("Auto-skipping completed step: {}", step.id);
+                idx += 1;
+            } else {
+                break;
+            }
+        }
+        idx
     }
 
     fn on_next_clicked(&self) {
