@@ -244,7 +244,7 @@ impl AdventureModsSetupPage {
                 
                 let before_image = gtk::Picture::builder()
                     .can_shrink(true)
-                    .content_fit(gtk::ContentFit::Cover)
+                    .content_fit(gtk::ContentFit::Contain)
                     .build();
                 let before_frame = gtk::AspectFrame::builder()
                     .ratio(2.0)
@@ -262,7 +262,7 @@ impl AdventureModsSetupPage {
                 
                 let after_image = gtk::Picture::builder()
                     .can_shrink(true)
-                    .content_fit(gtk::ContentFit::Cover)
+                    .content_fit(gtk::ContentFit::Contain)
                     .build();
                 let after_frame = gtk::AspectFrame::builder()
                     .ratio(2.0)
