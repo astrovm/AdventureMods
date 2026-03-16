@@ -3,15 +3,8 @@ use super::common::{ModEntry, ModSource};
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "SA2 Render Fix",
-        source: ModSource::GameBanana { file_id: 1388911 },
-        description: "Fixes various rendering issues",
-        before_image: None,
-        after_image: None,
-    },
-    ModEntry {
-        name: "Cutscene Revamp",
-        source: ModSource::GameBanana { file_id: 440737 },
-        description: "Improved in-game cutscenes",
+        source: ModSource::GameBanana { file_id: 1626250 },
+        description: "Restores Dreamcast-accurate rendering, fixes graphical bugs and adds enhancements.",
         before_image: None,
         after_image: None,
     },
@@ -101,7 +94,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 13);
+        assert_eq!(RECOMMENDED_MODS.len(), 12);
     }
 
     #[test]
