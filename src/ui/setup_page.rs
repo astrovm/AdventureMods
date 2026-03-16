@@ -445,31 +445,39 @@ impl AdventureModsSetupPage {
             let pb = progress_bar.clone();
             glib::spawn_future_local(async move {
                 while let Ok((downloaded, total, status)) = rx.recv().await {
+                    let mut text = if status.is_empty() {
+                        String::new()
+                    } else {
+                        format!("{} ", status)
+                    };
+
                     if let Some(total) = total {
                         if total > 0 {
                             let frac = downloaded as f64 / total as f64;
                             pb.set_fraction(frac);
                         }
                         
-                        // If it's a byte-count total (large value), show MB.
-                        // Otherwise (small value like mod count), just show the status.
+                        // Large total means bytes, small means item count
                         if total > 1000 {
-                            pb.set_text(Some(&format!(
-                                "{} ({:.1} / {:.1} MB)",
-                                status,
+                            text.push_str(&format!(
+                                "({:.1} / {:.1} MB)",
                                 downloaded as f64 / 1_048_576.0,
                                 total as f64 / 1_048_576.0,
-                            )));
-                        } else {
-                            pb.set_text(Some(&status));
+                            ));
                         }
                     } else {
                         pb.pulse();
-                        pb.set_text(Some(&format!(
-                            "{} ({:.1} MB)",
-                            status,
+                        text.push_str(&format!(
+                            "({:.1} MB)",
                             downloaded as f64 / 1_048_576.0,
-                        )));
+                        ));
+                    }
+
+                    let display_text = text.trim();
+                    if display_text.is_empty() {
+                        pb.set_text(None);
+                    } else {
+                        pb.set_text(Some(display_text));
                     }
                 }
             });
@@ -481,7 +489,7 @@ impl AdventureModsSetupPage {
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, "Converting Steam to 2004...".to_string()));
+                            let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
                     match gio::spawn_blocking(move || {
                         sadx::convert_steam_to_2004(&game_path, progress_fn)
@@ -497,7 +505,7 @@ impl AdventureModsSetupPage {
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, "Downloading SADX Mod Loader...".to_string()));
+                            let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
                     match gio::spawn_blocking(move || {
                         sadx::install_mod_loader(&game_path, progress_fn)
@@ -513,7 +521,7 @@ impl AdventureModsSetupPage {
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, "Downloading SA Mod Manager...".to_string()));
+                            let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
                     match gio::spawn_blocking(move || {
                         common::install_mod_manager(&game_path, progress_fn)
@@ -537,11 +545,9 @@ impl AdventureModsSetupPage {
                                 return Err(anyhow::anyhow!("cancelled"));
                             }
                             if let Some(mod_entry) = mods_list.get(*idx) {
-                                let status = format!("Installing {} ({}/{})", mod_entry.name, i + 1, total_count);
-                                let _ = tx.send_blocking((i as u64, Some(total_count as u64), status.clone()));
+                                let status = format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
+                                let _ = tx.send_blocking((i as u64, Some(total_count as u64), status));
                                 
-                                // For individual mods, we don't nest progress bars yet, 
-                                // but we could pass a modified ProgressFn here if needed.
                                 common::install_mod(&game_path, mod_entry, None)?;
                                 selected_entries.push(mod_entry);
                             }
@@ -549,7 +555,7 @@ impl AdventureModsSetupPage {
 
                         // Configure SADX mod loader if applicable
                         if game_kind == crate::steam::game::GameKind::SADX {
-                            let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring Mod Loader...".to_string()));
+                            let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring...".to_string()));
                             sadx::configure_mod_loader(&game_path, &selected_entries)?;
                         }
 
