@@ -67,7 +67,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Better Radar",
-        source: ModSource::GameBanana { file_id: 860716 },
+        source: ModSource::GameBanana { file_id: 1580535 },
         description: "Improved treasure hunting radar",
         before_image: None,
         after_image: None,
