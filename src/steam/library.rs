@@ -46,10 +46,10 @@ fn find_game_in_libraries(
             if game_path.is_dir() {
                 // Verify it's a real, readable installation and not a ghost entry
                 // SADX has 'Sonic Adventure DX.exe' (Steam) or 'sonic.exe' (2004)
-                // SA2 has 'Sonic Adventure 2.exe'
+                // SA2 has 'sonic2app.exe'
                 let executable = match kind {
                     GameKind::SADX => "Sonic Adventure DX.exe",
-                    GameKind::SA2 => "Sonic Adventure 2.exe",
+                    GameKind::SA2 => "sonic2app.exe",
                 };
                 
                 let exe_path = game_path.join(executable);
@@ -147,6 +147,7 @@ mod tests {
             .join("steamapps/common")
             .join(GameKind::SADX.install_dir());
         std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
         let result = find_game_in_libraries(&vdf, GameKind::SADX);
@@ -161,6 +162,7 @@ mod tests {
             .join("steamapps/common")
             .join(GameKind::SA2.install_dir());
         std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("sonic2app.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
         let result = find_game_in_libraries(&vdf, GameKind::SA2);
@@ -252,6 +254,8 @@ mod tests {
             .join(GameKind::SA2.install_dir());
         std::fs::create_dir_all(&sadx_dir).unwrap();
         std::fs::create_dir_all(&sa2_dir).unwrap();
+        std::fs::write(sadx_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+        std::fs::write(sa2_dir.join("sonic2app.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250", "213610"]);
         assert_eq!(find_game_in_libraries(&vdf, GameKind::SADX), Some(sadx_dir));
