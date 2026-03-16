@@ -218,9 +218,13 @@ pub fn install_mod_manager(
 
 /// Download and install a single mod into the game's mods directory.
 ///
-/// Archives that already contain a top-level subdirectory are extracted
-/// directly into `mods/`. Flat archives (those with `mod.ini` at the root)
-/// are placed into `mods/<mod_name>/` using the mod entry's name.
+/// When `dir_name` is set on the mod entry, the archive is searched for its
+/// `mod.ini` and the containing directory is placed into `mods/<dir_name>/`.
+/// This handles archives that are flat, already have a subdirectory, or have
+/// extra nesting (e.g. `mods/<name>/`).
+///
+/// When `dir_name` is `None` (e.g. GameBanana mods), the archive is extracted
+/// directly into `mods/` and is expected to contain its own subdirectory.
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
 pub fn install_mod(
@@ -240,22 +244,55 @@ pub fn install_mod(
     let archive_path = temp_dir.path().join("mod_download");
     download::download_file(&url, &archive_path, progress)?;
 
-    // Extract to a staging directory first so we can check the layout.
+    // Extract to a staging directory first so we can determine the layout.
     let staging_dir = temp_dir.path().join("staging");
     archive::extract(&archive_path, &staging_dir)?;
 
-    if staging_dir.join("mod.ini").is_file() {
-        // Flat archive — move everything into a named subdirectory.
-        let folder = mod_entry.dir_name.unwrap_or(mod_entry.name);
-        let dest = mods_dir.join(folder);
-        move_dir_contents(&staging_dir, &dest)?;
+    if let Some(dir_name) = mod_entry.dir_name {
+        // We know the target directory name. Find mod.ini in the staging
+        // tree to locate the mod's content root, then move it into place.
+        let dest = mods_dir.join(dir_name);
+        let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
+        move_dir_contents(&content_root, &dest)?;
     } else {
-        // Archive already contains subdirectory structure.
+        // No dir_name — extract directly and trust the archive structure.
         move_dir_contents(&staging_dir, &mods_dir)?;
     }
 
     tracing::info!("Installed mod: {}", mod_entry.name);
     Ok(())
+}
+
+/// Find the directory containing `mod.ini` within a staging tree.
+///
+/// Searches the staging root and up to two levels deep.  Returns `None`
+/// if no `mod.ini` is found (the caller should fall back to the root).
+fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
+    // Check root
+    if staging.join("mod.ini").is_file() {
+        return Some(staging.to_path_buf());
+    }
+    // Check one level deep
+    if let Ok(entries) = std::fs::read_dir(staging) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                if p.join("mod.ini").is_file() {
+                    return Some(p);
+                }
+                // Check two levels deep
+                if let Ok(inner) = std::fs::read_dir(&p) {
+                    for inner_entry in inner.flatten() {
+                        let ip = inner_entry.path();
+                        if ip.is_dir() && ip.join("mod.ini").is_file() {
+                            return Some(ip);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Recursively move all entries from `src` into `dest`, creating `dest` if needed.
@@ -351,8 +388,55 @@ mod tests {
     }
 
     #[test]
-    fn test_flat_archive_gets_subdirectory() {
-        // Simulates a flat mod archive: mod.ini at root level
+    fn test_find_mod_root_at_staging_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::write(staging.join("mod.ini"), b"[mod]").unwrap();
+
+        let root = find_mod_root(&staging).unwrap();
+        assert_eq!(root, staging);
+    }
+
+    #[test]
+    fn test_find_mod_root_one_level_deep() {
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let sub = staging.join("MyMod");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(sub.join("mod.ini"), b"[mod]").unwrap();
+
+        let root = find_mod_root(&staging).unwrap();
+        assert_eq!(root, sub);
+    }
+
+    #[test]
+    fn test_find_mod_root_two_levels_deep() {
+        // e.g. archive extracts as mods/SteamAchievements/mod.ini
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let nested = staging.join("mods").join("SteamAchievements");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("mod.ini"), b"[mod]").unwrap();
+
+        let root = find_mod_root(&staging).unwrap();
+        assert_eq!(root, nested);
+    }
+
+    #[test]
+    fn test_find_mod_root_none_when_missing() {
+        // Archive with no mod.ini at all (e.g. icondata)
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::write(staging.join("icon.ico"), b"icon").unwrap();
+
+        assert!(find_mod_root(&staging).is_none());
+    }
+
+    #[test]
+    fn test_install_mod_flat_archive_with_dir_name() {
+        // mod.ini at root, dir_name set → goes to mods/<dir_name>/
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
         std::fs::create_dir_all(&staging).unwrap();
@@ -362,45 +446,78 @@ mod tests {
         let mods_dir = tmp.path().join("mods");
         std::fs::create_dir_all(&mods_dir).unwrap();
 
-        // Replicate the logic from install_mod
-        let mod_name = "TestMod";
-        if staging.join("mod.ini").is_file() {
-            let dest = mods_dir.join(mod_name);
-            move_dir_contents(&staging, &dest).unwrap();
-        } else {
-            move_dir_contents(&staging, &mods_dir).unwrap();
-        }
+        let dir_name = "TestMod";
+        let dest = mods_dir.join(dir_name);
+        let content_root = find_mod_root(&staging).unwrap_or(staging.clone());
+        move_dir_contents(&content_root, &dest).unwrap();
 
-        // mod.ini should be inside mods/TestMod/, NOT directly in mods/
         assert!(!mods_dir.join("mod.ini").exists());
         assert!(mods_dir.join("TestMod").join("mod.ini").is_file());
         assert!(mods_dir.join("TestMod").join("texture.png").is_file());
     }
 
     #[test]
-    fn test_subdirectory_archive_stays_flat() {
-        // Simulates an archive that already contains a subdirectory
+    fn test_install_mod_nested_archive_with_dir_name() {
+        // Archive has mods/SteamAchievements/mod.ini, dir_name = "SteamAchievements"
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
-        let mod_subdir = staging.join("MyMod");
-        std::fs::create_dir_all(&mod_subdir).unwrap();
-        std::fs::write(mod_subdir.join("mod.ini"), b"[mod]").unwrap();
+        let nested = staging.join("mods").join("SteamAchievements");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("mod.ini"), b"[mod]").unwrap();
+        std::fs::write(nested.join("data.dll"), b"dll").unwrap();
+
+        let mods_dir = tmp.path().join("game_mods");
+        std::fs::create_dir_all(&mods_dir).unwrap();
+
+        let dir_name = "SteamAchievements";
+        let dest = mods_dir.join(dir_name);
+        let content_root = find_mod_root(&staging).unwrap_or(staging.clone());
+        move_dir_contents(&content_root, &dest).unwrap();
+
+        assert!(mods_dir.join("SteamAchievements").join("mod.ini").is_file());
+        assert!(mods_dir.join("SteamAchievements").join("data.dll").is_file());
+        // No stray nested directories
+        assert!(!mods_dir.join("mods").exists());
+    }
+
+    #[test]
+    fn test_install_mod_no_mod_ini_with_dir_name() {
+        // Archive has loose files and no mod.ini (e.g. icondata)
+        // Falls back to staging root
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::write(staging.join("icon.ico"), b"icon").unwrap();
+        std::fs::write(staging.join("other.ico"), b"other").unwrap();
 
         let mods_dir = tmp.path().join("mods");
         std::fs::create_dir_all(&mods_dir).unwrap();
 
-        // Replicate the logic from install_mod
-        let mod_name = "MyMod";
-        if staging.join("mod.ini").is_file() {
-            let dest = mods_dir.join(mod_name);
-            move_dir_contents(&staging, &dest).unwrap();
-        } else {
-            move_dir_contents(&staging, &mods_dir).unwrap();
-        }
+        let dir_name = "icondata";
+        let dest = mods_dir.join(dir_name);
+        let content_root = find_mod_root(&staging).unwrap_or(staging.clone());
+        move_dir_contents(&content_root, &dest).unwrap();
 
-        // Should end up as mods/MyMod/mod.ini (not mods/MyMod/MyMod/mod.ini)
-        assert!(mods_dir.join("MyMod").join("mod.ini").is_file());
-        assert!(!mods_dir.join("mod.ini").exists());
+        assert!(mods_dir.join("icondata").join("icon.ico").is_file());
+        assert!(mods_dir.join("icondata").join("other.ico").is_file());
+    }
+
+    #[test]
+    fn test_install_mod_no_dir_name_passthrough() {
+        // dir_name is None — archive extracts directly into mods/
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let sub = staging.join("SomeMod");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(sub.join("mod.ini"), b"[mod]").unwrap();
+
+        let mods_dir = tmp.path().join("mods");
+        std::fs::create_dir_all(&mods_dir).unwrap();
+
+        // No dir_name → move directly
+        move_dir_contents(&staging, &mods_dir).unwrap();
+
+        assert!(mods_dir.join("SomeMod").join("mod.ini").is_file());
     }
 
     /// Helper: simulate the Steam exe replacement logic from `install_mod_manager`.
