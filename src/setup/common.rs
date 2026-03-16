@@ -31,7 +31,7 @@ pub struct ModEntry {
 /// Resolve a `ModSource` to a download URL string.
 pub fn resolve_download_url(source: &ModSource) -> String {
     match source {
-        ModSource::GameBanana { file_id } => format!("https://gamebanana.com/mmdl/{file_id}"),
+        ModSource::GameBanana { file_id } => format!("https://gamebanana.com/dl/{file_id}"),
         ModSource::DirectUrl { url } => (*url).to_string(),
     }
 }
