@@ -23,6 +23,7 @@ fn mod_folder_name(mod_name: &str) -> &str {
         "Stage Atmosphere Tweaks" => "StageAtmosphereTweaks",
         "SA2 Volume Controls" => "SA2VolumeControls",
         "Mech Sound Improvement" => "Mech Sound Improvement",
+        "SASDL" => "SASDL",
         "SA2 Input Controls" => "sa2-input-controls",
         "Better Radar" => "SA2BetterRadar",
         "HedgePanel - Sonic + Shadow Tweaks" => "HedgePanel",

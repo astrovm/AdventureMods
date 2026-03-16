@@ -58,6 +58,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: None,
     },
     ModEntry {
+        name: "SASDL",
+        source: ModSource::GameBanana { file_id: 1503809 },
+        description: "SDL2 library interface required by SA2 Input Controls",
+        before_image: None,
+        after_image: None,
+        dir_name: None,
+    },
+    ModEntry {
         name: "SA2 Input Controls",
         source: ModSource::GameBanana { file_id: 1514050 },
         description: "Adjusts oversensitive controls for better handling",
@@ -106,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 12);
+        assert_eq!(RECOMMENDED_MODS.len(), 13);
     }
 
     #[test]
