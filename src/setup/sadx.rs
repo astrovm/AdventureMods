@@ -257,16 +257,11 @@ pub fn convert_steam_to_2004(
     let patch_str = patch_file.to_string_lossy().to_string();
     let out_str = out_dir.to_string_lossy().trim_end_matches('/').to_string();
 
-    // hpatchz patch was built on Windows with "System" (capitalized).
-    // Steam on Linux may extract it as "system" (lowercase).
-    // Rename to match the patch's expectations on case-sensitive filesystems.
-    let system_lower = game_path.join("system");
-    let system_upper = game_path.join("System");
-    if system_lower.is_dir() && !system_upper.exists() {
-        std::fs::rename(&system_lower, &system_upper)
-            .context("Failed to rename system → System for case-sensitive patching")?;
-        tracing::info!("Renamed system → System for case-sensitive filesystem compatibility");
-    }
+    // The hpatchz patch was built on a case-insensitive Windows filesystem.
+    // On Linux (case-sensitive), directory names must match exactly.
+    // Steam on Linux may extract directories with different casing than what
+    // the patch expects, so we normalize them before patching.
+    normalize_case_for_patch(game_path)?;
 
     tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
 
@@ -281,9 +276,9 @@ pub fn convert_steam_to_2004(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        
+
         tracing::error!("hpatchz failed. Stderr:\n{}", stderr);
-        
+
         // If it failed due to "open oldFile ERROR", it's likely a source file mismatch.
         if stderr.contains("open oldFile ERROR!") || stderr.contains("check oldPathType") {
              tracing::error!("Source file mismatch detected. This usually happens if the game is already modded or corrupted.");
@@ -297,11 +292,75 @@ pub fn convert_steam_to_2004(
     // hpatchz in directory mode produces a new directory with the patched files.
     // We want to merge/overwrite these into the game directory.
     tracing::info!("Patch applied successfully to temp dir, moving files back...");
-    
+
     // Move files from out_dir to game_path
     move_dir_contents(&out_dir, game_path)?;
 
+    // The patched output uses lowercase "system" (matching the patch).
+    // Rename back to "System" since the mod loader and configure_game() expect it.
+    let system_lower = game_path.join("system");
+    let system_upper = game_path.join("System");
+    if system_lower.is_dir() && !system_upper.exists() {
+        std::fs::rename(&system_lower, &system_upper)
+            .context("Failed to rename system → System after patching")?;
+        tracing::info!("Renamed system → System for mod loader compatibility");
+    }
+
     tracing::info!("Steam-to-2004 conversion complete");
+    Ok(())
+}
+
+/// Rename directories to match the casing the hpatchz patch expects.
+///
+/// The patch was created on Windows (case-insensitive). Steam on Linux may
+/// extract directories with different casing. Known mismatches:
+/// - `System` → `system`
+/// - `SoundData/VOICE_JP` → `SoundData/voice_jp`
+/// - `SoundData/VOICE_US` → `SoundData/voice_us`
+/// - `SoundData/SE` → `SoundData/se`
+/// - `SoundData/*/WMA` → `SoundData/*/wma`
+fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
+    // Helper: rename src → dst if src exists and dst doesn't
+    let rename_if_needed = |src: &Path, dst: &Path| -> Result<()> {
+        if src.is_dir() && !dst.exists() {
+            std::fs::rename(src, dst).with_context(|| {
+                format!(
+                    "Failed to rename {} → {}",
+                    src.display(),
+                    dst.display()
+                )
+            })?;
+            tracing::info!(
+                "Renamed {} → {} for patch compatibility",
+                src.file_name().unwrap_or_default().to_string_lossy(),
+                dst.file_name().unwrap_or_default().to_string_lossy()
+            );
+        }
+        Ok(())
+    };
+
+    // System → system
+    rename_if_needed(
+        &game_path.join("System"),
+        &game_path.join("system"),
+    )?;
+
+    let sound_data = game_path.join("SoundData");
+    if sound_data.is_dir() {
+        // VOICE_JP → voice_jp, VOICE_US → voice_us, SE → se
+        rename_if_needed(&sound_data.join("VOICE_JP"), &sound_data.join("voice_jp"))?;
+        rename_if_needed(&sound_data.join("VOICE_US"), &sound_data.join("voice_us"))?;
+        rename_if_needed(&sound_data.join("SE"), &sound_data.join("se"))?;
+
+        // WMA → wma inside voice dirs
+        for dir_name in &["voice_jp", "voice_us"] {
+            let voice_dir = sound_data.join(dir_name);
+            if voice_dir.is_dir() {
+                rename_if_needed(&voice_dir.join("WMA"), &voice_dir.join("wma"))?;
+            }
+        }
+    }
+
     Ok(())
 }
 
