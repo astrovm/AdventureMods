@@ -205,6 +205,166 @@ mod tests {
         );
     }
 
+    /// Helper: simulate the Steam exe replacement logic from `install_mod_manager`.
+    /// Creates `SAModManager.exe` in the game dir and runs the replacement logic.
+    fn run_exe_replacement(game_path: &std::path::Path) {
+        // Create a fake SAModManager.exe (the "dest_exe" that install_mod_manager copies)
+        let dest_exe = game_path.join("SAModManager.exe");
+        std::fs::write(&dest_exe, b"mod_manager_content").unwrap();
+
+        let launcher = game_path.join("Launcher.exe");
+        let sadx_exe = game_path.join("Sonic Adventure DX.exe");
+        let steam_exe = if launcher.is_file() {
+            Some(launcher)
+        } else if sadx_exe.is_file() {
+            Some(sadx_exe)
+        } else {
+            None
+        };
+
+        if let Some(steam_exe) = steam_exe {
+            let bak = steam_exe.with_extension("exe.bak");
+            if !bak.exists() {
+                std::fs::rename(&steam_exe, &bak).unwrap();
+            }
+            std::fs::rename(&dest_exe, &steam_exe).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_exe_replacement_sa2_launcher() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        std::fs::write(game_path.join("Launcher.exe"), b"original_launcher").unwrap();
+
+        run_exe_replacement(game_path);
+
+        // Launcher.exe should now contain the mod manager
+        assert_eq!(
+            std::fs::read(game_path.join("Launcher.exe")).unwrap(),
+            b"mod_manager_content"
+        );
+        // Original backed up
+        assert_eq!(
+            std::fs::read(game_path.join("Launcher.exe.bak")).unwrap(),
+            b"original_launcher"
+        );
+        // SAModManager.exe should have been renamed away
+        assert!(!game_path.join("SAModManager.exe").exists());
+    }
+
+    #[test]
+    fn test_exe_replacement_sadx() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        std::fs::write(
+            game_path.join("Sonic Adventure DX.exe"),
+            b"original_sadx",
+        )
+        .unwrap();
+
+        run_exe_replacement(game_path);
+
+        // "Sonic Adventure DX.exe" should now contain the mod manager
+        assert_eq!(
+            std::fs::read(game_path.join("Sonic Adventure DX.exe")).unwrap(),
+            b"mod_manager_content"
+        );
+        // Original backed up
+        assert_eq!(
+            std::fs::read(game_path.join("Sonic Adventure DX.exe.bak")).unwrap(),
+            b"original_sadx"
+        );
+        assert!(!game_path.join("SAModManager.exe").exists());
+    }
+
+    #[test]
+    fn test_exe_replacement_sadx_backup_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        // Simulate a prior backup already existing
+        std::fs::write(
+            game_path.join("Sonic Adventure DX.exe.bak"),
+            b"first_backup",
+        )
+        .unwrap();
+        std::fs::write(
+            game_path.join("Sonic Adventure DX.exe"),
+            b"already_replaced",
+        )
+        .unwrap();
+
+        run_exe_replacement(game_path);
+
+        // The original backup should be preserved (not overwritten)
+        assert_eq!(
+            std::fs::read(game_path.join("Sonic Adventure DX.exe.bak")).unwrap(),
+            b"first_backup"
+        );
+    }
+
+    #[test]
+    fn test_exe_replacement_sa2_backup_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        std::fs::write(game_path.join("Launcher.exe.bak"), b"first_backup").unwrap();
+        std::fs::write(game_path.join("Launcher.exe"), b"already_replaced").unwrap();
+
+        run_exe_replacement(game_path);
+
+        assert_eq!(
+            std::fs::read(game_path.join("Launcher.exe.bak")).unwrap(),
+            b"first_backup"
+        );
+    }
+
+    #[test]
+    fn test_exe_replacement_no_steam_exe() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        // No Launcher.exe or Sonic Adventure DX.exe — mod manager stays as-is
+
+        run_exe_replacement(game_path);
+
+        // SAModManager.exe should remain in place
+        assert_eq!(
+            std::fs::read(game_path.join("SAModManager.exe")).unwrap(),
+            b"mod_manager_content"
+        );
+        assert!(!game_path.join("Launcher.exe").exists());
+        assert!(!game_path.join("Sonic Adventure DX.exe").exists());
+    }
+
+    #[test]
+    fn test_exe_replacement_launcher_takes_priority_over_sadx() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        // Both exist — Launcher.exe should win (SA2 path)
+        std::fs::write(game_path.join("Launcher.exe"), b"launcher").unwrap();
+        std::fs::write(
+            game_path.join("Sonic Adventure DX.exe"),
+            b"sadx",
+        )
+        .unwrap();
+
+        run_exe_replacement(game_path);
+
+        // Launcher.exe replaced
+        assert_eq!(
+            std::fs::read(game_path.join("Launcher.exe")).unwrap(),
+            b"mod_manager_content"
+        );
+        assert_eq!(
+            std::fs::read(game_path.join("Launcher.exe.bak")).unwrap(),
+            b"launcher"
+        );
+        // SADX exe untouched
+        assert_eq!(
+            std::fs::read(game_path.join("Sonic Adventure DX.exe")).unwrap(),
+            b"sadx"
+        );
+    }
+
     #[test]
     fn test_recommended_mods_for_game_returns_correct_lists() {
         let sadx_mods = recommended_mods_for_game(GameKind::SADX);
