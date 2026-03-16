@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib};
 
 use crate::setup::{common, sa2_config, sadx, sadx_config, steps};
 use crate::steam::game::Game;
@@ -483,6 +483,7 @@ impl AdventureModsSetupPage {
             });
 
             let game_kind = game.kind;
+            let (width, height) = obj.get_resolution();
             let result: anyhow::Result<()> = match step_id {
                 "convert_steam" => {
                     let game_path = game.path.clone();
@@ -542,9 +543,9 @@ impl AdventureModsSetupPage {
                             .filter_map(|idx| mods_list.get(*idx))
                             .collect();
                         if game_kind == crate::steam::game::GameKind::SADX {
-                            sadx_config::generate_sadx_config(&game_path, &selected_entries)?;
+                            sadx_config::generate_sadx_config(&game_path, &selected_entries, width, height)?;
                         } else {
-                            sa2_config::generate_sa2_config(&game_path, &selected_entries)?;
+                            sa2_config::generate_sa2_config(&game_path, &selected_entries, width, height)?;
                         }
 
                         Ok(())
@@ -574,6 +575,28 @@ impl AdventureModsSetupPage {
                 }
             }
         });
+    }
+
+    fn get_resolution(&self) -> (u32, u32) {
+        // Fallback to 1080p if we can't detect it
+        let default_res = (1920, 1080);
+        
+        let display = self.display();
+        let monitors = display.monitors();
+        
+        // Try to get the monitor where the window is
+        let monitor = if let Some(surface) = self.native().and_then(|n| n.surface()) {
+            display.monitor_at_surface(&surface)
+        } else {
+            monitors.item(0).and_then(|m| m.downcast::<gdk::Monitor>().ok())
+        };
+
+        if let Some(monitor) = monitor {
+            let geometry = monitor.geometry();
+            (geometry.width() as u32, geometry.height() as u32)
+        } else {
+            default_res
+        }
     }
 
     fn advance_step(&self) {

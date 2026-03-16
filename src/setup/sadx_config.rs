@@ -14,8 +14,13 @@ fn linux_to_wine_path(path: &Path) -> String {
 }
 
 /// Generate all SA Mod Manager v4 configuration files for SADX.
-pub fn generate_sadx_config(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
-    let profile = build_default_profile(game_path, selected_mods);
+pub fn generate_sadx_config(
+    game_path: &Path,
+    selected_mods: &[&ModEntry],
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    let profile = build_default_profile(game_path, selected_mods, width, height);
 
     write_manager_json(game_path)?;
     write_profiles_json(game_path, "SAManager/SADX/profiles")?;
@@ -198,7 +203,12 @@ struct DebugSettings {
 
 // --- Builders ---
 
-fn build_default_profile(game_path: &Path, selected_mods: &[&ModEntry]) -> DefaultProfile {
+fn build_default_profile(
+    game_path: &Path,
+    selected_mods: &[&ModEntry],
+    width: u32,
+    height: u32,
+) -> DefaultProfile {
     let mod_dirs: Vec<String> = selected_mods
         .iter()
         .filter_map(|m| m.dir_name.map(|d| d.to_string()))
@@ -213,8 +223,8 @@ fn build_default_profile(game_path: &Path, selected_mods: &[&ModEntry]) -> Defau
         settings_version: 4,
         graphics: Graphics {
             selected_screen: 1,
-            horizontal_resolution: 1920,
-            vertical_resolution: 1080,
+            horizontal_resolution: width,
+            vertical_resolution: height,
             enable43_resolution_ratio: false,
             enable_vsync: true,
             enable_pause_on_inactive: true,
@@ -455,7 +465,7 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(game_path, &mod_refs).unwrap();
+        generate_sadx_config(game_path, &mod_refs, 1920, 1080).unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
         assert!(game_path.join("SAManager/SADX/profiles/Profiles.json").is_file());
@@ -488,7 +498,7 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(tmp.path(), &mod_refs).unwrap();
+        generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("SAManager/SADX/profiles/Default.json"),
@@ -521,7 +531,7 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(tmp.path(), &mod_refs).unwrap();
+        generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
         let sam_default = std::fs::read_to_string(
             tmp.path().join("SAManager/SADX/profiles/Default.json"),
@@ -574,7 +584,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
 
-        generate_sadx_config(tmp.path(), &[]).unwrap();
+        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("SAManager/SADX/profiles/Default.json"),
@@ -591,7 +601,7 @@ mod tests {
     fn test_json_field_names_match_sa_mod_manager() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
-        generate_sadx_config(tmp.path(), &[]).unwrap();
+        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let profile = std::fs::read_to_string(
             tmp.path().join("SAManager/SADX/profiles/Default.json"),
@@ -617,7 +627,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
 
-        generate_sadx_config(tmp.path(), &[]).unwrap();
+        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("SAManager/SADX/profiles/Default.json"),

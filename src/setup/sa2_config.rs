@@ -34,14 +34,19 @@ fn mod_folder_name(mod_name: &str) -> &str {
 }
 
 /// Generate all SA Mod Manager v3 configuration files for SA2.
-pub fn generate_sa2_config(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
-    let profile = build_default_profile(game_path, selected_mods);
+pub fn generate_sa2_config(
+    game_path: &Path,
+    selected_mods: &[&ModEntry],
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    let profile = build_default_profile(game_path, selected_mods, width, height);
 
     write_manager_json(game_path)?;
     write_profiles_json(game_path, "mods/.modloader/profiles")?;
     write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
     write_samanager_txt(game_path)?;
-    write_user_config(game_path)?;
+    write_user_config(game_path, width, height)?;
 
     tracing::info!("SA2 configuration files generated");
     Ok(())
@@ -171,7 +176,12 @@ struct DebugSettings {
 
 // --- Builders ---
 
-fn build_default_profile(game_path: &Path, selected_mods: &[&ModEntry]) -> DefaultProfile {
+fn build_default_profile(
+    game_path: &Path,
+    selected_mods: &[&ModEntry],
+    width: u32,
+    height: u32,
+) -> DefaultProfile {
     let mod_dirs: Vec<String> = selected_mods
         .iter()
         .map(|m| mod_folder_name(m.name).to_string())
@@ -186,8 +196,8 @@ fn build_default_profile(game_path: &Path, selected_mods: &[&ModEntry]) -> Defau
         settings_version: 3,
         graphics: Graphics {
             selected_screen: 1,
-            horizontal_resolution: 1920,
-            vertical_resolution: 1080,
+            horizontal_resolution: width,
+            vertical_resolution: height,
             enable_pause_on_inactive: true,
             custom_window_width: 640,
             custom_window_height: 480,
@@ -313,16 +323,19 @@ fn write_samanager_txt(game_path: &Path) -> Result<()> {
         .context("Failed to write samanager.txt")
 }
 
-fn write_user_config(game_path: &Path) -> Result<()> {
+fn write_user_config(game_path: &Path, width: u32, height: u32) -> Result<()> {
     let dir = game_path.join("Config");
     std::fs::create_dir_all(&dir)?;
 
-    let xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
-               <Configs xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
-               xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" \
-               FullScreen=\"0\" Display=\"0\" Res=\"0\" \
-               Width=\"1920\" Height=\"1080\" RefreshRate=\"60\" \
-               Language=\"0\" Analytics=\"0\" />\n";
+    let xml = format!(
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n\
+         <Configs xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \
+         xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" \
+         FullScreen=\"0\" Display=\"0\" Res=\"0\" \
+         Width=\"{}\" Height=\"{}\" RefreshRate=\"60\" \
+         Language=\"0\" Analytics=\"0\" />\n",
+        width, height
+    );
 
     std::fs::write(dir.join("UserConfig.cfg"), xml).context("Failed to write UserConfig.cfg")
 }
@@ -372,7 +385,7 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sa2_config(game_path, &mod_refs).unwrap();
+        generate_sa2_config(game_path, &mod_refs, 1920, 1080).unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
         assert!(game_path.join("mods/.modloader/profiles/Profiles.json").is_file());
@@ -428,7 +441,7 @@ mod tests {
     #[test]
     fn test_no_sadx_specific_fields() {
         let tmp = tempfile::tempdir().unwrap();
-        generate_sa2_config(tmp.path(), &[]).unwrap();
+        generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("mods/.modloader/profiles/Default.json"),
@@ -448,7 +461,7 @@ mod tests {
     #[test]
     fn test_user_config_xml() {
         let tmp = tempfile::tempdir().unwrap();
-        write_user_config(tmp.path()).unwrap();
+        write_user_config(tmp.path(), 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(tmp.path().join("Config/UserConfig.cfg")).unwrap();
         assert!(content.contains("<?xml version"));
@@ -472,7 +485,7 @@ mod tests {
     #[test]
     fn test_empty_mod_selection() {
         let tmp = tempfile::tempdir().unwrap();
-        generate_sa2_config(tmp.path(), &[]).unwrap();
+        generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("mods/.modloader/profiles/Default.json"),
