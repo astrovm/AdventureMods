@@ -1,6 +1,6 @@
 use std::cell::Cell;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -89,7 +89,7 @@ impl AdventureModsSetupPage {
         let all_steps = steps::steps_for_game(game.kind);
         obj.imp().all_steps.replace(all_steps);
         obj.imp().game.replace(Some(game));
-        
+
         let initial_step = obj.skip_completed_steps(0);
         obj.imp().current_step.set(initial_step);
         obj.show_current_step();
@@ -138,7 +138,8 @@ impl AdventureModsSetupPage {
                 self.run_auto_step(step.id);
             }
             steps::StepKind::Info => {
-                imp.next_button.set_label(if is_last_step { "Finish" } else { "Continue" });
+                imp.next_button
+                    .set_label(if is_last_step { "Finish" } else { "Continue" });
                 imp.next_button.set_sensitive(true);
             }
             steps::StepKind::ExternalAction { button_label } => {
@@ -156,11 +157,7 @@ impl AdventureModsSetupPage {
                 action_button.connect_clicked(move |btn| {
                     btn.set_sensitive(false);
                     if let Some(ref game) = game {
-                        Self::run_external_action(
-                            step_id,
-                            game.clone(),
-                            btn.clone(),
-                        );
+                        Self::run_external_action(step_id, game.clone(), btn.clone());
                     }
                 });
 
@@ -192,9 +189,12 @@ impl AdventureModsSetupPage {
                     btn.set_label("Cancelling...");
                     // Re-show the step so user can retry
                     let obj2 = obj.clone();
-                    glib::timeout_add_local_once(std::time::Duration::from_millis(500), move || {
-                        obj2.show_current_step();
-                    });
+                    glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(500),
+                        move || {
+                            obj2.show_current_step();
+                        },
+                    );
                 });
 
                 content_box.append(&progress_bar);
@@ -241,7 +241,7 @@ impl AdventureModsSetupPage {
                     .halign(gtk::Align::Start)
                     .css_classes(vec!["caption".to_string()])
                     .build();
-                
+
                 let before_image = gtk::Picture::builder()
                     .can_shrink(true)
                     .content_fit(gtk::ContentFit::Contain)
@@ -259,7 +259,7 @@ impl AdventureModsSetupPage {
                     .halign(gtk::Align::Start)
                     .css_classes(vec!["caption".to_string()])
                     .build();
-                
+
                 let after_image = gtk::Picture::builder()
                     .can_shrink(true)
                     .content_fit(gtk::ContentFit::Contain)
@@ -295,9 +295,7 @@ impl AdventureModsSetupPage {
                         .margin_bottom(12)
                         .build();
 
-                    let check = gtk::CheckButton::builder()
-                        .active(true)
-                        .build();
+                    let check = gtk::CheckButton::builder().active(true).build();
 
                     let text_box = gtk::Box::builder()
                         .orientation(gtk::Orientation::Vertical)
@@ -323,9 +321,7 @@ impl AdventureModsSetupPage {
                     row_box.append(&check);
                     row_box.append(&text_box);
 
-                    let list_row = gtk::ListBoxRow::builder()
-                        .child(&row_box)
-                        .build();
+                    let list_row = gtk::ListBoxRow::builder().child(&row_box).build();
 
                     let obj_clone = self.clone();
                     let idx = i;
@@ -345,7 +341,7 @@ impl AdventureModsSetupPage {
                     let a_img = after_image.clone();
                     let p_box = preview_box.clone();
                     let mod_entry_clone = mod_entry;
-                    
+
                     let gesture = gtk::EventControllerMotion::new();
                     gesture.connect_enter(move |_, _, _| {
                         if let Some(before) = mod_entry_clone.before_image {
@@ -402,11 +398,7 @@ impl AdventureModsSetupPage {
         });
     }
 
-    fn run_external_action(
-        step_id: &'static str,
-        _game: Game,
-        button: gtk::Button,
-    ) {
+    fn run_external_action(step_id: &'static str, _game: Game, button: gtk::Button) {
         glib::spawn_future_local(async move {
             let result: anyhow::Result<()> = match step_id {
                 _ => Ok(()),
@@ -449,7 +441,7 @@ impl AdventureModsSetupPage {
                             let frac = downloaded as f64 / total as f64;
                             pb.set_fraction(frac);
                         }
-                        
+
                         // Large total means bytes, small means item count
                         if total > 1000 {
                             text.push_str(&format!(
@@ -460,10 +452,7 @@ impl AdventureModsSetupPage {
                         }
                     } else {
                         pb.pulse();
-                        text.push_str(&format!(
-                            "({:.1} MB)",
-                            downloaded as f64 / 1_048_576.0,
-                        ));
+                        text.push_str(&format!("({:.1} MB)", downloaded as f64 / 1_048_576.0,));
                     }
 
                     let display_text = text.trim();
@@ -523,23 +512,39 @@ impl AdventureModsSetupPage {
                                 return Err(anyhow::anyhow!("cancelled"));
                             }
                             if let Some(mod_entry) = mods_list.get(*idx) {
-                                let status = format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
-                                let _ = tx.send_blocking((i as u64, Some(total_count as u64), status));
+                                let status =
+                                    format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
+                                let _ =
+                                    tx.send_blocking((i as u64, Some(total_count as u64), status));
 
                                 common::install_mod(&game_path, mod_entry, None)?;
                             }
                         }
 
                         // Generate SA Mod Manager config files
-                        let _ = tx.send_blocking((total_count as u64, Some(total_count as u64), "Configuring...".to_string()));
+                        let _ = tx.send_blocking((
+                            total_count as u64,
+                            Some(total_count as u64),
+                            "Configuring...".to_string(),
+                        ));
                         let selected_entries: Vec<&common::ModEntry> = selected
                             .iter()
                             .filter_map(|idx| mods_list.get(*idx))
                             .collect();
                         if game_kind == crate::steam::game::GameKind::SADX {
-                            sadx_config::generate_sadx_config(&game_path, &selected_entries, width, height)?;
+                            sadx_config::generate_sadx_config(
+                                &game_path,
+                                &selected_entries,
+                                width,
+                                height,
+                            )?;
                         } else {
-                            sa2_config::generate_sa2_config(&game_path, &selected_entries, width, height)?;
+                            sa2_config::generate_sa2_config(
+                                &game_path,
+                                &selected_entries,
+                                width,
+                                height,
+                            )?;
                         }
 
                         Ok(())
@@ -574,35 +579,53 @@ impl AdventureModsSetupPage {
     fn get_resolution(&self) -> (u32, u32) {
         // Fallback to 1080p if we can't detect it
         let default_res = (1920, 1080);
-        
+
         let display = self.display();
         let monitors = display.monitors();
-        
+
         // Try to get the monitor where the window is
-        let monitor = if let Some(surface) = self.native().and_then(|n| n.surface()) {
-            display.monitor_at_surface(&surface)
+        let surface = self.native().and_then(|n| n.surface());
+        let monitor = if let Some(ref s) = surface {
+            display.monitor_at_surface(s)
         } else {
-            monitors.item(0).and_then(|m| m.downcast::<gdk::Monitor>().ok())
+            monitors
+                .item(0)
+                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
         };
 
         if let Some(monitor) = monitor {
             let geometry = monitor.geometry();
-            let scale = monitor.scale_factor();
+
+            // Try to get fractional scale from surface, fall back to monitor's integer scale.
+            // gdk::Surface::scale() returns f64 and supports fractional scaling (GTK 4.12+).
+            let scale = if let Some(s) = surface {
+                s.scale()
+            } else {
+                monitor.scale_factor() as f64
+            };
+
             let (width, height) = (
-                (geometry.width() * scale) as u32,
-                (geometry.height() * scale) as u32
+                (geometry.width() as f64 * scale).round() as u32,
+                (geometry.height() as f64 * scale).round() as u32,
             );
             tracing::info!(
-                "Detected resolution: {}x{} (Logical: {}x{}, Scale: {})",
-                width, height, geometry.width(), geometry.height(), scale
+                "Detected resolution: {}x{} (Logical: {}x{}, Scale: {:.2})",
+                width,
+                height,
+                geometry.width(),
+                geometry.height(),
+                scale
             );
             (width, height)
         } else {
-            tracing::warn!("Could not detect monitor resolution, using fallback {}x{}", default_res.0, default_res.1);
+            tracing::warn!(
+                "Could not detect monitor resolution, using fallback {}x{}",
+                default_res.0,
+                default_res.1
+            );
             default_res
         }
     }
-
     fn advance_step(&self) {
         let imp = self.imp();
         let next = imp.current_step.get() + 1;
