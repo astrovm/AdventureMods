@@ -210,6 +210,7 @@ impl AdventureModsSetupPage {
                     .orientation(gtk::Orientation::Horizontal)
                     .spacing(24)
                     .hexpand(true)
+                    .halign(gtk::Align::Fill)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
@@ -240,9 +241,15 @@ impl AdventureModsSetupPage {
                     .halign(gtk::Align::Start)
                     .css_classes(vec!["caption".to_string()])
                     .build();
+                
                 let before_image = gtk::Picture::builder()
-                    .can_shrink(false)
+                    .can_shrink(true)
                     .content_fit(gtk::ContentFit::Cover)
+                    .build();
+                let before_frame = gtk::AspectFrame::builder()
+                    .ratio(2.0)
+                    .obey_child(false)
+                    .child(&before_image)
                     .width_request(400)
                     .height_request(200)
                     .build();
@@ -252,17 +259,23 @@ impl AdventureModsSetupPage {
                     .halign(gtk::Align::Start)
                     .css_classes(vec!["caption".to_string()])
                     .build();
+                
                 let after_image = gtk::Picture::builder()
-                    .can_shrink(false)
+                    .can_shrink(true)
                     .content_fit(gtk::ContentFit::Cover)
+                    .build();
+                let after_frame = gtk::AspectFrame::builder()
+                    .ratio(2.0)
+                    .obey_child(false)
+                    .child(&after_image)
                     .width_request(400)
                     .height_request(200)
                     .build();
 
                 preview_box.append(&before_label);
-                preview_box.append(&before_image);
+                preview_box.append(&before_frame);
                 preview_box.append(&after_label);
-                preview_box.append(&after_image);
+                preview_box.append(&after_frame);
 
                 preview_box.set_opacity(0.0);
 
