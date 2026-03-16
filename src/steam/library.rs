@@ -276,6 +276,8 @@ mod tests {
             .join(GameKind::SA2.install_dir());
         std::fs::create_dir_all(&sadx_dir).unwrap();
         std::fs::create_dir_all(&sa2_dir).unwrap();
+        std::fs::write(sadx_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+        std::fs::write(sa2_dir.join("sonic2app.exe"), "").unwrap();
 
         // Write a VDF file referencing both games
         let vdf_path = tmp.path().join("libraryfolders.vdf");
@@ -347,6 +349,7 @@ mod tests {
             .join("steamapps/common")
             .join(GameKind::SA2.install_dir());
         std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("sonic2app.exe"), "").unwrap();
 
         // First library has no SA2, second library has it
         let mut folder0 = HashMap::new();
