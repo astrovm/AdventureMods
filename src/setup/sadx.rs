@@ -227,35 +227,79 @@ pub fn convert_steam_to_2004(
     }
 
     // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
-    // Canonicalize to resolve symlinks, which is important for host-mounted drives
-    let game_canonical = game_path.canonicalize().context("Failed to canonicalize game path")?;
-    let game_str = game_canonical
-        .to_str()
-        .context("Game path is not valid UTF-8")?
-        .trim_end_matches('/'); // Remove trailing slash for hpatchz
-
-    let patch_str = patch_file
-        .to_str()
-        .context("Patch file path is not valid UTF-8")?;
+    let game_str = game_path.to_string_lossy().trim_end_matches('/').to_string();
+    let patch_str = patch_file.to_string_lossy().to_string();
 
     tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
 
+    // Diagnostics
+    if let Ok(metadata) = std::fs::symlink_metadata(game_path) {
+        if metadata.is_symlink() {
+            if let Ok(target) = std::fs::read_link(game_path) {
+                tracing::info!("Game path is a symlink pointing to: {}", target.display());
+            }
+        }
+    }
+
+    // Check if we can actually read a key file in the directory
+    let steam_exe = game_path.join("Sonic Adventure DX.exe");
+    if !steam_exe.exists() {
+        tracing::warn!("'Sonic Adventure DX.exe' not found in game directory. Patch might fail.");
+    } else {
+        match std::fs::File::open(&steam_exe) {
+            Ok(_) => tracing::info!("Successfully opened 'Sonic Adventure DX.exe' for reading"),
+            Err(e) => tracing::error!("Failed to open 'Sonic Adventure DX.exe': {e} (Permission or sandbox issue?)"),
+        }
+    }
+
     let output = std::process::Command::new("hpatchz")
         .arg("-f")
-        .arg(game_str)
-        .arg(patch_str)
-        .arg(game_str)
+        .arg(&game_str)
+        .arg(&patch_str)
+        .arg(&game_str)
         .output()
         .context("Failed to run hpatchz — is HDiffPatch installed?")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
+        
+        tracing::error!("hpatchz failed. Stderr:\n{}", stderr);
+        
+        // If it failed due to "open oldFile ERROR", it's likely a sandbox/symlink issue.
+        // Try canonicalizing as a fallback.
+        if stderr.contains("open oldFile ERROR!") || stderr.contains("check oldPathType") {
+            tracing::info!("Attempting fallback with canonicalized path...");
+            if let Ok(game_canonical) = game_path.canonicalize() {
+                let game_can_str = game_canonical.to_string_lossy().trim_end_matches('/').to_string();
+                tracing::info!("Canonical path: {}", game_can_str);
+                
+                let output2 = std::process::Command::new("hpatchz")
+                    .arg("-f")
+                    .arg(&game_can_can_str(&game_can_str))
+                    .arg(&patch_str)
+                    .arg(&game_can_can_str(&game_can_str))
+                    .output();
+                
+                if let Ok(o) = output2 {
+                    if o.status.success() {
+                        tracing::info!("Steam-to-2004 conversion complete via canonical path");
+                        return Ok(());
+                    }
+                    tracing::error!("Fallback failed as well. Stderr:\n{}", String::from_utf8_lossy(&o.stderr));
+                }
+            }
+        }
+
         anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
     }
 
     tracing::info!("Steam-to-2004 conversion complete");
     Ok(())
+}
+
+fn game_can_can_str(s: &str) -> String {
+    s.trim_end_matches('/').to_string()
 }
 
 /// Download and install the SADX Mod Loader into the game directory.

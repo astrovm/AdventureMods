@@ -44,7 +44,24 @@ fn find_game_in_libraries(
                 .join(kind.install_dir());
 
             if game_path.is_dir() {
-                return Some(game_path);
+                // Verify it's a real, readable installation and not a ghost entry
+                // SADX has 'Sonic Adventure DX.exe' (Steam) or 'sonic.exe' (2004)
+                // SA2 has 'Sonic Adventure 2.exe'
+                let executable = match kind {
+                    GameKind::SADX => "Sonic Adventure DX.exe",
+                    GameKind::SA2 => "Sonic Adventure 2.exe",
+                };
+                
+                let exe_path = game_path.join(executable);
+                let alt_exe = game_path.join("sonic.exe"); // Fallback for already converted SADX
+                
+                if exe_path.exists() || alt_exe.exists() {
+                    let real_path = game_path.canonicalize().unwrap_or_else(|_| game_path.clone());
+                    tracing::info!("Found {} at {} (Real path: {})", kind.name(), game_path.display(), real_path.display());
+                    return Some(game_path);
+                } else {
+                    tracing::warn!("Found directory for {} but no executable found at {}. Likely a stale Steam library entry.", kind.name(), game_path.display());
+                }
             }
         }
     }
@@ -73,7 +90,6 @@ pub fn detect_games_from_vdf(vdf_path: &Path) -> Vec<Game> {
 
     for kind in [GameKind::SADX, GameKind::SA2] {
         if let Some(path) = find_game_in_libraries(&root, kind) {
-            tracing::info!("Found {} at {}", kind.name(), path.display());
             games.push(Game { kind, path });
         } else {
             tracing::info!("{} not found", kind.name());
