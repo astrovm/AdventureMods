@@ -314,13 +314,11 @@ pub fn convert_steam_to_2004(
 ///
 /// The patch was created on Windows (case-insensitive). Steam on Linux may
 /// extract directories with different casing. Known mismatches:
-/// - `System` → `system`
 /// - `SoundData/VOICE_JP` → `SoundData/voice_jp`
 /// - `SoundData/VOICE_US` → `SoundData/voice_us`
 /// - `SoundData/SE` → `SoundData/se`
 /// - `SoundData/*/WMA` → `SoundData/*/wma`
 fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
-    // Helper: rename src → dst if src exists and dst doesn't
     let rename_if_needed = |src: &Path, dst: &Path| -> Result<()> {
         if src.is_dir() && !dst.exists() {
             std::fs::rename(src, dst).with_context(|| {
@@ -339,20 +337,12 @@ fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
         Ok(())
     };
 
-    // System → system
-    rename_if_needed(
-        &game_path.join("System"),
-        &game_path.join("system"),
-    )?;
-
     let sound_data = game_path.join("SoundData");
     if sound_data.is_dir() {
-        // VOICE_JP → voice_jp, VOICE_US → voice_us, SE → se
         rename_if_needed(&sound_data.join("VOICE_JP"), &sound_data.join("voice_jp"))?;
         rename_if_needed(&sound_data.join("VOICE_US"), &sound_data.join("voice_us"))?;
         rename_if_needed(&sound_data.join("SE"), &sound_data.join("se"))?;
 
-        // WMA → wma inside voice dirs
         for dir_name in &["voice_jp", "voice_us"] {
             let voice_dir = sound_data.join(dir_name);
             if voice_dir.is_dir() {
