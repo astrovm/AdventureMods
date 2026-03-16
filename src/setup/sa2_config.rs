@@ -414,7 +414,7 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sa2_config(tmp.path(), &mod_refs).unwrap();
+        generate_sa2_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
         let content = std::fs::read_to_string(
             tmp.path().join("mods/.modloader/profiles/Default.json"),
