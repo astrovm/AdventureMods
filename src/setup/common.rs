@@ -161,7 +161,7 @@ mod tests {
         let source = ModSource::GameBanana { file_id: 1388911 };
         assert_eq!(
             resolve_download_url(&source),
-            "https://gamebanana.com/mmdl/1388911"
+            "https://gamebanana.com/dl/1388911"
         );
     }
 

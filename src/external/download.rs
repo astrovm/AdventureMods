@@ -34,6 +34,16 @@ async fn download_file_async(
         .error_for_status()
         .with_context(|| format!("HTTP error for {url}"))?;
 
+    if let Some(content_type) = response.headers().get(reqwest::header::CONTENT_TYPE) {
+        if let Ok(ct) = content_type.to_str() {
+            if ct.starts_with("text/html") {
+                anyhow::bail!(
+                    "Server returned HTML instead of a file for {url} — the download link may be broken"
+                );
+            }
+        }
+    }
+
     let total = response.content_length();
 
     if let Some(parent) = dest.parent() {
