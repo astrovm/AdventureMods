@@ -58,16 +58,3 @@ pub async fn install_flatpak(app_id: &str) -> Result<()> {
     }
     Ok(())
 }
-
-/// Launch a Flatpak app on the host (fire-and-forget).
-pub async fn launch_flatpak(app_id: &str, args: &[&str]) -> Result<()> {
-    let mut all_args = vec!["run", app_id];
-    all_args.extend_from_slice(args);
-    let output = host_command("flatpak", &all_args).await?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("Failed to launch {app_id}: {stderr}");
-    }
-    Ok(())
-}

@@ -92,17 +92,17 @@ mod tests {
 
     #[test]
     fn test_run_args_flatpak() {
-        let args = run_args(71250, &["dotnet48"], true);
+        let args = run_args(71250, &["dotnetdesktop8"], true);
         assert_eq!(
             args,
-            vec!["run", PROTONTRICKS_FLATPAK, "71250", "dotnet48"]
+            vec!["run", PROTONTRICKS_FLATPAK, "71250", "dotnetdesktop8"]
         );
     }
 
     #[test]
     fn test_run_args_system() {
-        let args = run_args(71250, &["dotnet48"], false);
-        assert_eq!(args, vec!["run", "71250", "dotnet48"]);
+        let args = run_args(71250, &["dotnetdesktop8"], false);
+        assert_eq!(args, vec!["run", "71250", "dotnetdesktop8"]);
     }
 
     #[test]

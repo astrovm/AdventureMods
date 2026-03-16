@@ -62,7 +62,7 @@ cargo build
 
 1. **Game Detection** — Parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
 2. **Dependency Check** — Ensures protontricks is available, installing it from Flathub if needed
-3. **Runtime Setup** — Installs .NET Framework 4.8 via protontricks
+3. **Runtime Setup** — Installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 via protontricks
 4. **Mod Installation** — Configures native resolution and installs mod managers and curated mods
    - **SADX**: Installs the SADX Mod Loader, SA Mod Manager, and up to 19 recommended mods from dcmods, GameBanana, GitHub, and GitLab
    - **SA2**: Installs SA Mod Manager and up to 12 recommended mods from GameBanana
