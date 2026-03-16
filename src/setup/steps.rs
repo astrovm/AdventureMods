@@ -46,7 +46,7 @@ fn sadx_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "dotnet",
             title: "Install .NET Runtimes",
-            description: "Installing .NET Desktop Runtime 8.0 and Visual C++ Redistributable via protontricks. This may take several minutes...",
+            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) via protontricks. This may take several minutes...",
             kind: StepKind::Auto,
         },
         SetupStep {
@@ -99,7 +99,7 @@ fn sa2_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "dotnet",
             title: "Install .NET Runtimes",
-            description: "Installing .NET Desktop Runtime 8.0 and Visual C++ Redistributable via protontricks. This may take several minutes...",
+            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) via protontricks. This may take several minutes...",
             kind: StepKind::Auto,
         },
         SetupStep {

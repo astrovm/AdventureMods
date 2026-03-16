@@ -130,7 +130,7 @@ pub async fn ensure_protontricks() -> Result<()> {
     protontricks::install().await
 }
 
-/// Install .NET Desktop Runtime 8.0 and VC++ Redistributable for the given game's prefix.
+/// Install .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) for the given game's prefix.
 pub async fn install_dotnet(app_id: u32) -> Result<()> {
     protontricks::install_dotnet(app_id).await
 }
