@@ -409,20 +409,21 @@ fn mod_dir_name(name: &str) -> &str {
 /// Configure SA Mod Manager with JSON profile files matching the official installer.
 ///
 /// Writes three files:
-/// - `SAManager/SADX/Manager.json` — manager settings and game entry
+/// - `SAManager/Manager.json` — manager settings and game entry
 /// - `SAManager/SADX/profiles/Profiles.json` — profile index
 /// - `SAManager/SADX/profiles/Default.json` — mod list, patches, codes, and game settings
 pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
-    let game_dir_str = game_path.to_string_lossy();
-    let manager_dir = game_path.join("SAManager").join("SADX");
-    let profiles_dir = manager_dir.join("profiles");
+    // SA Mod Manager runs under Wine/Proton and expects Windows-style paths.
+    let game_dir_wine = format!("Z:{}", game_path.to_string_lossy().replace('/', "\\"));
+    let sa_manager_dir = game_path.join("SAManager");
+    let profiles_dir = sa_manager_dir.join("SADX").join("profiles");
     std::fs::create_dir_all(&profiles_dir)?;
 
-    // Manager.json
+    // Manager.json — lives at SAManager/ (the root, not per-game)
     let manager_json = format!(
         r#"{{
   "SettingsVersion": 3,
-  "CurrentSetGame": 1,
+  "CurrentSetGame": 0,
   "Theme": 2,
   "Language": 0,
   "ModAuthor": "Unknown",
@@ -436,18 +437,18 @@ pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Re
     "UpdateCheckCount": 1
   }},
   "GameEntries": [
-  {{
-    "Name": "Sonic Adventure DX",
-    "Directory": "{}",
-    "Executable": "sonic.exe",
-    "Type": 1
-  }}
+    {{
+      "Name": "Sonic Adventure DX",
+      "Directory": "{}",
+      "Executable": "sonic.exe",
+      "Type": 1
+    }}
   ],
   "KeepModOrder": false
 }}"#,
-        game_dir_str
+        game_dir_wine
     );
-    let manager_path = manager_dir.join("Manager.json");
+    let manager_path = sa_manager_dir.join("Manager.json");
     std::fs::write(&manager_path, manager_json).context("Failed to write Manager.json")?;
 
     // Profiles.json
@@ -566,11 +567,29 @@ pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Re
         enabled_mods
     );
     let default_path = profiles_dir.join("Default.json");
-    std::fs::write(&default_path, default_json).context("Failed to write Default.json")?;
+    std::fs::write(&default_path, &default_json).context("Failed to write Default.json")?;
+
+    // The SADX Mod Loader DLL reads its active profile from mods/.modloader/profiles/,
+    // not from SAManager/. Write the same profile there so mods load at game startup
+    // without requiring the user to open SA Mod Manager and click "Save & Play" first.
+    let loader_profiles_dir = game_path.join("mods").join(".modloader").join("profiles");
+    std::fs::create_dir_all(&loader_profiles_dir)?;
+    std::fs::write(loader_profiles_dir.join("Default.json"), &default_json)
+        .context("Failed to write mod loader Default.json")?;
+    std::fs::write(loader_profiles_dir.join("Profiles.json"), profiles_json)
+        .context("Failed to write mod loader Profiles.json")?;
+
+    // samanager.txt tells the mod loader where the game directory is (Wine path).
+    let samanager_txt_path = game_path.join("mods").join(".modloader").join("samanager.txt");
+    std::fs::write(
+        &samanager_txt_path,
+        format!("{}\\\n", game_dir_wine),
+    )
+    .context("Failed to write samanager.txt")?;
 
     tracing::info!(
         "Configured SA Mod Manager at {}",
-        manager_dir.display()
+        sa_manager_dir.display()
     );
 
     configure_game(game_path)?;
