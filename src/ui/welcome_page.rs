@@ -53,7 +53,9 @@ impl AdventureModsWelcomePage {
 
         if games.is_empty() {
             let label = gtk::Label::builder()
-                .label("No Sonic Adventure games detected.\nMake sure they are installed via Steam.")
+                .label(
+                    "No Sonic Adventure games detected.\nMake sure they are installed via Steam.",
+                )
                 .justify(gtk::Justification::Center)
                 .build();
             games_box.append(&label);

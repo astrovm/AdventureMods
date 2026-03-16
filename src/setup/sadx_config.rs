@@ -468,10 +468,26 @@ mod tests {
         generate_sadx_config(game_path, &mod_refs, 1920, 1080).unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
-        assert!(game_path.join("SAManager/SADX/profiles/Profiles.json").is_file());
-        assert!(game_path.join("SAManager/SADX/profiles/Default.json").is_file());
-        assert!(game_path.join("mods/.modloader/profiles/Profiles.json").is_file());
-        assert!(game_path.join("mods/.modloader/profiles/Default.json").is_file());
+        assert!(
+            game_path
+                .join("SAManager/SADX/profiles/Profiles.json")
+                .is_file()
+        );
+        assert!(
+            game_path
+                .join("SAManager/SADX/profiles/Default.json")
+                .is_file()
+        );
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Profiles.json")
+                .is_file()
+        );
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Default.json")
+                .is_file()
+        );
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("System/sonicDX.ini").is_file());
     }
@@ -500,10 +516,9 @@ mod tests {
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
         generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
 
         assert_eq!(parsed["SettingsVersion"], 4);
@@ -533,24 +548,20 @@ mod tests {
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
         generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
-        let sam_default = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Default.json"),
-        )
-        .unwrap();
-        let loader_default = std::fs::read_to_string(
-            tmp.path().join("mods/.modloader/profiles/Default.json"),
-        )
-        .unwrap();
+        let sam_default =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
+        let loader_default =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
         assert_eq!(sam_default, loader_default);
 
-        let sam_profiles = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Profiles.json"),
-        )
-        .unwrap();
-        let loader_profiles = std::fs::read_to_string(
-            tmp.path().join("mods/.modloader/profiles/Profiles.json"),
-        )
-        .unwrap();
+        let sam_profiles =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Profiles.json"))
+                .unwrap();
+        let loader_profiles =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Profiles.json"))
+                .unwrap();
         assert_eq!(sam_profiles, loader_profiles);
     }
 
@@ -571,8 +582,7 @@ mod tests {
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
         write_sonic_dx_ini(tmp.path()).unwrap();
 
-        let content =
-            std::fs::read_to_string(tmp.path().join("System/sonicDX.ini")).unwrap();
+        let content = std::fs::read_to_string(tmp.path().join("System/sonicDX.ini")).unwrap();
         assert!(content.contains("[sonicDX]"));
         assert!(content.contains("framerate=1"));
         assert!(content.contains("bgmv=100"));
@@ -586,10 +596,9 @@ mod tests {
 
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(parsed["EnabledMods"].as_array().unwrap().is_empty());
         assert!(parsed["ModsList"].as_array().unwrap().is_empty());
@@ -603,23 +612,34 @@ mod tests {
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
-        let profile = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Default.json"),
-        )
-        .unwrap();
+        let profile =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
         // Verify exact field names that serde PascalCase might get wrong
-        assert!(profile.contains("\"EnableGameSound3D\""), "Should be EnableGameSound3D");
-        assert!(profile.contains("\"EnableBassSFX\""), "Should be EnableBassSFX");
+        assert!(
+            profile.contains("\"EnableGameSound3D\""),
+            "Should be EnableGameSound3D"
+        );
+        assert!(
+            profile.contains("\"EnableBassSFX\""),
+            "Should be EnableBassSFX"
+        );
         assert!(profile.contains("\"SEVolume\""), "Should be SEVolume");
         assert!(profile.contains("\"FillModeFMV\""), "Should be FillModeFMV");
-        assert!(profile.contains("\"ModeUIFiltering\""), "Should be ModeUIFiltering");
-        assert!(profile.contains("\"EnableUIScaling\""), "Should be EnableUIScaling");
+        assert!(
+            profile.contains("\"ModeUIFiltering\""),
+            "Should be ModeUIFiltering"
+        );
+        assert!(
+            profile.contains("\"EnableUIScaling\""),
+            "Should be EnableUIScaling"
+        );
 
-        let manager = std::fs::read_to_string(
-            tmp.path().join("SAManager/Manager.json"),
-        )
-        .unwrap();
-        assert!(manager.contains("\"UpdateTimeOutCD\""), "Should be UpdateTimeOutCD");
+        let manager = std::fs::read_to_string(tmp.path().join("SAManager/Manager.json")).unwrap();
+        assert!(
+            manager.contains("\"UpdateTimeOutCD\""),
+            "Should be UpdateTimeOutCD"
+        );
     }
 
     #[test]
@@ -629,10 +649,9 @@ mod tests {
 
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("SAManager/SADX/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
 
         let game_path = parsed["GamePath"].as_str().unwrap();

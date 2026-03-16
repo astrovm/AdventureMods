@@ -371,11 +371,17 @@ mod tests {
         assert_eq!(mod_folder_name("SA2 Render Fix"), "sa2-render-fix");
         assert_eq!(mod_folder_name("HD GUI: SA2 Edition"), "HD GUI for SA2");
         assert_eq!(mod_folder_name("Better Radar"), "SA2BetterRadar");
-        assert_eq!(mod_folder_name("HedgePanel - Sonic + Shadow Tweaks"), "HedgePanel");
+        assert_eq!(
+            mod_folder_name("HedgePanel - Sonic + Shadow Tweaks"),
+            "HedgePanel"
+        );
         assert_eq!(mod_folder_name("Sonic: New Tricks"), "Sonic New Tricks");
         assert_eq!(mod_folder_name("SA2 Volume Controls"), "SA2VolumeControls");
         assert_eq!(mod_folder_name("SA2 Input Controls"), "sa2-input-controls");
-        assert_eq!(mod_folder_name("Stage Atmosphere Tweaks"), "StageAtmosphereTweaks");
+        assert_eq!(
+            mod_folder_name("Stage Atmosphere Tweaks"),
+            "StageAtmosphereTweaks"
+        );
     }
 
     #[test]
@@ -388,8 +394,16 @@ mod tests {
         generate_sa2_config(game_path, &mod_refs, 1920, 1080).unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
-        assert!(game_path.join("mods/.modloader/profiles/Profiles.json").is_file());
-        assert!(game_path.join("mods/.modloader/profiles/Default.json").is_file());
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Profiles.json")
+                .is_file()
+        );
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Default.json")
+                .is_file()
+        );
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("Config/UserConfig.cfg").is_file());
     }
@@ -416,10 +430,9 @@ mod tests {
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
         generate_sa2_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("mods/.modloader/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
 
         assert_eq!(parsed["SettingsVersion"], 3);
@@ -443,10 +456,9 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("mods/.modloader/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
 
         // SA2 profile should NOT have SADX-specific sections
         assert!(!content.contains("\"Controller\""));
@@ -487,10 +499,9 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
 
-        let content = std::fs::read_to_string(
-            tmp.path().join("mods/.modloader/profiles/Default.json"),
-        )
-        .unwrap();
+        let content =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(parsed["EnabledMods"].as_array().unwrap().is_empty());
         assert!(!parsed["Patches"].as_object().unwrap().is_empty());

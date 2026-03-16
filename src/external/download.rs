@@ -20,11 +20,7 @@ pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Re
     rt.block_on(download_file_async(url, dest, progress))
 }
 
-async fn download_file_async(
-    url: &str,
-    dest: &Path,
-    progress: Option<ProgressFn>,
-) -> Result<()> {
+async fn download_file_async(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Result<()> {
     let client = reqwest::Client::new();
     let response = client
         .get(url)

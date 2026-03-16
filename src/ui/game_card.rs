@@ -72,18 +72,14 @@ impl AdventureModsGameCard {
         let imp = obj.imp();
 
         imp.title_label.set_label(game.kind.name());
-        imp.status_label.set_label(&format!(
-            "Found at {}",
-            game.path.display()
-        ));
+        imp.status_label
+            .set_label(&format!("Found at {}", game.path.display()));
         imp.status_label.add_css_class("game-card-status-installed");
 
         obj
     }
 
     pub fn connect_setup_clicked<F: Fn() + 'static>(&self, callback: F) {
-        self.imp()
-            .setup_callback
-            .replace(Some(Box::new(callback)));
+        self.imp().setup_callback.replace(Some(Box::new(callback)));
     }
 }

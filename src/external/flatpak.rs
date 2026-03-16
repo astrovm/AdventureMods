@@ -46,11 +46,7 @@ pub async fn is_flatpak_installed(app_id: &str) -> bool {
 
 /// Install a Flatpak app from Flathub on the host.
 pub async fn install_flatpak(app_id: &str) -> Result<()> {
-    let output = host_command(
-        "flatpak",
-        &["install", "--user", "-y", "flathub", app_id],
-    )
-    .await?;
+    let output = host_command("flatpak", &["install", "--user", "-y", "flathub", app_id]).await?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

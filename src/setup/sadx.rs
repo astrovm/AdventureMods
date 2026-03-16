@@ -73,7 +73,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-onion-blur.7z",
         },
         description: "Dreamcast-style motion blur effect",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg"),
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg",
+        ),
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg"),
         dir_name: Some("sadx-onion-blur"),
     },
@@ -220,7 +222,9 @@ pub fn convert_steam_to_2004(
     }
 
     if game_path.join("mods/.modloader/SADXModLoader.dll").exists() {
-        tracing::info!("Game appears already converted (SADXModLoader.dll exists in .modloader), skipping");
+        tracing::info!(
+            "Game appears already converted (SADXModLoader.dll exists in .modloader), skipping"
+        );
         return Ok(());
     }
 
@@ -243,12 +247,15 @@ pub fn convert_steam_to_2004(
     }
 
     // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
-    // We use a separate output directory to avoid hpatchz failing due to 
+    // We use a separate output directory to avoid hpatchz failing due to
     // in-place modification conflicts or permission issues with its own temp dir.
     let out_dir = temp_dir.path().join("patched_game");
     std::fs::create_dir_all(&out_dir)?;
 
-    let game_str = game_path.to_string_lossy().trim_end_matches('/').to_string();
+    let game_str = game_path
+        .to_string_lossy()
+        .trim_end_matches('/')
+        .to_string();
     let patch_str = patch_file.to_string_lossy().to_string();
     let out_str = out_dir.to_string_lossy().trim_end_matches('/').to_string();
 
@@ -276,8 +283,12 @@ pub fn convert_steam_to_2004(
 
         // If it failed due to "open oldFile ERROR", it's likely a source file mismatch.
         if stderr.contains("open oldFile ERROR!") || stderr.contains("check oldPathType") {
-             tracing::error!("Source file mismatch detected. This usually happens if the game is already modded or corrupted.");
-             anyhow::bail!("Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}");
+            tracing::error!(
+                "Source file mismatch detected. This usually happens if the game is already modded or corrupted."
+            );
+            anyhow::bail!(
+                "Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}"
+            );
         }
 
         anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
@@ -323,11 +334,7 @@ fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
                     new_path.display()
                 )
             })?;
-            tracing::info!(
-                "Renamed {} → {} for patch compatibility",
-                old,
-                new
-            );
+            tracing::info!("Renamed {} → {} for patch compatibility", old, new);
         }
     }
 
@@ -432,11 +439,7 @@ mod tests {
     #[test]
     fn test_mod_names_safe_for_filesystem() {
         for m in RECOMMENDED_MODS {
-            assert!(
-                !m.name.contains('/'),
-                "Mod name '{}' contains '/'",
-                m.name
-            );
+            assert!(!m.name.contains('/'), "Mod name '{}' contains '/'", m.name);
             assert!(
                 !m.name.contains('\\'),
                 "Mod name '{}' contains '\\'",
@@ -505,7 +508,10 @@ mod tests {
         move_dir_contents(&src, &dst).unwrap();
 
         // Both files should exist in destination
-        assert_eq!(std::fs::read_to_string(dst.join("sub/new.txt")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("sub/new.txt")).unwrap(),
+            "new"
+        );
         assert_eq!(
             std::fs::read_to_string(dst.join("sub/existing.txt")).unwrap(),
             "existing"

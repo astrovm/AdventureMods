@@ -201,7 +201,9 @@ mod tests {
     fn test_sa2_has_mod_selection_step() {
         let steps = steps_for_game(GameKind::SA2);
         assert!(
-            steps.iter().any(|s| matches!(s.kind, StepKind::ModSelection)),
+            steps
+                .iter()
+                .any(|s| matches!(s.kind, StepKind::ModSelection)),
             "SA2 should have a ModSelection step"
         );
     }

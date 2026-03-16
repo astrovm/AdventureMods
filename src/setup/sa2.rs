@@ -125,7 +125,11 @@ mod tests {
                     assert!(*file_id > 0, "Mod '{}' has zero file_id", m.name);
                 }
                 ModSource::DirectUrl { url } => {
-                    assert!(url.starts_with("https://"), "Mod '{}' has invalid URL", m.name);
+                    assert!(
+                        url.starts_with("https://"),
+                        "Mod '{}' has invalid URL",
+                        m.name
+                    );
                 }
             }
         }
@@ -169,11 +173,7 @@ mod tests {
     #[test]
     fn test_mod_names_safe_for_filesystem() {
         for m in RECOMMENDED_MODS {
-            assert!(
-                !m.name.contains('/'),
-                "Mod name '{}' contains '/'",
-                m.name
-            );
+            assert!(!m.name.contains('/'), "Mod name '{}' contains '/'", m.name);
             assert!(
                 !m.name.contains('\\'),
                 "Mod name '{}' contains '\\'",

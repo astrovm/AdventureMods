@@ -23,7 +23,11 @@ pub async fn run(app_id: u32, args: &[&str]) -> Result<std::process::Output> {
     let built = run_args(app_id, args, use_flatpak);
     let refs: Vec<&str> = built.iter().map(|s| s.as_str()).collect();
 
-    let cmd = if use_flatpak { "flatpak" } else { "protontricks" };
+    let cmd = if use_flatpak {
+        "flatpak"
+    } else {
+        "protontricks"
+    };
     flatpak::host_command(cmd, &refs)
         .await
         .context("protontricks command failed")
@@ -68,7 +72,8 @@ pub async fn install_dotnet(app_id: u32) -> Result<()> {
             // 67: Often related to network/files but sometimes just noise
             let is_warning = stderr.contains("WARNING") || stderr.contains("fixme:");
             let started = stdout.contains("Executing") || stderr.contains("Executing");
-            let already_installed = stdout.contains("already installed") || stderr.contains("already installed");
+            let already_installed =
+                stdout.contains("already installed") || stderr.contains("already installed");
 
             if (code == 1 || code == 67) && (is_warning || started || already_installed) {
                 tracing::warn!(
@@ -79,7 +84,12 @@ pub async fn install_dotnet(app_id: u32) -> Result<()> {
                 continue;
             }
 
-            anyhow::bail!("Failed to install {}: {} (code {})", component, stderr, code);
+            anyhow::bail!(
+                "Failed to install {}: {} (code {})",
+                component,
+                stderr,
+                code
+            );
         }
     }
 

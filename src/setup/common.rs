@@ -90,8 +90,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         // SA Mod Manager: installed when the original exe was backed up
         // Also check for the Mod Loader DLLs in the correct x64 location
         "install_mod_manager" => {
-            (p.join("Launcher.exe.bak").exists()
-                || p.join("Sonic Adventure DX.exe.bak").exists())
+            (p.join("Launcher.exe.bak").exists() || p.join("Sonic Adventure DX.exe.bak").exists())
                 && (p.join("mods/.modloader/SADXModLoader.dll").exists()
                     || p.join("mods/.modloader/SA2ModLoader.dll").exists())
         }
@@ -127,7 +126,12 @@ fn proton_prefix(game_path: &Path, app_id: u32) -> std::path::PathBuf {
     game_path
         .parent() // common/
         .and_then(|p| p.parent()) // steamapps/
-        .map(|steamapps| steamapps.join("compatdata").join(app_id.to_string()).join("pfx"))
+        .map(|steamapps| {
+            steamapps
+                .join("compatdata")
+                .join(app_id.to_string())
+                .join("pfx")
+        })
         .unwrap_or_else(|| game_path.join("pfx"))
 }
 
@@ -216,7 +220,10 @@ pub fn install_mod_manager(
     // Now install the mod loader itself
     install_mod_loader(game_path, game_kind, None)?;
 
-    tracing::info!("SA Mod Manager and loader installed to {}", game_path.display());
+    tracing::info!(
+        "SA Mod Manager and loader installed to {}",
+        game_path.display()
+    );
     Ok(())
 }
 
@@ -389,10 +396,7 @@ mod tests {
         let source = ModSource::DirectUrl {
             url: "https://example.com/mod.7z",
         };
-        assert_eq!(
-            resolve_download_url(&source),
-            "https://example.com/mod.7z"
-        );
+        assert_eq!(resolve_download_url(&source), "https://example.com/mod.7z");
     }
 
     #[test]
@@ -407,10 +411,7 @@ mod tests {
         let game_path = std::path::Path::new("/fake/game/dir");
         let mods_dir = game_path.join("mods");
         assert!(mods_dir.ends_with("mods"));
-        assert_eq!(
-            mods_dir,
-            std::path::PathBuf::from("/fake/game/dir/mods")
-        );
+        assert_eq!(mods_dir, std::path::PathBuf::from("/fake/game/dir/mods"));
     }
 
     #[test]
@@ -516,7 +517,12 @@ mod tests {
         move_dir_contents(&content_root, &dest).unwrap();
 
         assert!(mods_dir.join("SteamAchievements").join("mod.ini").is_file());
-        assert!(mods_dir.join("SteamAchievements").join("data.dll").is_file());
+        assert!(
+            mods_dir
+                .join("SteamAchievements")
+                .join("data.dll")
+                .is_file()
+        );
         // No stray nested directories
         assert!(!mods_dir.join("mods").exists());
     }
@@ -613,11 +619,7 @@ mod tests {
     fn test_exe_replacement_sadx() {
         let dir = tempfile::tempdir().unwrap();
         let game_path = dir.path();
-        std::fs::write(
-            game_path.join("Sonic Adventure DX.exe"),
-            b"original_sadx",
-        )
-        .unwrap();
+        std::fs::write(game_path.join("Sonic Adventure DX.exe"), b"original_sadx").unwrap();
 
         run_exe_replacement(game_path);
 
@@ -697,11 +699,7 @@ mod tests {
         let game_path = dir.path();
         // Both exist — Launcher.exe should win (SA2 path)
         std::fs::write(game_path.join("Launcher.exe"), b"launcher").unwrap();
-        std::fs::write(
-            game_path.join("Sonic Adventure DX.exe"),
-            b"sadx",
-        )
-        .unwrap();
+        std::fs::write(game_path.join("Sonic Adventure DX.exe"), b"sadx").unwrap();
 
         run_exe_replacement(game_path);
 

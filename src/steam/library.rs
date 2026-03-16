@@ -19,17 +19,10 @@ fn steam_root() -> Option<PathBuf> {
 fn library_folders_path() -> Option<PathBuf> {
     let root = steam_root()?;
     let path = root.join("steamapps/libraryfolders.vdf");
-    if path.is_file() {
-        Some(path)
-    } else {
-        None
-    }
+    if path.is_file() { Some(path) } else { None }
 }
 
-fn find_game_in_libraries(
-    libraries: &vdf::VdfValue,
-    kind: GameKind,
-) -> Option<PathBuf> {
+fn find_game_in_libraries(libraries: &vdf::VdfValue, kind: GameKind) -> Option<PathBuf> {
     let app_id = kind.app_id().to_string();
     let folders = libraries.get("libraryfolders")?.as_map()?;
 
@@ -51,16 +44,27 @@ fn find_game_in_libraries(
                     GameKind::SADX => "Sonic Adventure DX.exe",
                     GameKind::SA2 => "sonic2app.exe",
                 };
-                
+
                 let exe_path = game_path.join(executable);
                 let alt_exe = game_path.join("sonic.exe"); // Fallback for already converted SADX
-                
+
                 if exe_path.exists() || alt_exe.exists() {
-                    let real_path = game_path.canonicalize().unwrap_or_else(|_| game_path.clone());
-                    tracing::info!("Found {} at {} (Real path: {})", kind.name(), game_path.display(), real_path.display());
+                    let real_path = game_path
+                        .canonicalize()
+                        .unwrap_or_else(|_| game_path.clone());
+                    tracing::info!(
+                        "Found {} at {} (Real path: {})",
+                        kind.name(),
+                        game_path.display(),
+                        real_path.display()
+                    );
                     return Some(game_path);
                 } else {
-                    tracing::warn!("Found directory for {} but no executable found at {}. Likely a stale Steam library entry.", kind.name(), game_path.display());
+                    tracing::warn!(
+                        "Found directory for {} but no executable found at {}. Likely a stale Steam library entry.",
+                        kind.name(),
+                        game_path.display()
+                    );
                 }
             }
         }

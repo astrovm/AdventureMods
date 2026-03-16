@@ -261,7 +261,8 @@ mod tests {
 
     #[test]
     fn test_parse_escape_sequences() {
-        let input = r#""root" { "a" "line1\nline2" "b" "tab\there" "c" "back\\slash" "d" "a\"quote" }"#;
+        let input =
+            r#""root" { "a" "line1\nline2" "b" "tab\there" "c" "back\\slash" "d" "a\"quote" }"#;
         let root = parse(input).unwrap();
         let m = root.get("root").unwrap();
         assert_eq!(m.get("a").unwrap().as_str().unwrap(), "line1\nline2");
@@ -283,7 +284,12 @@ mod tests {
 "#;
         let root = parse(input).unwrap();
         assert_eq!(
-            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "value"
         );
     }
@@ -293,7 +299,12 @@ mod tests {
         let input = r#""root" { "key" "" }"#;
         let root = parse(input).unwrap();
         assert_eq!(
-            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             ""
         );
     }
@@ -303,7 +314,12 @@ mod tests {
         let input = "\"root\"\t\t{\r\n\t\"key\"\t\t\"value\"\r\n}";
         let root = parse(input).unwrap();
         assert_eq!(
-            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "value"
         );
     }
@@ -347,7 +363,13 @@ mod tests {
         let input = r#""root" { "key" "first" "key" "second" }"#;
         let root = parse(input).unwrap();
         // HashMap: last inserted wins
-        let val = root.get("root").unwrap().get("key").unwrap().as_str().unwrap();
+        let val = root
+            .get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap();
         assert_eq!(val, "second");
     }
 
@@ -367,7 +389,12 @@ mod tests {
         let input = r#""root" { "key" "abc\xdef" }"#;
         let root = parse(input).unwrap();
         assert_eq!(
-            root.get("root").unwrap().get("key").unwrap().as_str().unwrap(),
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "abc\\xdef"
         );
     }
@@ -388,13 +415,27 @@ mod tests {
         let root = parse(r#""root" { "a" { "b" "val" } }"#).unwrap();
         // Valid chain
         assert_eq!(
-            root.get("root").and_then(|v| v.get("a")).and_then(|v| v.get("b")).and_then(|v| v.as_str()),
+            root.get("root")
+                .and_then(|v| v.get("a"))
+                .and_then(|v| v.get("b"))
+                .and_then(|v| v.as_str()),
             Some("val")
         );
         // Missing intermediate key
-        assert!(root.get("root").and_then(|v| v.get("x")).and_then(|v| v.get("b")).is_none());
+        assert!(
+            root.get("root")
+                .and_then(|v| v.get("x"))
+                .and_then(|v| v.get("b"))
+                .is_none()
+        );
         // get() on a string value
-        assert!(root.get("root").and_then(|v| v.get("a")).and_then(|v| v.get("b")).and_then(|v| v.get("anything")).is_none());
+        assert!(
+            root.get("root")
+                .and_then(|v| v.get("a"))
+                .and_then(|v| v.get("b"))
+                .and_then(|v| v.get("anything"))
+                .is_none()
+        );
     }
 
     #[test]
@@ -432,7 +473,12 @@ mod tests {
         assert_eq!(m.get("string_val").unwrap().as_str().unwrap(), "hello");
         assert!(m.get("sub_map").unwrap().as_map().is_some());
         assert_eq!(
-            m.get("sub_map").unwrap().get("nested").unwrap().as_str().unwrap(),
+            m.get("sub_map")
+                .unwrap()
+                .get("nested")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "world"
         );
         assert_eq!(m.get("another").unwrap().as_str().unwrap(), "test");
