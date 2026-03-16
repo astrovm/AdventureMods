@@ -257,7 +257,7 @@ impl AdventureModsSetupPage {
                 preview_box.append(&after_label);
                 preview_box.append(&after_image);
 
-                preview_box.set_visible(false);
+                preview_box.set_opacity(0.0);
 
                 let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
                 let mods_list = game_kind
@@ -330,9 +330,9 @@ impl AdventureModsSetupPage {
                     gesture.connect_enter(move |_, _, _| {
                         if let Some(before) = mod_entry_clone.before_image {
                             b_img.set_resource(Some(before));
-                            p_box.set_visible(true);
+                            p_box.set_opacity(1.0);
                         } else {
-                            p_box.set_visible(false);
+                            p_box.set_opacity(0.0);
                         }
                         if let Some(after) = mod_entry_clone.after_image {
                             a_img.set_resource(Some(after));
