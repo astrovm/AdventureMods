@@ -216,6 +216,7 @@ impl AdventureModsSetupPage {
                     .max_content_height(400)
                     .propagate_natural_height(true)
                     .min_content_width(350)
+                    .hexpand(true)
                     .build();
 
                 let list_box = gtk::ListBox::builder()
