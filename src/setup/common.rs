@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 
 use crate::external::{archive, download, flatpak, protontricks};
-use crate::steam::game::GameKind;
+use crate::steam::game::{Game, GameKind};
 
 use super::{sa2, sadx};
 
@@ -45,6 +45,83 @@ pub fn recommended_mods_for_game(kind: GameKind) -> &'static [ModEntry] {
         GameKind::SADX => sadx::RECOMMENDED_MODS,
         GameKind::SA2 => sa2::RECOMMENDED_MODS,
     }
+}
+
+/// Check whether a setup step has already been completed for the given game.
+///
+/// Returns `true` if the step's effects are already present on disk and it
+/// can safely be skipped.
+pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
+    let p = &game.path;
+    match step_id {
+        // protontricks: checked live in ensure_protontricks, always fast — don't skip
+        "check_deps" => false,
+
+        // Info / external-action steps: always show to the user
+        "steam_config" | "ge_proton" => false,
+
+        // .NET: check Proton prefix for dotnet48 marker
+        "dotnet" => {
+            let prefix = proton_prefix(p, game.kind.app_id());
+            prefix
+                .join("drive_c/windows/Microsoft.NET/Framework/v4.0.30319")
+                .is_dir()
+        }
+
+        // Steam-to-2004 conversion (SADX only): same markers as convert_steam_to_2004
+        "convert_steam" => {
+            let system_dir = if p.join("System").is_dir() {
+                p.join("System")
+            } else {
+                p.join("system")
+            };
+            system_dir.join("CHRMODELS_orig.dll").exists()
+                || p.join("SADXModLoader.dll").exists()
+                || p.join("sonic.exe").exists()
+        }
+
+        // SADX mod loader: installed when mods/.modloader/ has SADXModLoader.dll
+        "install_mod_loader" => p.join("mods/.modloader/SADXModLoader.dll").is_file(),
+
+        // SA Mod Manager: installed when the original exe was backed up
+        "install_mod_manager" => {
+            p.join("Launcher.exe.bak").exists()
+                || p.join("Sonic Adventure DX.exe.bak").exists()
+        }
+
+        // Mod selection: always show so the user can change their picks
+        "select_mods" => false,
+
+        // Mods download: complete when every recommended mod dir exists.
+        // We check all mods (not just selected ones) since we don't persist
+        // the selection. If any dir is missing the user can re-run.
+        "download_mods" => {
+            let mods_dir = p.join("mods");
+            let mods_list = recommended_mods_for_game(game.kind);
+            mods_list.iter().all(|m| {
+                let dir = m.dir_name.unwrap_or(m.name);
+                mods_dir.join(dir).is_dir()
+            })
+        }
+
+        // Completion screen: always show
+        "complete" => false,
+
+        _ => false,
+    }
+}
+
+/// Derive the Proton prefix path from a game's install directory and app ID.
+///
+/// Game path is typically `.../steamapps/common/<game>/`, and the prefix lives
+/// at `.../steamapps/compatdata/<appid>/pfx/`.
+fn proton_prefix(game_path: &Path, app_id: u32) -> std::path::PathBuf {
+    // Go from .../steamapps/common/<game> up to .../steamapps/
+    game_path
+        .parent() // common/
+        .and_then(|p| p.parent()) // steamapps/
+        .map(|steamapps| steamapps.join("compatdata").join(app_id.to_string()).join("pfx"))
+        .unwrap_or_else(|| game_path.join("pfx"))
 }
 
 /// Ensure protontricks is installed, installing it if needed.
