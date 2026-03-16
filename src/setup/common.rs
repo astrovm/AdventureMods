@@ -7,8 +7,6 @@ use crate::steam::game::{Game, GameKind};
 
 use super::{sa2, sadx};
 
-const PROTONUP_QT_FLATPAK: &str = "net.davidotek.pupgui2";
-
 /// GitHub release URL for SA Mod Manager (x64).
 const SA_MOD_MANAGER_URL: &str =
     "https://github.com/X-Hax/SA-Mod-Manager/releases/latest/download/release_x64.zip";
@@ -58,7 +56,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         "check_deps" => false,
 
         // Info / external-action steps: always show to the user
-        "steam_config" | "ge_proton" => false,
+        "steam_config" => false,
 
         // Runtimes: check Proton prefix for dotnetdesktop8 marker
         "dotnet" => {
@@ -130,24 +128,6 @@ pub async fn ensure_protontricks() -> Result<()> {
 
     tracing::info!("Installing protontricks...");
     protontricks::install().await
-}
-
-/// Check if ProtonUp-Qt is available.
-pub async fn is_protonup_available() -> bool {
-    flatpak::is_flatpak_installed(PROTONUP_QT_FLATPAK).await
-}
-
-/// Install ProtonUp-Qt if not already installed.
-pub async fn ensure_protonup() -> Result<()> {
-    if is_protonup_available().await {
-        return Ok(());
-    }
-    flatpak::install_flatpak(PROTONUP_QT_FLATPAK).await
-}
-
-/// Launch ProtonUp-Qt.
-pub async fn launch_protonup() -> Result<()> {
-    flatpak::launch_flatpak(PROTONUP_QT_FLATPAK, &[]).await
 }
 
 /// Install .NET Desktop Runtime 8.0 and VC++ Redistributable for the given game's prefix.

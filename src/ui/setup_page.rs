@@ -409,13 +409,6 @@ impl AdventureModsSetupPage {
     ) {
         glib::spawn_future_local(async move {
             let result = match step_id {
-                "ge_proton" => {
-                    if let Err(e) = common::ensure_protonup().await {
-                        Err(e)
-                    } else {
-                        common::launch_protonup().await
-                    }
-                }
                 _ => Ok(()),
             };
 

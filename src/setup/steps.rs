@@ -40,16 +40,8 @@ fn sadx_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "steam_config",
             title: "Steam Configuration",
-            description: "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created. Also, set the game's compatibility to GE-Proton in Steam > Properties > Compatibility.",
+            description: "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created.",
             kind: StepKind::Info,
-        },
-        SetupStep {
-            id: "ge_proton",
-            title: "Install GE-Proton",
-            description: "Open ProtonUp-Qt to install the latest GE-Proton version if you haven't already.",
-            kind: StepKind::ExternalAction {
-                button_label: "Launch ProtonUp-Qt",
-            },
         },
         SetupStep {
             id: "dotnet",
@@ -101,16 +93,8 @@ fn sa2_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "steam_config",
             title: "Steam Configuration",
-            description: "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created. Also, set the game's compatibility to GE-Proton in Steam > Properties > Compatibility.",
+            description: "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created.",
             kind: StepKind::Info,
-        },
-        SetupStep {
-            id: "ge_proton",
-            title: "Install GE-Proton",
-            description: "Open ProtonUp-Qt to install the latest GE-Proton version if you haven't already.",
-            kind: StepKind::ExternalAction {
-                button_label: "Launch ProtonUp-Qt",
-            },
         },
         SetupStep {
             id: "dotnet",
@@ -152,12 +136,12 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 9);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 8);
     }
 
     #[test]
     fn test_sa2_step_count() {
-        assert_eq!(steps_for_game(GameKind::SA2).len(), 8);
+        assert_eq!(steps_for_game(GameKind::SA2).len(), 7);
     }
 
     #[test]
