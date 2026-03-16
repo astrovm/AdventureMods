@@ -216,17 +216,21 @@ pub fn convert_steam_to_2004(
         game_path.join("System")
     };
 
-    // Skip if already converted (CHRMODELS_orig.dll exists from a previous run)
+    // Skip if already converted. Check multiple markers since previous setups
+    // (including the official Windows installer) leave different traces.
     let chrmodels_orig = system_dir.join("CHRMODELS_orig.dll");
     if chrmodels_orig.exists() {
         tracing::info!("Game appears already converted (CHRMODELS_orig.dll exists), skipping");
         return Ok(());
     }
 
-    // Secondary check: if SADXModLoader.dll exists in root AND sonic.exe exists, 
-    // it's likely already converted.
-    if game_path.join("SADXModLoader.dll").exists() && game_path.join("sonic.exe").exists() {
-        tracing::info!("Game appears already converted (SADXModLoader.dll and sonic.exe exist), skipping");
+    if game_path.join("SADXModLoader.dll").exists() {
+        tracing::info!("Game appears already converted (SADXModLoader.dll exists), skipping");
+        return Ok(());
+    }
+
+    if game_path.join("sonic.exe").exists() {
+        tracing::info!("Game appears already converted (sonic.exe exists), skipping");
         return Ok(());
     }
 
