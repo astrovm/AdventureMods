@@ -376,83 +376,198 @@ pub fn install_mod_loader(
     Ok(())
 }
 
-/// Create a default `SADXModLoader.ini` with recommended patches and load order.
+/// Map a mod display name to its extracted directory name.
+fn mod_dir_name(name: &str) -> &str {
+    match name {
+        "SADX: Fixed Edition" => "SADXFE",
+        "Dreamcast Conversion" => "DreamcastConversion",
+        "Dreamcast Characters Pack" => "SA1_Chars",
+        "Lantern Engine" => "sadx-dc-lighting",
+        "Sound Overhaul" => "SoundOverhaul",
+        "Dreamcast DLC" => "DLC",
+        "ADX Audio" => "ADXAudio",
+        "Super Sonic" => "sadx-super-sonic",
+        "Frame Limit" => "sadx-frame-limit",
+        "Idle Chatter" => "idle-chatter",
+        "Pause Hide" => "pause-hide",
+        "Onion Blur" => "sadx-onion-blur",
+        "Smooth Camera" => "smooth-cam",
+        "SADX Style Water" => "sadx-style-water",
+        "Steam Achievements" => "SteamAchievements",
+        "HD GUI 2" => "HD_DCStyle",
+        "SADX Launcher" => "AppLauncher",
+        "Icon Data" => "icondata",
+        "Time of Day" => "TrainDaytime",
+        _ => name,
+    }
+}
+
+/// Configure SA Mod Manager with JSON profile files matching the official installer.
+///
+/// Writes three files:
+/// - `SAManager/SADX/Manager.json` — manager settings and game entry
+/// - `SAManager/SADX/profiles/Profiles.json` — profile index
+/// - `SAManager/SADX/profiles/Default.json` — mod list, patches, codes, and game settings
 pub fn configure_mod_loader(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
-    let mods_dir = game_path.join("mods");
-    let ini_path = mods_dir.join("SADXModLoader.ini");
+    let game_dir_str = game_path.to_string_lossy();
+    let manager_dir = game_path.join("SAManager").join("SADX");
+    let profiles_dir = manager_dir.join("profiles");
+    std::fs::create_dir_all(&profiles_dir)?;
 
-    let mut content = String::from("[SADXModLoader]\n");
-    content.push_str("ShowConsole=0\n");
-    content.push_str("CheckForUpdates=1\n");
-    content.push_str("UpdateHelper=1\n\n");
+    // Manager.json
+    let manager_json = format!(
+        r#"{{
+  "SettingsVersion": 3,
+  "CurrentSetGame": 1,
+  "Theme": 2,
+  "Language": 0,
+  "ModAuthor": "Unknown",
+  "EnableDeveloperMode": false,
+  "KeepManagerOpen": true,
+  "UpdateSettings": {{
+    "EnableManagerBootCheck": true,
+    "EnableModsBootCheck": true,
+    "EnableLoaderBootCheck": true,
+    "UpdateTimeOutCD": 0,
+    "UpdateCheckCount": 1
+  }},
+  "GameEntries": [
+  {{
+    "Name": "Sonic Adventure DX",
+    "Directory": "{}",
+    "Executable": "sonic.exe",
+    "Type": 1
+  }}
+  ],
+  "KeepModOrder": false
+}}"#,
+        game_dir_str
+    );
+    let manager_path = manager_dir.join("Manager.json");
+    std::fs::write(&manager_path, manager_json).context("Failed to write Manager.json")?;
 
-    content.push_str("[ModOrder]\n");
+    // Profiles.json
+    let profiles_json = r#"{
+  "ProfileIndex": 0,
+  "ProfilesList": [
+    {
+      "Name": "Default",
+      "Filename": "Default.json"
+    }
+  ]
+}"#;
+    let profiles_path = profiles_dir.join("Profiles.json");
+    std::fs::write(&profiles_path, profiles_json).context("Failed to write Profiles.json")?;
+
+    // Default.json — the main profile with mods, patches, codes
+    let mut enabled_mods = String::new();
     for (i, mod_entry) in selected_mods.iter().enumerate() {
-        // Assume the mod directory name is a sanitized version of the mod name
-        // Most dcmods archives extract to a folder named after the mod
-        let mod_dir = match mod_entry.name {
-            "SADX: Fixed Edition" => "SADXFE",
-            "Dreamcast Conversion" => "DreamcastConversion",
-            "Dreamcast Characters Pack" => "SA1_Chars",
-            "Lantern Engine" => "sadx-dc-lighting",
-            "Sound Overhaul" => "SoundOverhaul",
-            "Dreamcast DLC" => "DLC",
-            "ADX Audio" => "ADXAudio",
-            "Super Sonic" => "sadx-super-sonic",
-            "Frame Limit" => "sadx-frame-limit",
-            "Idle Chatter" => "idle-chatter",
-            "Pause Hide" => "pause-hide",
-            "Onion Blur" => "sadx-onion-blur",
-            "Smooth Camera" => "smooth-cam",
-            "SADX Style Water" => "sadx-style-water",
-            "Steam Achievements" => "SteamAchievements",
-            "HD GUI 2" => "HD_DCStyle",
-            "SADX Launcher" => "AppLauncher",
-            "Icon Data" => "icondata",
-            "Time of Day" => "TrainDaytime",
-            _ => mod_entry.name,
-        };
-        content.push_str(&format!("Mod{}={}\n", i + 1, mod_dir));
+        if i > 0 {
+            enabled_mods.push_str(",\n");
+        }
+        enabled_mods.push_str(&format!("    \"{}\"", mod_dir_name(mod_entry.name)));
     }
 
-    content.push_str("\n[Patches]\n");
-    let patches = [
-        ("HRDirect3D9", 1),
-        ("SoftShadows", 1),
-        ("LightBlur", 1),
-        ("DisableScreenSaver", 1),
-        ("SCFix", 1),
-        ("FovFix", 1),
-        ("ChaosPuddleFix", 1),
-        ("ChunkSideFix", 1),
-        ("E-102Fix", 1),
-        ("FogFix", 1),
-        ("SkyboxFix", 1),
-        ("MaterialFix", 1),
-        ("NodeFix", 1),
-        ("EffectFix", 1),
-        ("UIFix", 1),
-        ("ExtendedSave", 1),
-        ("GBIXFix", 1),
-        ("CameraFix", 1),
-    ];
-    for (name, val) in patches {
-        content.push_str(&format!("{}={}\n", name, val));
-    }
+    let default_json = format!(
+        r#"{{
+  "Graphics": {{
+    "SelectedScreen": 0,
+    "Enable43ResolutionRatio": false,
+    "EnablePauseOnInactive": true,
+    "EnableKeepResolutionRatio": false,
+    "EnableResizableWindow": false,
+    "FillModeBackground": 2,
+    "FillModeFMV": 1,
+    "ModeTextureFiltering": 0,
+    "ModeUIFiltering": 0,
+    "EnableUIScaling": true,
+    "EnableForcedMipmapping": true,
+    "EnableForcedTextureFilter": true,
+    "ShowMouseInFullscreen": false,
+    "DisableBorderImage": false,
+    "Anisotropic": 16,
+    "RenderBackend": 1
+  }},
+  "Controller": {{
+    "EnabledInputMod": true
+  }},
+  "Sound": {{
+    "EnableGameMusic": true,
+    "EnableGameSound": true,
+    "EnableGameSound3D": true,
+    "EnableBassMusic": true,
+    "EnableBassSFX": true,
+    "GameMusicVolume": 100,
+    "GameSoundVolume": 100,
+    "SEVolume": 100
+  }},
+  "TestSpawn": {{
+    "UseCharacter": false,
+    "UseLevel": true,
+    "UseEvent": false,
+    "UseGameMode": false,
+    "UseSave": false,
+    "LevelIndex": 1,
+    "ActIndex": 0,
+    "CharacterIndex": 0,
+    "EventIndex": -1,
+    "GameModeIndex": 4,
+    "SaveIndex": -1,
+    "GameTextLanguage": 0,
+    "GameVoiceLanguage": 0,
+    "UseManual": false,
+    "UsePosition": false,
+    "XPosition": 0,
+    "YPosition": 0,
+    "ZPosition": 0,
+    "Rotation": 0
+  }},
+  "DebugSettings": {{
+    "EnableDebugConsole": false,
+    "EnableDebugScreen": false,
+    "EnableDebugFile": false,
+    "EnableDebugCrashLog": true,
+    "EnableShowConsole": null
+  }},
+  "EnabledMods": [
+{}
+  ],
+  "EnabledGamePatches": [
+    "HRTFSound",
+    "KeepCamSettings",
+    "FixVertexColorRendering",
+    "MaterialColorFix",
+    "NodeLimit",
+    "FOVFix",
+    "SkyChaseResolutionFix",
+    "Chaos2CrashFix",
+    "ChunkSpecularFix",
+    "E102NGonFix",
+    "ChaoPanelFix",
+    "PixelOffSetFix",
+    "LightFix",
+    "KillGBIX",
+    "DisableCDCheck",
+    "ExtendedSaveSupport",
+    "CrashGuard",
+    "XInputFix"
+  ],
+  "EnabledCodes": [
+    "Can Always Skip Credits",
+    "Egg Carrier Ocean Music",
+    "Use Tornado 2 Health Bar in Sky Chase Act 2",
+    "Invert Right Stick Y Axis in First Person"
+  ]
+}}"#,
+        enabled_mods
+    );
+    let default_path = profiles_dir.join("Default.json");
+    std::fs::write(&default_path, default_json).context("Failed to write Default.json")?;
 
-    content.push_str("\n[Codes]\n");
-    let codes = [
-        ("Sonic/Metal Sonic: Remove Spin Dash lighting", 1),
-        ("Sonic: Improved homing attack", 1),
-        ("Tails: High speed flight", 1),
-        ("Knuckles: Improved climbing", 1),
-    ];
-    for (name, val) in codes {
-        content.push_str(&format!("{}={}\n", name, val));
-    }
-
-    std::fs::write(&ini_path, content).context("Failed to write SADXModLoader.ini")?;
-    tracing::info!("Configured SADX Mod Loader at {}", ini_path.display());
+    tracing::info!(
+        "Configured SA Mod Manager at {}",
+        manager_dir.display()
+    );
 
     configure_game(game_path)?;
 
