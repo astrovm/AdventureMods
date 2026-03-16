@@ -593,7 +593,8 @@ mod tests {
 
     #[test]
     fn test_convert_skips_if_chrmodels_orig_exists() {
-        let tmp = make_game_dir();
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
         std::fs::write(tmp.path().join("System/CHRMODELS_orig.dll"), "dummy").unwrap();
 
         // Should return Ok without needing hpatchz or downloads
@@ -602,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_convert_skips_if_sadxmodloader_exists() {
-        let tmp = make_game_dir();
+        let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("SADXModLoader.dll"), "dummy").unwrap();
 
         convert_steam_to_2004(tmp.path(), None).unwrap();
@@ -610,7 +611,7 @@ mod tests {
 
     #[test]
     fn test_convert_skips_if_sonic_exe_exists() {
-        let tmp = make_game_dir();
+        let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("sonic.exe"), "dummy").unwrap();
 
         convert_steam_to_2004(tmp.path(), None).unwrap();
