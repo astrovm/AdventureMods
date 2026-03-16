@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use crate::external::{archive, download, flatpak, protontricks};
+use crate::external::{archive, download, protontricks};
 use crate::steam::game::{Game, GameKind};
 
 use super::{sa2, sadx};

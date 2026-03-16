@@ -49,7 +49,7 @@ No tokio — the app uses GLib's async runtime:
 - `async-channel` bridges progress updates from download tasks back to UI
 
 ### Flatpak Sandbox Strategy
-`src/external/flatpak.rs` detects the sandbox via `/.flatpak-info` and routes commands through `flatpak-spawn --host` when inside Flatpak, or runs them directly otherwise. This is the foundation for all host interactions: protontricks, ProtonUp-Qt, Flatpak install/check.
+`src/external/flatpak.rs` detects the sandbox via `/.flatpak-info` and routes commands through `flatpak-spawn --host` when inside Flatpak, or runs them directly otherwise. This is the foundation for all host interactions: protontricks, Flatpak install/check.
 
 ### UI Navigation Flow
 `AdwNavigationView` stack: Welcome Page → Setup Page (per game). The Setup Page is a multi-step wizard driven by `setup::steps::steps_for_game()` which returns a `Vec<SetupStep>`. Each step has a `StepKind` (Auto, Info, ExternalAction, Download, ModSelection) that determines the UI and behavior. Steps advance automatically on success or show error with retry.
@@ -58,11 +58,11 @@ No tokio — the app uses GLib's async runtime:
 `steam/vdf.rs` is a custom recursive-descent parser for Valve's VDF format. `steam/library.rs` reads `libraryfolders.vdf` to find SADX (appid 71250) and SA2 (appid 213610) install paths across multiple Steam library folders.
 
 ### Mod Installation
-Both games share a common mod installation pipeline in `setup/common.rs`: `ModEntry` structs with a `ModSource` enum (`GameBanana { file_id }` | `DirectUrl { url }`), plus shared `install_mod_manager()` and `install_mod()` functions. `external/download.rs` uses reqwest with streaming (`bytes_stream()`) for progress tracking and validates Content-Type to reject HTML error pages. GameBanana mods are downloaded via dl URLs; direct URLs point to dcmods.unreliable.network, GitHub releases, or GitLab archives. SA2 has 12 recommended mods (`setup/sa2.rs`), SADX has 19 (`setup/sadx.rs`). SA Mod Manager handles mod loader installation and configuration automatically on first launch — no separate mod loader step or config file generation is needed.
+Both games share a common mod installation pipeline in `setup/common.rs`: `ModEntry` structs with a `ModSource` enum (`GameBanana { file_id }` | `DirectUrl { url }`), plus shared `install_mod_manager()` and `install_mod()` functions. `external/download.rs` uses reqwest with streaming (`bytes_stream()`) for progress tracking and validates Content-Type to reject HTML error pages. GameBanana mods are downloaded via dl URLs; direct URLs point to dcmods.unreliable.network, GitHub releases, or GitLab archives. SA2 has 12 recommended mods (`setup/sa2.rs`), SADX has 19 (`setup/sadx.rs`). The app generates core configuration files (`Default.json`, `UserConfig.cfg`) during mod manager installation to ensure optimal settings (native resolution, window mode) without requiring initial manual configuration.
 
 ## Key Conventions
 
 - App ID: `io.github.astrovm.AdventureMods` (release) / `io.github.astrovm.AdventureMods.Devel` (dev profile adds `.devel` CSS class)
 - GResource prefix: `/io/github/astrovm/AdventureMods/`
 - Error handling: `anyhow::Result` throughout, errors displayed in UI (never panic)
-- External tool Flatpak IDs: protontricks = `com.github.Matoking.protontricks`, ProtonUp-Qt = `net.davidotek.pupgui2`
+- External tool Flatpak IDs: protontricks = `com.github.Matoking.protontricks`

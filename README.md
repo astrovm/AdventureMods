@@ -8,7 +8,8 @@ Adventure Mods automates what would otherwise be a tedious manual process: insta
 
 - Automatic detection of SADX and SA2 Steam installations (including external drives)
 - Step-by-step setup wizard for each game
-- GE-Proton and .NET runtime configuration via protontricks
+- Automatic detection of native monitor resolution for game configuration
+- .NET runtime configuration via protontricks
 - Native mod installation for both games — no Windows installers needed
 - SA Mod Manager installation for both SADX and SA2
 - 19 curated SADX mods and 12 curated SA2 mods with per-mod selection
@@ -18,7 +19,6 @@ Adventure Mods automates what would otherwise be a tedious manual process: insta
 ## Requirements
 
 - Steam with Sonic Adventure DX (71250) and/or Sonic Adventure 2 (213610) installed
-- [GE-Proton](https://github.com/GloriousEggroll/proton-ge-custom) (installed via [ProtonUp-Qt](https://flathub.org/apps/net.davidotek.pupgui2))
 - [protontricks](https://flathub.org/apps/com.github.Matoking.protontricks) (installed automatically if missing)
 
 ## Installation
@@ -61,9 +61,9 @@ cargo build
 ## How It Works
 
 1. **Game Detection** — Parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
-2. **Dependency Check** — Ensures protontricks and ProtonUp-Qt are available, installing them from Flathub if needed
-3. **Runtime Setup** — Guides GE-Proton configuration and installs .NET Framework 4.8 via protontricks
-4. **Mod Installation**
+2. **Dependency Check** — Ensures protontricks is available, installing it from Flathub if needed
+3. **Runtime Setup** — Installs .NET Framework 4.8 via protontricks
+4. **Mod Installation** — Configures native resolution and installs mod managers and curated mods
    - **SADX**: Installs the SADX Mod Loader, SA Mod Manager, and up to 19 recommended mods from dcmods, GameBanana, GitHub, and GitLab
    - **SA2**: Installs SA Mod Manager and up to 12 recommended mods from GameBanana
 

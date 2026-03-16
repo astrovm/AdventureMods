@@ -408,7 +408,7 @@ impl AdventureModsSetupPage {
         button: gtk::Button,
     ) {
         glib::spawn_future_local(async move {
-            let result = match step_id {
+            let result: anyhow::Result<()> = match step_id {
                 _ => Ok(()),
             };
 
