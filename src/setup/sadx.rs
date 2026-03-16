@@ -751,4 +751,304 @@ mod tests {
             }
         }
     }
+
+    // --- mod_dir_name() tests ---
+
+    #[test]
+    fn test_mod_dir_name_mappings() {
+        assert_eq!(mod_dir_name("SADX: Fixed Edition"), "SADXFE");
+        assert_eq!(mod_dir_name("Dreamcast Conversion"), "DreamcastConversion");
+        assert_eq!(mod_dir_name("Dreamcast Characters Pack"), "SA1_Chars");
+        assert_eq!(mod_dir_name("Lantern Engine"), "sadx-dc-lighting");
+        assert_eq!(mod_dir_name("Sound Overhaul"), "SoundOverhaul");
+        assert_eq!(mod_dir_name("Dreamcast DLC"), "DLC");
+        assert_eq!(mod_dir_name("ADX Audio"), "ADXAudio");
+        assert_eq!(mod_dir_name("Super Sonic"), "sadx-super-sonic");
+        assert_eq!(mod_dir_name("Frame Limit"), "sadx-frame-limit");
+        assert_eq!(mod_dir_name("Idle Chatter"), "idle-chatter");
+        assert_eq!(mod_dir_name("Pause Hide"), "pause-hide");
+        assert_eq!(mod_dir_name("Onion Blur"), "sadx-onion-blur");
+        assert_eq!(mod_dir_name("Smooth Camera"), "smooth-cam");
+        assert_eq!(mod_dir_name("SADX Style Water"), "sadx-style-water");
+        assert_eq!(mod_dir_name("Steam Achievements"), "SteamAchievements");
+        assert_eq!(mod_dir_name("HD GUI 2"), "HD_DCStyle");
+        assert_eq!(mod_dir_name("SADX Launcher"), "AppLauncher");
+        assert_eq!(mod_dir_name("Icon Data"), "icondata");
+        assert_eq!(mod_dir_name("Time of Day"), "TrainDaytime");
+    }
+
+    #[test]
+    fn test_mod_dir_name_unknown_returns_input() {
+        assert_eq!(mod_dir_name("Unknown Mod"), "Unknown Mod");
+        assert_eq!(mod_dir_name(""), "");
+        assert_eq!(mod_dir_name("Some Random Name"), "Some Random Name");
+    }
+
+    // --- configure_mod_loader() tests ---
+
+    fn make_game_dir() -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        // configure_mod_loader calls configure_game which needs System dir
+        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        tmp
+    }
+
+    #[test]
+    fn test_configure_mod_loader_creates_all_files() {
+        let tmp = make_game_dir();
+        let mods: Vec<&ModEntry> = RECOMMENDED_MODS.iter().take(2).collect();
+        configure_mod_loader(tmp.path(), &mods).unwrap();
+
+        assert!(tmp.path().join("SAManager/Manager.json").is_file());
+        assert!(tmp.path().join("SAManager/SADX/profiles/Profiles.json").is_file());
+        assert!(tmp.path().join("SAManager/SADX/profiles/Default.json").is_file());
+        assert!(tmp.path().join("mods/.modloader/profiles/Default.json").is_file());
+        assert!(tmp.path().join("mods/.modloader/profiles/Profiles.json").is_file());
+        assert!(tmp.path().join("mods/.modloader/samanager.txt").is_file());
+    }
+
+    #[test]
+    fn test_configure_mod_loader_manager_json() {
+        let tmp = make_game_dir();
+        configure_mod_loader(tmp.path(), &[]).unwrap();
+
+        let content = std::fs::read_to_string(tmp.path().join("SAManager/Manager.json")).unwrap();
+
+        // Verify key fields are present in the JSON text
+        assert!(content.contains("\"SettingsVersion\": 3"));
+        assert!(content.contains("\"Name\": \"Sonic Adventure DX\""));
+        assert!(content.contains("\"Executable\": \"sonic.exe\""));
+
+        // Wine path should start with Z: and use backslashes
+        let wine_path = format!("Z:{}", tmp.path().to_string_lossy().replace('/', "\\"));
+        assert!(
+            content.contains(&wine_path),
+            "Manager.json should contain Wine path: {wine_path}"
+        );
+    }
+
+    #[test]
+    fn test_configure_mod_loader_default_json_mods() {
+        let tmp = make_game_dir();
+        let mods: Vec<&ModEntry> = RECOMMENDED_MODS.iter().take(3).collect();
+        configure_mod_loader(tmp.path(), &mods).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        let enabled = parsed["EnabledMods"].as_array().unwrap();
+        assert_eq!(enabled.len(), 3);
+        assert_eq!(enabled[0], mod_dir_name(RECOMMENDED_MODS[0].name));
+        assert_eq!(enabled[1], mod_dir_name(RECOMMENDED_MODS[1].name));
+        assert_eq!(enabled[2], mod_dir_name(RECOMMENDED_MODS[2].name));
+
+        // Patches and codes should be present
+        assert!(!parsed["EnabledGamePatches"].as_array().unwrap().is_empty());
+        assert!(!parsed["EnabledCodes"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_configure_mod_loader_wine_path() {
+        let tmp = make_game_dir();
+        configure_mod_loader(tmp.path(), &[]).unwrap();
+
+        let content = std::fs::read_to_string(tmp.path().join("SAManager/Manager.json")).unwrap();
+        let expected = format!(
+            "\"Directory\": \"Z:{}\"",
+            tmp.path().to_string_lossy().replace('/', "\\")
+        );
+        assert!(
+            content.contains(&expected),
+            "Manager.json should contain correct Wine path directory entry"
+        );
+    }
+
+    #[test]
+    fn test_configure_mod_loader_empty_selection() {
+        let tmp = make_game_dir();
+        configure_mod_loader(tmp.path(), &[]).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let enabled = parsed["EnabledMods"].as_array().unwrap();
+        assert!(enabled.is_empty());
+    }
+
+    #[test]
+    fn test_configure_mod_loader_samanager_txt() {
+        let tmp = make_game_dir();
+        configure_mod_loader(tmp.path(), &[]).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/samanager.txt")).unwrap();
+        let wine_path = format!("Z:{}", tmp.path().to_string_lossy().replace('/', "\\"));
+        // Should have trailing backslash and newline
+        assert_eq!(content, format!("{}\\\n", wine_path));
+    }
+
+    #[test]
+    fn test_configure_mod_loader_profiles_match() {
+        let tmp = make_game_dir();
+        let mods: Vec<&ModEntry> = RECOMMENDED_MODS.iter().take(2).collect();
+        configure_mod_loader(tmp.path(), &mods).unwrap();
+
+        // Default.json in SAManager and .modloader should be identical
+        let sam_default = std::fs::read_to_string(
+            tmp.path().join("SAManager/SADX/profiles/Default.json"),
+        )
+        .unwrap();
+        let loader_default = std::fs::read_to_string(
+            tmp.path().join("mods/.modloader/profiles/Default.json"),
+        )
+        .unwrap();
+        assert_eq!(sam_default, loader_default);
+
+        // Profiles.json should also match
+        let sam_profiles = std::fs::read_to_string(
+            tmp.path().join("SAManager/SADX/profiles/Profiles.json"),
+        )
+        .unwrap();
+        let loader_profiles = std::fs::read_to_string(
+            tmp.path().join("mods/.modloader/profiles/Profiles.json"),
+        )
+        .unwrap();
+        assert_eq!(sam_profiles, loader_profiles);
+    }
+
+    // --- configure_game() tests ---
+
+    #[test]
+    fn test_configure_game_writes_sonic_ini() {
+        let tmp = make_game_dir();
+        configure_game(tmp.path()).unwrap();
+
+        let ini = std::fs::read_to_string(tmp.path().join("System/sonic.ini")).unwrap();
+        assert!(ini.contains("[sonicDX]"));
+        assert!(ini.contains("framerate=1"));
+        assert!(ini.contains("bgmv=100"));
+        assert!(ini.contains("voicev=100"));
+    }
+
+    #[test]
+    fn test_configure_game_case_insensitive_system_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Create lowercase "system" instead of "System"
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        configure_game(tmp.path()).unwrap();
+
+        assert!(tmp.path().join("system/sonic.ini").is_file());
+    }
+
+    // --- move_dir_contents() tests ---
+
+    #[test]
+    fn test_move_dir_contents_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(&dst).unwrap();
+
+        std::fs::write(src.join("a.txt"), "hello").unwrap();
+        std::fs::write(src.join("b.txt"), "world").unwrap();
+
+        move_dir_contents(&src, &dst).unwrap();
+
+        assert_eq!(std::fs::read_to_string(dst.join("a.txt")).unwrap(), "hello");
+        assert_eq!(std::fs::read_to_string(dst.join("b.txt")).unwrap(), "world");
+    }
+
+    #[test]
+    fn test_move_dir_contents_nested() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::create_dir_all(dst.join("sub")).unwrap();
+
+        std::fs::write(src.join("sub/new.txt"), "new").unwrap();
+        std::fs::write(dst.join("sub/existing.txt"), "existing").unwrap();
+
+        move_dir_contents(&src, &dst).unwrap();
+
+        // Both files should exist in destination
+        assert_eq!(std::fs::read_to_string(dst.join("sub/new.txt")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(dst.join("sub/existing.txt")).unwrap(),
+            "existing"
+        );
+    }
+
+    #[test]
+    fn test_move_dir_contents_overwrites() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(&dst).unwrap();
+
+        std::fs::write(src.join("file.txt"), "new content").unwrap();
+        std::fs::write(dst.join("file.txt"), "old content").unwrap();
+
+        move_dir_contents(&src, &dst).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dst.join("file.txt")).unwrap(),
+            "new content"
+        );
+    }
+
+    #[test]
+    fn test_move_dir_contents_file_replaces_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let dst = tmp.path().join("dst");
+        std::fs::create_dir_all(&src).unwrap();
+        // dst has a directory named "item"
+        std::fs::create_dir_all(dst.join("item")).unwrap();
+        std::fs::write(dst.join("item/inner.txt"), "inner").unwrap();
+
+        // src has a file named "item"
+        std::fs::write(src.join("item"), "I am a file").unwrap();
+
+        move_dir_contents(&src, &dst).unwrap();
+
+        // "item" should now be a file, not a directory
+        assert!(dst.join("item").is_file());
+        assert_eq!(
+            std::fs::read_to_string(dst.join("item")).unwrap(),
+            "I am a file"
+        );
+    }
+
+    // --- convert_steam_to_2004() skip detection tests ---
+
+    #[test]
+    fn test_convert_skips_if_chrmodels_orig_exists() {
+        let tmp = make_game_dir();
+        std::fs::write(tmp.path().join("System/CHRMODELS_orig.dll"), "dummy").unwrap();
+
+        // Should return Ok without needing hpatchz or downloads
+        convert_steam_to_2004(tmp.path(), None).unwrap();
+    }
+
+    #[test]
+    fn test_convert_skips_if_sadxmodloader_exists() {
+        let tmp = make_game_dir();
+        std::fs::write(tmp.path().join("SADXModLoader.dll"), "dummy").unwrap();
+
+        convert_steam_to_2004(tmp.path(), None).unwrap();
+    }
+
+    #[test]
+    fn test_convert_skips_if_sonic_exe_exists() {
+        let tmp = make_game_dir();
+        std::fs::write(tmp.path().join("sonic.exe"), "dummy").unwrap();
+
+        convert_steam_to_2004(tmp.path(), None).unwrap();
+    }
 }
