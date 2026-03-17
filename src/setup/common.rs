@@ -76,7 +76,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         // Steam-to-2004 conversion (SADX only): same markers as convert_steam_to_2004
         "convert_steam" => {
-            config::system_dir(p).join("CHRMODELS_orig.dll").exists()
+            find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll").is_some()
                 || p.join("SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("sonic.exe").exists()
@@ -89,8 +89,13 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("Sonic Adventure DX.exe.bak").exists();
             let loader_extracted = p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SA2ModLoader.dll").exists();
-            let dll_swapped = config::system_dir(p).join("CHRMODELS_orig.dll").exists()
-                || p.join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll").exists();
+            let dll_swapped =
+                find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll").is_some()
+                    || find_file_icase(
+                        &p.join("resource/gd_PC/DLL/Win32"),
+                        "Data_DLL_orig.dll",
+                    )
+                    .is_some();
             exe_backed_up && loader_extracted && dll_swapped
         }
 
@@ -279,18 +284,28 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     let (loader_dll_name, data_dll_path, orig_dll_path) = match game_kind {
         GameKind::SADX => {
             let sys = config::system_dir(game_path);
+            // The DLL may have different casing on Linux (e.g. CHRMODELS.DLL vs
+            // CHRMODELS.dll) depending on how Steam extracted or hpatchz produced it.
+            let chrmodels = find_file_icase(&sys, "CHRMODELS.dll")
+                .unwrap_or_else(|| sys.join("CHRMODELS.dll"));
+            let chrmodels_orig = find_file_icase(&sys, "CHRMODELS_orig.dll")
+                .unwrap_or_else(|| sys.join("CHRMODELS_orig.dll"));
             (
                 "SADXModLoader.dll",
-                sys.join("CHRMODELS.dll"),
-                sys.join("CHRMODELS_orig.dll"),
+                chrmodels,
+                chrmodels_orig,
             )
         }
         GameKind::SA2 => {
             let dll_dir = game_path.join("resource/gd_PC/DLL/Win32");
+            let data_dll = find_file_icase(&dll_dir, "Data_DLL.dll")
+                .unwrap_or_else(|| dll_dir.join("Data_DLL.dll"));
+            let data_dll_orig = find_file_icase(&dll_dir, "Data_DLL_orig.dll")
+                .unwrap_or_else(|| dll_dir.join("Data_DLL_orig.dll"));
             (
                 "SA2ModLoader.dll",
-                dll_dir.join("Data_DLL.dll"),
-                dll_dir.join("Data_DLL_orig.dll"),
+                data_dll,
+                data_dll_orig,
             )
         }
     };
@@ -442,6 +457,21 @@ fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Find a file in a directory by case-insensitive name match.
+///
+/// Returns `Some(path)` with the actual on-disk casing, or `None` if no match.
+fn find_file_icase(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
+    let name_lower = name.to_lowercase();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if entry.file_name().to_string_lossy().to_lowercase() == name_lower {
+                return Some(entry.path());
+            }
+        }
+    }
+    None
 }
 
 /// Recursively copy a directory.
