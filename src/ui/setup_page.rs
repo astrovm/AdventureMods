@@ -239,14 +239,26 @@ impl AdventureModsSetupPage {
                 let carousel = adw::Carousel::builder()
                     .interactive(true)
                     .allow_scroll_wheel(true)
+                    .vexpand(true)
                     .build();
 
-                let carousel_frame = gtk::AspectFrame::builder()
-                    .ratio(2.0)
-                    .obey_child(false)
-                    .child(&carousel)
+                let indicator = adw::CarouselIndicatorDots::builder()
+                    .carousel(&carousel)
+                    .margin_top(6)
+                    .margin_bottom(6)
+                    .build();
+
+                let carousel_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Vertical)
+                    .build();
+
+                carousel_box.append(&carousel);
+                carousel_box.append(&indicator);
+
+                let carousel_frame = gtk::Frame::builder()
+                    .child(&carousel_box)
                     .width_request(400)
-                    .height_request(200)
+                    .height_request(250)
                     .build();
 
                 let full_desc_label = gtk::Label::builder()
@@ -350,6 +362,8 @@ impl AdventureModsSetupPage {
                                 let img = gtk::Picture::builder()
                                     .can_shrink(true)
                                     .content_fit(gtk::ContentFit::Contain)
+                                    .hexpand(true)
+                                    .vexpand(true)
                                     .build();
                                 img.set_resource(Some(*pic));
                                 carousel_clone.append(&img);
@@ -358,9 +372,11 @@ impl AdventureModsSetupPage {
                             let img = gtk::Picture::builder()
                                 .can_shrink(true)
                                 .content_fit(gtk::ContentFit::Contain)
+                                .hexpand(true)
+                                .vexpand(true)
                                 .build();
                             img.set_resource(Some(
-                                "/io/github/astrovm/AdventureMods/images/super_sonic_showcase.jpg",
+                                "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg",
                             )); // fallback
                             carousel_clone.append(&img);
                         }
