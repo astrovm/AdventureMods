@@ -236,46 +236,36 @@ impl AdventureModsSetupPage {
                     .hexpand(false)
                     .build();
 
-                let before_label = gtk::Label::builder()
-                    .label("Before")
-                    .halign(gtk::Align::Start)
-                    .css_classes(vec!["caption".to_string()])
+                let carousel = adw::Carousel::builder()
+                    .interactive(true)
+                    .allow_scroll_wheel(true)
                     .build();
 
-                let before_image = gtk::Picture::builder()
-                    .can_shrink(true)
-                    .content_fit(gtk::ContentFit::Contain)
-                    .build();
-                let before_frame = gtk::AspectFrame::builder()
+                let carousel_frame = gtk::AspectFrame::builder()
                     .ratio(2.0)
                     .obey_child(false)
-                    .child(&before_image)
+                    .child(&carousel)
                     .width_request(400)
                     .height_request(200)
                     .build();
 
-                let after_label = gtk::Label::builder()
-                    .label("After")
+                let full_desc_label = gtk::Label::builder()
+                    .wrap(true)
                     .halign(gtk::Align::Start)
-                    .css_classes(vec!["caption".to_string()])
+                    .valign(gtk::Align::Start)
+                    .css_classes(vec!["body".to_string()])
                     .build();
 
-                let after_image = gtk::Picture::builder()
-                    .can_shrink(true)
-                    .content_fit(gtk::ContentFit::Contain)
-                    .build();
-                let after_frame = gtk::AspectFrame::builder()
-                    .ratio(2.0)
-                    .obey_child(false)
-                    .child(&after_image)
-                    .width_request(400)
-                    .height_request(200)
+                let desc_scrolled = gtk::ScrolledWindow::builder()
+                    .hscrollbar_policy(gtk::PolicyType::Never)
+                    .vscrollbar_policy(gtk::PolicyType::Automatic)
+                    .max_content_height(200)
+                    .propagate_natural_height(true)
+                    .child(&full_desc_label)
                     .build();
 
-                preview_box.append(&before_label);
-                preview_box.append(&before_frame);
-                preview_box.append(&after_label);
-                preview_box.append(&after_frame);
+                preview_box.append(&carousel_frame);
+                preview_box.append(&desc_scrolled);
 
                 preview_box.set_opacity(0.0);
 
@@ -337,38 +327,51 @@ impl AdventureModsSetupPage {
                     });
 
                     // Preview update on row focus/selection
-                    let b_img = before_image.clone();
-                    let a_img = after_image.clone();
                     let p_box = preview_box.clone();
-                    let b_lbl = before_label.clone();
-                    let a_lbl = after_label.clone();
-                    let a_frm = after_frame.clone();
+                    let carousel_clone = carousel.clone();
+                    let desc_lbl_clone = full_desc_label.clone();
                     let mod_entry_clone = mod_entry;
 
                     let gesture = gtk::EventControllerMotion::new();
                     gesture.connect_enter(move |_, _, _| {
-                        match (mod_entry_clone.before_image, mod_entry_clone.after_image) {
-                            (Some(before), Some(after)) => {
-                                // Before/after comparison mode
-                                b_img.set_resource(Some(before));
-                                a_img.set_resource(Some(after));
-                                b_lbl.set_visible(true);
-                                a_lbl.set_visible(true);
-                                a_frm.set_visible(true);
-                                p_box.set_opacity(1.0);
-                            }
-                            (Some(before), None) => {
-                                // Single showcase image mode
-                                b_img.set_resource(Some(before));
-                                b_lbl.set_visible(false);
-                                a_lbl.set_visible(false);
-                                a_frm.set_visible(false);
-                                p_box.set_opacity(1.0);
-                            }
-                            _ => {
-                                p_box.set_opacity(0.0);
-                            }
+                        // clear carousel
+                        let mut children = vec![];
+                        let mut child = carousel_clone.first_child();
+                        while let Some(w) = child {
+                            children.push(w.clone());
+                            child = w.next_sibling();
                         }
+                        for child in children {
+                            carousel_clone.remove(&child);
+                        }
+
+                        if !mod_entry_clone.pictures.is_empty() {
+                            for pic in mod_entry_clone.pictures {
+                                let img = gtk::Picture::builder()
+                                    .can_shrink(true)
+                                    .content_fit(gtk::ContentFit::Contain)
+                                    .build();
+                                img.set_resource(Some(*pic));
+                                carousel_clone.append(&img);
+                            }
+                        } else {
+                            let img = gtk::Picture::builder()
+                                .can_shrink(true)
+                                .content_fit(gtk::ContentFit::Contain)
+                                .build();
+                            img.set_resource(Some(
+                                "/io/github/astrovm/AdventureMods/images/super_sonic_showcase.jpg",
+                            )); // fallback
+                            carousel_clone.append(&img);
+                        }
+
+                        if let Some(desc) = mod_entry_clone.full_description {
+                            desc_lbl_clone.set_label(desc);
+                        } else {
+                            desc_lbl_clone.set_label(mod_entry_clone.description);
+                        }
+
+                        p_box.set_opacity(1.0);
                     });
                     list_row.add_controller(gesture);
 

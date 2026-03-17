@@ -195,18 +195,12 @@ pub fn generate_config(
     height: u32,
 ) -> Result<()> {
     match game_kind {
-        GameKind::SADX => super::sadx_config::generate_sadx_config(
-            game_path,
-            selected_mods,
-            width,
-            height,
-        ),
-        GameKind::SA2 => super::sa2_config::generate_sa2_config(
-            game_path,
-            selected_mods,
-            width,
-            height,
-        ),
+        GameKind::SADX => {
+            super::sadx_config::generate_sadx_config(game_path, selected_mods, width, height)
+        }
+        GameKind::SA2 => {
+            super::sa2_config::generate_sa2_config(game_path, selected_mods, width, height)
+        }
     }
 }
 

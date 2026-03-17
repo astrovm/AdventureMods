@@ -24,8 +24,13 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
         },
         description: "Restores Dreamcast visuals and features",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg"),
+        full_description: Some(
+            "A massive restoration project that reverts the graphical and environmental changes made in the DX port. It replaces SADX level models and textures with original Dreamcast assets, restores vertex colors, and brings back the original title screens and UI elements for the definitive 1998 experience.",
+        ),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg",
+        ],
         dir_name: Some("DreamcastConversion"),
     },
     ModEntry {
@@ -34,8 +39,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXFE.7z",
         },
         description: "Comprehensive bug fix mod for the PC port",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "The foundational bug-fix mod for the PC version of SADX. It addresses hundreds of technical oversights, including broken collision, incorrect object placement, scripting errors, and transparency issues that were not present in the original Dreamcast version.",
+        ),
+        pictures: &[],
         dir_name: Some("SADXFE"),
     },
     ModEntry {
@@ -44,8 +51,13 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
         },
         description: "Dreamcast-accurate lighting engine",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg"),
+        full_description: Some(
+            "Restores the original palette-based lighting system from the Dreamcast version of Sonic Adventure. It replaces the flat lighting of the DX ports with dynamic lighting that makes characters and environments react to light sources with vibrant color depth.",
+        ),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg",
+        ],
         dir_name: Some("sadx-dc-lighting"),
     },
     ModEntry {
@@ -54,8 +66,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://mm.reimuhakurei.net/sadxmods/SteamAchievements.7z",
         },
         description: "Enables Steam achievements with mods",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "A specialized mod that bridges the gap between modded/downgraded versions of the game and the Steam API. It allows players to earn all 15 official Steam achievements while playing with the SADX Mod Loader and other enhancements.",
+        ),
+        pictures: &[],
         dir_name: Some("SteamAchievements"),
     },
     ModEntry {
@@ -64,8 +78,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/smooth-cam.7z",
         },
         description: "Smooth first-person camera (analog instead of 8-directional)",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Improves the game's camera behavior by smoothing out transitions and movements. It reduces the jittery or 'snapping' feel of the original SADX camera, making the gameplay experience feel more modern and less nauseating.",
+        ),
+        pictures: &[],
         dir_name: Some("smooth-cam"),
     },
     ModEntry {
@@ -74,8 +90,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-frame-limit.7z",
         },
         description: "Accurate frame rate limiter",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "A critical utility that locks the game's framerate to 60 FPS. Since SADX physics are tied to the framerate, this mod prevents the game from running at double speed on high-refresh-rate monitors, ensuring stable and intended gameplay speed.",
+        ),
+        pictures: &[],
         dir_name: Some("sadx-frame-limit"),
     },
     ModEntry {
@@ -84,8 +102,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
         },
         description: "Restored and improved sound effects",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Restores the high-quality soundscape of the original 1998 release. It replaces compressed PC audio with high-fidelity samples from the Dreamcast version, fixes sound trigger bugs, and improves 3D positional audio handling.",
+        ),
+        pictures: &[],
         dir_name: Some("SoundOverhaul"),
     },
     ModEntry {
@@ -94,8 +114,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
         },
         description: "High-quality ADX audio replacement",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Restores the use of high-quality .adx audio files for music and voices. Unlike the standard .wma files used in the PC port, .adx files allow for perfect, seamless loops and higher overall audio fidelity without gaps in the soundtrack.",
+        ),
+        pictures: &[],
         dir_name: Some("ADXAudio"),
     },
     ModEntry {
@@ -104,8 +126,13 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
         },
         description: "Restores the ocean wave effect in Emerald Coast",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
+        full_description: Some(
+            "Restores the specific 'shiny' and opaque water textures used in the original 2003 GameCube/PC DX release. This mod is for players who prefer the DX-era water aesthetics over the transparent Dreamcast-style water.",
+        ),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/water_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/water_after.jpg",
+        ],
         dir_name: Some("sadx-style-water"),
     },
     ModEntry {
@@ -114,10 +141,13 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-onion-blur.7z",
         },
         description: "Dreamcast-style motion blur effect",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg",
+        full_description: Some(
+            "Restores the iconic 'onion skinning' motion blur effect seen when characters move at high speeds in the original Dreamcast version. This visual trail was removed in the DX ports and is a staple of the classic Sonic Adventure look.",
         ),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg"),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg",
+        ],
         dir_name: Some("sadx-onion-blur"),
     },
     ModEntry {
@@ -126,18 +156,25 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
         },
         description: "Original Dreamcast character models",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg"),
+        full_description: Some(
+            "Replaces the high-poly, glossy character models of the DX version with their original lower-poly designs from the 1998 Dreamcast version. It includes original models for the entire main cast, Eggman, Tikal, and Metal Sonic.",
+        ),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg",
+        ],
         dir_name: Some("SA1_Chars"),
     },
     ModEntry {
         name: "DX Characters Refined",
         source: ModSource::GameBanana { file_id: 1498662 },
-        description: "Various improvements for SADX character models",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/dx_chars_refined_showcase.jpg",
+        description: "High-fidelity refinements for the default DX character models.",
+        full_description: Some(
+            "DX Characters Refined improves the default character models introduced in the DX port rather than replacing them. It features updated topology, UV mapping, and textures for the main cast, along with a massive animation update that fixes over 200 bugged animations inherited from the Dreamcast models.",
         ),
-        after_image: None,
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/dx_chars_refined_showcase.jpg",
+        ],
         dir_name: Some("DX Characters Refined"),
     },
     ModEntry {
@@ -146,8 +183,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DLCs.7z",
         },
         description: "Restored Dreamcast downloadable content",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Restores the original Dreamcast-exclusive seasonal and promotional online events. This includes holiday events like Christmas and Halloween, as well as scavenger hunts and challenges that were originally only available via the Dreamcast's online features.",
+        ),
+        pictures: &[],
         dir_name: Some("DLC"),
     },
     ModEntry {
@@ -156,8 +195,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
         },
         description: "Press a button to hear character commentary about the current stage",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Allows players to manually trigger character idle dialogue by pressing a dedicated button. This allows players to hear the characters' thoughts on the story, their location, or current mission without waiting for the idle timer to run out.",
+        ),
+        pictures: &[],
         dir_name: Some("idle-chatter"),
     },
     ModEntry {
@@ -166,8 +207,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
         },
         description: "Press X+Y to hide the pause menu for screenshots",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "A simple but effective tool for virtual photographers. By pressing a specific button combination while the game is paused, players can hide the entire pause menu and HUD to capture clean, unobstructed screenshots of the game world.",
+        ),
+        pictures: &[],
         dir_name: Some("pause-hide"),
     },
     ModEntry {
@@ -176,28 +219,32 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/TrainDaytime.7z",
         },
         description: "Change the time of day by taking the train after beating the story",
-        before_image: None,
-        after_image: None,
+        full_description: Some(
+            "Restores the dynamic time-of-day system for Hub Worlds. As the player travels between Station Square and the Mystic Ruins, the clock advances, changing the lighting and atmosphere between Day, Evening, and Night to reflect the passage of time.",
+        ),
+        pictures: &[],
         dir_name: Some("TrainDaytime"),
     },
     ModEntry {
         name: "Sonic Adventure Retranslated",
         source: ModSource::GameBanana { file_id: 384650 },
-        description: "Retranslation of the game script from the original Japanese",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/sa_retranslated_showcase.jpg",
+        description: "Faithful translation of the Japanese script for SADX.",
+        full_description: Some(
+            "This mod replaces the English script with Windii's faithful translation of the original Japanese dialogue. It corrects numerous localization errors and 'Americanizations,' providing a more accurate narrative experience. It is recommended for use with Japanese voices.",
         ),
-        after_image: None,
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa_retranslated_showcase.jpg",
+        ],
         dir_name: Some("Sonic Adventure Retranslated"),
     },
     ModEntry {
         name: "HUD Plus",
         source: ModSource::GameBanana { file_id: 1309612 },
-        description: "Various HUD improvements",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/hud_plus_showcase.jpg",
+        description: "Expanded limits and contextual improvements for the gameplay HUD.",
+        full_description: Some(
+            "HUD Plus enhances the UI by increasing the ring and life counter limits and displaying collected Chao animals in the pause menu. It also includes contextual changes like hiding the ring HUD in specific stages where it's not needed and adding a score counter to the main screen.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/hud_plus_showcase.jpg"],
         dir_name: Some("sadx-hud-plus"),
     },
     ModEntry {
@@ -206,38 +253,43 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
         },
         description: "High resolution GUI textures for menus, HUD and icons",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
+        full_description: Some(
+            "A complete high-resolution texture overhaul for the game's user interface. It replaces every menu texture, HUD element, and font with crisp, HD versions that are faithful to the original UI designs while looking great on modern displays.",
+        ),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg",
+        ],
         dir_name: Some("HD_DCStyle"),
     },
     ModEntry {
         name: "Active Mouths",
         source: ModSource::GameBanana { file_id: 622235 },
-        description: "Adds character face animations outside cutscenes",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/active_mouths_showcase.jpg",
+        description: "Enables character face and mouth animations during gameplay.",
+        full_description: Some(
+            "Active Mouths enables mouth and facial animations for characters when they speak idle lines or react to the environment in-game, features previously restricted to cutscenes. It includes synced mouth movements for voice clips and environmental reactions like drowning or clearing a stage.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/active_mouths_showcase.jpg"],
         dir_name: Some("Active Mouths"),
     },
     ModEntry {
-        name: "New Tricks",
+        name: "Sonic: New Tricks",
         source: ModSource::GameBanana { file_id: 1102800 },
-        description: "Adds new character abilities like drop dash and air dash",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/new_tricks_showcase.jpg",
+        description: "Modernizes Sonic and Shadow's movesets with new and restored abilities.",
+        full_description: Some(
+            "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/new_tricks_showcase.jpg"],
         dir_name: Some("sadx-new-tricks"),
     },
     ModEntry {
         name: "Better Tails AI",
         source: ModSource::GameBanana { file_id: 1148657 },
-        description: "Makes Tails follow Sonic in all areas with improved AI behavior",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/better_tails_showcase.jpg",
+        description: "Major improvements to Tails' behavior as a follower.",
+        full_description: Some(
+            "Better Tails AI makes Tails much more useful and interactive. He can now follow you into Hub Worlds and Boss Fights, pet Chao alongside the player, and sit in vehicles. It also adds a fast travel system in Hub Worlds and improves his flight speed to better keep up with Sonic.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/better_tails_showcase.jpg"],
         dir_name: Some("Better Tails AI"),
     },
     ModEntry {
@@ -246,46 +298,50 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
         },
         description: "Playable Super Sonic in action stages",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg",
+        full_description: Some(
+            "A gameplay overhaul that enables Super Sonic for use in regular Action Stages after completing the story. It includes improved mechanics, fixed animations, and the ability to transform at will during normal levels.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg"],
         dir_name: Some("sadx-super-sonic"),
     },
     ModEntry {
         name: "Multiplayer",
         source: ModSource::GameBanana { file_id: 1046512 },
-        description: "Split screen coop and battle multiplayer for trial stages",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/multiplayer_showcase.jpg",
+        description: "Adds local 4-player split-screen support to SADX.",
+        full_description: Some(
+            "The SADX Multiplayer mod adds local split-screen support for up to 4 players. It overhauls systems like fishing, hunting, and shooting to work in a multiplayer environment and supports both Co-op and Battle modes across various trial stages.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/multiplayer_showcase.jpg"],
         dir_name: Some("sadx-multiplayer"),
     },
     ModEntry {
         name: "Chao Gameplay",
         source: ModSource::GameBanana { file_id: 781777 },
-        description: "Makes Chao follow you in action stages",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/chao_gameplay_showcase.jpg",
+        description: "Allows taking your Chao out of the gardens and into action stages.",
+        full_description: Some(
+            "Also known as Chao Partner, this mod allows you to take your Chao with you into levels and hub worlds. Your Chao will follow you, attack nearby enemies based on its stats, and can be petted or dropped at will. It includes a water fix to allow Chao to 'swim' in standard level water.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/chao_gameplay_showcase.jpg"],
         dir_name: Some("sadx-chao-gameplay"),
     },
     ModEntry {
         name: "Fixes, Adds, and Beta Restores",
         source: ModSource::GameBanana { file_id: 429267 },
-        description: "Fixes various things, adds back in unused voices, and restores some general beta content.",
-        before_image: None,
-        after_image: None,
+        description: "Restores cut content and fixes bugs in the PC version.",
+        full_description: Some(
+            "This mod restores various beta elements like unused voice clips and animations while fixing hundreds of small bugs in the PC port. It adds 'Extra' mode layouts with restored level objects and improves visual elements like the Nightopian Egg and environmental sound effects.",
+        ),
+        pictures: &[],
         dir_name: Some("Fixes_Adds_BetaRestores"),
     },
     ModEntry {
         name: "Perfect Chaos Music Swap",
         source: ModSource::GameBanana { file_id: 1217474 },
-        description: "Swaps music phases during the final boss fight for better pacing",
-        before_image: None,
-        after_image: None,
+        description: "Swaps the music tracks for the Perfect Chaos boss phases.",
+        full_description: Some(
+            "This mod swaps the music for Phase 1 and Phase 2 of the final boss fight. It is commonly used to ensure 'Open Your Heart' plays during the main gameplay segment of the fight, restoring the intended musical progression from the original Dreamcast release.",
+        ),
+        pictures: &[],
         dir_name: Some("Perfect Chaos Music Swap"),
     },
     ModEntry {
@@ -294,10 +350,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
         },
         description: "HD upscaled video cutscenes",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg",
+        full_description: Some(
+            "Upscales the game's original pre-rendered cinematic cutscenes to 1080p using AI neural networks. This mod removes compression artifacts and blurriness, making the transition between gameplay and cutscenes feel much more seamless on HD monitors.",
         ),
-        after_image: None,
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg"],
         dir_name: Some("AI_HD_FMVs"),
     },
     ModEntry {
@@ -306,10 +362,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
         },
         description: "AI upscaled textures for both vanilla and Dreamcast Conversion assets",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
+        full_description: Some(
+            "Uses AI technology like ESRGAN to upscale the game's textures to high definition. It sharpens the environment and character textures significantly while strictly preserving the original art style and color palette of the game.",
         ),
-        after_image: None,
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
+        ],
         dir_name: Some("AI_HD_Textures"),
     },
 ];

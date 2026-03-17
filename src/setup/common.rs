@@ -30,8 +30,8 @@ pub struct ModEntry {
     pub name: &'static str,
     pub source: ModSource,
     pub description: &'static str,
-    pub before_image: Option<&'static str>,
-    pub after_image: Option<&'static str>,
+    pub full_description: Option<&'static str>,
+    pub pictures: &'static [&'static str],
     /// Expected directory name inside `mods/`. Used when a flat archive
     /// (no top-level subdirectory) needs to be wrapped in the correct folder.
     pub dir_name: Option<&'static str>,
@@ -89,12 +89,9 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("Sonic Adventure DX.exe.bak").exists();
             let loader_extracted = p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SA2ModLoader.dll").exists();
-            let dll_swapped =
-                find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll").is_some()
-                    || find_file_icase(
-                        &p.join("resource/gd_PC/DLL/Win32"),
-                        "Data_DLL_orig.dll",
-                    )
+            let dll_swapped = find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll")
+                .is_some()
+                || find_file_icase(&p.join("resource/gd_PC/DLL/Win32"), "Data_DLL_orig.dll")
                     .is_some();
             exe_backed_up && loader_extracted && dll_swapped
         }
@@ -286,15 +283,11 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
             let sys = config::system_dir(game_path);
             // The DLL may have different casing on Linux (e.g. CHRMODELS.DLL vs
             // CHRMODELS.dll) depending on how Steam extracted or hpatchz produced it.
-            let chrmodels = find_file_icase(&sys, "CHRMODELS.dll")
-                .unwrap_or_else(|| sys.join("CHRMODELS.dll"));
+            let chrmodels =
+                find_file_icase(&sys, "CHRMODELS.dll").unwrap_or_else(|| sys.join("CHRMODELS.dll"));
             let chrmodels_orig = find_file_icase(&sys, "CHRMODELS_orig.dll")
                 .unwrap_or_else(|| sys.join("CHRMODELS_orig.dll"));
-            (
-                "SADXModLoader.dll",
-                chrmodels,
-                chrmodels_orig,
-            )
+            ("SADXModLoader.dll", chrmodels, chrmodels_orig)
         }
         GameKind::SA2 => {
             let dll_dir = game_path.join("resource/gd_PC/DLL/Win32");
@@ -302,23 +295,14 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
                 .unwrap_or_else(|| dll_dir.join("Data_DLL.dll"));
             let data_dll_orig = find_file_icase(&dll_dir, "Data_DLL_orig.dll")
                 .unwrap_or_else(|| dll_dir.join("Data_DLL_orig.dll"));
-            (
-                "SA2ModLoader.dll",
-                data_dll,
-                data_dll_orig,
-            )
+            ("SA2ModLoader.dll", data_dll, data_dll_orig)
         }
     };
 
-    let loader_dll = game_path
-        .join("mods/.modloader")
-        .join(loader_dll_name);
+    let loader_dll = game_path.join("mods/.modloader").join(loader_dll_name);
 
     if !loader_dll.is_file() {
-        anyhow::bail!(
-            "Mod loader DLL not found at {}",
-            loader_dll.display()
-        );
+        anyhow::bail!("Mod loader DLL not found at {}", loader_dll.display());
     }
 
     // Already swapped — nothing to do

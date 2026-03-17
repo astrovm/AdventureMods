@@ -34,8 +34,12 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             id: "steam_config",
             title: "Steam Configuration",
             description: match kind {
-                GameKind::SADX => "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created.",
-                GameKind::SA2 => "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created.",
+                GameKind::SADX => {
+                    "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created."
+                }
+                GameKind::SA2 => {
+                    "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created."
+                }
             },
             kind: StepKind::Info,
         },
