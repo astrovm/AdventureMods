@@ -406,13 +406,14 @@ impl AdventureModsSetupPage {
                     let obj_clone = self.clone();
                     let idx = i;
                     check.connect_toggled(move |btn| {
-                        let mut sel = obj_clone.imp().selected_mods.borrow_mut();
-                        if btn.is_active() {
-                            if !sel.contains(&idx) {
-                                sel.push(idx);
+                        if let Ok(mut sel) = obj_clone.imp().selected_mods.try_borrow_mut() {
+                            if btn.is_active() {
+                                if !sel.contains(&idx) {
+                                    sel.push(idx);
+                                }
+                            } else {
+                                sel.retain(|&x| x != idx);
                             }
-                        } else {
-                            sel.retain(|&x| x != idx);
                         }
                     });
 

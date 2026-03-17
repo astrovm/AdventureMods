@@ -386,6 +386,7 @@ pub const PRESETS: &[super::common::ModPreset] = &[
             "Frame Limit",
             "Sound Overhaul",
             "ADX Audio",
+            "SADX Style Water",
             "Onion Blur",
             "DX Characters Refined",
             "Dreamcast DLC",
