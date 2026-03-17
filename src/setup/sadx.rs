@@ -296,6 +296,22 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         after_image: None,
         dir_name: Some("sadx-chao-gameplay"),
     },
+    ModEntry {
+        name: "Fixes, Adds, and Beta Restores",
+        source: ModSource::GameBanana { file_id: 429267 },
+        description: "Fixes various things, adds back in unused voices, and restores some general beta content.",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("Fixes_Adds_BetaRestores"),
+    },
+    ModEntry {
+        name: "Perfect Chaos Music Swap",
+        source: ModSource::GameBanana { file_id: 1217474 },
+        description: "Swaps music phases during the final boss fight for better pacing",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("Perfect Chaos Music Swap"),
+    },
 ];
 
 /// Convert the Steam version of SADX to the 2004 version using HDiffPatch.
