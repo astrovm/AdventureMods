@@ -190,6 +190,74 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
         dir_name: Some("HD_DCStyle"),
     },
+    ModEntry {
+        name: "Sonic Adventure Retranslated",
+        source: ModSource::GameBanana { file_id: 384650 },
+        description: "Retranslation of the game script from the original Japanese",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("Sonic Adventure Retranslated"),
+    },
+    ModEntry {
+        name: "HUD Plus",
+        source: ModSource::GameBanana { file_id: 1309612 },
+        description: "Various HUD improvements",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("sadx-hud-plus"),
+    },
+    ModEntry {
+        name: "AI HD Textures",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
+        },
+        description: "AI upscaled textures for both vanilla and Dreamcast Conversion assets",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("AI_HD_Textures"),
+    },
+    ModEntry {
+        name: "AI HD FMVs",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
+        },
+        description: "HD upscaled video cutscenes",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("AI_HD_FMVs"),
+    },
+    ModEntry {
+        name: "Active Mouths",
+        source: ModSource::GameBanana { file_id: 622235 },
+        description: "Adds character face animations outside cutscenes",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("Active Mouths"),
+    },
+    ModEntry {
+        name: "New Tricks",
+        source: ModSource::GameBanana { file_id: 1102800 },
+        description: "Adds new character abilities like drop dash and air dash",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("sadx-new-tricks"),
+    },
+    ModEntry {
+        name: "Better Tails AI",
+        source: ModSource::GameBanana { file_id: 1148657 },
+        description: "Makes Tails follow Sonic in all areas with improved AI behavior",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("Better Tails AI"),
+    },
+    ModEntry {
+        name: "DX Characters Refined",
+        source: ModSource::GameBanana { file_id: 1498662 },
+        description: "Various improvements for SADX character models",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("DX Characters Refined"),
+    },
 ];
 
 /// Convert the Steam version of SADX to the 2004 version using HDiffPatch.
@@ -372,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 17);
+        assert_eq!(RECOMMENDED_MODS.len(), 25);
     }
 
     #[test]
