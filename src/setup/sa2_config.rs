@@ -151,7 +151,7 @@ fn build_default_profile(
 
 /// Recommended SA2 patches: (name, enabled by default).
 const RECOMMENDED_PATCHES: &[(&str, bool)] = &[
-    ("FramerateLimiter", true),
+    ("FramerateLimiter", false),
     ("DisableExitPrompt", true),
     ("SyncLoad", true),
     ("ExtendVertexBuffer", true),
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(enabled, mods_list);
 
         let patches = parsed["Patches"].as_object().unwrap();
-        assert_eq!(patches["FramerateLimiter"], true);
+        assert_eq!(patches["FramerateLimiter"], false);
         assert_eq!(patches["CECarFix"], true);
         assert_eq!(patches.len(), RECOMMENDED_PATCHES.len());
     }
