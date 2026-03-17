@@ -33,6 +33,22 @@ impl GameKind {
             GameKind::SA2 => "Sonic Adventure 2",
         }
     }
+
+    /// The game executable that the mod manager launches.
+    pub fn game_executable(self) -> &'static str {
+        match self {
+            GameKind::SADX => "sonic.exe",
+            GameKind::SA2 => "sonic2app.exe",
+        }
+    }
+
+    /// Numeric game type used in SA Mod Manager's Manager.json.
+    pub fn manager_game_type(self) -> u32 {
+        match self {
+            GameKind::SADX => 1,
+            GameKind::SA2 => 2,
+        }
+    }
 }
 
 #[cfg(test)]

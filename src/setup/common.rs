@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use crate::external::{archive, download, protontricks};
 use crate::steam::game::{Game, GameKind};
 
-use super::{sa2, sadx};
+use super::{config, sa2, sadx};
 
 /// GitHub release URL for SA Mod Manager (x64).
 const SA_MOD_MANAGER_URL: &str =
@@ -76,12 +76,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         // Steam-to-2004 conversion (SADX only): same markers as convert_steam_to_2004
         "convert_steam" => {
-            let system_dir = if p.join("System").is_dir() {
-                p.join("System")
-            } else {
-                p.join("system")
-            };
-            system_dir.join("CHRMODELS_orig.dll").exists()
+            config::system_dir(p).join("CHRMODELS_orig.dll").exists()
                 || p.join("SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("sonic.exe").exists()
@@ -94,12 +89,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("Sonic Adventure DX.exe.bak").exists();
             let loader_extracted = p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SA2ModLoader.dll").exists();
-            let system_dir = if p.join("System").is_dir() {
-                p.join("System")
-            } else {
-                p.join("system")
-            };
-            let dll_swapped = system_dir.join("CHRMODELS_orig.dll").exists()
+            let dll_swapped = config::system_dir(p).join("CHRMODELS_orig.dll").exists()
                 || p.join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll").exists();
             exe_backed_up && loader_extracted && dll_swapped
         }
@@ -288,16 +278,11 @@ pub fn install_mod_loader(
 fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     let (loader_dll_name, data_dll_path, orig_dll_path) = match game_kind {
         GameKind::SADX => {
-            // Handle case-insensitive System directory
-            let system_dir = if game_path.join("System").is_dir() {
-                game_path.join("System")
-            } else {
-                game_path.join("system")
-            };
+            let sys = config::system_dir(game_path);
             (
                 "SADXModLoader.dll",
-                system_dir.join("CHRMODELS.dll"),
-                system_dir.join("CHRMODELS_orig.dll"),
+                sys.join("CHRMODELS.dll"),
+                sys.join("CHRMODELS_orig.dll"),
             )
         }
         GameKind::SA2 => {

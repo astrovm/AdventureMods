@@ -23,14 +23,7 @@ pub enum StepKind {
 }
 
 pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
-    match kind {
-        GameKind::SADX => sadx_steps(),
-        GameKind::SA2 => sa2_steps(),
-    }
-}
-
-fn sadx_steps() -> Vec<SetupStep> {
-    vec![
+    let mut steps = vec![
         SetupStep {
             id: "check_deps",
             title: "Check Dependencies",
@@ -40,7 +33,10 @@ fn sadx_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "steam_config",
             title: "Steam Configuration",
-            description: "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created.",
+            description: match kind {
+                GameKind::SADX => "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created.",
+                GameKind::SA2 => "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created.",
+            },
             kind: StepKind::Info,
         },
         SetupStep {
@@ -49,59 +45,19 @@ fn sadx_steps() -> Vec<SetupStep> {
             description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) via protontricks. This may take several minutes...",
             kind: StepKind::Auto,
         },
-        SetupStep {
+    ];
+
+    // SADX-only: Steam-to-2004 conversion
+    if kind == GameKind::SADX {
+        steps.push(SetupStep {
             id: "convert_steam",
             title: "Convert Steam to 2004",
             description: "Downloading conversion tools and patching the Steam version to the 2004 version required by the mod loader...",
             kind: StepKind::Download,
-        },
-        SetupStep {
-            id: "install_mod_manager",
-            title: "Install Mod Manager & Loader",
-            description: "Downloading and installing SA Mod Manager and the mod loader...",
-            kind: StepKind::Download,
-        },
-        SetupStep {
-            id: "select_mods",
-            title: "Select Mods",
-            description: "Choose which recommended mods to install for Sonic Adventure DX:",
-            kind: StepKind::ModSelection,
-        },
-        SetupStep {
-            id: "download_mods",
-            title: "Download Mods",
-            description: "Downloading and installing selected mods...",
-            kind: StepKind::Download,
-        },
-        SetupStep {
-            id: "complete",
-            title: "Setup Complete",
-            description: "Sonic Adventure DX mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods.",
-            kind: StepKind::Info,
-        },
-    ]
-}
+        });
+    }
 
-fn sa2_steps() -> Vec<SetupStep> {
-    vec![
-        SetupStep {
-            id: "check_deps",
-            title: "Check Dependencies",
-            description: "Checking that protontricks is installed...",
-            kind: StepKind::Auto,
-        },
-        SetupStep {
-            id: "steam_config",
-            title: "Steam Configuration",
-            description: "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created.",
-            kind: StepKind::Info,
-        },
-        SetupStep {
-            id: "dotnet",
-            title: "Install .NET Runtimes",
-            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) via protontricks. This may take several minutes...",
-            kind: StepKind::Auto,
-        },
+    steps.extend([
         SetupStep {
             id: "install_mod_manager",
             title: "Install Mod Manager & Loader",
@@ -111,7 +67,10 @@ fn sa2_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "select_mods",
             title: "Select Mods",
-            description: "Choose which recommended mods to install for Sonic Adventure 2:",
+            description: match kind {
+                GameKind::SADX => "Choose which recommended mods to install for Sonic Adventure DX:",
+                GameKind::SA2 => "Choose which recommended mods to install for Sonic Adventure 2:",
+            },
             kind: StepKind::ModSelection,
         },
         SetupStep {
@@ -123,10 +82,16 @@ fn sa2_steps() -> Vec<SetupStep> {
         SetupStep {
             id: "complete",
             title: "Setup Complete",
-            description: "Sonic Adventure 2 mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods.",
+            description: if kind == GameKind::SADX {
+                "Sonic Adventure DX mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods."
+            } else {
+                "Sonic Adventure 2 mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods."
+            },
             kind: StepKind::Info,
         },
-    ]
+    ]);
+
+    steps
 }
 
 #[cfg(test)]
@@ -247,6 +212,30 @@ mod tests {
 
             assert_eq!(last.id, "complete");
             assert!(matches!(last.kind, StepKind::Info));
+        }
+    }
+
+    #[test]
+    fn test_sadx_has_convert_steam_step() {
+        let steps = steps_for_game(GameKind::SADX);
+        assert!(steps.iter().any(|s| s.id == "convert_steam"));
+    }
+
+    #[test]
+    fn test_sa2_has_no_convert_steam_step() {
+        let steps = steps_for_game(GameKind::SA2);
+        assert!(!steps.iter().any(|s| s.id == "convert_steam"));
+    }
+
+    #[test]
+    fn test_descriptions_contain_game_name() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let steps = steps_for_game(kind);
+            let steam_step = steps.iter().find(|s| s.id == "steam_config").unwrap();
+            assert!(steam_step.description.contains(kind.name()));
+
+            let complete_step = steps.iter().find(|s| s.id == "complete").unwrap();
+            assert!(complete_step.description.contains(kind.name()));
         }
     }
 }

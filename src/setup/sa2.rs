@@ -7,7 +7,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Restores Dreamcast-accurate rendering, fixes graphical bugs and adds enhancements.",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("sa2-render-fix"),
     },
     ModEntry {
         name: "Retranslated Story -COMPLETE-",
@@ -15,7 +15,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Accurate retranslation of the story",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("Retranslated Story -COMPLETE-"),
     },
     ModEntry {
         name: "HD GUI: SA2 Edition",
@@ -23,7 +23,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "High-definition GUI textures",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("HD GUI for SA2"),
     },
     ModEntry {
         name: "IMPRESSive",
@@ -31,7 +31,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "UI display enhancements and formatting improvements",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("IMPRESSive"),
     },
     ModEntry {
         name: "Stage Atmosphere Tweaks",
@@ -39,7 +39,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Improved stage lighting and atmosphere",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("StageAtmosphereTweaks"),
     },
     ModEntry {
         name: "SA2 Volume Controls",
@@ -47,7 +47,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Adds proper volume control options",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("SA2VolumeControls"),
     },
     ModEntry {
         name: "Mech Sound Improvement",
@@ -55,7 +55,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Better mech stage sound effects",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("Mech Sound Improvement"),
     },
     ModEntry {
         name: "SASDL",
@@ -63,7 +63,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "SDL2 library interface required by SA2 Input Controls",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("SASDL"),
     },
     ModEntry {
         name: "SA2 Input Controls",
@@ -71,7 +71,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Adjusts oversensitive controls for better handling",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("sa2-input-controls"),
     },
     ModEntry {
         name: "Better Radar",
@@ -79,7 +79,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Improved treasure hunting radar",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("SA2BetterRadar"),
     },
     ModEntry {
         name: "HedgePanel - Sonic + Shadow Tweaks",
@@ -87,7 +87,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Gameplay tweaks for Sonic and Shadow",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("HedgePanel"),
     },
     ModEntry {
         name: "Sonic: New Tricks",
@@ -95,7 +95,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "New tricks for speed characters",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("Sonic New Tricks"),
     },
     ModEntry {
         name: "Retranslated Hints",
@@ -103,7 +103,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         description: "Accurate retranslation of hint messages",
         before_image: None,
         after_image: None,
-        dir_name: None,
+        dir_name: Some("Retranslated Hints"),
     },
 ];
 

@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use crate::external::{archive, download};
 
 use super::common::{ModEntry, ModSource};
+use super::config;
 
 /// Direct URL for the Steam-to-2004 conversion tools archive.
 const STEAM_TOOLS_URL: &str =
@@ -203,15 +204,7 @@ pub fn convert_steam_to_2004(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    // Detect the system directory (can be System or system on Linux)
-    let system_dir = if game_path.join("System").is_dir() {
-        game_path.join("System")
-    } else if game_path.join("system").is_dir() {
-        game_path.join("system")
-    } else {
-        // Default to System but we'll likely fail later anyway if missing
-        game_path.join("System")
-    };
+    let system_dir = config::system_dir(game_path);
 
     // Skip if already converted. Check multiple markers since previous setups
     // (including the official Windows installer) leave different traces.

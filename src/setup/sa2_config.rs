@@ -5,33 +5,8 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 
 use super::common::ModEntry;
-
-/// Convert a Linux path to a Wine Z: drive path with backslashes.
-fn linux_to_wine_path(path: &Path) -> String {
-    let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    format!("Z:{}", resolved.to_string_lossy().replace('/', "\\"))
-}
-
-/// Map from mod name to the folder name the GameBanana archive creates.
-/// SA2 mods have `dir_name: None`, so we need this lookup.
-fn mod_folder_name(mod_name: &str) -> &str {
-    match mod_name {
-        "SA2 Render Fix" => "sa2-render-fix",
-        "Retranslated Story -COMPLETE-" => "Retranslated Story -COMPLETE-",
-        "HD GUI: SA2 Edition" => "HD GUI for SA2",
-        "IMPRESSive" => "IMPRESSive",
-        "Stage Atmosphere Tweaks" => "StageAtmosphereTweaks",
-        "SA2 Volume Controls" => "SA2VolumeControls",
-        "Mech Sound Improvement" => "Mech Sound Improvement",
-        "SASDL" => "SASDL",
-        "SA2 Input Controls" => "sa2-input-controls",
-        "Better Radar" => "SA2BetterRadar",
-        "HedgePanel - Sonic + Shadow Tweaks" => "HedgePanel",
-        "Sonic: New Tricks" => "Sonic New Tricks",
-        "Retranslated Hints" => "Retranslated Hints",
-        _ => mod_name,
-    }
-}
+use super::config;
+use crate::steam::game::GameKind;
 
 /// Generate all SA Mod Manager v3 configuration files for SA2.
 pub fn generate_sa2_config(
@@ -42,66 +17,17 @@ pub fn generate_sa2_config(
 ) -> Result<()> {
     let profile = build_default_profile(game_path, selected_mods, width, height);
 
-    write_manager_json(game_path)?;
-    write_profiles_json(game_path, "mods/.modloader/profiles")?;
-    write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
-    write_samanager_txt(game_path)?;
+    config::write_manager_json(game_path, GameKind::SA2)?;
+    config::write_profiles_json(game_path, "mods/.modloader/profiles")?;
+    config::write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
+    config::write_samanager_txt(game_path)?;
     write_user_config(game_path, width, height)?;
 
     tracing::info!("SA2 configuration files generated");
     Ok(())
 }
 
-// --- JSON structures ---
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct ManagerJson {
-    settings_version: u32,
-    current_set_game: u32,
-    theme: u32,
-    language: u32,
-    mod_author: String,
-    enable_developer_mode: bool,
-    keep_manager_open: bool,
-    update_settings: UpdateSettings,
-    game_entries: Vec<GameEntry>,
-    keep_mod_order: bool,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct UpdateSettings {
-    enable_manager_boot_check: bool,
-    enable_mods_boot_check: bool,
-    enable_loader_boot_check: bool,
-    update_time_out_c_d: u32,
-    update_check_count: u32,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct GameEntry {
-    name: String,
-    directory: String,
-    executable: String,
-    #[serde(rename = "Type")]
-    game_type: u32,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct ProfilesJson {
-    profile_index: u32,
-    profiles_list: Vec<ProfileEntry>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct ProfileEntry {
-    name: String,
-    filename: String,
-}
+// --- SA2-specific profile structures ---
 
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -110,7 +36,7 @@ struct DefaultProfile {
     graphics: Graphics,
     test_spawn: TestSpawn,
     patches: BTreeMap<String, bool>,
-    debug_settings: DebugSettings,
+    debug_settings: config::DebugSettings,
     game_path: String,
     enabled_mods: Vec<String>,
     enabled_codes: Vec<String>,
@@ -164,16 +90,6 @@ struct TestSpawn {
     rotation: u32,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "PascalCase")]
-struct DebugSettings {
-    enable_debug_console: bool,
-    enable_debug_screen: bool,
-    enable_debug_file: bool,
-    enable_debug_crash_log: bool,
-    enable_show_console: Option<bool>,
-}
-
 // --- Builders ---
 
 fn build_default_profile(
@@ -182,15 +98,7 @@ fn build_default_profile(
     width: u32,
     height: u32,
 ) -> DefaultProfile {
-    let mod_dirs: Vec<String> = selected_mods
-        .iter()
-        .map(|m| mod_folder_name(m.name).to_string())
-        .collect();
-
-    let mut patches = BTreeMap::new();
-    for &(name, enabled) in RECOMMENDED_PATCHES {
-        patches.insert(name.to_string(), enabled);
-    }
+    let mod_dirs = config::mod_dir_names(selected_mods);
 
     DefaultProfile {
         settings_version: 3,
@@ -232,15 +140,9 @@ fn build_default_profile(
             z_position: 0,
             rotation: 0,
         },
-        patches,
-        debug_settings: DebugSettings {
-            enable_debug_console: false,
-            enable_debug_screen: false,
-            enable_debug_file: false,
-            enable_debug_crash_log: true,
-            enable_show_console: None,
-        },
-        game_path: linux_to_wine_path(game_path),
+        patches: config::build_patches(RECOMMENDED_PATCHES),
+        debug_settings: config::DebugSettings::default(),
+        game_path: config::linux_to_wine_path(game_path),
         enabled_mods: mod_dirs.clone(),
         enabled_codes: Vec::new(),
         mods_list: mod_dirs,
@@ -259,69 +161,7 @@ const RECOMMENDED_PATCHES: &[(&str, bool)] = &[
     ("ParticlesFix", true),
 ];
 
-// --- File writers ---
-
-fn write_manager_json(game_path: &Path) -> Result<()> {
-    let wine_path = linux_to_wine_path(game_path);
-    let manager = ManagerJson {
-        settings_version: 3,
-        current_set_game: 0,
-        theme: 0,
-        language: 0,
-        mod_author: String::new(),
-        enable_developer_mode: false,
-        keep_manager_open: true,
-        update_settings: UpdateSettings {
-            enable_manager_boot_check: true,
-            enable_mods_boot_check: true,
-            enable_loader_boot_check: true,
-            update_time_out_c_d: 0,
-            update_check_count: 0,
-        },
-        game_entries: vec![GameEntry {
-            name: "Sonic Adventure 2".to_string(),
-            directory: format!("{}\\", wine_path),
-            executable: "sonic2app.exe".to_string(),
-            game_type: 2,
-        }],
-        keep_mod_order: false,
-    };
-
-    let dir = game_path.join("SAManager");
-    std::fs::create_dir_all(&dir)?;
-    let json = serde_json::to_string_pretty(&manager)?;
-    std::fs::write(dir.join("Manager.json"), json).context("Failed to write Manager.json")
-}
-
-fn write_profiles_json(game_path: &Path, rel_dir: &str) -> Result<()> {
-    let profiles = ProfilesJson {
-        profile_index: 0,
-        profiles_list: vec![ProfileEntry {
-            name: "Default".to_string(),
-            filename: "Default.json".to_string(),
-        }],
-    };
-
-    let dir = game_path.join(rel_dir);
-    std::fs::create_dir_all(&dir)?;
-    let json = serde_json::to_string_pretty(&profiles)?;
-    std::fs::write(dir.join("Profiles.json"), json).context("Failed to write Profiles.json")
-}
-
-fn write_default_json(game_path: &Path, profile: &DefaultProfile, rel_dir: &str) -> Result<()> {
-    let dir = game_path.join(rel_dir);
-    std::fs::create_dir_all(&dir)?;
-    let json = serde_json::to_string_pretty(profile)?;
-    std::fs::write(dir.join("Default.json"), json).context("Failed to write Default.json")
-}
-
-fn write_samanager_txt(game_path: &Path) -> Result<()> {
-    let wine_path = linux_to_wine_path(game_path);
-    let dir = game_path.join("mods/.modloader");
-    std::fs::create_dir_all(&dir)?;
-    std::fs::write(dir.join("samanager.txt"), format!("{}\\\n", wine_path))
-        .context("Failed to write samanager.txt")
-}
+// --- SA2-specific file writers ---
 
 fn write_user_config(game_path: &Path, width: u32, height: u32) -> Result<()> {
     let dir = game_path.join("Config");
@@ -353,7 +193,7 @@ mod tests {
                 description: "Test",
                 before_image: None,
                 after_image: None,
-                dir_name: None,
+                dir_name: Some("sa2-render-fix"),
             },
             ModEntry {
                 name: "Better Radar",
@@ -361,27 +201,9 @@ mod tests {
                 description: "Test",
                 before_image: None,
                 after_image: None,
-                dir_name: None,
+                dir_name: Some("SA2BetterRadar"),
             },
         ]
-    }
-
-    #[test]
-    fn test_mod_folder_name_mapping() {
-        assert_eq!(mod_folder_name("SA2 Render Fix"), "sa2-render-fix");
-        assert_eq!(mod_folder_name("HD GUI: SA2 Edition"), "HD GUI for SA2");
-        assert_eq!(mod_folder_name("Better Radar"), "SA2BetterRadar");
-        assert_eq!(
-            mod_folder_name("HedgePanel - Sonic + Shadow Tweaks"),
-            "HedgePanel"
-        );
-        assert_eq!(mod_folder_name("Sonic: New Tricks"), "Sonic New Tricks");
-        assert_eq!(mod_folder_name("SA2 Volume Controls"), "SA2VolumeControls");
-        assert_eq!(mod_folder_name("SA2 Input Controls"), "sa2-input-controls");
-        assert_eq!(
-            mod_folder_name("Stage Atmosphere Tweaks"),
-            "StageAtmosphereTweaks"
-        );
     }
 
     #[test]
@@ -406,20 +228,6 @@ mod tests {
         );
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("Config/UserConfig.cfg").is_file());
-    }
-
-    #[test]
-    fn test_manager_json_format() {
-        let tmp = tempfile::tempdir().unwrap();
-        write_manager_json(tmp.path()).unwrap();
-
-        let content = std::fs::read_to_string(tmp.path().join("SAManager/Manager.json")).unwrap();
-        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
-
-        assert_eq!(parsed["SettingsVersion"], 3);
-        assert_eq!(parsed["GameEntries"][0]["Name"], "Sonic Adventure 2");
-        assert_eq!(parsed["GameEntries"][0]["Executable"], "sonic2app.exe");
-        assert_eq!(parsed["GameEntries"][0]["Type"], 2);
     }
 
     #[test]
@@ -460,12 +268,10 @@ mod tests {
             std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
                 .unwrap();
 
-        // SA2 profile should NOT have SADX-specific sections
         assert!(!content.contains("\"Controller\""));
         assert!(!content.contains("\"Sound\""));
         assert!(!content.contains("\"EnableVsync\""));
         assert!(!content.contains("\"RenderBackend\""));
-        // Should have SA2-specific fields
         assert!(content.contains("\"SkipIntro\""));
         assert!(content.contains("\"RefreshRate\""));
     }
@@ -481,17 +287,6 @@ mod tests {
         assert!(content.contains("Width=\"1920\""));
         assert!(content.contains("Height=\"1080\""));
         assert!(content.contains("Language=\"0\""));
-    }
-
-    #[test]
-    fn test_samanager_txt_format() {
-        let tmp = tempfile::tempdir().unwrap();
-        write_samanager_txt(tmp.path()).unwrap();
-
-        let content =
-            std::fs::read_to_string(tmp.path().join("mods/.modloader/samanager.txt")).unwrap();
-        assert!(content.starts_with("Z:\\"));
-        assert!(content.ends_with("\\\n"));
     }
 
     #[test]
