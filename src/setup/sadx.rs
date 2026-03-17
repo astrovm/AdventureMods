@@ -19,14 +19,14 @@ const DCMODS_BASE: &str =
 /// Recommended SADX mods.
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
-        name: "ADX Audio",
+        name: "Dreamcast Conversion",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
         },
-        description: "High-quality ADX audio replacement",
-        before_image: None,
-        after_image: None,
-        dir_name: Some("ADXAudio"),
+        description: "Restores Dreamcast visuals and features",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg"),
+        dir_name: Some("DreamcastConversion"),
     },
     ModEntry {
         name: "SADX: Fixed Edition",
@@ -39,6 +39,26 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("SADXFE"),
     },
     ModEntry {
+        name: "Lantern Engine",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
+        },
+        description: "Dreamcast-accurate lighting engine",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg"),
+        dir_name: Some("sadx-dc-lighting"),
+    },
+    ModEntry {
+        name: "Steam Achievements",
+        source: ModSource::DirectUrl {
+            url: "https://mm.reimuhakurei.net/sadxmods/SteamAchievements.7z",
+        },
+        description: "Enables Steam achievements with mods",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("SteamAchievements"),
+    },
+    ModEntry {
         name: "Smooth Camera",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/smooth-cam.7z",
@@ -49,16 +69,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("smooth-cam"),
     },
     ModEntry {
-        name: "Pause Hide",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
-        },
-        description: "Press X+Y to hide the pause menu for screenshots",
-        before_image: None,
-        after_image: None,
-        dir_name: Some("pause-hide"),
-    },
-    ModEntry {
         name: "Frame Limit",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-frame-limit.7z",
@@ -67,6 +77,36 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         before_image: None,
         after_image: None,
         dir_name: Some("sadx-frame-limit"),
+    },
+    ModEntry {
+        name: "Sound Overhaul",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
+        },
+        description: "Restored and improved sound effects",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("SoundOverhaul"),
+    },
+    ModEntry {
+        name: "ADX Audio",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
+        },
+        description: "High-quality ADX audio replacement",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("ADXAudio"),
+    },
+    ModEntry {
+        name: "SADX Style Water",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
+        },
+        description: "Restores the ocean wave effect in Emerald Coast",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
+        dir_name: Some("sadx-style-water"),
     },
     ModEntry {
         name: "Onion Blur",
@@ -81,44 +121,24 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("sadx-onion-blur"),
     },
     ModEntry {
-        name: "Idle Chatter",
+        name: "Dreamcast Characters Pack",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
         },
-        description: "Press a button to hear character commentary about the current stage",
-        before_image: None,
+        description: "Original Dreamcast character models",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg"),
+        dir_name: Some("SA1_Chars"),
+    },
+    ModEntry {
+        name: "DX Characters Refined",
+        source: ModSource::GameBanana { file_id: 1498662 },
+        description: "Various improvements for SADX character models",
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/dx_chars_refined_showcase.jpg",
+        ),
         after_image: None,
-        dir_name: Some("idle-chatter"),
-    },
-    ModEntry {
-        name: "Steam Achievements",
-        source: ModSource::DirectUrl {
-            url: "https://mm.reimuhakurei.net/sadxmods/SteamAchievements.7z",
-        },
-        description: "Enables Steam achievements with mods",
-        before_image: None,
-        after_image: None,
-        dir_name: Some("SteamAchievements"),
-    },
-    ModEntry {
-        name: "Lantern Engine",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
-        },
-        description: "Dreamcast-accurate lighting engine",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg"),
-        dir_name: Some("sadx-dc-lighting"),
-    },
-    ModEntry {
-        name: "Dreamcast Conversion",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
-        },
-        description: "Restores Dreamcast visuals and features",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg"),
-        dir_name: Some("DreamcastConversion"),
+        dir_name: Some("DX Characters Refined"),
     },
     ModEntry {
         name: "Dreamcast DLC",
@@ -131,24 +151,24 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("DLC"),
     },
     ModEntry {
-        name: "SADX Style Water",
+        name: "Idle Chatter",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
         },
-        description: "Restores the ocean wave effect in Emerald Coast",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/water_after.jpg"),
-        dir_name: Some("sadx-style-water"),
-    },
-    ModEntry {
-        name: "Sound Overhaul",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
-        },
-        description: "Restored and improved sound effects",
+        description: "Press a button to hear character commentary about the current stage",
         before_image: None,
         after_image: None,
-        dir_name: Some("SoundOverhaul"),
+        dir_name: Some("idle-chatter"),
+    },
+    ModEntry {
+        name: "Pause Hide",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
+        },
+        description: "Press X+Y to hide the pause menu for screenshots",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("pause-hide"),
     },
     ModEntry {
         name: "Time of Day",
@@ -159,38 +179,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         before_image: None,
         after_image: None,
         dir_name: Some("TrainDaytime"),
-    },
-    ModEntry {
-        name: "Dreamcast Characters Pack",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
-        },
-        description: "Original Dreamcast character models",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg"),
-        dir_name: Some("SA1_Chars"),
-    },
-    ModEntry {
-        name: "Super Sonic",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
-        },
-        description: "Playable Super Sonic in action stages",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg",
-        ),
-        after_image: None,
-        dir_name: Some("sadx-super-sonic"),
-    },
-    ModEntry {
-        name: "HD GUI 2",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
-        },
-        description: "High resolution GUI textures for menus, HUD and icons",
-        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg"),
-        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
-        dir_name: Some("HD_DCStyle"),
     },
     ModEntry {
         name: "Sonic Adventure Retranslated",
@@ -213,28 +201,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("sadx-hud-plus"),
     },
     ModEntry {
-        name: "AI HD Textures",
+        name: "HD GUI 2",
         source: ModSource::DirectUrl {
-            url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
         },
-        description: "AI upscaled textures for both vanilla and Dreamcast Conversion assets",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
-        ),
-        after_image: None,
-        dir_name: Some("AI_HD_Textures"),
-    },
-    ModEntry {
-        name: "AI HD FMVs",
-        source: ModSource::DirectUrl {
-            url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
-        },
-        description: "HD upscaled video cutscenes",
-        before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg",
-        ),
-        after_image: None,
-        dir_name: Some("AI_HD_FMVs"),
+        description: "High resolution GUI textures for menus, HUD and icons",
+        before_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg"),
+        after_image: Some("/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg"),
+        dir_name: Some("HD_DCStyle"),
     },
     ModEntry {
         name: "Active Mouths",
@@ -267,14 +241,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         dir_name: Some("Better Tails AI"),
     },
     ModEntry {
-        name: "DX Characters Refined",
-        source: ModSource::GameBanana { file_id: 1498662 },
-        description: "Various improvements for SADX character models",
+        name: "Super Sonic",
+        source: ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
+        },
+        description: "Playable Super Sonic in action stages",
         before_image: Some(
-            "/io/github/astrovm/AdventureMods/resources/images/dx_chars_refined_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg",
         ),
         after_image: None,
-        dir_name: Some("DX Characters Refined"),
+        dir_name: Some("sadx-super-sonic"),
     },
     ModEntry {
         name: "Multiplayer",
@@ -311,6 +287,30 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         before_image: None,
         after_image: None,
         dir_name: Some("Perfect Chaos Music Swap"),
+    },
+    ModEntry {
+        name: "AI HD FMVs",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
+        },
+        description: "HD upscaled video cutscenes",
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg",
+        ),
+        after_image: None,
+        dir_name: Some("AI_HD_FMVs"),
+    },
+    ModEntry {
+        name: "AI HD Textures",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
+        },
+        description: "AI upscaled textures for both vanilla and Dreamcast Conversion assets",
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
+        ),
+        after_image: None,
+        dir_name: Some("AI_HD_Textures"),
     },
 ];
 
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 27);
+        assert_eq!(RECOMMENDED_MODS.len(), 29);
     }
 
     #[test]
