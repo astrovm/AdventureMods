@@ -36,7 +36,8 @@ Generated from the two Rust source lists used by the project (`sadx.rs` and `sa2
 - **Resolved primary public page:** _none confidently confirmed / not needed_
 - **Other public links:**
   - GitHub: <https://github.com/michael-fadely/sadx-fixed-edition>
-- **Notes:** No GameBanana page confirmed in this pass; GitHub repo confirmed.
+  - Sonic Retro forum thread: <https://forums.sonicretro.org/index.php?threads/sonic-adventure-dx-fixed-edition.25301/>
+- **Notes:** No GameBanana page confirmed in this pass; GitHub repo and Sonic Retro forum thread confirmed.
 
 ### 3. Lantern Engine
 - **Directory name / key:** `sadx-dc-lighting`
@@ -52,6 +53,7 @@ Generated from the two Rust source lists used by the project (`sadx.rs` and `sa2
 - **Resolved primary public page:** _none confidently confirmed / not needed_
 - **Other public links:**
   - GitHub: <https://github.com/X-Hax/SADX2004SteamAchievements>
+  - GitHub (Sonic Retro organization): <https://github.com/sonicretro/SADX2004SteamAchievements>
 - **Notes:** Steam achievements bridge for modded/downgraded SADX.
 
 ### 5. Smooth Camera
