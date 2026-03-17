@@ -27,10 +27,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "A massive restoration project that reverts the graphical and environmental changes made in the DX port. It replaces SADX level models and textures with original Dreamcast assets, restores vertex colors, and brings back the original title screens and UI elements for the definitive 1998 experience.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/dc_conv_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/dc_conv_after.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("DreamcastConversion"),
     },
     ModEntry {
@@ -54,10 +51,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the original palette-based lighting system from the Dreamcast version of Sonic Adventure. It replaces the flat lighting of the DX ports with dynamic lighting that makes characters and environments react to light sources with vibrant color depth.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("sadx-dc-lighting"),
     },
     ModEntry {
@@ -129,10 +123,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the specific 'shiny' and opaque water textures used in the original 2003 GameCube/PC DX release. This mod is for players who prefer the DX-era water aesthetics over the transparent Dreamcast-style water.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/water_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/water_after.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("sadx-style-water"),
     },
     ModEntry {
@@ -144,10 +135,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the iconic 'onion skinning' motion blur effect seen when characters move at high speeds in the original Dreamcast version. This visual trail was removed in the DX ports and is a staple of the classic Sonic Adventure look.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("sadx-onion-blur"),
     },
     ModEntry {
@@ -160,8 +148,13 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Replaces the high-poly, glossy character models of the DX version with their original lower-poly designs from the 1998 Dreamcast version. It includes original models for the entire main cast, Eggman, Tikal, and Metal Sonic.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/dc_chars_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/dc_chars_after.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_6.jpg",
         ],
         dir_name: Some("SA1_Chars"),
     },
@@ -173,7 +166,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "DX Characters Refined improves the default character models introduced in the DX port rather than replacing them. It features updated topology, UV mapping, and textures for the main cast, along with a massive animation update that fixes over 200 bugged animations inherited from the Dreamcast models.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/dx_chars_refined_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dxcharactersrefined_9.jpg",
         ],
         dir_name: Some("DX Characters Refined"),
     },
@@ -233,7 +235,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "This mod replaces the English script with Windii's faithful translation of the original Japanese dialogue. It corrects numerous localization errors and 'Americanizations,' providing a more accurate narrative experience. It is recommended for use with Japanese voices.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa_retranslated_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_0.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_1.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_2.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_3.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_4.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_5.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_6.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_7.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_8.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicadventureretranslated_9.webp",
         ],
         dir_name: Some("Sonic Adventure Retranslated"),
     },
@@ -244,7 +255,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "HUD Plus enhances the UI by increasing the ring and life counter limits and displaying collected Chao animals in the pause menu. It also includes contextual changes like hiding the ring HUD in specific stages where it's not needed and adding a score counter to the main screen.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/hud_plus_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-hud-plus_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-hud-plus_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-hud-plus_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-hud-plus_3.jpg",
+        ],
         dir_name: Some("sadx-hud-plus"),
     },
     ModEntry {
@@ -256,10 +272,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "A complete high-resolution texture overhaul for the game's user interface. It replaces every menu texture, HUD element, and font with crisp, HD versions that are faithful to the original UI designs while looking great on modern displays.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("HD_DCStyle"),
     },
     ModEntry {
@@ -269,7 +282,11 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Active Mouths enables mouth and facial animations for characters when they speak idle lines or react to the environment in-game, features previously restricted to cutscenes. It includes synced mouth movements for voice clips and environmental reactions like drowning or clearing a stage.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/active_mouths_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/activemouths_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/activemouths_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/activemouths_2.jpg",
+        ],
         dir_name: Some("Active Mouths"),
     },
     ModEntry {
@@ -279,7 +296,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/new_tricks_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_9.jpg",
+        ],
         dir_name: Some("sadx-new-tricks"),
     },
     ModEntry {
@@ -289,7 +317,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Better Tails AI makes Tails much more useful and interactive. He can now follow you into Hub Worlds and Boss Fights, pet Chao alongside the player, and sit in vehicles. It also adds a fast travel system in Hub Worlds and improves his flight speed to better keep up with Sonic.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/better_tails_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_6.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/bettertailsai_9.webp",
+        ],
         dir_name: Some("Better Tails AI"),
     },
     ModEntry {
@@ -301,7 +340,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "A gameplay overhaul that enables Super Sonic for use in regular Action Stages after completing the story. It includes improved mechanics, fixed animations, and the ability to transform at will during normal levels.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-super-sonic_9.jpg",
+        ],
         dir_name: Some("sadx-super-sonic"),
     },
     ModEntry {
@@ -311,7 +361,15 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "The SADX Multiplayer mod adds local split-screen support for up to 4 players. It overhauls systems like fishing, hunting, and shooting to work in a multiplayer environment and supports both Co-op and Battle modes across various trial stages.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/multiplayer_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-multiplayer_6.jpg",
+        ],
         dir_name: Some("sadx-multiplayer"),
     },
     ModEntry {
@@ -321,7 +379,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Also known as Chao Partner, this mod allows you to take your Chao with you into levels and hub worlds. Your Chao will follow you, attack nearby enemies based on its stats, and can be petted or dropped at will. It includes a water fix to allow Chao to 'swim' in standard level water.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/chao_gameplay_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-chao-gameplay_0.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-chao-gameplay_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-chao-gameplay_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-chao-gameplay_3.jpg",
+        ],
         dir_name: Some("sadx-chao-gameplay"),
     },
     ModEntry {
@@ -331,7 +394,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "This mod restores various beta elements like unused voice clips and animations while fixing hundreds of small bugs in the PC port. It adds 'Extra' mode layouts with restored level objects and improves visual elements like the Nightopian Egg and environmental sound effects.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_0.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_1.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_2.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_3.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_4.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_5.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_6.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_7.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_8.webp",
+            "/io/github/astrovm/AdventureMods/resources/images/fixes_adds_betarestores_9.webp",
+        ],
         dir_name: Some("Fixes_Adds_BetaRestores"),
     },
     ModEntry {
@@ -353,7 +427,17 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Upscales the game's original pre-rendered cinematic cutscenes to 1080p using AI neural networks. This mod removes compression artifacts and blurriness, making the transition between gameplay and cutscenes feel much more seamless on HD monitors.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_8.jpg",
+        ],
         dir_name: Some("AI_HD_FMVs"),
     },
     ModEntry {
@@ -366,7 +450,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Uses AI technology like ESRGAN to upscale the game's textures to high definition. It sharpens the environment and character textures significantly while strictly preserving the original art style and color palette of the game.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_9.jpg",
         ],
         dir_name: Some("AI_HD_Textures"),
     },

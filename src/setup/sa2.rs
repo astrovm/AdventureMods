@@ -9,7 +9,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "SA2 Render Fix is an essential mod for Sonic Adventure 2 on PC that repairs numerous graphical bugs and oversights. It fixes transparency sorting issues, back-face culling, and broken material properties while restoring features like Cart billboards and Dreamcast-style specular highlights. It also merges several specialized fixes like the Eggman Lighting Fix to achieve a visual style closer to the original 2001 Dreamcast release.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_render_fix_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-render-fix_9.jpg",
         ],
         dir_name: Some("sa2-render-fix"),
     },
@@ -21,7 +30,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "This mod replaces the original English localization with a new script that is more faithful to the original Japanese dialogue. Based on Windii's translations, it corrects creative liberties and errors found in the official localization. It is intended to be played with Japanese voices for the most authentic experience and includes compatibility with various restoration mods.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_retranslated_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/retranslatedstory-complete-_9.jpg",
         ],
         dir_name: Some("Retranslated Story -COMPLETE-"),
     },
@@ -33,8 +51,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "HD GUI: SA2 Edition replaces the game's low-resolution HUD, menu icons, and item boxes with high-definition versions that match the Dreamcast original's aesthetic. It covers gameplay HUDs, menu screens (Title, Stage Select, etc.), and includes a DLL for automatic configuration based on your active mods, such as NoBattle or Battle DLC.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_hd_gui_before.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_hd_gui_after.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hdguiforsa2_9.jpg",
         ],
         dir_name: Some("HD GUI for SA2"),
     },
@@ -46,7 +72,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "IMPRESSive replaces the Comic Sans-like font in the PC version of SA2 with the 'Impress' font used in the original Japanese Dreamcast release. It includes custom character widths for natural spacing and supports all European languages. It is designed for compatibility with the SA2 Render Fix font API.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_impressive_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/impressive_5.jpg",
         ],
         dir_name: Some("IMPRESSive"),
     },
@@ -58,7 +89,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Stage Atmosphere Tweaks restores the dynamic lighting and fog effects that were lost in the SA2 ports. It features position-based lighting changes in stages like Radical Highway and Pyramid Cave, dynamic sunsets in City Escape, and pulsating fog in Prison Lane, making the environments feel more alive and faithful to the original vision.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_atmosphere_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/stageatmospheretweaks_9.jpg",
         ],
         dir_name: Some("StageAtmosphereTweaks"),
     },
@@ -69,7 +109,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "This mod addresses SA2's notorious sound mixing issues by adding separate volume controls for music, sound effects, and character voices. It also includes 3D audio fixes for positional sound and master volume settings, allowing players to create a balanced mix that prevents music from drowning out dialogue.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/sa2_volume_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2volumecontrols_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2volumecontrols_1.jpg",
+        ],
         dir_name: Some("SA2VolumeControls"),
     },
     ModEntry {
@@ -80,7 +123,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Mech Sound Improvement makes the mech-based levels for Tails and Eggman much more pleasant by lowering the volume of intrusive footsteps and replacing the high-pitched targeting whine with a softer sound. It also introduces snappier lock-on sound effects and adjusted pitch for various mech noises.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_mech_sound_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/mechsoundimprovement_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/mechsoundimprovement_1.jpg",
         ],
         dir_name: Some("Mech Sound Improvement"),
     },
@@ -91,7 +135,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "SASDL (Simple Adventure SDL) is a background mod that allows other mods to use the SDL2 library for features like modern controller support without conflicting with each other. It is a mandatory dependency for mods like SA2 Input Controls.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/sa2_sasdl_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sasdl_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sasdl_1.jpg",
+        ],
         dir_name: Some("SASDL"),
     },
     ModEntry {
@@ -101,7 +148,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "SA2 Input Controls fixes long-standing issues with the game's sensitivity, particularly the rail grinding sensitivity. It implements proper circular deadzones, adds native support for PlayStation and Switch controllers via SDL2, and allows for full keyboard remapping. It also restores full 360-degree analog precision that was hindered by the original axial deadzones.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/sa2_input_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-input-controls_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-input-controls_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-input-controls_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2-input-controls_3.jpg",
+        ],
         dir_name: Some("sa2-input-controls"),
     },
     ModEntry {
@@ -111,7 +163,11 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Better Radar improves the treasure-hunting mechanics by allowing the radar to track all three items simultaneously, rather than forcing a specific order. It adds new color indicators (blue and pink) for distance tracking and increases the tempo of the radar sound/animation as you get closer to a shard.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/sa2_radar_showcase.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2betterradar_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2betterradar_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2betterradar_2.jpg",
+        ],
         dir_name: Some("SA2BetterRadar"),
     },
     ModEntry {
@@ -121,9 +177,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "HedgePanel refines the speed characters' mechanics by allowing them to maintain momentum during somersaults and adding an upward bounce after Light Attacks to prevent accidental falls. It also fixes the 'low bounce' physics bug and adds automatic prompts for Magic Hands when in range of an enemy.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_hedgepanel_showcase.jpg",
-        ],
+        pictures: &["/io/github/astrovm/AdventureMods/resources/images/hedgepanel_0.jpg"],
         dir_name: Some("HedgePanel"),
     },
     ModEntry {
@@ -134,7 +188,16 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_new_tricks_showcase.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sonicnewtricks_9.jpg",
         ],
         dir_name: Some("Sonic New Tricks"),
     },
@@ -145,9 +208,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Retranslated Hints replaces the original English stage clues with accurate translations of the Japanese text. It famously fixes the reversed 'siht ekil' hints in Mad Space and improves Omochao's dialogue across almost every stage, making the treasure-hunting segments significantly less frustrating.",
         ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2_retranslated_hints_showcase.jpg",
-        ],
+        pictures: &[],
         dir_name: Some("Retranslated Hints"),
     },
 ];
