@@ -376,7 +376,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
 pub const PRESETS: &[super::common::ModPreset] = &[
     super::common::ModPreset {
         name: "Hybrid (Default)",
-        description: "The best of both worlds: Pairs the authentic Dreamcast levels and lighting with the high-poly DX character models and modern fixes.",
+        description: "Combines authentic Dreamcast levels and lighting with high-fidelity 'Refined' DX characters and DX-style water for a balanced modern-classic mix.",
         mod_names: &[
             "Dreamcast Conversion",
             "SADX: Fixed Edition",
@@ -410,7 +410,7 @@ pub const PRESETS: &[super::common::ModPreset] = &[
     },
     super::common::ModPreset {
         name: "DX Enhanced",
-        description: "Pure Director's Cut: Maintains the original 2003 DX visuals (higher-poly models and brighter levels) while fixing bugs and adding HD textures.",
+        description: "Maintains the original 2003 Director's Cut level design while introducing modern lighting, high-definition textures, and comprehensive technical fixes.",
         mod_names: &[
             "SADX: Fixed Edition",
             "Lantern Engine",
@@ -420,12 +420,15 @@ pub const PRESETS: &[super::common::ModPreset] = &[
             "Sound Overhaul",
             "ADX Audio",
             "SADX Style Water",
+            "Onion Blur",
             "DX Characters Refined",
+            "Dreamcast DLC",
             "Idle Chatter",
             "Pause Hide",
             "Time of Day",
             "Sonic Adventure Retranslated",
             "HUD Plus",
+            "HD GUI 2",
             "Active Mouths",
             "Sonic: New Tricks",
             "Better Tails AI",
@@ -440,7 +443,7 @@ pub const PRESETS: &[super::common::ModPreset] = &[
     },
     super::common::ModPreset {
         name: "Dreamcast Restoration",
-        description: "Pure 1998 Experience: Reverts all DX changes to restore the original Dreamcast look, including the classic character models and atmospheric level design.",
+        description: "Provides a total visual restoration of the 1998 Dreamcast experience, including classic low-poly character models and original environmental effects.",
         mod_names: &[
             "Dreamcast Conversion",
             "SADX: Fixed Edition",
