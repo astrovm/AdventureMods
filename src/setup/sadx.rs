@@ -218,7 +218,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
         },
         description: "AI upscaled textures for both vanilla and Dreamcast Conversion assets",
-        before_image: None,
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_textures_showcase.jpg",
+        ),
         after_image: None,
         dir_name: Some("AI_HD_Textures"),
     },
@@ -228,7 +230,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
         },
         description: "HD upscaled video cutscenes",
-        before_image: None,
+        before_image: Some(
+            "/io/github/astrovm/AdventureMods/resources/images/ai_hd_fmvs_showcase.jpg",
+        ),
         after_image: None,
         dir_name: Some("AI_HD_FMVs"),
     },

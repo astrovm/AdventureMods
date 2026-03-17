@@ -42,5 +42,7 @@
     <file>resources/images/sa2_hedgepanel_showcase.jpg</file>
     <file>resources/images/sa2_new_tricks_showcase.jpg</file>
     <file>resources/images/sa2_retranslated_hints_showcase.jpg</file>
+    <file>resources/images/ai_hd_textures_showcase.jpg</file>
+    <file>resources/images/ai_hd_fmvs_showcase.jpg</file>
   </gresource>
 </gresources>
