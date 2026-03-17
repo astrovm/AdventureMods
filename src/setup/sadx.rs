@@ -575,7 +575,9 @@ mod tests {
     #[test]
     fn test_convert_skips_if_sadxmodloader_exists() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(tmp.path().join("SADXModLoader.dll"), "dummy").unwrap();
+        let loader_dir = tmp.path().join("mods/.modloader");
+        std::fs::create_dir_all(&loader_dir).unwrap();
+        std::fs::write(loader_dir.join("SADXModLoader.dll"), "dummy").unwrap();
 
         convert_steam_to_2004(tmp.path(), None).unwrap();
     }
