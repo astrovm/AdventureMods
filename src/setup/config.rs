@@ -9,7 +9,7 @@ use crate::steam::game::GameKind;
 /// Convert a Linux path to a Wine Z: drive path with backslashes.
 pub fn linux_to_wine_path(path: &Path) -> String {
     let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    format!("Z:{}", resolved.to_string_lossy().replace('/', "\\"))
+    format!("Z:{}\\", resolved.to_string_lossy().replace('/', "\\"))
 }
 
 /// Resolve the `System` directory, handling case differences on Linux.
@@ -35,7 +35,12 @@ pub struct ManagerJson {
     pub keep_manager_open: bool,
     pub update_settings: UpdateSettings,
     pub game_entries: Vec<GameEntry>,
+    #[serde(rename = "managerWidth")]
+    pub manager_width: u32,
+    #[serde(rename = "managerHeight")]
+    pub manager_height: u32,
     pub keep_mod_order: bool,
+    pub use_software_rendering: bool,
 }
 
 #[derive(Serialize)]
@@ -115,11 +120,14 @@ pub fn write_manager_json(game_path: &Path, game_kind: GameKind) -> Result<()> {
         },
         game_entries: vec![GameEntry {
             name: game_kind.name().to_string(),
-            directory: format!("{}\\", wine_path),
+            directory: wine_path,
             executable: game_kind.game_executable().to_string(),
             game_type: game_kind.manager_game_type(),
         }],
+        manager_width: 590,
+        manager_height: 600,
         keep_mod_order: false,
+        use_software_rendering: true,
     };
 
     let dir = game_path.join("SAManager");
@@ -158,7 +166,7 @@ pub fn write_samanager_txt(game_path: &Path) -> Result<()> {
     let wine_path = linux_to_wine_path(game_path);
     let dir = game_path.join("mods/.modloader");
     std::fs::create_dir_all(&dir)?;
-    std::fs::write(dir.join("samanager.txt"), format!("{}\\\n", wine_path))
+    std::fs::write(dir.join("samanager.txt"), format!("{}\n", wine_path))
         .context("Failed to write samanager.txt")
 }
 
@@ -211,7 +219,7 @@ mod tests {
         let path = Path::new("/home/user/.steam/steamapps/common/Sonic Adventure DX");
         assert_eq!(
             linux_to_wine_path(path),
-            "Z:\\home\\user\\.steam\\steamapps\\common\\Sonic Adventure DX"
+            "Z:\\home\\user\\.steam\\steamapps\\common\\Sonic Adventure DX\\"
         );
     }
 
