@@ -340,18 +340,34 @@ impl AdventureModsSetupPage {
                     let b_img = before_image.clone();
                     let a_img = after_image.clone();
                     let p_box = preview_box.clone();
+                    let b_lbl = before_label.clone();
+                    let a_lbl = after_label.clone();
+                    let a_frm = after_frame.clone();
                     let mod_entry_clone = mod_entry;
 
                     let gesture = gtk::EventControllerMotion::new();
                     gesture.connect_enter(move |_, _, _| {
-                        if let Some(before) = mod_entry_clone.before_image {
-                            b_img.set_resource(Some(before));
-                            p_box.set_opacity(1.0);
-                        } else {
-                            p_box.set_opacity(0.0);
-                        }
-                        if let Some(after) = mod_entry_clone.after_image {
-                            a_img.set_resource(Some(after));
+                        match (mod_entry_clone.before_image, mod_entry_clone.after_image) {
+                            (Some(before), Some(after)) => {
+                                // Before/after comparison mode
+                                b_img.set_resource(Some(before));
+                                a_img.set_resource(Some(after));
+                                b_lbl.set_visible(true);
+                                a_lbl.set_visible(true);
+                                a_frm.set_visible(true);
+                                p_box.set_opacity(1.0);
+                            }
+                            (Some(before), None) => {
+                                // Single showcase image mode
+                                b_img.set_resource(Some(before));
+                                b_lbl.set_visible(false);
+                                a_lbl.set_visible(false);
+                                a_frm.set_visible(false);
+                                p_box.set_opacity(1.0);
+                            }
+                            _ => {
+                                p_box.set_opacity(0.0);
+                            }
                         }
                     });
                     list_row.add_controller(gesture);

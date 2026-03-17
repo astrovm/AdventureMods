@@ -19,5 +19,28 @@
     <file>resources/images/water_after.jpg</file>
     <file>resources/images/hd_gui_before.jpg</file>
     <file>resources/images/hd_gui_after.jpg</file>
+    <file>resources/images/super_sonic_showcase.jpg</file>
+    <file>resources/images/sa_retranslated_showcase.jpg</file>
+    <file>resources/images/hud_plus_showcase.jpg</file>
+    <file>resources/images/active_mouths_showcase.jpg</file>
+    <file>resources/images/new_tricks_showcase.jpg</file>
+    <file>resources/images/better_tails_showcase.jpg</file>
+    <file>resources/images/dx_chars_refined_showcase.jpg</file>
+    <file>resources/images/multiplayer_showcase.jpg</file>
+    <file>resources/images/chao_gameplay_showcase.jpg</file>
+    <file>resources/images/sa2_render_fix_showcase.jpg</file>
+    <file>resources/images/sa2_retranslated_showcase.jpg</file>
+    <file>resources/images/sa2_hd_gui_before.jpg</file>
+    <file>resources/images/sa2_hd_gui_after.jpg</file>
+    <file>resources/images/sa2_impressive_showcase.jpg</file>
+    <file>resources/images/sa2_atmosphere_showcase.jpg</file>
+    <file>resources/images/sa2_volume_showcase.jpg</file>
+    <file>resources/images/sa2_mech_sound_showcase.jpg</file>
+    <file>resources/images/sa2_sasdl_showcase.jpg</file>
+    <file>resources/images/sa2_input_showcase.jpg</file>
+    <file>resources/images/sa2_radar_showcase.jpg</file>
+    <file>resources/images/sa2_hedgepanel_showcase.jpg</file>
+    <file>resources/images/sa2_new_tricks_showcase.jpg</file>
+    <file>resources/images/sa2_retranslated_hints_showcase.jpg</file>
   </gresource>
 </gresources>
