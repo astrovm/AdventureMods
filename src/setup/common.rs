@@ -37,6 +37,13 @@ pub struct ModEntry {
     pub dir_name: Option<&'static str>,
 }
 
+/// A preset for selecting a group of mods.
+pub struct ModPreset {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub mod_names: &'static [&'static str],
+}
+
 /// Resolve a `ModSource` to a download URL string.
 pub fn resolve_download_url(source: &ModSource) -> String {
     match source {
@@ -50,6 +57,14 @@ pub fn recommended_mods_for_game(kind: GameKind) -> &'static [ModEntry] {
     match kind {
         GameKind::SADX => sadx::RECOMMENDED_MODS,
         GameKind::SA2 => sa2::RECOMMENDED_MODS,
+    }
+}
+
+/// Return the presets for a given game.
+pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
+    match kind {
+        GameKind::SADX => sadx::PRESETS,
+        GameKind::SA2 => &[], // No presets for SA2 yet
     }
 }
 

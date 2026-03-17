@@ -206,11 +206,19 @@ impl AdventureModsSetupPage {
                 imp.next_button.set_label("Install Selected");
                 imp.next_button.set_sensitive(true);
 
+                let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
+                let presets = game_kind.map(|k| common::presets_for_game(k)).unwrap_or(&[]);
+
                 let main_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
                     .spacing(24)
                     .hexpand(false)
                     .halign(gtk::Align::Center)
+                    .build();
+
+                let left_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Vertical)
+                    .spacing(12)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
@@ -226,6 +234,56 @@ impl AdventureModsSetupPage {
                     .selection_mode(gtk::SelectionMode::None)
                     .css_classes(vec!["boxed-list".to_string()])
                     .build();
+
+                let checks: std::rc::Rc<std::cell::RefCell<Vec<gtk::CheckButton>>> =
+                    std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+
+                if !presets.is_empty() {
+                    let preset_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .spacing(12)
+                        .margin_bottom(6)
+                        .build();
+
+                    let preset_label = gtk::Label::builder()
+                        .label("Preset:")
+                        .css_classes(vec!["heading".to_string()])
+                        .build();
+
+                    let preset_names: Vec<&str> = presets.iter().map(|p| p.name).collect();
+                    let dropdown = gtk::DropDown::from_strings(&preset_names);
+                    dropdown.set_hexpand(true);
+
+                    preset_box.append(&preset_label);
+                    preset_box.append(&dropdown);
+                    left_box.append(&preset_box);
+
+                    let obj_clone = self.clone();
+                    let presets_clone = presets;
+                    let checks_clone = checks.clone();
+                    dropdown.connect_selected_notify(move |dd| {
+                        let idx = dd.selected() as usize;
+                        if let Some(preset) = presets_clone.get(idx) {
+                            let mut sel = obj_clone.imp().selected_mods.borrow_mut();
+                            sel.clear();
+
+                            let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
+                            let mods_list = game_kind
+                                .map(|k| common::recommended_mods_for_game(k))
+                                .unwrap_or(&[]);
+
+                            for (i, check) in checks_clone.borrow().iter().enumerate() {
+                                if let Some(mod_entry) = mods_list.get(i) {
+                                    let active = preset.mod_names.contains(&mod_entry.name);
+                                    check.set_active(active);
+                                    if active {
+                                        sel.push(i);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
 
                 let preview_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
@@ -281,11 +339,12 @@ impl AdventureModsSetupPage {
 
                 preview_box.set_opacity(0.0);
 
-                let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
                 let mods_list = game_kind
                     .map(|k| common::recommended_mods_for_game(k))
                     .unwrap_or(&[]);
-                let mut selected = Vec::new();
+                let mut initial_selected = Vec::new();
+
+                let default_preset = presets.first();
 
                 for (i, mod_entry) in mods_list.iter().enumerate() {
                     let row_box = gtk::Box::builder()
@@ -297,7 +356,14 @@ impl AdventureModsSetupPage {
                         .margin_bottom(12)
                         .build();
 
-                    let check = gtk::CheckButton::builder().active(true).build();
+                    let is_active = if let Some(preset) = default_preset {
+                        preset.mod_names.contains(&mod_entry.name)
+                    } else {
+                        true
+                    };
+
+                    let check = gtk::CheckButton::builder().active(is_active).build();
+                    checks.borrow_mut().push(check.clone());
 
                     let text_box = gtk::Box::builder()
                         .orientation(gtk::Orientation::Vertical)
@@ -338,7 +404,7 @@ impl AdventureModsSetupPage {
                         }
                     });
 
-                    // Preview update on row focus/selection
+                    // Preview update on row focus/motion
                     let p_box = preview_box.clone();
                     let carousel_clone = carousel.clone();
                     let desc_lbl_clone = full_desc_label.clone();
@@ -392,12 +458,15 @@ impl AdventureModsSetupPage {
                     list_row.add_controller(gesture);
 
                     list_box.append(&list_row);
-                    selected.push(i);
+                    if is_active {
+                        initial_selected.push(i);
+                    }
                 }
-                imp.selected_mods.replace(selected);
+                imp.selected_mods.replace(initial_selected);
 
                 scrolled.set_child(Some(&list_box));
-                main_box.append(&scrolled);
+                left_box.append(&scrolled);
+                main_box.append(&left_box);
                 main_box.append(&preview_box);
                 content_box.append(&main_box);
             }
