@@ -258,6 +258,22 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         after_image: None,
         dir_name: Some("DX Characters Refined"),
     },
+    ModEntry {
+        name: "Multiplayer",
+        source: ModSource::GameBanana { file_id: 1046512 },
+        description: "Split screen coop and battle multiplayer for trial stages",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("sadx-multiplayer"),
+    },
+    ModEntry {
+        name: "Chao Gameplay",
+        source: ModSource::GameBanana { file_id: 781777 },
+        description: "Makes Chao follow you in action stages",
+        before_image: None,
+        after_image: None,
+        dir_name: Some("sadx-chao-gameplay"),
+    },
 ];
 
 /// Convert the Steam version of SADX to the 2004 version using HDiffPatch.
@@ -440,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 25);
+        assert_eq!(RECOMMENDED_MODS.len(), 27);
     }
 
     #[test]
