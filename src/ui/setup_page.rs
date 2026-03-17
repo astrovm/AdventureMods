@@ -258,12 +258,24 @@ impl AdventureModsSetupPage {
                     preset_box.append(&dropdown);
                     left_box.append(&preset_box);
 
+                    let preset_desc_label = gtk::Label::builder()
+                        .label(presets[0].description)
+                        .wrap(true)
+                        .halign(gtk::Align::Start)
+                        .css_classes(vec!["caption".to_string()])
+                        .margin_bottom(12)
+                        .build();
+                    left_box.append(&preset_desc_label);
+
                     let obj_clone = self.clone();
                     let presets_clone = presets;
                     let checks_clone = checks.clone();
+                    let desc_label_clone = preset_desc_label.clone();
                     dropdown.connect_selected_notify(move |dd| {
                         let idx = dd.selected() as usize;
                         if let Some(preset) = presets_clone.get(idx) {
+                            desc_label_clone.set_label(preset.description);
+
                             let mut sel = obj_clone.imp().selected_mods.borrow_mut();
                             sel.clear();
 
