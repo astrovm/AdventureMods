@@ -790,9 +790,41 @@ impl AdventureModsSetupPage {
     fn on_back_clicked(&self) {
         let imp = self.imp();
         let current = imp.current_step.get();
-        if current > 0 {
-            imp.current_step.set(current - 1);
+        if current == 0 {
+            self.go_back_to_welcome();
+            return;
+        }
+
+        let all_steps = imp.all_steps.borrow();
+        let game = imp.game.borrow().clone().unwrap();
+        let mut prev = current - 1;
+
+        // Skip steps backwards that are either automatic or already complete
+        while prev > 0 {
+            let step = &all_steps[prev];
+            if matches!(step.kind, steps::StepKind::Auto) || common::is_step_complete(step.id, &game)
+            {
+                prev -= 1;
+            } else {
+                break;
+            }
+        }
+
+        // Final check for the step we landed on: if it's still something that should be skipped,
+        // it means we've reached the beginning of the list and everything before 'current' was skippable.
+        let step = &all_steps[prev];
+        if matches!(step.kind, steps::StepKind::Auto) || common::is_step_complete(step.id, &game) {
+            self.go_back_to_welcome();
+        } else {
+            imp.current_step.set(prev);
             self.show_current_step();
+        }
+    }
+
+    fn go_back_to_welcome(&self) {
+        if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
+            let nav_view: adw::NavigationView = nav_view.downcast().unwrap();
+            nav_view.pop();
         }
     }
 
