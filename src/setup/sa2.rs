@@ -208,7 +208,11 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Retranslated Hints replaces the original English stage clues with accurate translations of the Japanese text. It famously fixes the reversed 'siht ekil' hints in Mad Space and improves Omochao's dialogue across almost every stage, making the treasure-hunting segments significantly less frustrating.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_2.jpg",
+        ],
         dir_name: Some("Retranslated Hints"),
     },
 ];
