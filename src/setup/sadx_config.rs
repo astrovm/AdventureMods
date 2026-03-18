@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 
 use super::common::ModEntry;
-use super::config;
+use super::{config, sadx};
 use crate::steam::game::GameKind;
 
 /// Generate all SA Mod Manager v4 configuration files for SADX.
@@ -35,19 +35,21 @@ pub fn generate_sadx_config(
 fn write_mod_configs(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
     let mods_dir = game_path.join("mods");
 
-    // AI HD Textures: "DX Enhanced" should use original DX textures.
-    // We check if "Dreamcast Conversion" is NOT in the selection, which
-    // is the case for the "DX Enhanced" preset.
+    // AI HD Textures configuration
     let has_dc_conv = selected_mods.iter().any(|m| m.name == "Dreamcast Conversion");
     let has_ai_hd = selected_mods.iter().any(|m| m.name == "AI HD Textures");
 
-    if has_ai_hd && !has_dc_conv {
+    if has_ai_hd {
         let ai_hd_dir = mods_dir.join("AI_HD_Textures");
         if ai_hd_dir.is_dir() {
-            let ini = "[Textures]\nDXChars=OriginalDX\n";
+            // When Dreamcast Conversion is enabled, we want "LikeDream" (recolored DX textures to match DC colors).
+            // When it's disabled (DX Enhanced), we want "OriginalDX" (default DX textures).
+            let mode = if has_dc_conv { "LikeDream" } else { "OriginalDX" };
+            let ini = format!("[Textures]\nDXChars={}\n", mode);
+            
             std::fs::write(ai_hd_dir.join("config.ini"), ini)
                 .context("Failed to write AI_HD_Textures config.ini")?;
-            tracing::info!("Applied AI HD Textures 'OriginalDX' setting for DX Enhanced");
+            tracing::info!("Applied AI HD Textures '{}' setting", mode);
         }
     }
 
@@ -170,7 +172,9 @@ fn build_default_profile(
     width: u32,
     height: u32,
 ) -> DefaultProfile {
-    let mod_dirs = config::mod_dir_names(selected_mods);
+    let enabled_mods = config::mod_dir_names(selected_mods);
+    let all_recommended: Vec<&ModEntry> = sadx::RECOMMENDED_MODS.iter().collect();
+    let mods_list = config::mod_dir_names(&all_recommended);
 
     DefaultProfile {
         settings_version: 4,
@@ -247,9 +251,9 @@ fn build_default_profile(
         patches: config::build_patches(RECOMMENDED_PATCHES),
         debug_settings: config::DebugSettings::default(),
         game_path: config::linux_to_wine_path(game_path),
-        enabled_mods: mod_dirs.clone(),
+        enabled_mods,
         enabled_codes: Vec::new(),
-        mods_list: mod_dirs,
+        mods_list,
     }
 }
 
@@ -328,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_mod_configs_ai_hd() {
+    fn test_write_mod_configs_ai_hd_dx() {
         let tmp = tempfile::tempdir().unwrap();
         let game_path = tmp.path();
         let mods_dir = game_path.join("mods");
@@ -360,12 +364,11 @@ mod tests {
         let config_path = ai_hd_dir.join("config.ini");
         assert!(config_path.is_file());
         let content = std::fs::read_to_string(config_path).unwrap();
-        assert!(content.contains("[Textures]"));
         assert!(content.contains("DXChars=OriginalDX"));
     }
 
     #[test]
-    fn test_write_mod_configs_skips_when_dc_conv_present() {
+    fn test_write_mod_configs_ai_hd_dc() {
         let tmp = tempfile::tempdir().unwrap();
         let game_path = tmp.path();
         let mods_dir = game_path.join("mods");
@@ -395,7 +398,9 @@ mod tests {
         write_mod_configs(game_path, &mod_refs).unwrap();
 
         let config_path = ai_hd_dir.join("config.ini");
-        assert!(!config_path.exists());
+        assert!(config_path.is_file());
+        let content = std::fs::read_to_string(config_path).unwrap();
+        assert!(content.contains("DXChars=LikeDream"));
     }
 
     #[test]
@@ -455,7 +460,7 @@ mod tests {
         assert_eq!(enabled[1], "TestModB");
 
         let mods_list = parsed["ModsList"].as_array().unwrap();
-        assert_eq!(enabled, mods_list);
+        assert_eq!(mods_list.len(), sadx::RECOMMENDED_MODS.len());
 
         let patches = parsed["Patches"].as_object().unwrap();
         assert_eq!(patches["HRTFSound"], true);
@@ -515,7 +520,7 @@ mod tests {
                 .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(parsed["EnabledMods"].as_array().unwrap().is_empty());
-        assert!(parsed["ModsList"].as_array().unwrap().is_empty());
+        assert_eq!(parsed["ModsList"].as_array().unwrap().len(), sadx::RECOMMENDED_MODS.len());
         assert!(!parsed["Patches"].as_object().unwrap().is_empty());
     }
 

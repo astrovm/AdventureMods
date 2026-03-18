@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 
 use super::common::ModEntry;
-use super::config;
+use super::{config, sa2};
 use crate::steam::game::GameKind;
 
 /// Generate all SA Mod Manager v3 configuration files for SA2.
@@ -98,7 +98,9 @@ fn build_default_profile(
     width: u32,
     height: u32,
 ) -> DefaultProfile {
-    let mod_dirs = config::mod_dir_names(selected_mods);
+    let enabled_mods = config::mod_dir_names(selected_mods);
+    let all_recommended: Vec<&ModEntry> = sa2::RECOMMENDED_MODS.iter().collect();
+    let mods_list = config::mod_dir_names(&all_recommended);
 
     DefaultProfile {
         settings_version: 3,
@@ -143,9 +145,9 @@ fn build_default_profile(
         patches: config::build_patches(RECOMMENDED_PATCHES),
         debug_settings: config::DebugSettings::default(),
         game_path: config::linux_to_wine_path(game_path),
-        enabled_mods: mod_dirs.clone(),
+        enabled_mods,
         enabled_codes: Vec::new(),
-        mods_list: mod_dirs,
+        mods_list,
     }
 }
 
@@ -251,7 +253,7 @@ mod tests {
         assert_eq!(enabled[1], "SA2BetterRadar");
 
         let mods_list = parsed["ModsList"].as_array().unwrap();
-        assert_eq!(enabled, mods_list);
+        assert_eq!(mods_list.len(), sa2::RECOMMENDED_MODS.len());
 
         let patches = parsed["Patches"].as_object().unwrap();
         assert_eq!(patches["FramerateLimiter"], false);

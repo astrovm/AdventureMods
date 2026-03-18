@@ -114,17 +114,10 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         // Mod selection: always show so the user can change their picks
         "select_mods" => false,
 
-        // Mods download: complete when every recommended mod dir exists.
-        // We check all mods (not just selected ones) since we don't persist
-        // the selection. If any dir is missing the user can re-run.
-        "download_mods" => {
-            let mods_dir = p.join("mods");
-            let mods_list = recommended_mods_for_game(game.kind);
-            mods_list.iter().all(|m| {
-                let dir = m.dir_name.unwrap_or(m.name);
-                mods_dir.join(dir).is_dir()
-            })
-        }
+        // Mods download: never skip this step because it also performs mod-specific 
+        // configuration and generates the SA Mod Manager profile based on the current selection.
+        // The `install_mod` function itself handles skipping existing mod directories.
+        "download_mods" => false,
 
         // Completion screen: always show
         "complete" => false,
@@ -375,10 +368,16 @@ pub fn install_mod(
     mod_entry: &ModEntry,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    let url = resolve_download_url(&mod_entry.source);
-
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
+
+    let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
+    if mods_dir.join(dir_name).is_dir() {
+        tracing::info!("Mod '{}' already installed, skipping download", mod_entry.name);
+        return Ok(());
+    }
+
+    let url = resolve_download_url(&mod_entry.source);
 
     let temp_dir = tempfile::tempdir()?;
 
