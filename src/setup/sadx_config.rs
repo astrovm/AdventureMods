@@ -24,8 +24,33 @@ pub fn generate_sadx_config(
     config::write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
     config::write_samanager_txt(game_path)?;
     write_sonic_dx_ini(game_path)?;
+    write_mod_configs(game_path, selected_mods)?;
 
     tracing::info!("SADX configuration files generated");
+    Ok(())
+}
+
+// --- Mod-specific configuration writers ---
+
+fn write_mod_configs(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
+    let mods_dir = game_path.join("mods");
+
+    // AI HD Textures: "DX Enhanced" should use original DX textures.
+    // We check if "Dreamcast Conversion" is NOT in the selection, which
+    // is the case for the "DX Enhanced" preset.
+    let has_dc_conv = selected_mods.iter().any(|m| m.name == "Dreamcast Conversion");
+    let has_ai_hd = selected_mods.iter().any(|m| m.name == "AI HD Textures");
+
+    if has_ai_hd && !has_dc_conv {
+        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
+        if ai_hd_dir.is_dir() {
+            let ini = "[Textures]\nDXChars=OriginalDX\n";
+            std::fs::write(ai_hd_dir.join("config.ini"), ini)
+                .context("Failed to write AI_HD_Textures config.ini")?;
+            tracing::info!("Applied AI HD Textures 'OriginalDX' setting for DX Enhanced");
+        }
+    }
+
     Ok(())
 }
 
