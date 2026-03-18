@@ -27,7 +27,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "A massive restoration project that reverts the graphical and environmental changes made in the DX port. It replaces SADX level models and textures with original Dreamcast assets, restores vertex colors, and brings back the original title screens and UI elements for the definitive 1998 experience.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/dreamcast_conversion_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dreamcast_conversion_after.jpg",
+        ],
         dir_name: Some("DreamcastConversion"),
     },
     ModEntry {
@@ -52,6 +55,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Restores the original palette-based lighting system from the Dreamcast version of Sonic Adventure. It replaces the flat lighting of the DX ports with dynamic lighting that makes characters and environments react to light sources with vibrant color depth.",
         ),
         pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/lantern_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/lantern_after.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_0.png",
             "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_1.png",
             "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_2.png",
@@ -128,7 +133,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the specific 'shiny' and opaque water textures used in the original 2003 GameCube/PC DX release. This mod is for players who prefer the DX-era water aesthetics over the transparent Dreamcast-style water.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx_water_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx_water_after.jpg",
+        ],
         dir_name: Some("sadx-style-water"),
     },
     ModEntry {
@@ -140,7 +148,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the iconic 'onion skinning' motion blur effect seen when characters move at high speeds in the original Dreamcast version. This visual trail was removed in the DX ports and is a staple of the classic Sonic Adventure look.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/onion_blur_after.jpg",
+        ],
         dir_name: Some("sadx-onion-blur"),
     },
     ModEntry {
@@ -153,6 +164,8 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Replaces the high-poly, glossy character models of the DX version with their original lower-poly designs from the 1998 Dreamcast version. It includes original models for the entire main cast, Eggman, Tikal, and Metal Sonic.",
         ),
         pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/dreamcast_characters_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/dreamcast_characters_after.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_0.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_1.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sa1_chars_2.jpg",
@@ -277,7 +290,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "A complete high-resolution texture overhaul for the game's user interface. It replaces every menu texture, HUD element, and font with crisp, HD versions that are faithful to the original UI designs while looking great on modern displays.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_before.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/hd_gui_after.jpg",
+        ],
         dir_name: Some("HD_DCStyle"),
     },
     ModEntry {

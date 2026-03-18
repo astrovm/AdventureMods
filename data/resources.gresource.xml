@@ -183,5 +183,17 @@
     <file>resources/images/sadx-dc-lighting_gh_1.png</file>
     <file>resources/images/sadx-dc-lighting_gh_2.png</file>
     <file>resources/images/sadx-dc-lighting_gh_3.png</file>
+    <file>resources/images/dreamcast_characters_after.jpg</file>
+    <file>resources/images/dreamcast_characters_before.jpg</file>
+    <file>resources/images/dreamcast_conversion_after.jpg</file>
+    <file>resources/images/dreamcast_conversion_before.jpg</file>
+    <file>resources/images/hd_gui_after.jpg</file>
+    <file>resources/images/hd_gui_before.jpg</file>
+    <file>resources/images/lantern_after.jpg</file>
+    <file>resources/images/lantern_before.jpg</file>
+    <file>resources/images/onion_blur_after.jpg</file>
+    <file>resources/images/onion_blur_before.jpg</file>
+    <file>resources/images/sadx_water_after.jpg</file>
+    <file>resources/images/sadx_water_before.jpg</file>
     </gresource>
-</gresources>
+    </gresources>
