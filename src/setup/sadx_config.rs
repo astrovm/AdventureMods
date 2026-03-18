@@ -310,8 +310,8 @@ mod tests {
                     url: "https://example.com/a.7z",
                 },
                 description: "Test mod A",
-                before_image: None,
-                after_image: None,
+                full_description: None,
+                pictures: &[],
                 dir_name: Some("TestModA"),
             },
             ModEntry {
@@ -320,11 +320,82 @@ mod tests {
                     url: "https://example.com/b.7z",
                 },
                 description: "Test mod B",
-                before_image: None,
-                after_image: None,
+                full_description: None,
+                pictures: &[],
                 dir_name: Some("TestModB"),
             },
         ]
+    }
+
+    #[test]
+    fn test_write_mod_configs_ai_hd() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path();
+        let mods_dir = game_path.join("mods");
+        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
+        std::fs::create_dir_all(&ai_hd_dir).unwrap();
+
+        let mods = vec![
+            ModEntry {
+                name: "AI HD Textures",
+                source: ModSource::DirectUrl { url: "https://ai" },
+                description: "",
+                full_description: None,
+                pictures: &[],
+                dir_name: Some("AI_HD_Textures"),
+            },
+            ModEntry {
+                name: "SADX: Fixed Edition",
+                source: ModSource::DirectUrl { url: "https://fe" },
+                description: "",
+                full_description: None,
+                pictures: &[],
+                dir_name: Some("SADXFE"),
+            },
+        ];
+
+        let mod_refs: Vec<&ModEntry> = mods.iter().collect();
+        write_mod_configs(game_path, &mod_refs).unwrap();
+
+        let config_path = ai_hd_dir.join("config.ini");
+        assert!(config_path.is_file());
+        let content = std::fs::read_to_string(config_path).unwrap();
+        assert!(content.contains("[Textures]"));
+        assert!(content.contains("DXChars=OriginalDX"));
+    }
+
+    #[test]
+    fn test_write_mod_configs_skips_when_dc_conv_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path();
+        let mods_dir = game_path.join("mods");
+        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
+        std::fs::create_dir_all(&ai_hd_dir).unwrap();
+
+        let mods = vec![
+            ModEntry {
+                name: "AI HD Textures",
+                source: ModSource::DirectUrl { url: "https://ai" },
+                description: "",
+                full_description: None,
+                pictures: &[],
+                dir_name: Some("AI_HD_Textures"),
+            },
+            ModEntry {
+                name: "Dreamcast Conversion",
+                source: ModSource::DirectUrl { url: "https://dc" },
+                description: "",
+                full_description: None,
+                pictures: &[],
+                dir_name: Some("DreamcastConversion"),
+            },
+        ];
+
+        let mod_refs: Vec<&ModEntry> = mods.iter().collect();
+        write_mod_configs(game_path, &mod_refs).unwrap();
+
+        let config_path = ai_hd_dir.join("config.ini");
+        assert!(!config_path.exists());
     }
 
     #[test]
