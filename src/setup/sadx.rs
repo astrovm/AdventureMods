@@ -51,7 +51,12 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "Restores the original palette-based lighting system from the Dreamcast version of Sonic Adventure. It replaces the flat lighting of the DX ports with dynamic lighting that makes characters and environments react to light sources with vibrant color depth.",
         ),
-        pictures: &[],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_0.png",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_1.png",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_2.png",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx-dc-lighting_gh_3.png",
+        ],
         dir_name: Some("sadx-dc-lighting"),
     },
     ModEntry {
