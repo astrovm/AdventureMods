@@ -9,9 +9,6 @@ use gtk::{gdk, gio, glib};
 use crate::setup::{common, config, sadx, steps};
 use crate::steam::game::Game;
 
-const MOD_LIST_WIDTH: i32 = 400;
-const MOD_LIST_HEIGHT: i32 = 360;
-const MOD_PREVIEW_WIDTH: i32 = 400;
 const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_FALLBACK_IMAGE: &str =
@@ -25,6 +22,8 @@ mod imp {
     #[derive(Default, gtk::CompositeTemplate)]
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/setup_page.ui")]
     pub struct AdventureModsSetupPage {
+        #[template_child]
+        pub body_box: TemplateChild<gtk::Box>,
         #[template_child]
         pub step_title: TemplateChild<gtk::Label>,
         #[template_child]
@@ -148,6 +147,10 @@ fn populate_mod_preview(
     description_label.set_label(description);
 }
 
+fn uses_centered_layout(step_kind: &steps::StepKind) -> bool {
+    !matches!(step_kind, steps::StepKind::ModSelection)
+}
+
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
@@ -176,6 +179,24 @@ impl AdventureModsSetupPage {
         let Some(step) = all_steps.get(step_idx) else {
             return;
         };
+
+        let centered_layout = uses_centered_layout(&step.kind);
+        imp.body_box.set_valign(if centered_layout {
+            gtk::Align::Center
+        } else {
+            gtk::Align::Fill
+        });
+        imp.content_box.set_halign(if centered_layout {
+            gtk::Align::Center
+        } else {
+            gtk::Align::Fill
+        });
+        imp.content_box.set_valign(if centered_layout {
+            gtk::Align::Center
+        } else {
+            gtk::Align::Fill
+        });
+        imp.content_box.set_vexpand(!centered_layout);
 
         imp.step_title.set_label(step.title);
         imp.step_description.set_label(step.description);
@@ -278,27 +299,28 @@ impl AdventureModsSetupPage {
 
                 let main_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
+                    .homogeneous(true)
                     .spacing(24)
                     .hexpand(true)
                     .vexpand(true)
-                    .valign(gtk::Align::Start)
+                    .valign(gtk::Align::Fill)
                     .halign(gtk::Align::Fill)
                     .build();
 
                 let left_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .spacing(12)
-                    .valign(gtk::Align::Start)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .valign(gtk::Align::Fill)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
                     .hscrollbar_policy(gtk::PolicyType::Never)
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .height_request(MOD_LIST_HEIGHT)
-                    .max_content_height(MOD_LIST_HEIGHT)
-                    .width_request(MOD_LIST_WIDTH)
-                    .hexpand(false)
-                    .valign(gtk::Align::Start)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .valign(gtk::Align::Fill)
                     .build();
 
                 let list_box = gtk::ListBox::builder()
@@ -371,10 +393,10 @@ impl AdventureModsSetupPage {
                 let preview_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .spacing(12)
-                    .valign(gtk::Align::Start)
-                    .halign(gtk::Align::End)
-                    .width_request(MOD_PREVIEW_WIDTH)
-                    .hexpand(false)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .valign(gtk::Align::Fill)
+                    .halign(gtk::Align::Fill)
                     .build();
 
                 let carousel = adw::Carousel::builder()
@@ -398,8 +420,9 @@ impl AdventureModsSetupPage {
 
                 let carousel_frame = gtk::Frame::builder()
                     .child(&carousel_box)
-                    .width_request(MOD_PREVIEW_WIDTH)
                     .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
+                    .hexpand(true)
+                    .vexpand(true)
                     .build();
 
                 let full_desc_label = gtk::Label::builder()
@@ -412,9 +435,9 @@ impl AdventureModsSetupPage {
                 let desc_scrolled = gtk::ScrolledWindow::builder()
                     .hscrollbar_policy(gtk::PolicyType::Never)
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .height_request(MOD_PREVIEW_DESCRIPTION_HEIGHT)
                     .max_content_height(MOD_PREVIEW_DESCRIPTION_HEIGHT)
-                    .width_request(MOD_PREVIEW_WIDTH)
+                    .hexpand(true)
+                    .vexpand(true)
                     .child(&full_desc_label)
                     .build();
 

@@ -5,6 +5,7 @@ use gtk::{gio, glib};
 use crate::steam;
 use crate::ui::setup_page::AdventureModsSetupPage;
 use crate::ui::welcome_page::AdventureModsWelcomePage;
+use crate::ui::{WIZARD_DEFAULT_HEIGHT, WIZARD_DEFAULT_WIDTH};
 
 mod imp {
     use super::*;
@@ -78,7 +79,7 @@ impl AdventureModsWindow {
                 "GSettings schema '{}' not found — using default window size",
                 crate::config::APP_ID
             );
-            self.set_default_size(800, 600);
+            self.set_default_size(WIZARD_DEFAULT_WIDTH, WIZARD_DEFAULT_HEIGHT);
             return;
         }
 

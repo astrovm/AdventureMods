@@ -2,8 +2,8 @@
 <interface>
   <template class="AdventureModsWindow" parent="AdwApplicationWindow">
     <property name="title" translatable="yes">Adventure Mods</property>
-    <property name="default-width">800</property>
-    <property name="default-height">600</property>
+    <property name="default-width">872</property>
+    <property name="default-height">666</property>
     <property name="content">
       <object class="AdwToolbarView">
         <child type="top">
