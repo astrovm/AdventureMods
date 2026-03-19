@@ -114,7 +114,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
         // Mod selection: always show so the user can change their picks
         "select_mods" => false,
 
-        // Mods download: never skip this step because it also performs mod-specific 
+        // Mods download: never skip this step because it also performs mod-specific
         // configuration and generates the SA Mod Manager profile based on the current selection.
         // The `install_mod` function itself handles skipping existing mod directories.
         "download_mods" => false,
@@ -373,7 +373,10 @@ pub fn install_mod(
 
     let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
     if mods_dir.join(dir_name).is_dir() {
-        tracing::info!("Mod '{}' already installed, skipping download", mod_entry.name);
+        tracing::info!(
+            "Mod '{}' already installed, skipping download",
+            mod_entry.name
+        );
         return Ok(());
     }
 

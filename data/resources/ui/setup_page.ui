@@ -9,8 +9,9 @@
         <property name="margin-end">24</property>
         <property name="margin-top">24</property>
         <property name="margin-bottom">24</property>
-        <property name="valign">center</property>
+        <property name="valign">fill</property>
         <property name="halign">fill</property>
+        <property name="vexpand">true</property>
         <child>
           <object class="GtkLabel" id="step_title">
             <property name="wrap">true</property>
@@ -33,6 +34,10 @@
             <property name="spacing">12</property>
             <property name="halign">fill</property>
             <property name="hexpand">true</property>
+            <property name="valign">fill</property>
+            <property name="vexpand">true</property>
+            <property name="height-request">420</property>
+            <property name="width-request">824</property>
           </object>
         </child>
         <child>

@@ -177,7 +177,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         full_description: Some(
             "HedgePanel refines the speed characters' mechanics by allowing them to maintain momentum during somersaults and adding an upward bounce after Light Attacks to prevent accidental falls. It also fixes the 'low bounce' physics bug and adds automatic prompts for Magic Hands when in range of an enemy.",
         ),
-        pictures: &["/io/github/astrovm/AdventureMods/resources/images/sa2/hedgepanel/hedgepanel_0.jpg"],
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/hedgepanel/hedgepanel_0.jpg",
+        ],
         dir_name: Some("HedgePanel"),
     },
     ModEntry {

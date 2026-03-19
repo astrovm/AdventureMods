@@ -36,7 +36,9 @@ fn write_mod_configs(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()
     let mods_dir = game_path.join("mods");
 
     // AI HD Textures configuration
-    let has_dc_conv = selected_mods.iter().any(|m| m.name == "Dreamcast Conversion");
+    let has_dc_conv = selected_mods
+        .iter()
+        .any(|m| m.name == "Dreamcast Conversion");
     let has_ai_hd = selected_mods.iter().any(|m| m.name == "AI HD Textures");
 
     if has_ai_hd {
@@ -44,9 +46,13 @@ fn write_mod_configs(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()
         if ai_hd_dir.is_dir() {
             // When Dreamcast Conversion is enabled, we want "LikeDream" (recolored DX textures to match DC colors).
             // When it's disabled (DX Enhanced), we want "OriginalDX" (default DX textures).
-            let mode = if has_dc_conv { "LikeDream" } else { "OriginalDX" };
+            let mode = if has_dc_conv {
+                "LikeDream"
+            } else {
+                "OriginalDX"
+            };
             let ini = format!("[Textures]\nDXChars={}\n", mode);
-            
+
             std::fs::write(ai_hd_dir.join("config.ini"), ini)
                 .context("Failed to write AI_HD_Textures config.ini")?;
             tracing::info!("Applied AI HD Textures '{}' setting", mode);
@@ -520,7 +526,10 @@ mod tests {
                 .unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(parsed["EnabledMods"].as_array().unwrap().is_empty());
-        assert_eq!(parsed["ModsList"].as_array().unwrap().len(), sadx::RECOMMENDED_MODS.len());
+        assert_eq!(
+            parsed["ModsList"].as_array().unwrap().len(),
+            sadx::RECOMMENDED_MODS.len()
+        );
         assert!(!parsed["Patches"].as_object().unwrap().is_empty());
     }
 

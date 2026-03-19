@@ -9,6 +9,14 @@ use gtk::{gdk, gio, glib};
 use crate::setup::{common, config, sadx, steps};
 use crate::steam::game::Game;
 
+const MOD_LIST_WIDTH: i32 = 400;
+const MOD_LIST_HEIGHT: i32 = 360;
+const MOD_PREVIEW_WIDTH: i32 = 400;
+const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
+const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
+const MOD_PREVIEW_FALLBACK_IMAGE: &str =
+    "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg";
+
 mod imp {
     use std::cell::RefCell;
 
@@ -81,6 +89,63 @@ glib::wrapper! {
     pub struct AdventureModsSetupPage(ObjectSubclass<imp::AdventureModsSetupPage>)
         @extends gtk::Widget, adw::Bin,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<usize> {
+    selected_mods
+        .iter()
+        .copied()
+        .find(|&idx| idx < mod_count)
+        .or_else(|| (mod_count > 0).then_some(0))
+}
+
+fn populate_mod_preview(
+    carousel: &adw::Carousel,
+    description_label: &gtk::Label,
+    mod_entry: Option<&common::ModEntry>,
+) {
+    let mut children = Vec::new();
+    let mut child = carousel.first_child();
+    while let Some(widget) = child {
+        children.push(widget.clone());
+        child = widget.next_sibling();
+    }
+    for child in children {
+        carousel.remove(&child);
+    }
+
+    let (pictures, description) = if let Some(mod_entry) = mod_entry {
+        (
+            mod_entry.pictures,
+            mod_entry.full_description.unwrap_or(mod_entry.description),
+        )
+    } else {
+        (&[][..], "")
+    };
+
+    if pictures.is_empty() {
+        let img = gtk::Picture::builder()
+            .can_shrink(true)
+            .content_fit(gtk::ContentFit::Contain)
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+        img.set_resource(Some(MOD_PREVIEW_FALLBACK_IMAGE));
+        carousel.append(&img);
+    } else {
+        for pic in pictures {
+            let img = gtk::Picture::builder()
+                .can_shrink(true)
+                .content_fit(gtk::ContentFit::Contain)
+                .hexpand(true)
+                .vexpand(true)
+                .build();
+            img.set_resource(Some(*pic));
+            carousel.append(&img);
+        }
+    }
+
+    description_label.set_label(description);
 }
 
 impl AdventureModsSetupPage {
@@ -207,27 +272,33 @@ impl AdventureModsSetupPage {
                 imp.next_button.set_sensitive(true);
 
                 let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
-                let presets = game_kind.map(|k| common::presets_for_game(k)).unwrap_or(&[]);
+                let presets = game_kind
+                    .map(|k| common::presets_for_game(k))
+                    .unwrap_or(&[]);
 
                 let main_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
                     .spacing(24)
-                    .hexpand(false)
-                    .halign(gtk::Align::Center)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .valign(gtk::Align::Start)
+                    .halign(gtk::Align::Fill)
                     .build();
 
                 let left_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .spacing(12)
+                    .valign(gtk::Align::Start)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
                     .hscrollbar_policy(gtk::PolicyType::Never)
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .max_content_height(400)
-                    .propagate_natural_height(true)
-                    .width_request(400)
+                    .height_request(MOD_LIST_HEIGHT)
+                    .max_content_height(MOD_LIST_HEIGHT)
+                    .width_request(MOD_LIST_WIDTH)
                     .hexpand(false)
+                    .valign(gtk::Align::Start)
                     .build();
 
                 let list_box = gtk::ListBox::builder()
@@ -302,7 +373,7 @@ impl AdventureModsSetupPage {
                     .spacing(12)
                     .valign(gtk::Align::Start)
                     .halign(gtk::Align::End)
-                    .width_request(400)
+                    .width_request(MOD_PREVIEW_WIDTH)
                     .hexpand(false)
                     .build();
 
@@ -327,8 +398,8 @@ impl AdventureModsSetupPage {
 
                 let carousel_frame = gtk::Frame::builder()
                     .child(&carousel_box)
-                    .width_request(400)
-                    .height_request(250)
+                    .width_request(MOD_PREVIEW_WIDTH)
+                    .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
                     .build();
 
                 let full_desc_label = gtk::Label::builder()
@@ -341,15 +412,14 @@ impl AdventureModsSetupPage {
                 let desc_scrolled = gtk::ScrolledWindow::builder()
                     .hscrollbar_policy(gtk::PolicyType::Never)
                     .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .max_content_height(200)
-                    .propagate_natural_height(true)
+                    .height_request(MOD_PREVIEW_DESCRIPTION_HEIGHT)
+                    .max_content_height(MOD_PREVIEW_DESCRIPTION_HEIGHT)
+                    .width_request(MOD_PREVIEW_WIDTH)
                     .child(&full_desc_label)
                     .build();
 
                 preview_box.append(&carousel_frame);
                 preview_box.append(&desc_scrolled);
-
-                preview_box.set_opacity(0.0);
 
                 let mods_list = game_kind
                     .map(|k| common::recommended_mods_for_game(k))
@@ -366,6 +436,7 @@ impl AdventureModsSetupPage {
                         .margin_end(12)
                         .margin_top(12)
                         .margin_bottom(12)
+                        .hexpand(true)
                         .build();
 
                     let is_active = if let Some(preset) = default_preset {
@@ -380,6 +451,7 @@ impl AdventureModsSetupPage {
                     let text_box = gtk::Box::builder()
                         .orientation(gtk::Orientation::Vertical)
                         .spacing(2)
+                        .hexpand(true)
                         .build();
 
                     let name_label = gtk::Label::builder()
@@ -418,55 +490,17 @@ impl AdventureModsSetupPage {
                     });
 
                     // Preview update on row focus/motion
-                    let p_box = preview_box.clone();
                     let carousel_clone = carousel.clone();
                     let desc_lbl_clone = full_desc_label.clone();
                     let mod_entry_clone = mod_entry;
 
                     let gesture = gtk::EventControllerMotion::new();
                     gesture.connect_enter(move |_, _, _| {
-                        // clear carousel
-                        let mut children = vec![];
-                        let mut child = carousel_clone.first_child();
-                        while let Some(w) = child {
-                            children.push(w.clone());
-                            child = w.next_sibling();
-                        }
-                        for child in children {
-                            carousel_clone.remove(&child);
-                        }
-
-                        if !mod_entry_clone.pictures.is_empty() {
-                            for pic in mod_entry_clone.pictures {
-                                let img = gtk::Picture::builder()
-                                    .can_shrink(true)
-                                    .content_fit(gtk::ContentFit::Contain)
-                                    .hexpand(true)
-                                    .vexpand(true)
-                                    .build();
-                                img.set_resource(Some(*pic));
-                                carousel_clone.append(&img);
-                            }
-                        } else {
-                            let img = gtk::Picture::builder()
-                                .can_shrink(true)
-                                .content_fit(gtk::ContentFit::Contain)
-                                .hexpand(true)
-                                .vexpand(true)
-                                .build();
-                            img.set_resource(Some(
-                                "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg",
-                            )); // fallback
-                            carousel_clone.append(&img);
-                        }
-
-                        if let Some(desc) = mod_entry_clone.full_description {
-                            desc_lbl_clone.set_label(desc);
-                        } else {
-                            desc_lbl_clone.set_label(mod_entry_clone.description);
-                        }
-
-                        p_box.set_opacity(1.0);
+                        populate_mod_preview(
+                            &carousel_clone,
+                            &desc_lbl_clone,
+                            Some(mod_entry_clone),
+                        );
                     });
                     list_row.add_controller(gesture);
 
@@ -476,6 +510,11 @@ impl AdventureModsSetupPage {
                     }
                 }
                 imp.selected_mods.replace(initial_selected);
+
+                let preview_entry =
+                    initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
+                        .and_then(|idx| mods_list.get(idx));
+                populate_mod_preview(&carousel, &full_desc_label, preview_entry);
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);
@@ -802,7 +841,8 @@ impl AdventureModsSetupPage {
         // Skip steps backwards that are either automatic or already complete
         while prev > 0 {
             let step = &all_steps[prev];
-            if matches!(step.kind, steps::StepKind::Auto) || common::is_step_complete(step.id, &game)
+            if matches!(step.kind, steps::StepKind::Auto)
+                || common::is_step_complete(step.id, &game)
             {
                 prev -= 1;
             } else {
@@ -846,5 +886,30 @@ impl AdventureModsSetupPage {
 
         imp.next_button.set_label("Retry");
         imp.next_button.set_sensitive(true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::initial_preview_index;
+
+    #[test]
+    fn initial_preview_prefers_first_selected_mod() {
+        assert_eq!(initial_preview_index(5, &[3, 1]), Some(3));
+    }
+
+    #[test]
+    fn initial_preview_falls_back_to_first_mod_when_none_selected() {
+        assert_eq!(initial_preview_index(5, &[]), Some(0));
+    }
+
+    #[test]
+    fn initial_preview_skips_out_of_range_selection() {
+        assert_eq!(initial_preview_index(2, &[4, 1]), Some(1));
+    }
+
+    #[test]
+    fn initial_preview_is_none_when_no_mods_exist() {
+        assert_eq!(initial_preview_index(0, &[0]), None);
     }
 }
