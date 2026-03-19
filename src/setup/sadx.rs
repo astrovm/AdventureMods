@@ -318,16 +318,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
         ),
         pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_5.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_6.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_7.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_8.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sonicnewtricks_9.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_7.jpg",
         ],
         dir_name: Some("sadx-new-tricks"),
     },
@@ -863,6 +861,25 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn test_sonic_new_tricks_uses_sadx_image_set() {
+        let new_tricks = RECOMMENDED_MODS
+            .iter()
+            .find(|m| m.name == "Sonic: New Tricks")
+            .expect("Sonic: New Tricks entry missing");
+
+        assert_eq!(new_tricks.pictures.len(), 8);
+        for picture in new_tricks.pictures {
+            assert!(
+                picture.starts_with(
+                    "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_"
+                ),
+                "Unexpected SADX New Tricks picture path: {}",
+                picture
+            );
         }
     }
 
