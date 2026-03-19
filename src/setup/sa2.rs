@@ -124,7 +124,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/mech_sound/mechsoundimprovement_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/mech_sound/mechsoundimprovement_1.jpg",
         ],
         dir_name: Some("Mech Sound Improvement"),
     },
