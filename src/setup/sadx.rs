@@ -64,10 +64,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/lantern_before.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/lantern_after.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_before_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_after_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_before_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_after_1.jpg",
         ],
         dir_name: Some("sadx-dc-lighting"),
         links: &[
