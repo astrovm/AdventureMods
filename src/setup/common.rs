@@ -25,6 +25,12 @@ pub enum ModSource {
     DirectUrl { url: &'static str },
 }
 
+/// An external link for a mod (e.g. GitHub repo, GameBanana page).
+pub struct ModLink {
+    pub label: &'static str,
+    pub url: &'static str,
+}
+
 /// A recommended mod entry.
 pub struct ModEntry {
     pub name: &'static str,
@@ -35,6 +41,8 @@ pub struct ModEntry {
     /// Expected directory name inside `mods/`. Used when a flat archive
     /// (no top-level subdirectory) needs to be wrapped in the correct folder.
     pub dir_name: Option<&'static str>,
+    /// External links for this mod (project pages, source repos, etc.).
+    pub links: &'static [ModLink],
 }
 
 /// A preset for selecting a group of mods.

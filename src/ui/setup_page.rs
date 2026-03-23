@@ -101,6 +101,7 @@ fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<us
 fn populate_mod_preview(
     carousel: &adw::Carousel,
     description_label: &gtk::Label,
+    links_box: &gtk::Box,
     mod_entry: Option<&common::ModEntry>,
 ) {
     let mut children = Vec::new();
@@ -113,13 +114,14 @@ fn populate_mod_preview(
         carousel.remove(&child);
     }
 
-    let (pictures, description) = if let Some(mod_entry) = mod_entry {
+    let (pictures, description, links) = if let Some(mod_entry) = mod_entry {
         (
             mod_entry.pictures,
             mod_entry.full_description.unwrap_or(mod_entry.description),
+            mod_entry.links,
         )
     } else {
-        (&[][..], "")
+        (&[][..], "", &[][..])
     };
 
     if pictures.is_empty() {
@@ -145,6 +147,19 @@ fn populate_mod_preview(
     }
 
     description_label.set_label(description);
+
+    // Update links
+    while let Some(child) = links_box.first_child() {
+        links_box.remove(&child);
+    }
+    for link in links {
+        let button = gtk::LinkButton::builder()
+            .label(link.label)
+            .uri(link.url)
+            .halign(gtk::Align::Start)
+            .build();
+        links_box.append(&button);
+    }
 }
 
 fn uses_centered_layout(step_kind: &steps::StepKind) -> bool {
@@ -441,8 +456,15 @@ impl AdventureModsSetupPage {
                     .child(&full_desc_label)
                     .build();
 
+                let links_box = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Horizontal)
+                    .spacing(6)
+                    .halign(gtk::Align::Start)
+                    .build();
+
                 preview_box.append(&carousel_frame);
                 preview_box.append(&desc_scrolled);
+                preview_box.append(&links_box);
 
                 let mods_list = game_kind
                     .map(|k| common::recommended_mods_for_game(k))
@@ -515,6 +537,7 @@ impl AdventureModsSetupPage {
                     // Preview update on row focus/motion
                     let carousel_clone = carousel.clone();
                     let desc_lbl_clone = full_desc_label.clone();
+                    let links_box_clone = links_box.clone();
                     let mod_entry_clone = mod_entry;
 
                     let gesture = gtk::EventControllerMotion::new();
@@ -522,6 +545,7 @@ impl AdventureModsSetupPage {
                         populate_mod_preview(
                             &carousel_clone,
                             &desc_lbl_clone,
+                            &links_box_clone,
                             Some(mod_entry_clone),
                         );
                     });
@@ -537,7 +561,7 @@ impl AdventureModsSetupPage {
                 let preview_entry =
                     initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
                         .and_then(|idx| mods_list.get(idx));
-                populate_mod_preview(&carousel, &full_desc_label, preview_entry);
+                populate_mod_preview(&carousel, &full_desc_label, &links_box, preview_entry);
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);

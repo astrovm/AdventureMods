@@ -196,6 +196,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("sa2-render-fix"),
+                links: &[],
             },
             ModEntry {
                 name: "Better Radar",
@@ -204,6 +205,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("SA2BetterRadar"),
+                links: &[],
             },
         ]
     }

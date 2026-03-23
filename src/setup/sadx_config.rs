@@ -323,6 +323,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("TestModA"),
+                links: &[],
             },
             ModEntry {
                 name: "Test Mod B",
@@ -333,6 +334,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("TestModB"),
+                links: &[],
             },
         ]
     }
@@ -353,6 +355,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("AI_HD_Textures"),
+                links: &[],
             },
             ModEntry {
                 name: "SADX: Fixed Edition",
@@ -361,6 +364,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("SADXFE"),
+                links: &[],
             },
         ];
 
@@ -389,6 +393,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("AI_HD_Textures"),
+                links: &[],
             },
             ModEntry {
                 name: "Dreamcast Conversion",
@@ -397,6 +402,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("DreamcastConversion"),
+                links: &[],
             },
         ];
 

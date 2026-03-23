@@ -296,6 +296,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: Some("DirA"),
+                links: &[],
             },
             ModEntry {
                 name: "B",
@@ -304,6 +305,7 @@ mod tests {
                 full_description: None,
                 pictures: &[],
                 dir_name: None,
+                links: &[],
             },
         ];
         let refs: Vec<&ModEntry> = mods.iter().collect();
