@@ -33,9 +33,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("DreamcastConversion"),
         links: &[
-            ModLink { label: "GitHub", url: "https://github.com/GerbilSoft/sadx_dreamcast" },
             ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx_dreamcast" },
-            ModLink { label: "ModDB", url: "https://www.moddb.com/mods/sadx-dreamcast-conversion" },
         ],
     },
     ModEntry {
@@ -132,9 +130,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("SoundOverhaul"),
-        links: &[
-            ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx-sound-overhaul" },
-        ],
+        links: &[],
     },
     ModEntry {
         name: "ADX Audio",
@@ -353,9 +349,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/hd_gui/hd_gui_after.jpg",
         ],
         dir_name: Some("HD_DCStyle"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/X-Hax/sadx-hd-gui" },
-        ],
+        links: &[],
     },
     ModEntry {
         name: "Active Mouths",

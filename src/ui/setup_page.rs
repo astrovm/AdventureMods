@@ -96,6 +96,7 @@ fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<us
 }
 
 fn populate_mod_preview(
+    title_label: &gtk::Label,
     carousel: &adw::Carousel,
     carousel_frame: &gtk::Frame,
     description_label: &gtk::Label,
@@ -112,15 +113,18 @@ fn populate_mod_preview(
         carousel.remove(&child);
     }
 
-    let (pictures, description, links) = if let Some(mod_entry) = mod_entry {
+    let (name, pictures, description, links) = if let Some(mod_entry) = mod_entry {
         (
+            mod_entry.name,
             mod_entry.pictures,
             mod_entry.full_description.unwrap_or(mod_entry.description),
             mod_entry.links,
         )
     } else {
-        (&[][..], "", &[][..])
+        ("", &[][..], "", &[][..])
     };
+
+    title_label.set_label(name);
 
     if pictures.is_empty() {
         carousel_frame.set_visible(false);
@@ -448,12 +452,18 @@ impl AdventureModsSetupPage {
                     .child(&full_desc_label)
                     .build();
 
+                let preview_title_label = gtk::Label::builder()
+                    .halign(gtk::Align::Start)
+                    .css_classes(vec!["title-3".to_string()])
+                    .build();
+
                 let links_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
                     .spacing(6)
                     .halign(gtk::Align::Start)
                     .build();
 
+                preview_box.append(&preview_title_label);
                 preview_box.append(&carousel_frame);
                 preview_box.append(&desc_scrolled);
                 preview_box.append(&links_box);
@@ -527,6 +537,7 @@ impl AdventureModsSetupPage {
                     });
 
                     // Preview update on row focus/motion
+                    let preview_title_clone = preview_title_label.clone();
                     let carousel_clone = carousel.clone();
                     let carousel_frame_clone = carousel_frame.clone();
                     let desc_lbl_clone = full_desc_label.clone();
@@ -536,6 +547,7 @@ impl AdventureModsSetupPage {
                     let gesture = gtk::EventControllerMotion::new();
                     gesture.connect_enter(move |_, _, _| {
                         populate_mod_preview(
+                            &preview_title_clone,
                             &carousel_clone,
                             &carousel_frame_clone,
                             &desc_lbl_clone,
@@ -555,7 +567,7 @@ impl AdventureModsSetupPage {
                 let preview_entry =
                     initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
                         .and_then(|idx| mods_list.get(idx));
-                populate_mod_preview(&carousel, &carousel_frame, &full_desc_label, &links_box, preview_entry);
+                populate_mod_preview(&preview_title_label, &carousel, &carousel_frame, &full_desc_label, &links_box, preview_entry);
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);
