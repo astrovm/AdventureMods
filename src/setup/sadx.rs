@@ -217,8 +217,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_2.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_3.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_4.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_5.jpg",
@@ -558,11 +556,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_1.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_2.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_3.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_5.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_6.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_7.jpg",
             "/io/github/astrovm/AdventureMods/resources/images/sadx/ai_hd_textures/ai_hd_textures_8.jpg",

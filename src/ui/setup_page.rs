@@ -151,9 +151,9 @@ fn populate_mod_preview(
                 let badge = gtk::Label::builder()
                     .label(text)
                     .halign(gtk::Align::Start)
-                    .valign(gtk::Align::Start)
+                    .valign(gtk::Align::End)
                     .margin_start(8)
-                    .margin_top(8)
+                    .margin_bottom(8)
                     .css_classes(vec!["caption".to_string(), "osd".to_string()])
                     .build();
                 let overlay = gtk::Overlay::builder()
