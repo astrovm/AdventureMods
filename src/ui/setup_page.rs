@@ -138,7 +138,34 @@ fn populate_mod_preview(
                 .vexpand(true)
                 .build();
             img.set_resource(Some(*pic));
-            carousel.append(&img);
+
+            let badge_text = if pic.contains("_before.") {
+                Some("Before")
+            } else if pic.contains("_after.") {
+                Some("After")
+            } else {
+                None
+            };
+
+            if let Some(text) = badge_text {
+                let badge = gtk::Label::builder()
+                    .label(text)
+                    .halign(gtk::Align::Start)
+                    .valign(gtk::Align::Start)
+                    .margin_start(8)
+                    .margin_top(8)
+                    .css_classes(vec!["caption".to_string(), "osd".to_string()])
+                    .build();
+                let overlay = gtk::Overlay::builder()
+                    .child(&img)
+                    .hexpand(true)
+                    .vexpand(true)
+                    .build();
+                overlay.add_overlay(&badge);
+                carousel.append(&overlay);
+            } else {
+                carousel.append(&img);
+            }
         }
     }
 
