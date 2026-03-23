@@ -11,9 +11,6 @@ use crate::steam::game::Game;
 
 const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
-const MOD_PREVIEW_FALLBACK_IMAGE: &str =
-    "/io/github/astrovm/AdventureMods/resources/images/super_sonic_showcase.jpg";
-
 mod imp {
     use std::cell::RefCell;
 
@@ -100,6 +97,7 @@ fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<us
 
 fn populate_mod_preview(
     carousel: &adw::Carousel,
+    carousel_frame: &gtk::Frame,
     description_label: &gtk::Label,
     links_box: &gtk::Box,
     mod_entry: Option<&common::ModEntry>,
@@ -125,15 +123,9 @@ fn populate_mod_preview(
     };
 
     if pictures.is_empty() {
-        let img = gtk::Picture::builder()
-            .can_shrink(true)
-            .content_fit(gtk::ContentFit::Contain)
-            .hexpand(true)
-            .vexpand(true)
-            .build();
-        img.set_resource(Some(MOD_PREVIEW_FALLBACK_IMAGE));
-        carousel.append(&img);
+        carousel_frame.set_visible(false);
     } else {
+        carousel_frame.set_visible(true);
         for pic in pictures {
             let img = gtk::Picture::builder()
                 .can_shrink(true)
@@ -536,6 +528,7 @@ impl AdventureModsSetupPage {
 
                     // Preview update on row focus/motion
                     let carousel_clone = carousel.clone();
+                    let carousel_frame_clone = carousel_frame.clone();
                     let desc_lbl_clone = full_desc_label.clone();
                     let links_box_clone = links_box.clone();
                     let mod_entry_clone = mod_entry;
@@ -544,6 +537,7 @@ impl AdventureModsSetupPage {
                     gesture.connect_enter(move |_, _, _| {
                         populate_mod_preview(
                             &carousel_clone,
+                            &carousel_frame_clone,
                             &desc_lbl_clone,
                             &links_box_clone,
                             Some(mod_entry_clone),
@@ -561,7 +555,7 @@ impl AdventureModsSetupPage {
                 let preview_entry =
                     initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
                         .and_then(|idx| mods_list.get(idx));
-                populate_mod_preview(&carousel, &full_desc_label, &links_box, preview_entry);
+                populate_mod_preview(&carousel, &carousel_frame, &full_desc_label, &links_box, preview_entry);
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);
