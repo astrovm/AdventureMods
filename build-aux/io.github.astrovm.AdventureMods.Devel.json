@@ -15,6 +15,7 @@
         "--socket=wayland",
         "--filesystem=~/.steam:ro",
         "--filesystem=~/.local/share/Steam:rw",
+        "--filesystem=host",
         "--talk-name=org.freedesktop.Flatpak"
     ],
     "build-options": {
