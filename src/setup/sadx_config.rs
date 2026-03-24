@@ -24,43 +24,11 @@ pub fn generate_sadx_config(
     config::write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
     config::write_samanager_txt(game_path)?;
     write_sonic_dx_ini(game_path)?;
-    write_mod_configs(game_path, selected_mods)?;
 
     tracing::info!("SADX configuration files generated");
     Ok(())
 }
 
-// --- Mod-specific configuration writers ---
-
-fn write_mod_configs(game_path: &Path, selected_mods: &[&ModEntry]) -> Result<()> {
-    let mods_dir = game_path.join("mods");
-
-    // AI HD Textures configuration
-    let has_dc_conv = selected_mods
-        .iter()
-        .any(|m| m.name == "Dreamcast Conversion");
-    let has_ai_hd = selected_mods.iter().any(|m| m.name == "AI HD Textures");
-
-    if has_ai_hd {
-        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
-        if ai_hd_dir.is_dir() {
-            // When Dreamcast Conversion is enabled, we want "LikeDream" (recolored DX textures to match DC colors).
-            // When it's disabled (DX Enhanced), we want "OriginalDX" (default DX textures).
-            let mode = if has_dc_conv {
-                "LikeDream"
-            } else {
-                "OriginalDX"
-            };
-            let ini = format!("[Textures]\nDXChars={}\n", mode);
-
-            std::fs::write(ai_hd_dir.join("config.ini"), ini)
-                .context("Failed to write AI_HD_Textures config.ini")?;
-            tracing::info!("Applied AI HD Textures '{}' setting", mode);
-        }
-    }
-
-    Ok(())
-}
 
 // --- SADX-specific profile structures ---
 
@@ -337,82 +305,6 @@ mod tests {
                 links: &[],
             },
         ]
-    }
-
-    #[test]
-    fn test_write_mod_configs_ai_hd_dx() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game_path = tmp.path();
-        let mods_dir = game_path.join("mods");
-        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
-        std::fs::create_dir_all(&ai_hd_dir).unwrap();
-
-        let mods = vec![
-            ModEntry {
-                name: "AI HD Textures",
-                source: ModSource::DirectUrl { url: "https://ai" },
-                description: "",
-                full_description: None,
-                pictures: &[],
-                dir_name: Some("AI_HD_Textures"),
-                links: &[],
-            },
-            ModEntry {
-                name: "SADX: Fixed Edition",
-                source: ModSource::DirectUrl { url: "https://fe" },
-                description: "",
-                full_description: None,
-                pictures: &[],
-                dir_name: Some("SADXFE"),
-                links: &[],
-            },
-        ];
-
-        let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        write_mod_configs(game_path, &mod_refs).unwrap();
-
-        let config_path = ai_hd_dir.join("config.ini");
-        assert!(config_path.is_file());
-        let content = std::fs::read_to_string(config_path).unwrap();
-        assert!(content.contains("DXChars=OriginalDX"));
-    }
-
-    #[test]
-    fn test_write_mod_configs_ai_hd_dc() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game_path = tmp.path();
-        let mods_dir = game_path.join("mods");
-        let ai_hd_dir = mods_dir.join("AI_HD_Textures");
-        std::fs::create_dir_all(&ai_hd_dir).unwrap();
-
-        let mods = vec![
-            ModEntry {
-                name: "AI HD Textures",
-                source: ModSource::DirectUrl { url: "https://ai" },
-                description: "",
-                full_description: None,
-                pictures: &[],
-                dir_name: Some("AI_HD_Textures"),
-                links: &[],
-            },
-            ModEntry {
-                name: "Dreamcast Conversion",
-                source: ModSource::DirectUrl { url: "https://dc" },
-                description: "",
-                full_description: None,
-                pictures: &[],
-                dir_name: Some("DreamcastConversion"),
-                links: &[],
-            },
-        ];
-
-        let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        write_mod_configs(game_path, &mod_refs).unwrap();
-
-        let config_path = ai_hd_dir.join("config.ini");
-        assert!(config_path.is_file());
-        let content = std::fs::read_to_string(config_path).unwrap();
-        assert!(content.contains("DXChars=LikeDream"));
     }
 
     #[test]
