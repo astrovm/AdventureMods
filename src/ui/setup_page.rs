@@ -150,9 +150,8 @@ fn populate_mod_preview(
             if let Some(text) = badge_text {
                 let badge = gtk::Label::builder()
                     .label(text)
-                    .halign(gtk::Align::Start)
+                    .halign(gtk::Align::Center)
                     .valign(gtk::Align::End)
-                    .margin_start(8)
                     .margin_bottom(8)
                     .css_classes(vec!["caption".to_string(), "osd".to_string()])
                     .build();
