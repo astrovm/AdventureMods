@@ -4,6 +4,12 @@ A Linux desktop app for setting up Sonic Adventure DX and Sonic Adventure 2 mods
 
 Adventure Mods automates what would otherwise be a tedious manual process: installing mod managers, downloading recommended mods, configuring protontricks, and setting up .NET runtimes — all through a step-by-step GUI wizard.
 
+## Screenshots
+
+| Welcome | Mod Selection |
+|---------|---------------|
+| ![Welcome](data/screenshots/welcome.png) | ![Mod Selection](data/screenshots/mod-selection.png) |
+
 ## Features
 
 - Automatic detection of SADX and SA2 Steam installations (including external drives)
