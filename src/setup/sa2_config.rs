@@ -133,7 +133,7 @@ fn build_default_profile(
             event_index: -1,
             save_index: -1,
             game_text_language: 0,
-            game_voice_language: 1,
+            game_voice_language: 0,
             use_manual: false,
             use_event_manual: false,
             use_position: false,

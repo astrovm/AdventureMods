@@ -214,7 +214,7 @@ fn build_default_profile(
             game_mode_index: -1,
             save_index: -1,
             game_text_language: 1,
-            game_voice_language: 1,
+            game_voice_language: 0,
             use_manual: false,
             use_position: false,
             x_position: 0,
