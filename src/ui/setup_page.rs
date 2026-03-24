@@ -139,9 +139,9 @@ fn populate_mod_preview(
                 .build();
             img.set_resource(Some(*pic));
 
-            let badge_text = if pic.contains("_before.") {
+            let badge_text = if pic.contains("_before") {
                 Some("Before")
-            } else if pic.contains("_after.") {
+            } else if pic.contains("_after") {
                 Some("After")
             } else {
                 None
