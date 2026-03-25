@@ -70,6 +70,10 @@ cd "$BUILD_DIR"
 echo "==> Patching apprun hooks for libadwaita"
 cp "$SCRIPT_DIR/apprun-hooks/adventure-mods.sh" "$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 
+# Remove the bundled GStreamer media backend. The app doesn't use media
+# playback and the module causes harmless but noisy errors on startup.
+rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
+
 # Second pass: produce the AppImage.
 ./linuxdeploy --appimage-extract-and-run \
     --appdir "$APPDIR" \
