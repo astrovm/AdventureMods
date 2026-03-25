@@ -5,8 +5,8 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-gtk = { version = "0.11", package = "gtk4", features = ["v4_14"] }
-adw = { version = "0.9", package = "libadwaita", features = ["v1_5"] }
+gtk = { version = "0.11", package = "gtk4", features = ["v4_20"] }
+adw = { version = "0.9", package = "libadwaita", features = ["v1_8"] }
 glib = "0.22"
 gio = "0.22"
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "webpki-roots", "stream"] }

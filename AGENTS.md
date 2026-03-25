@@ -62,15 +62,15 @@ flatpak-cargo-generator Cargo.lock -o build-aux/cargo-sources.json
 
 ### AppImage
 
-The AppImage build script (`build-aux/appimage/build-appimage.sh`) builds GTK4 and libadwaita from source to ensure smooth animations and broad glibc compatibility. It bundles p7zip, hpatchz, and all GTK/Adwaita libraries via linuxdeploy with the GTK plugin.
+The AppImage build script (`build-aux/appimage/build-appimage.sh`) builds GTK4 and libadwaita from source to keep transitions smooth, while leaving low-level graphics loaders on the host side. It bundles p7zip, hpatchz, and the GTK/libadwaita stack via linuxdeploy with the GTK plugin.
 
-Build locally using a Docker container (Ubuntu 24.04 for glibc 2.39 compat):
+Build locally using a Docker container (`debian:13`):
 
 ```bash
-docker run --rm -v "$(pwd):/src" -w /src ubuntu:24.04 bash -c '
+docker run --rm -v "$(pwd):/src" -w /src debian:13 bash -c '
   apt-get update -qq
   apt-get install -y -qq \
-    build-essential pkg-config meson gettext python3-pip \
+    build-essential pkg-config meson gettext python3-pip python3-setuptools \
     libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
     libgraphene-1.0-dev libpango1.0-dev \
     libcairo2-dev libgdk-pixbuf-2.0-dev libepoxy-dev \
@@ -81,7 +81,7 @@ docker run --rm -v "$(pwd):/src" -w /src ubuntu:24.04 bash -c '
     wayland-protocols libcloudproviders-dev \
     libsass-dev sassc libappstream-dev \
     desktop-file-utils appstream \
-    wget unzip file libfuse2 curl
+    wget unzip file libfuse2 curl git glslc libdrm-dev sudo
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
   export PATH="$HOME/.cargo/bin:$PATH"
   bash build-aux/appimage/build-appimage.sh
@@ -92,8 +92,9 @@ The output is `appimage-build/Adventure_Mods-x86_64.AppImage`. CI runs this auto
 
 Key decisions and gotchas for the AppImage packaging:
 
-- **glibc compatibility**: Build on Ubuntu 24.04 (glibc 2.39) for broadest compat. Fedora and newer Ubuntu link against newer glibc, making the AppImage fail on older systems. Fedora also adds the `GLIBC_ABI_GNU2_TLS` symbol which doesn't exist on Debian/Ubuntu at all.
-- **GTK4/libadwaita from source**: Ubuntu 24.04 ships GTK4 4.14 and libadwaita 1.5, which look visually different from the Flatpak's GNOME 49 runtime. The build script compiles GTK4 4.20+ and libadwaita 1.8+ from source on top of Ubuntu's glibc to get smooth animations with broad compat. The script auto-upgrades Meson via pip when the system version is too old for GTK 4.20.
+- **Container base**: Build in `debian:13`. That image has a newer-enough graphics stack for the GTK 4.20+ build to succeed cleanly, and it matches the CI workflow.
+- **GTK4/libadwaita from source**: Debian 13 ships older GTK4/libadwaita than the Flatpak runtime, so the script still compiles GTK4 4.20+ and libadwaita 1.8+ from source to keep AppImage animations smooth.
+- **Graphics loaders stay on the host**: The AppImage must not bundle `libvulkan`, `libwayland-egl`, or `libxml2`. Bundling the first two regresses transition smoothness by mixing graphics loaders with host Mesa/driver libraries. Bundling `libxml2` causes `libappstream` startup warnings.
 - **AppRun hook**: The default `linuxdeploy-plugin-gtk` hook forces `GDK_BACKEND=x11` and sets `GTK_THEME`, both of which break libadwaita apps. Our custom hook (`build-aux/appimage/apprun-hooks/adventure-mods.sh`) replaces it after linuxdeploy's first pass, then a second pass produces the final AppImage.
 - **PKGDATADIR**: The compiled-in constant points to `/usr/share/adventure-mods` but the AppImage mounts at a temp path. The apprun hook sets `ADVENTURE_MODS_PKGDATADIR` and `main.rs` checks this env var first.
 - **Bundled tools**: p7zip (built from source) and hpatchz (prebuilt binary) go into `AppDir/usr/bin/` and are found via `PATH` set in the hook.
