@@ -1,4 +1,4 @@
-// Build-time constants — overridden by meson configure_file in production builds.
+// Build-time constants, overridden by meson configure_file in production builds.
 // These defaults allow `cargo build` to work outside meson.
 pub const APP_ID: &str = "io.github.astrovm.AdventureMods.Devel";
 pub const VERSION: &str = "0.1.0-devel";

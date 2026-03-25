@@ -10,7 +10,7 @@ pub struct SetupStep {
 
 #[derive(Debug, Clone)]
 pub enum StepKind {
-    /// Automatic check/action — app handles it.
+    /// Automatic check/action, app handles it.
     Auto,
     /// Shows info and waits for user to click Continue.
     Info,
@@ -87,9 +87,9 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             id: "complete",
             title: "Setup Complete",
             description: if kind == GameKind::SADX {
-                "Sonic Adventure DX mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods."
+                "Sonic Adventure DX mods are installed! Launch the game through Steam. The mod manager will appear before the game starts, letting you enable or disable mods."
             } else {
-                "Sonic Adventure 2 mods are installed! Launch the game through Steam — the mod manager will appear before the game starts, letting you enable/disable mods."
+                "Sonic Adventure 2 mods are installed! Launch the game through Steam. The mod manager will appear before the game starts, letting you enable or disable mods."
             },
             kind: StepKind::Info,
         },

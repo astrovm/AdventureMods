@@ -34,7 +34,7 @@ async fn download_file_async(url: &str, dest: &Path, progress: Option<ProgressFn
         if let Ok(ct) = content_type.to_str() {
             if ct.starts_with("text/html") {
                 anyhow::bail!(
-                    "Server returned HTML instead of a file for {url} — the download link may be broken"
+                    "Server returned HTML instead of a file for {url}. The download link may be broken"
                 );
             }
         }

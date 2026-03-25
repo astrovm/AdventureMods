@@ -83,7 +83,7 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
 pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
     let p = &game.path;
     match step_id {
-        // protontricks: checked live in ensure_protontricks, always fast — don't skip
+        // protontricks: checked live in ensure_protontricks, always fast, don't skip
         "check_deps" => false,
 
         // Info / external-action steps: always show to the user
@@ -321,7 +321,7 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
         anyhow::bail!("Mod loader DLL not found at {}", loader_dll.display());
     }
 
-    // Already swapped — nothing to do
+    // Already swapped, nothing to do
     if orig_dll_path.is_file() {
         tracing::info!("Original DLL already backed up, refreshing mod loader DLL");
         std::fs::copy(&loader_dll, &data_dll_path).context(format!(
@@ -392,7 +392,7 @@ pub fn install_mod(
 
     let temp_dir = tempfile::tempdir()?;
 
-    // Download — the mmdl endpoint redirects, and the filename comes from
+    // Download: the mmdl endpoint redirects, and the filename comes from
     // the Content-Disposition header. We just save to a generic name.
     let archive_path = temp_dir.path().join("mod_download");
     download::download_file(&url, &archive_path, progress)?;
@@ -408,7 +408,7 @@ pub fn install_mod(
         let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
         move_dir_contents(&content_root, &dest)?;
     } else {
-        // No dir_name — extract directly and trust the archive structure.
+        // No dir_name: extract directly and trust the archive structure.
         move_dir_contents(&staging_dir, &mods_dir)?;
     }
 
@@ -671,7 +671,7 @@ mod tests {
 
     #[test]
     fn test_install_mod_no_dir_name_passthrough() {
-        // dir_name is None — archive extracts directly into mods/
+        // dir_name is None: archive extracts directly into mods/
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
         let sub = staging.join("SomeMod");
@@ -800,7 +800,7 @@ mod tests {
     fn test_exe_replacement_no_steam_exe() {
         let dir = tempfile::tempdir().unwrap();
         let game_path = dir.path();
-        // No Launcher.exe or Sonic Adventure DX.exe — mod manager stays as-is
+        // No Launcher.exe or Sonic Adventure DX.exe: mod manager stays as-is
 
         run_exe_replacement(game_path);
 
@@ -817,7 +817,7 @@ mod tests {
     fn test_exe_replacement_launcher_takes_priority_over_sadx() {
         let dir = tempfile::tempdir().unwrap();
         let game_path = dir.path();
-        // Both exist — Launcher.exe should win (SA2 path)
+        // Both exist: Launcher.exe should win (SA2 path)
         std::fs::write(game_path.join("Launcher.exe"), b"launcher").unwrap();
         std::fs::write(game_path.join("Sonic Adventure DX.exe"), b"sadx").unwrap();
 

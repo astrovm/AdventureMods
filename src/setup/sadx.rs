@@ -794,7 +794,7 @@ pub fn convert_steam_to_2004(
         .arg(&patch_str)
         .arg(&out_str)
         .output()
-        .context("Failed to run hpatchz — is HDiffPatch installed?")?;
+        .context("Failed to run hpatchz. Is HDiffPatch installed?")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

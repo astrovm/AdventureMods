@@ -14,7 +14,7 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
         .arg(&dest_arg)
         .arg(archive)
         .output()
-        .context("Failed to run 7z — is p7zip installed?")?;
+        .context("Failed to run 7z. Is p7zip installed?")?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

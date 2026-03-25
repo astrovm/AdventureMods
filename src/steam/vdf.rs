@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_parse_malformed_unclosed_brace() {
         let input = r#""root" { "key" "value""#;
-        // Missing closing brace — parse_map will consume to end without finding }
+        // Missing closing brace: parse_map will consume to end without finding }
         // This may still parse depending on implementation; the key point is it doesn't panic
         let _ = parse(input);
     }
@@ -422,20 +422,18 @@ mod tests {
             Some("val")
         );
         // Missing intermediate key
-        assert!(
-            root.get("root")
-                .and_then(|v| v.get("x"))
-                .and_then(|v| v.get("b"))
-                .is_none()
-        );
+        assert!(root
+            .get("root")
+            .and_then(|v| v.get("x"))
+            .and_then(|v| v.get("b"))
+            .is_none());
         // get() on a string value
-        assert!(
-            root.get("root")
-                .and_then(|v| v.get("a"))
-                .and_then(|v| v.get("b"))
-                .and_then(|v| v.get("anything"))
-                .is_none()
-        );
+        assert!(root
+            .get("root")
+            .and_then(|v| v.get("a"))
+            .and_then(|v| v.get("b"))
+            .and_then(|v| v.get("anything"))
+            .is_none());
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Adventure Mods
 
-Install mods for Sonic Adventure DX and Sonic Adventure 2 on Linux. Detects your Steam installations, downloads a curated collection of community mods, and configures everything automatically — mod managers, runtimes, resolution, and load order — so you can jump straight into the definitive versions of both games.
+Install mods for Sonic Adventure DX and Sonic Adventure 2 on Linux. Detects your Steam installations, downloads a curated collection of community mods, and configures everything automatically. Mod managers, runtimes, resolution, and load order are all set up so you can jump straight into the definitive versions of both games.
 
 | ![Welcome](data/screenshots/welcome.png) | ![Mod Selection](data/screenshots/mod-selection.png) |
 |---|---|
@@ -59,10 +59,10 @@ cargo build
 
 ## How It Works
 
-1. **Game Detection** — Parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
-2. **Dependency Check** — Ensures protontricks is available, installing it from Flathub if needed
-3. **Runtime Setup** — Installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 via protontricks
-4. **Mod Installation** — Installs mod managers and curated mods with native resolution configuration
+1. **Game Detection** parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
+2. **Dependency Check** ensures protontricks is available, installing it from Flathub if needed
+3. **Runtime Setup** installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 via protontricks
+4. **Mod Installation** installs mod managers and curated mods with native resolution configuration
    - **SADX**: Converts the Steam version to the 2004 release, installs the SADX Mod Loader, SA Mod Manager, and up to 29 mods from dcmods, GameBanana, GitHub, and GitLab
    - **SA2**: Installs SA Mod Manager and up to 13 mods from GameBanana
 

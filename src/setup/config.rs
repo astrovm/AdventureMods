@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn test_system_dir_default() {
         let tmp = tempfile::tempdir().unwrap();
-        // Neither exists — defaults to "system"
+        // Neither exists, defaults to "system"
         assert_eq!(system_dir(tmp.path()), tmp.path().join("system"));
     }
 

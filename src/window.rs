@@ -76,7 +76,7 @@ impl AdventureModsWindow {
 
         if !has_schema {
             tracing::warn!(
-                "GSettings schema '{}' not found — using default window size",
+                "GSettings schema '{}' not found, using default window size",
                 crate::config::APP_ID
             );
             self.set_default_size(WIZARD_DEFAULT_WIDTH, WIZARD_DEFAULT_HEIGHT);

@@ -902,7 +902,7 @@ impl AdventureModsSetupPage {
             let next = imp.current_step.get() + 1;
             let total = imp.all_steps.borrow().len();
             if next >= total {
-                // Last step — navigate back to the welcome page
+                // Last step: navigate back to the welcome page
                 if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
                     let nav_view: adw::NavigationView = nav_view.downcast().unwrap();
                     nav_view.pop();
