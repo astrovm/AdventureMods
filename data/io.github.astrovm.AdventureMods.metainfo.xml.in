@@ -4,10 +4,10 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>Adventure Mods</name>
-  <summary>Install Sonic Adventure mods</summary>
+  <summary>Set up Sonic Adventure mods</summary>
   <description>
     <p>
-      Install mods for Sonic Adventure DX and Sonic Adventure 2.
+      Set up mods for Sonic Adventure DX and Sonic Adventure 2.
       Detects your Steam installations, downloads a curated collection of community
 mods, and configures everything automatically: mod managers, runtimes,
 resolution, and load order. Jump straight into the definitive
