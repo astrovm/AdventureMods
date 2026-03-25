@@ -24,6 +24,9 @@ target
 builddir
 _build
 
+# AppImage build
+appimage-build
+
 # Flatpak build
 .flatpak-builder
 build-dir
