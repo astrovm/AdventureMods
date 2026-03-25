@@ -11,18 +11,26 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    container:
+      image: debian:13
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential pkg-config meson gettext \
+          apt-get update
+          apt-get install -y \
+            build-essential pkg-config meson gettext python3-pip python3-setuptools \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
-            desktop-file-utils appstream \
-            wget unzip file libfuse2
+            libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
+            libgdk-pixbuf-2.0-dev libepoxy-dev libwayland-dev \
+            libxkbcommon-dev libvulkan-dev libx11-dev libxrandr-dev \
+            libxi-dev libxext-dev libxcursor-dev libxdamage-dev \
+            libxfixes-dev libxinerama-dev libxcomposite-dev \
+            wayland-protocols libcloudproviders-dev libsass-dev sassc \
+            libappstream-dev desktop-file-utils appstream \
+            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh
 
       - name: Install Rust
         run: |
