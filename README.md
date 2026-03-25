@@ -1,8 +1,6 @@
 # Adventure Mods
 
-A Linux desktop app for setting up Sonic Adventure DX and Sonic Adventure 2 mods with Steam and Proton.
-
-Adventure Mods automates what would otherwise be a tedious manual process: installing mod managers, downloading recommended mods, configuring protontricks, and setting up .NET runtimes — all through a step-by-step GUI wizard.
+A GTK4/libadwaita app that automates Sonic Adventure DX and Sonic Adventure 2 mod setup on Linux with Steam and Proton.
 
 ## Screenshots
 
@@ -12,24 +10,23 @@ Adventure Mods automates what would otherwise be a tedious manual process: insta
 
 ## Features
 
-- Automatic detection of SADX and SA2 Steam installations (including external drives)
-- Step-by-step setup wizard for each game
-- Automatic detection of native monitor resolution for game configuration
-- .NET runtime configuration via protontricks
-- Native mod installation for both games — no Windows installers needed
-- SA Mod Manager installation for both SADX and SA2
-- 19 curated SADX mods and 12 curated SA2 mods with per-mod selection
-- Download progress tracking
-- Works inside a Flatpak sandbox with host command support
+- Automatic detection of SADX and SA2 Steam installations across all drives
+- Step-by-step setup wizard with download progress tracking
+- 29 curated SADX mods and 13 curated SA2 mods with per-mod selection
+- Mod presets for quick configuration (DX Enhanced, Dreamcast Restoration)
+- Native mod and mod manager installation — no Windows tools needed
+- Automatic .NET runtime and protontricks setup
+- Native monitor resolution detection for optimal game configuration
+- Flatpak sandbox support
 
 ## Requirements
 
-- Steam with Sonic Adventure DX (71250) and/or Sonic Adventure 2 (213610) installed
+- Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610) installed
 - [protontricks](https://flathub.org/apps/com.github.Matoking.protontricks) (installed automatically if missing)
 
 ## Installation
 
-### Flatpak (recommended)
+### Flatpak
 
 ```sh
 flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.json
@@ -58,7 +55,7 @@ meson compile -C builddir
 meson install -C builddir
 ```
 
-Or build with Cargo directly (for development):
+Or build with Cargo directly for development:
 
 ```sh
 cargo build
@@ -69,16 +66,9 @@ cargo build
 1. **Game Detection** — Parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
 2. **Dependency Check** — Ensures protontricks is available, installing it from Flathub if needed
 3. **Runtime Setup** — Installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 via protontricks
-4. **Mod Installation** — Configures native resolution and installs mod managers and curated mods
-   - **SADX**: Installs the SADX Mod Loader, SA Mod Manager, and up to 19 recommended mods from dcmods, GameBanana, GitHub, and GitLab
-   - **SA2**: Installs SA Mod Manager and up to 12 recommended mods from GameBanana
-
-## Technology
-
-- **Rust** with **GTK4** and **libadwaita** for a native GNOME desktop experience
-- **Meson** build system with Cargo integration
-- **Flatpak** sandbox with `flatpak-spawn --host` for protontricks and other host commands
-- Mod downloads from **GameBanana**, **dcmods.unreliable.network**, **GitHub**, and **GitLab**
+4. **Mod Installation** — Installs mod managers and curated mods with native resolution configuration
+   - **SADX**: Converts the Steam version to the 2004 release, installs the SADX Mod Loader, SA Mod Manager, and up to 29 mods from dcmods, GameBanana, GitHub, and GitLab
+   - **SA2**: Installs SA Mod Manager and up to 13 mods from GameBanana
 
 ## License
 

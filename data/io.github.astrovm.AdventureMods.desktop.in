@@ -1,9 +1,9 @@
 [Desktop Entry]
 Name=Adventure Mods
-Comment=Set up Sonic Adventure mods on Linux
+Comment=Set up Sonic Adventure mods
 Type=Application
 Exec=adventure-mods
 Icon=io.github.astrovm.AdventureMods
 Terminal=false
-Categories=Game;Utility;
+Categories=Utility;Game;
 Keywords=sonic;adventure;mods;sadx;sa2;
