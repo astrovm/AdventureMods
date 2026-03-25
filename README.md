@@ -1,19 +1,19 @@
 # Adventure Mods
 
-Set up mods for Sonic Adventure DX and Sonic Adventure 2 on Linux. Detects your Steam installations, downloads a curated collection of community mods, and configures everything automatically. Mod managers, runtimes, resolution, and load order are all set up so you can jump straight into the definitive versions of both games.
+The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It finds your Steam games, downloads community mods, and handles all the setup for you. Mod managers, runtimes, resolution, load order, everything is ready to go so you can play the best versions of both games right away.
 
 | ![Welcome](data/screenshots/welcome.png) | ![Mod Selection](data/screenshots/mod-selection.png) |
 |---|---|
 
 ## Features
 
-- Automatic detection of SADX and SA2 across all Steam library folders
-- 29 curated SADX mods and 13 SA2 mods, individually selectable
-- Presets for quick setup: DX Enhanced and Dreamcast Restoration
-- Downloads and installs mod managers, mods, and dependencies in one go
-- Configures native resolution, window mode, and optimal settings
-- Installs .NET runtime and protontricks automatically if missing
-- Works from a Flatpak sandbox or natively
+- Finds SADX and SA2 across all your Steam library folders
+- 29 SADX mods and 13 SA2 mods to pick from
+- Quick presets: DX Enhanced and Dreamcast Restoration
+- Gets mod managers, mods, and dependencies all at once
+- Sets up native resolution, window mode, and optimal settings
+- Installs .NET runtime and protontricks if they're missing
+- Runs as a Flatpak or natively
 
 ## Requirements
 
@@ -59,10 +59,10 @@ cargo build
 
 ## How It Works
 
-1. **Game Detection** parses Steam's `libraryfolders.vdf` to find installed Sonic Adventure games
-2. **Dependency Check** ensures protontricks is available, installing it from Flathub if needed
-3. **Runtime Setup** installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 via protontricks
-4. **Mod Installation** installs mod managers and curated mods with native resolution configuration
+1. **Game Detection** reads Steam's `libraryfolders.vdf` to find your Sonic Adventure games
+2. **Dependency Check** makes sure protontricks is available, installing it from Flathub if needed
+3. **Runtime Setup** installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 through protontricks
+4. **Mod Installation** sets up mod managers and mods with native resolution config
    - **SADX**: Converts the Steam version to the 2004 release, installs the SADX Mod Loader, SA Mod Manager, and up to 29 mods from dcmods, GameBanana, GitHub, and GitLab
    - **SA2**: Installs SA Mod Manager and up to 13 mods from GameBanana
 

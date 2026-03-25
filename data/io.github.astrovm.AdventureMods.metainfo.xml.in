@@ -7,18 +7,17 @@
   <summary>Set up Sonic Adventure mods</summary>
   <description>
     <p>
-      Set up mods for Sonic Adventure DX and Sonic Adventure 2.
-      Detects your Steam installations, downloads a curated collection of community
-mods, and configures everything automatically: mod managers, runtimes,
-resolution, and load order. Jump straight into the definitive
-      versions of both games.
+      The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.
+      It finds your Steam games, downloads community mods, and handles all the setup
+      for you. Mod managers, runtimes, resolution, load order, everything is ready
+      to go so you can play the best versions of both games right away.
     </p>
     <ul>
-      <li>Automatic detection of SADX and SA2 across all Steam library folders</li>
-      <li>29 curated SADX mods and 13 SA2 mods, individually selectable</li>
-      <li>Presets for quick setup: DX Enhanced and Dreamcast Restoration</li>
-      <li>Installs mod managers, mods, and dependencies in one go</li>
-      <li>Configures native resolution, window mode, and optimal settings</li>
+      <li>Finds SADX and SA2 across all your Steam library folders</li>
+      <li>29 SADX mods and 13 SA2 mods to pick from</li>
+      <li>Quick presets: DX Enhanced and Dreamcast Restoration</li>
+      <li>Gets mod managers, mods, and dependencies all at once</li>
+      <li>Sets up native resolution, window mode, and optimal settings</li>
     </ul>
   </description>
   <url type="homepage">https://github.com/astrovm/AdventureMods</url>
@@ -46,7 +45,7 @@ resolution, and load order. Jump straight into the definitive
   <releases>
     <release version="0.1.0" date="2026-03-15">
       <description>
-        <p>First release with full mod setup support for Sonic Adventure DX and Sonic Adventure 2. Includes automatic Steam detection, curated mod presets, native mod manager installation, and .NET runtime configuration via protontricks.</p>
+        <p>First release. Full mod setup for Sonic Adventure DX and Sonic Adventure 2 with Steam detection, mod presets, mod manager installation, and .NET runtime setup through protontricks.</p>
       </description>
     </release>
   </releases>
