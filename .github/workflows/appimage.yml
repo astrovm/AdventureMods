@@ -10,21 +10,19 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container:
-      image: debian:13
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          apt-get update -qq
-          apt-get install -y -qq \
+          sudo apt-get update
+          sudo apt-get install -y \
             build-essential pkg-config meson gettext \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             desktop-file-utils appstream \
-            wget unzip file libfuse2 curl
+            wget unzip file libfuse2
 
       - name: Install Rust
         run: |
@@ -45,6 +43,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apt-get install -y -qq gh
           gh release create "${{ github.ref_name }}" --generate-notes || true
           gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage --clobber
