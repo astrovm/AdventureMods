@@ -34,7 +34,7 @@ DESTDIR="$APPDIR" meson install -C "$BUILD_DIR/meson"
 
 echo "==> Downloading hpatchz"
 wget -q -O "$BUILD_DIR/tmp/hpatchz.zip" "$HPATCHZ_URL"
-unzip -o "$BUILD_DIR/tmp/hpatchz.zip" hpatchz -d "$BUILD_DIR/tmp/"
+unzip -o -j "$BUILD_DIR/tmp/hpatchz.zip" "linux64/hpatchz" -d "$BUILD_DIR/tmp/"
 install -Dm755 "$BUILD_DIR/tmp/hpatchz" "$APPDIR/usr/bin/hpatchz"
 
 echo "==> Building p7zip"
