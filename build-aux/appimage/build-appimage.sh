@@ -55,6 +55,7 @@ chmod +x "$BUILD_DIR/linuxdeploy-plugin-gtk.sh"
 echo "==> Creating AppImage"
 export DEPLOY_GTK_VERSION=4
 export LINUXDEPLOY_PLUGIN_GTK_HOOK_DIR="$SCRIPT_DIR/apprun-hooks"
+export NO_STRIP=1
 
 cd "$BUILD_DIR"
 ./linuxdeploy --appimage-extract-and-run \
