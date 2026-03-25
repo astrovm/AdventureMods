@@ -48,7 +48,13 @@
             "sources": [
                 {
                     "type": "dir",
-                    "path": ".."
+                    "path": "..",
+                    "skip": [
+                        ".flatpak-builder",
+                        "appimage-build",
+                        "build",
+                        "target"
+                    ]
                 }
             ]
         }
