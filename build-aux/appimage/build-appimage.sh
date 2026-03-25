@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/appimage-build"
 APPDIR="$BUILD_DIR/AppDir"
+USE_SYSTEM_GTK_ADWAITA="${USE_SYSTEM_GTK_ADWAITA:-0}"
 
 LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
 GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
@@ -35,38 +36,42 @@ echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
 
-# Build GTK4 and libadwaita from source for smooth animations (GTK 4.20+),
-# while linking against the host glibc for broad compatibility.
-echo "==> Building GTK4 ${GTK4_VERSION} from source"
-wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
-tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
-meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
-	--prefix=/usr --buildtype=release \
-	-Dmedia-gstreamer=disabled \
-	-Dprint-cups=disabled \
-	-Dbuild-demos=false \
-	-Dbuild-examples=false \
-	-Dbuild-tests=false \
-	-Dbuild-testsuite=false \
-	-Dintrospection=disabled \
-	-Ddocumentation=false
-meson compile -C "$BUILD_DIR/tmp/gtk4-build"
-sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
-sudo ldconfig
+if [ "$USE_SYSTEM_GTK_ADWAITA" = "1" ]; then
+	echo "==> Using system GTK4/libadwaita from the build environment"
+else
+	# Build GTK4 and libadwaita from source for smooth animations (GTK 4.20+),
+	# while linking against the host glibc for broad compatibility.
+	echo "==> Building GTK4 ${GTK4_VERSION} from source"
+	wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
+	tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
+	meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
+		--prefix=/usr --buildtype=release \
+		-Dmedia-gstreamer=disabled \
+		-Dprint-cups=disabled \
+		-Dbuild-demos=false \
+		-Dbuild-examples=false \
+		-Dbuild-tests=false \
+		-Dbuild-testsuite=false \
+		-Dintrospection=disabled \
+		-Ddocumentation=false
+	meson compile -C "$BUILD_DIR/tmp/gtk4-build"
+	sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
+	sudo ldconfig
 
-echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
-wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
-tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
-meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
-	--prefix=/usr --buildtype=release \
-	-Dintrospection=disabled \
-	-Ddocumentation=false \
-	-Dtests=false \
-	-Dexamples=false \
-	-Dvapi=false
-meson compile -C "$BUILD_DIR/tmp/adw-build"
-sudo meson install -C "$BUILD_DIR/tmp/adw-build"
-sudo ldconfig
+	echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
+	wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
+	tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
+	meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
+		--prefix=/usr --buildtype=release \
+		-Dintrospection=disabled \
+		-Ddocumentation=false \
+		-Dtests=false \
+		-Dexamples=false \
+		-Dvapi=false
+	meson compile -C "$BUILD_DIR/tmp/adw-build"
+	sudo meson install -C "$BUILD_DIR/tmp/adw-build"
+	sudo ldconfig
+fi
 
 echo "==> Configuring Meson"
 meson setup "$BUILD_DIR/meson" "$PROJECT_DIR" \
