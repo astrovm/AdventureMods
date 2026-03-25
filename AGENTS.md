@@ -68,6 +68,8 @@ Build locally using a Docker container (`debian:13`):
 
 ```bash
 docker run --rm -v "$(pwd):/src" -w /src debian:13 bash -c '
+  export HOST_UID="$(id -u)"
+  export HOST_GID="$(id -g)"
   apt-get update -qq
   apt-get install -y -qq \
     build-essential pkg-config meson gettext python3-pip python3-setuptools \
@@ -85,6 +87,7 @@ docker run --rm -v "$(pwd):/src" -w /src debian:13 bash -c '
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
   export PATH="$HOME/.cargo/bin:$PATH"
   bash build-aux/appimage/build-appimage.sh
+  chown -R "$HOST_UID:$HOST_GID" /src/appimage-build
 '
 ```
 
@@ -98,6 +101,7 @@ Key decisions and gotchas for the AppImage packaging:
 - **AppRun hook**: The default `linuxdeploy-plugin-gtk` hook forces `GDK_BACKEND=x11` and sets `GTK_THEME`, both of which break libadwaita apps. Our custom hook (`build-aux/appimage/apprun-hooks/adventure-mods.sh`) replaces it after linuxdeploy's first pass, then a second pass produces the final AppImage.
 - **PKGDATADIR**: The compiled-in constant points to `/usr/share/adventure-mods` but the AppImage mounts at a temp path. The apprun hook sets `ADVENTURE_MODS_PKGDATADIR` and `main.rs` checks this env var first.
 - **Bundled tools**: p7zip (built from source) and hpatchz (prebuilt binary) go into `AppDir/usr/bin/` and are found via `PATH` set in the hook.
+- **Docker ownership**: Local Docker builds run as root inside the container, so the command above finishes with `chown -R` on `appimage-build/` to avoid leaving root-owned artifacts in the repo.
 - **GStreamer module**: Removed from the AppImage (`libmedia-gstreamer.so`). The app doesn't use media playback and the module causes errors due to GLib version mismatches between bundled and system libs.
 - **NO_STRIP=1**: Required because linuxdeploy's bundled `strip` can't handle newer ELF formats (RELR relocations).
 
