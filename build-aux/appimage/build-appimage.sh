@@ -52,17 +52,27 @@ chmod +x "$BUILD_DIR/linuxdeploy"
 wget -q -O "$BUILD_DIR/linuxdeploy-plugin-gtk.sh" "$GTK_PLUGIN_URL"
 chmod +x "$BUILD_DIR/linuxdeploy-plugin-gtk.sh"
 
-echo "==> Creating AppImage"
+echo "==> Bundling libraries"
 export DEPLOY_GTK_VERSION=4
-export LINUXDEPLOY_PLUGIN_GTK_HOOK_DIR="$SCRIPT_DIR/apprun-hooks"
 export NO_STRIP=1
 
 cd "$BUILD_DIR"
+
+# First pass: let linuxdeploy + GTK plugin bundle libraries (no output yet).
 ./linuxdeploy --appimage-extract-and-run \
     --appdir "$APPDIR" \
     --plugin gtk \
     --desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
-    --icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg" \
+    --icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg"
+
+# Replace the GTK plugin hook with our own. The default hook forces
+# GDK_BACKEND=x11 and sets GTK_THEME, both of which break libadwaita apps.
+echo "==> Patching apprun hooks for libadwaita"
+cp "$SCRIPT_DIR/apprun-hooks/adventure-mods.sh" "$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
+
+# Second pass: produce the AppImage.
+./linuxdeploy --appimage-extract-and-run \
+    --appdir "$APPDIR" \
     --output appimage
 
 echo "==> Done! AppImage created:"
