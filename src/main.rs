@@ -20,10 +20,11 @@ fn main() -> ExitCode {
 
     glib::set_application_name("Adventure Mods");
 
+    let pkgdatadir = std::env::var("ADVENTURE_MODS_PKGDATADIR")
+        .unwrap_or_else(|_| config::PKGDATADIR.to_string());
+
     let res = gio::Resource::load(
-        [config::PKGDATADIR, "adventure-mods.gresource"]
-            .iter()
-            .collect::<std::path::PathBuf>(),
+        std::path::PathBuf::from(&pkgdatadir).join("adventure-mods.gresource"),
     )
     .or_else(|_| gio::Resource::load("data/adventure-mods.gresource"))
     .ok();
