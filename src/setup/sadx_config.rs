@@ -29,7 +29,6 @@ pub fn generate_sadx_config(
     Ok(())
 }
 
-
 // --- SADX-specific profile structures ---
 
 #[derive(Serialize)]

@@ -593,7 +593,14 @@ impl AdventureModsSetupPage {
                 let preview_entry =
                     initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
                         .and_then(|idx| mods_list.get(idx));
-                populate_mod_preview(&preview_title_label, &carousel, &carousel_frame, &full_desc_label, &links_box, preview_entry);
+                populate_mod_preview(
+                    &preview_title_label,
+                    &carousel,
+                    &carousel_frame,
+                    &full_desc_label,
+                    &links_box,
+                    preview_entry,
+                );
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);

@@ -52,12 +52,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_9.jpg",
         ],
         dir_name: Some("Retranslated Story -COMPLETE-"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/437858",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/437858",
+        }],
     },
     ModEntry {
         name: "HD GUI: SA2 Edition",
@@ -79,12 +77,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/hd_gui/hdguiforsa2_9.jpg",
         ],
         dir_name: Some("HD GUI for SA2"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/33171",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/33171",
+        }],
     },
     ModEntry {
         name: "IMPRESSive",
@@ -102,12 +98,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/impressive/impressive_5.jpg",
         ],
         dir_name: Some("IMPRESSive"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/469542",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/469542",
+        }],
     },
     ModEntry {
         name: "Stage Atmosphere Tweaks",
@@ -129,12 +123,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_9.jpg",
         ],
         dir_name: Some("StageAtmosphereTweaks"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/407838",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/407838",
+        }],
     },
     ModEntry {
         name: "SA2 Volume Controls",
@@ -148,12 +140,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/volume_controls/sa2volumecontrols_1.jpg",
         ],
         dir_name: Some("SA2VolumeControls"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/381193",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/381193",
+        }],
     },
     ModEntry {
         name: "Mech Sound Improvement",
@@ -166,12 +156,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/mech_sound/mechsoundimprovement_0.jpg",
         ],
         dir_name: Some("Mech Sound Improvement"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/412706",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/412706",
+        }],
     },
     ModEntry {
         name: "SASDL",
@@ -234,12 +222,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/better_radar/sa2betterradar_2.jpg",
         ],
         dir_name: Some("SA2BetterRadar"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/313161",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/313161",
+        }],
     },
     ModEntry {
         name: "HedgePanel - Sonic + Shadow Tweaks",
@@ -252,12 +238,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/hedgepanel/hedgepanel_0.jpg",
         ],
         dir_name: Some("HedgePanel"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/48950",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/48950",
+        }],
     },
     ModEntry {
         name: "Sonic: New Tricks",
@@ -279,12 +263,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/new_tricks/sonicnewtricks_9.jpg",
         ],
         dir_name: Some("Sonic New Tricks"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/48941",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/48941",
+        }],
     },
     ModEntry {
         name: "Retranslated Hints",
@@ -299,12 +281,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_2.jpg",
         ],
         dir_name: Some("Retranslated Hints"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/350607",
-            },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/350607",
+        }],
     },
 ];
 

@@ -54,7 +54,7 @@ impl AdventureModsWelcomePage {
         if games.is_empty() {
             let label = gtk::Label::builder()
                 .label(
-                    "No Sonic Adventure games detected.\nMake sure they are installed via Steam.",
+                    "No Sonic Adventure games found.\n\nInstall Sonic Adventure DX or Sonic Adventure 2 via Steam, then restart this app.",
                 )
                 .justify(gtk::Justification::Center)
                 .build();

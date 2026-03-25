@@ -32,9 +32,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dreamcast_conversion/dreamcast_conversion_after.jpg",
         ],
         dir_name: Some("DreamcastConversion"),
-        links: &[
-            ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx_dreamcast" },
-        ],
+        links: &[ModLink {
+            label: "GitLab",
+            url: "https://gitlab.com/PiKeyAr/sadx_dreamcast",
+        }],
     },
     ModEntry {
         name: "SADX: Fixed Edition",
@@ -48,8 +49,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         pictures: &[],
         dir_name: Some("SADXFE"),
         links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-fixed-edition" },
-            ModLink { label: "Sonic Retro", url: "https://forums.sonicretro.org/index.php?threads/sonic-adventure-dx-fixed-edition.25301/" },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/michael-fadely/sadx-fixed-edition",
+            },
+            ModLink {
+                label: "Sonic Retro",
+                url: "https://forums.sonicretro.org/index.php?threads/sonic-adventure-dx-fixed-edition.25301/",
+            },
         ],
     },
     ModEntry {
@@ -70,9 +77,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/lantern_engine/sadx-dc-lighting_gh_after_1.jpg",
         ],
         dir_name: Some("sadx-dc-lighting"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-dc-lighting" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-dc-lighting",
+        }],
     },
     ModEntry {
         name: "Steam Achievements",
@@ -85,9 +93,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("SteamAchievements"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/X-Hax/SADX2004SteamAchievements" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/X-Hax/SADX2004SteamAchievements",
+        }],
     },
     ModEntry {
         name: "Smooth Camera",
@@ -100,9 +109,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("smooth-cam"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-smooth-cam" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-smooth-cam",
+        }],
     },
     ModEntry {
         name: "Frame Limit",
@@ -115,9 +125,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("sadx-frame-limit"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-frame-limit" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-frame-limit",
+        }],
     },
     ModEntry {
         name: "Sound Overhaul",
@@ -159,9 +170,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/style_water/sadx_water_after.jpg",
         ],
         dir_name: Some("sadx-style-water"),
-        links: &[
-            ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx-style-water" },
-        ],
+        links: &[ModLink {
+            label: "GitLab",
+            url: "https://gitlab.com/PiKeyAr/sadx-style-water",
+        }],
     },
     ModEntry {
         name: "Onion Blur",
@@ -177,9 +189,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/onion_blur/onion_blur_after.jpg",
         ],
         dir_name: Some("sadx-onion-blur"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-onion-blur" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-onion-blur",
+        }],
     },
     ModEntry {
         name: "Dreamcast Characters Pack",
@@ -203,9 +216,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("SA1_Chars"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/248063" },
-            ModLink { label: "GitHub", url: "https://github.com/ItsEasyActually/SA1_Chars" },
-            ModLink { label: "Sonic Retro", url: "https://forums.sonicretro.org/threads/sadx-dreamcast-characters-pack.37034/" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/248063",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/ItsEasyActually/SA1_Chars",
+            },
+            ModLink {
+                label: "Sonic Retro",
+                url: "https://forums.sonicretro.org/threads/sadx-dreamcast-characters-pack.37034/",
+            },
         ],
     },
     ModEntry {
@@ -226,9 +248,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/dx_characters_refined/dxcharactersrefined_9.jpg",
         ],
         dir_name: Some("DX Characters Refined"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/290728" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/290728",
+        }],
     },
     ModEntry {
         name: "Dreamcast DLC",
@@ -241,9 +264,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("DLC"),
-        links: &[
-            ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx-dreamcast-dlc" },
-        ],
+        links: &[ModLink {
+            label: "GitLab",
+            url: "https://gitlab.com/PiKeyAr/sadx-dreamcast-dlc",
+        }],
     },
     ModEntry {
         name: "Idle Chatter",
@@ -256,9 +280,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("idle-chatter"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-idle-chatter" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-idle-chatter",
+        }],
     },
     ModEntry {
         name: "Pause Hide",
@@ -271,9 +296,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("pause-hide"),
-        links: &[
-            ModLink { label: "GitHub", url: "https://github.com/michael-fadely/sadx-pause-hide" },
-        ],
+        links: &[ModLink {
+            label: "GitHub",
+            url: "https://github.com/michael-fadely/sadx-pause-hide",
+        }],
     },
     ModEntry {
         name: "Time of Day",
@@ -286,9 +312,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("TrainDaytime"),
-        links: &[
-            ModLink { label: "GitLab", url: "https://gitlab.com/PiKeyAr/sadx-timeofday-mod" },
-        ],
+        links: &[ModLink {
+            label: "GitLab",
+            url: "https://gitlab.com/PiKeyAr/sadx-timeofday-mod",
+        }],
     },
     ModEntry {
         name: "Sonic Adventure Retranslated",
@@ -311,8 +338,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("Sonic Adventure Retranslated"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49930" },
-            ModLink { label: "GitHub", url: "https://github.com/SKingBlue/Sonic-Adventure-Retranslated" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49930",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/SKingBlue/Sonic-Adventure-Retranslated",
+            },
         ],
     },
     ModEntry {
@@ -329,9 +362,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/hud_plus/sadx-hud-plus_3.jpg",
         ],
         dir_name: Some("sadx-hud-plus"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/394948" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/394948",
+        }],
     },
     ModEntry {
         name: "HD GUI 2",
@@ -362,9 +396,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/active_mouths/activemouths_2.jpg",
         ],
         dir_name: Some("Active Mouths"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/304634" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/304634",
+        }],
     },
     ModEntry {
         name: "Sonic: New Tricks",
@@ -384,9 +419,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/new_tricks/sadx-new-tricks_7.jpg",
         ],
         dir_name: Some("sadx-new-tricks"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49973" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/49973",
+        }],
     },
     ModEntry {
         name: "Better Tails AI",
@@ -409,8 +445,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("Better Tails AI"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49943" },
-            ModLink { label: "GitHub", url: "https://github.com/Sora-yx/SADX-Better-Tails-AI" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49943",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/Sora-yx/SADX-Better-Tails-AI",
+            },
         ],
     },
     ModEntry {
@@ -436,8 +478,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("sadx-super-sonic"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49986" },
-            ModLink { label: "GitHub", url: "https://github.com/kellsnc/sadx-super-sonic" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49986",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kellsnc/sadx-super-sonic",
+            },
         ],
     },
     ModEntry {
@@ -458,9 +506,18 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("sadx-multiplayer"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/460975" },
-            ModLink { label: "GitHub", url: "https://github.com/kellsnc/sadx-multiplayer" },
-            ModLink { label: "SHC", url: "https://shc.zone/entries/contest2023/912" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/460975",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kellsnc/sadx-multiplayer",
+            },
+            ModLink {
+                label: "SHC",
+                url: "https://shc.zone/entries/contest2023/912",
+            },
         ],
     },
     ModEntry {
@@ -478,8 +535,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("sadx-chao-gameplay"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49974" },
-            ModLink { label: "GitHub", url: "https://github.com/kellsnc/sadx-chao-gameplay" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49974",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kellsnc/sadx-chao-gameplay",
+            },
         ],
     },
     ModEntry {
@@ -502,9 +565,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             "/io/github/astrovm/AdventureMods/resources/images/sadx/fixes_adds_beta_restores/fixes_adds_betarestores_9.jpg",
         ],
         dir_name: Some("Fixes_Adds_BetaRestores"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49976" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/49976",
+        }],
     },
     ModEntry {
         name: "Perfect Chaos Music Swap",
@@ -515,9 +579,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ),
         pictures: &[],
         dir_name: Some("Perfect Chaos Music Swap"),
-        links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/sounds/40537" },
-        ],
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/sounds/40537",
+        }],
     },
     ModEntry {
         name: "AI HD FMVs",
@@ -541,8 +606,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("AI_HD_FMVs"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49951" },
-            ModLink { label: "GitHub", url: "https://github.com/kawaiikaorichan/sadx-hd-videos" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49951",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kawaiikaorichan/sadx-hd-videos",
+            },
         ],
     },
     ModEntry {
@@ -566,8 +637,14 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
         dir_name: Some("AI_HD_Textures"),
         links: &[
-            ModLink { label: "GameBanana", url: "https://gamebanana.com/mods/49978" },
-            ModLink { label: "GitHub", url: "https://github.com/kawaiikaorichan/AI_textures" },
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/49978",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kawaiikaorichan/AI_textures",
+            },
         ],
     },
 ];
