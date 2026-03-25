@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Adventure Mods
-Comment=Install Sonic Adventure mods
+Comment=Set up Sonic Adventure mods
 Type=Application
 Exec=adventure-mods
 Icon=io.github.astrovm.AdventureMods
