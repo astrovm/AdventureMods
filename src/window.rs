@@ -101,12 +101,20 @@ impl AdventureModsWindow {
         let welcome_page = imp.welcome_page.clone();
         let nav_view = imp.navigation_view.clone();
 
+        welcome_page.connect_local("refresh", true, {
+            let obj = self.clone();
+            move |_| {
+                obj.detect_games();
+                None
+            }
+        });
+
         glib::spawn_future_local(async move {
-            let games = gio::spawn_blocking(|| steam::library::detect_games())
+            let result = gio::spawn_blocking(|| steam::library::detect_games())
                 .await
                 .unwrap_or_default();
 
-            welcome_page.set_games(games, nav_view);
+            welcome_page.set_detection_result(result, nav_view);
         });
     }
 

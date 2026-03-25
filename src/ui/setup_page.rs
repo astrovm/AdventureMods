@@ -237,6 +237,9 @@ impl AdventureModsSetupPage {
 
         imp.step_title.set_label(step.title);
         imp.step_description.set_label(step.description);
+
+        let is_last_step = step_idx + 1 >= all_steps.len();
+        imp.back_button.set_visible(!is_last_step);
         imp.back_button.set_sensitive(step_idx > 0);
 
         // Clear content box
@@ -244,8 +247,6 @@ impl AdventureModsSetupPage {
         while let Some(child) = content_box.first_child() {
             content_box.remove(&child);
         }
-
-        let is_last_step = step_idx + 1 >= all_steps.len();
 
         match &step.kind {
             steps::StepKind::Auto => {

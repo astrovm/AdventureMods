@@ -3,6 +3,7 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 
 use crate::steam::game::Game;
+use crate::steam::library::DetectionResult;
 use crate::ui::game_card::AdventureModsGameCard;
 
 mod imp {
@@ -13,6 +14,8 @@ mod imp {
     pub struct AdventureModsWelcomePage {
         #[template_child]
         pub games_box: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub status_page: TemplateChild<adw::StatusPage>,
     }
 
     #[glib::object_subclass]
@@ -31,7 +34,14 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for AdventureModsWelcomePage {}
+    impl ObjectImpl for AdventureModsWelcomePage {
+        fn signals() -> &'static [glib::subclass::Signal] {
+            use std::sync::OnceLock;
+            static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
+            SIGNALS
+                .get_or_init(|| vec![glib::subclass::Signal::builder("refresh").action().build()])
+        }
+    }
     impl WidgetImpl for AdventureModsWelcomePage {}
     impl BinImpl for AdventureModsWelcomePage {}
 }
@@ -43,26 +53,62 @@ glib::wrapper! {
 }
 
 impl AdventureModsWelcomePage {
-    pub fn set_games(&self, games: Vec<Game>, nav_view: adw::NavigationView) {
+    pub fn set_detection_result(&self, result: DetectionResult, nav_view: adw::NavigationView) {
         let games_box = &self.imp().games_box;
 
-        // Clear existing children
         while let Some(child) = games_box.first_child() {
             games_box.remove(&child);
         }
 
-        if games.is_empty() {
+        if !result.inaccessible.is_empty() {
+            let inaccessible_names: Vec<&str> =
+                result.inaccessible.iter().map(|g| g.kind.name()).collect();
             let label = gtk::Label::builder()
-                .label(
-                    "No Sonic Adventure games found.\n\nInstall Sonic Adventure DX or Sonic Adventure 2 via Steam, then restart this app.",
-                )
+                .label(format!(
+                    "The following games are installed but their Steam library is inaccessible:\n{}\n\nThe partition may not be mounted.",
+                    inaccessible_names.join(", ")
+                ))
                 .justify(gtk::Justification::Center)
+                .wrap(true)
                 .build();
+            label.add_css_class("warning");
             games_box.append(&label);
+
+            let refresh_button = gtk::Button::builder()
+                .label("Refresh")
+                .halign(gtk::Align::Center)
+                .margin_top(12)
+                .build();
+            let obj = self.clone();
+            refresh_button.connect_clicked(move |_| {
+                obj.emit_by_name::<()>("refresh", &[]);
+            });
+            games_box.append(&refresh_button);
+
+            if !result.games.is_empty() {
+                let separator = gtk::Separator::builder()
+                    .orientation(gtk::Orientation::Horizontal)
+                    .margin_top(18)
+                    .margin_bottom(18)
+                    .build();
+                games_box.append(&separator);
+            }
+        }
+
+        if result.games.is_empty() {
+            if result.inaccessible.is_empty() {
+                let label = gtk::Label::builder()
+                    .label(
+                        "No Sonic Adventure games found.\n\nInstall Sonic Adventure DX or Sonic Adventure 2 via Steam, then restart this app.",
+                    )
+                    .justify(gtk::Justification::Center)
+                    .build();
+                games_box.append(&label);
+            }
             return;
         }
 
-        for game in games {
+        for game in result.games {
             let card = AdventureModsGameCard::new(&game);
 
             let game_clone = game.clone();
@@ -79,5 +125,15 @@ impl AdventureModsWelcomePage {
 
             games_box.append(&card);
         }
+    }
+
+    pub fn set_games(&self, games: Vec<Game>, nav_view: adw::NavigationView) {
+        self.set_detection_result(
+            DetectionResult {
+                games,
+                inaccessible: Vec::new(),
+            },
+            nav_view,
+        );
     }
 }
