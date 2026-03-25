@@ -2,11 +2,8 @@
 
 One-click mod setup for Sonic Adventure DX and Sonic Adventure 2 on Linux. Detects your Steam installations, downloads a curated collection of community mods, and configures everything automatically — mod managers, runtimes, resolution, and load order — so you can jump straight into the definitive versions of both games.
 
-## Screenshots
-
-| Welcome | Mod Selection |
-|---------|---------------|
 | ![Welcome](data/screenshots/welcome.png) | ![Mod Selection](data/screenshots/mod-selection.png) |
+|---|---|
 
 ## Features
 
