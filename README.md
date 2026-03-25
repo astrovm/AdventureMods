@@ -27,9 +27,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It fin
 
 ### AppImage
 
-Download the latest AppImage from the GitHub releases page:
-
-`https://github.com/astrovm/AdventureMods/releases`
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest/download/Adventure_Mods-x86_64.AppImage).
 
 Then make it executable and run it:
 
