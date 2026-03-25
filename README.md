@@ -1,6 +1,6 @@
 # Adventure Mods
 
-A GTK4/libadwaita app that automates Sonic Adventure DX and Sonic Adventure 2 mod setup on Linux with Steam and Proton.
+One-click mod setup for Sonic Adventure DX and Sonic Adventure 2 on Linux. Detects your Steam installations, downloads a curated collection of community mods, and configures everything automatically — mod managers, runtimes, resolution, and load order — so you can jump straight into the definitive versions of both games.
 
 ## Screenshots
 
@@ -10,18 +10,17 @@ A GTK4/libadwaita app that automates Sonic Adventure DX and Sonic Adventure 2 mo
 
 ## Features
 
-- Automatic detection of SADX and SA2 Steam installations across all drives
-- Step-by-step setup wizard with download progress tracking
-- 29 curated SADX mods and 13 curated SA2 mods with per-mod selection
-- Mod presets for quick configuration (DX Enhanced, Dreamcast Restoration)
-- Native mod and mod manager installation — no Windows tools needed
-- Automatic .NET runtime and protontricks setup
-- Native monitor resolution detection for optimal game configuration
-- Flatpak sandbox support
+- Automatic detection of SADX and SA2 across all Steam library folders
+- 29 curated SADX mods and 13 SA2 mods, individually selectable
+- Presets for quick setup: DX Enhanced and Dreamcast Restoration
+- Downloads and installs mod managers, mods, and dependencies in one go
+- Configures native resolution, window mode, and optimal settings
+- Installs .NET runtime and protontricks automatically if missing
+- Works from a Flatpak sandbox or natively
 
 ## Requirements
 
-- Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610) installed
+- Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610)
 - [protontricks](https://flathub.org/apps/com.github.Matoking.protontricks) (installed automatically if missing)
 
 ## Installation
