@@ -13,8 +13,8 @@ base_id = 'io.github.astrovm.AdventureMods'
 
 dependency('glib-2.0', version: '>= 2.76')
 dependency('gio-2.0', version: '>= 2.76')
-dependency('gtk4', version: '>= 4.18')
-dependency('libadwaita-1', version: '>= 1.7')
+dependency('gtk4', version: '>= 4.14')
+dependency('libadwaita-1', version: '>= 1.5')
 
 profile = get_option('profile')
 if profile == 'development'

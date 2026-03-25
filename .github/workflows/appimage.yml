@@ -8,19 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: fedora:latest
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          dnf install -y \
-            gcc gcc-c++ make pkg-config meson cargo \
-            gtk4-devel libadwaita-devel glib2-devel \
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config meson rustc cargo \
+            libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             desktop-file-utils appstream \
-            wget unzip file
+            wget unzip file libfuse2
 
       - name: Build AppImage
         run: bash build-aux/appimage/build-appimage.sh
@@ -35,6 +34,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          dnf install -y gh
-          gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage --clobber
+        run: gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage --clobber
