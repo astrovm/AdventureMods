@@ -2,8 +2,11 @@
 
 The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It finds your Steam games, downloads community mods, and handles all the setup for you. Mod managers, runtimes, resolution, load order, everything is ready to go so you can play the best versions of both games right away.
 
-| ![Welcome](data/screenshots/welcome.png) | ![Mod Selection](data/screenshots/mod-selection.png) |
-|---|---|
+<p align="center">
+  <img src="data/screenshots/welcome.png" alt="Welcome" width="400">
+  &nbsp;&nbsp;
+  <img src="data/screenshots/mod-selection.png" alt="Mod Selection" width="400">
+</p>
 
 ## Features
 
