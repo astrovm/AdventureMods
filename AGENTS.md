@@ -2,7 +2,7 @@
 
 ## Overview
 
-GTK4/libadwaita Flatpak app (`io.github.astrovm.AdventureMods`) in Rust. Automates Sonic Adventure DX and SA2 mod setup on Linux with Steam/Proton through a GUI wizard.
+GTK4/libadwaita app (`io.github.astrovm.AdventureMods`) in Rust. Automates Sonic Adventure DX and SA2 mod setup on Linux with Steam/Proton through a GUI wizard. Distributed as Flatpak and AppImage.
 
 ## Structure
 
@@ -36,6 +36,8 @@ src/
     flatpak.rs        Flatpak sandbox detection and flatpak-spawn routing
 data/                 Desktop file, metainfo, icon, GSettings schema, UI templates, screenshots
 build-aux/            Flatpak manifests, cargo-build.sh, cargo-sources.json
+build-aux/appimage/   AppImage build script, apprun hooks
+.github/workflows/    CI (AppImage builds on tag push)
 po/                   Translations
 ```
 
@@ -58,6 +60,46 @@ flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods
 flatpak-cargo-generator Cargo.lock -o build-aux/cargo-sources.json
 ```
 
+### AppImage
+
+The AppImage build script (`build-aux/appimage/build-appimage.sh`) builds GTK4 and libadwaita from source to ensure smooth animations and broad glibc compatibility. It bundles p7zip, hpatchz, and all GTK/Adwaita libraries via linuxdeploy with the GTK plugin.
+
+Build locally using a Docker container (Ubuntu 24.04 for glibc 2.39 compat):
+
+```bash
+docker run --rm -v "$(pwd):/src" -w /src ubuntu:24.04 bash -c '
+  apt-get update -qq
+  apt-get install -y -qq \
+    build-essential pkg-config meson gettext python3-pip \
+    libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
+    libgraphene-1.0-dev libpango1.0-dev \
+    libcairo2-dev libgdk-pixbuf-2.0-dev libepoxy-dev \
+    libwayland-dev libxkbcommon-dev libvulkan-dev \
+    libx11-dev libxrandr-dev libxi-dev libxext-dev \
+    libxcursor-dev libxdamage-dev libxfixes-dev \
+    libxinerama-dev libxcomposite-dev \
+    wayland-protocols libcloudproviders-dev \
+    libsass-dev sassc libappstream-dev \
+    desktop-file-utils appstream \
+    wget unzip file libfuse2 curl
+  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
+  export PATH="$HOME/.cargo/bin:$PATH"
+  bash build-aux/appimage/build-appimage.sh
+'
+```
+
+The output is `appimage-build/Adventure_Mods-x86_64.AppImage`. CI runs this automatically on version tag pushes (`v*`) via `.github/workflows/appimage.yml` and uploads the AppImage to GitHub Releases.
+
+Key decisions and gotchas for the AppImage packaging:
+
+- **glibc compatibility**: Build on Ubuntu 24.04 (glibc 2.39) for broadest compat. Fedora and newer Ubuntu link against newer glibc, making the AppImage fail on older systems. Fedora also adds the `GLIBC_ABI_GNU2_TLS` symbol which doesn't exist on Debian/Ubuntu at all.
+- **GTK4/libadwaita from source**: Ubuntu 24.04 ships GTK4 4.14 and libadwaita 1.5, which look visually different from the Flatpak's GNOME 49 runtime. The build script compiles GTK4 4.20+ and libadwaita 1.8+ from source on top of Ubuntu's glibc to get smooth animations with broad compat. The script auto-upgrades Meson via pip when the system version is too old for GTK 4.20.
+- **AppRun hook**: The default `linuxdeploy-plugin-gtk` hook forces `GDK_BACKEND=x11` and sets `GTK_THEME`, both of which break libadwaita apps. Our custom hook (`build-aux/appimage/apprun-hooks/adventure-mods.sh`) replaces it after linuxdeploy's first pass, then a second pass produces the final AppImage.
+- **PKGDATADIR**: The compiled-in constant points to `/usr/share/adventure-mods` but the AppImage mounts at a temp path. The apprun hook sets `ADVENTURE_MODS_PKGDATADIR` and `main.rs` checks this env var first.
+- **Bundled tools**: p7zip (built from source) and hpatchz (prebuilt binary) go into `AppDir/usr/bin/` and are found via `PATH` set in the hook.
+- **GStreamer module**: Removed from the AppImage (`libmedia-gstreamer.so`). The app doesn't use media playback and the module causes errors due to GLib version mismatches between bundled and system libs.
+- **NO_STRIP=1**: Required because linuxdeploy's bundled `strip` can't handle newer ELF formats (RELR relocations).
+
 ## Architecture
 
 **Build system**: Meson wraps Cargo via `build-aux/cargo-build.sh`. Meson handles GResources, schemas, desktop files, and i18n. `config.rs.in` injects APP_ID, VERSION, PKGDATADIR at build time. `config.rs` has fallback defaults so standalone `cargo build` works too.
@@ -68,7 +110,7 @@ flatpak-cargo-generator Cargo.lock -o build-aux/cargo-sources.json
 
 **Navigation**: `AdwNavigationView` with two main pages: Welcome Page (game detection/selection) and Setup Page (wizard). The wizard runs through `steps_for_game()` which returns `Vec<SetupStep>`, where each step has a `StepKind` (Auto, Info, ExternalAction, Download, ModSelection).
 
-**Sandbox**: `external/flatpak.rs` checks for `/.flatpak-info` and routes host commands through `flatpak-spawn --host`. This is how protontricks and Flatpak install work from inside the sandbox.
+**Sandbox**: `external/flatpak.rs` checks for `/.flatpak-info` and routes host commands through `flatpak-spawn --host`. This is how protontricks and Flatpak install work from inside the sandbox. In the AppImage there is no sandbox, so commands run directly on the host.
 
 **Steam detection**: Custom VDF parser (`steam/vdf.rs`) reads `libraryfolders.vdf` to locate SADX (71250) and SA2 (213610) across all library folders.
 
@@ -82,4 +124,4 @@ flatpak-cargo-generator Cargo.lock -o build-aux/cargo-sources.json
 - **Tests**: Colocated in `#[cfg(test)] mod tests`. Deterministic unit tests for config generation, VDF parsing, step sequencing. Run `cargo test` before PRs.
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`). Imperative, specific subjects.
 - **IDs**: Release `io.github.astrovm.AdventureMods`, dev `.Devel`. GResource prefix `/io/github/astrovm/AdventureMods/`. Protontricks `com.github.Matoking.protontricks`.
-- **Security**: Don't commit `target/`, `build/`, or extraction dirs. Validate download URLs and archive handling carefully.
+- **Security**: Don't commit `target/`, `build/`, `appimage-build/`, or extraction dirs. Validate download URLs and archive handling carefully.
