@@ -16,7 +16,6 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It fin
 - Gets mod managers, mods, and dependencies all at once
 - Sets up native resolution, window mode, and optimal settings
 - Installs .NET runtime and protontricks if they're missing
-- Runs as a Flatpak or natively
 
 ## Requirements
 
@@ -36,9 +35,9 @@ chmod +x Adventure_Mods-x86_64.AppImage
 ./Adventure_Mods-x86_64.AppImage
 ```
 
-## Building
+## Development
 
-### Flatpak
+### Flatpak build
 
 ```sh
 flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.json
@@ -73,7 +72,7 @@ Or build with Cargo directly for development:
 cargo build
 ```
 
-### AppImage
+### AppImage build
 
 Build locally in Docker with `debian:13`:
 
@@ -103,15 +102,6 @@ docker run --rm -v "$(pwd):/src" -w /src debian:13 bash -c '
 ```
 
 The output is `appimage-build/Adventure_Mods-x86_64.AppImage`.
-
-## How It Works
-
-1. **Game Detection** reads Steam's `libraryfolders.vdf` to find your Sonic Adventure games
-2. **Dependency Check** makes sure protontricks is available, installing it from Flathub if needed
-3. **Runtime Setup** installs .NET Desktop Runtime 8.0 and Visual C++ 2015-2022 through protontricks
-4. **Mod Installation** sets up mod managers and mods with native resolution config
-   - **SADX**: Converts the Steam version to the 2004 release, installs the SADX Mod Loader, SA Mod Manager, and up to 29 mods from dcmods, GameBanana, GitHub, and GitLab
-   - **SA2**: Installs SA Mod Manager and up to 13 mods from GameBanana
 
 ## License
 
