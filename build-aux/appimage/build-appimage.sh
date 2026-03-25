@@ -11,14 +11,62 @@ GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin
 HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip"
 P7ZIP_URL="https://github.com/p7zip-project/p7zip/archive/refs/tags/v17.05.tar.gz"
 
+GTK4_VERSION="4.20.3"
+GTK4_URL="https://download.gnome.org/sources/gtk/4.20/gtk-${GTK4_VERSION}.tar.xz"
+LIBADWAITA_VERSION="1.8.5.1"
+LIBADWAITA_URL="https://download.gnome.org/sources/libadwaita/1.8/libadwaita-${LIBADWAITA_VERSION}.tar.xz"
+
 cleanup() {
     rm -rf "$BUILD_DIR/tmp"
 }
 trap cleanup EXIT
 
+# GTK 4.20+ requires Meson >= 1.5.0. Install via pip if the system version is too old.
+REQUIRED_MESON="1.5.0"
+CURRENT_MESON="$(meson --version 2>/dev/null || echo 0)"
+if [ "$(printf '%s\n' "$REQUIRED_MESON" "$CURRENT_MESON" | sort -V | head -1)" != "$REQUIRED_MESON" ]; then
+    echo "==> Upgrading Meson (need >= ${REQUIRED_MESON}, have ${CURRENT_MESON})"
+    pip3 install --quiet --break-system-packages --force-reinstall meson
+    hash -r
+    echo "    Meson upgraded to $(meson --version)"
+fi
+
 echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
+
+# Build GTK4 and libadwaita from source for smooth animations (GTK 4.20+),
+# while linking against the host glibc for broad compatibility.
+echo "==> Building GTK4 ${GTK4_VERSION} from source"
+wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
+tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
+meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
+    --prefix=/usr --buildtype=release \
+    -Dmedia-gstreamer=disabled \
+    -Dprint-cups=disabled \
+    -Dbuild-demos=false \
+    -Dbuild-examples=false \
+    -Dbuild-tests=false \
+    -Dbuild-testsuite=false \
+    -Dintrospection=disabled \
+    -Ddocumentation=false
+meson compile -C "$BUILD_DIR/tmp/gtk4-build"
+sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
+sudo ldconfig
+
+echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
+wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
+tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
+meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
+    --prefix=/usr --buildtype=release \
+    -Dintrospection=disabled \
+    -Ddocumentation=false \
+    -Dtests=false \
+    -Dexamples=false \
+    -Dvapi=false
+meson compile -C "$BUILD_DIR/tmp/adw-build"
+sudo meson install -C "$BUILD_DIR/tmp/adw-build"
+sudo ldconfig
 
 echo "==> Configuring Meson"
 meson setup "$BUILD_DIR/meson" "$PROJECT_DIR" \
@@ -71,7 +119,7 @@ echo "==> Patching apprun hooks for libadwaita"
 cp "$SCRIPT_DIR/apprun-hooks/adventure-mods.sh" "$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 
 # Remove the bundled GStreamer media backend. The app doesn't use media
-# playback and the module causes harmless but noisy errors on startup.
+# playback and the module causes errors due to GLib version mismatches.
 rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
 
 # Second pass: produce the AppImage.
