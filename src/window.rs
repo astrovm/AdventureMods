@@ -105,6 +105,17 @@ impl AdventureModsWindow {
         refresh_button.connect_clicked(move |_| {
             obj.detect_games();
         });
+
+        // Show/hide refresh button based on current navigation page
+        let nav_view = self.imp().navigation_view.clone();
+        let refresh_button_clone = refresh_button.clone();
+        nav_view.connect_visible_page_notify(move |nav| {
+            let is_welcome = nav
+                .visible_page()
+                .map(|page| page.tag() == Some("welcome".into()))
+                .unwrap_or(false);
+            refresh_button_clone.set_visible(is_welcome);
+        });
     }
 
     fn setup_settings(&self) {
