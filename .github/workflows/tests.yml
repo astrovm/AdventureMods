@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     container:
       image: debian:13
 
@@ -20,6 +20,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y \
+            build-essential \
             curl \
             pkg-config \
             libgtk-4-dev \
