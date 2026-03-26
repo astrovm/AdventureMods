@@ -50,6 +50,10 @@ install_data(
   install_dir: datadir / 'glib-2.0' / 'schemas',
 )
 
+gnome.post_install(
+  glib_compile_schemas: true,
+)
+
 compile_schemas = find_program('glib-compile-schemas', required: false)
 if compile_schemas.found()
   test('Validate schema file',
