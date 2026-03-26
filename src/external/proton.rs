@@ -12,6 +12,12 @@ pub enum PrefixState {
     Ready,
     MissingPrefix,
     MissingMetadata,
+    MissingConfig,
+    InvalidConfig,
+    MissingConfiguredTool,
+    ConfiguredToolUnavailable {
+        configured_tool: String,
+    },
     ConfigMismatch {
         prefix_tool: String,
         configured_tool: String,
@@ -27,7 +33,16 @@ struct PrefixMetadata {
 #[derive(Debug, Clone)]
 struct ConfiguredTool {
     name: String,
-    proton_dir: Option<PathBuf>,
+    proton_dir: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+enum ConfiguredToolLookup {
+    Tool(ConfiguredTool),
+    MissingConfig,
+    InvalidConfig,
+    MissingConfiguredTool,
+    ConfiguredToolUnavailable { configured_tool: String },
 }
 
 pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
@@ -43,14 +58,16 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::MissingMetadata);
     };
 
-    if let Some(configured_tool) = configured_tool_from_config(game_path, app_id)? {
-        let prefix_canonical = prefix_metadata
-            .proton_dir
-            .canonicalize()
-            .unwrap_or_else(|_| prefix_metadata.proton_dir.clone());
-
-        if let Some(configured_path) = configured_tool.proton_dir {
-            let configured_canonical = configured_path.canonicalize().unwrap_or(configured_path);
+    match configured_tool_from_config(game_path, app_id)? {
+        ConfiguredToolLookup::Tool(configured_tool) => {
+            let prefix_canonical = prefix_metadata
+                .proton_dir
+                .canonicalize()
+                .unwrap_or_else(|_| prefix_metadata.proton_dir.clone());
+            let configured_canonical = configured_tool
+                .proton_dir
+                .canonicalize()
+                .unwrap_or_else(|_| configured_tool.proton_dir.clone());
 
             if configured_canonical != prefix_canonical {
                 return Ok(PrefixState::ConfigMismatch {
@@ -58,11 +75,14 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
                     configured_tool: configured_tool.name,
                 });
             }
-        } else if configured_tool.name.trim() != prefix_metadata.tool_name.trim() {
-            return Ok(PrefixState::ConfigMismatch {
-                prefix_tool: prefix_metadata.tool_name,
-                configured_tool: configured_tool.name,
-            });
+        }
+        ConfiguredToolLookup::MissingConfig => return Ok(PrefixState::MissingConfig),
+        ConfiguredToolLookup::InvalidConfig => return Ok(PrefixState::InvalidConfig),
+        ConfiguredToolLookup::MissingConfiguredTool => {
+            return Ok(PrefixState::MissingConfiguredTool);
+        }
+        ConfiguredToolLookup::ConfiguredToolUnavailable { configured_tool } => {
+            return Ok(PrefixState::ConfiguredToolUnavailable { configured_tool });
         }
     }
 
@@ -74,6 +94,18 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
         PrefixState::Ready => Ok(()),
         PrefixState::MissingPrefix | PrefixState::MissingMetadata => anyhow::bail!(
             "Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
+        ),
+        PrefixState::MissingConfig => anyhow::bail!(
+            "Steam's config.vdf could not be found. Open Steam normally and try again."
+        ),
+        PrefixState::InvalidConfig => anyhow::bail!(
+            "Steam's config.vdf could not be read correctly. Check your Steam configuration, then try again."
+        ),
+        PrefixState::MissingConfiguredTool => anyhow::bail!(
+            "Steam does not have a Proton tool configured for this game yet. Open the game's Properties in Steam, make sure a compatibility tool is selected, then try again."
+        ),
+        PrefixState::ConfiguredToolUnavailable { configured_tool } => anyhow::bail!(
+            "Steam is configured to use {configured_tool}, but that Proton installation was not found. Install it in Steam, then try again."
         ),
         PrefixState::ConfigMismatch {
             prefix_tool,
@@ -91,6 +123,18 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         }
         Ok(PrefixState::MissingPrefix) | Ok(PrefixState::MissingMetadata) => format!(
             "Open {game_name} from Steam once, wait for Proton to finish setting it up, then close the game and continue here."
+        ),
+        Ok(PrefixState::MissingConfig) => format!(
+            "Steam's main configuration file could not be found, so {game_name}'s Proton setup could not be verified. Open Steam normally, then continue here."
+        ),
+        Ok(PrefixState::InvalidConfig) => format!(
+            "Steam's configuration for {game_name} could not be read correctly. Fix Steam's config and then continue here."
+        ),
+        Ok(PrefixState::MissingConfiguredTool) => format!(
+            "Steam does not currently have a Proton compatibility tool selected for {game_name}. Pick one in Steam and then continue here."
+        ),
+        Ok(PrefixState::ConfiguredToolUnavailable { configured_tool }) => format!(
+            "Steam is configured to use {configured_tool} for {game_name}, but that Proton installation is not available. Install it in Steam, then continue here."
         ),
         Ok(PrefixState::ConfigMismatch {
             prefix_tool,
@@ -121,48 +165,6 @@ pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
     anyhow::bail!(
         "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
     )
-}
-
-/// Locate the Proton installation to use for a game.
-///
-/// Searches Proton directories in the game's library and known Steam client
-/// roots for directories matching `Proton *` or `Proton - Experimental`.
-/// Picks the highest numeric version, falling back to `Proton - Experimental`
-/// if no numbered version has a working Wine binary.
-pub fn find_proton(game_path: &Path) -> Result<PathBuf> {
-    let mut candidates: Vec<(PathBuf, ProtonVersion)> = Vec::new();
-
-    for common in proton_common_dirs(game_path)? {
-        let entries = std::fs::read_dir(&common)
-            .with_context(|| format!("Failed to read {}", common.display()))?;
-
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-
-            if let Some(version) = parse_proton_dir_name(&name_str) {
-                let dir = entry.path();
-                if has_wine_binary(&dir) && !candidates.iter().any(|(existing, _)| existing == &dir)
-                {
-                    candidates.push((dir, version));
-                }
-            }
-        }
-    }
-
-    if candidates.is_empty() {
-        anyhow::bail!(
-            "No Proton installation found in {}. Install Proton through Steam first.",
-            steamapps_dir(game_path)?.display()
-        );
-    }
-
-    // Sort: numbered versions descending, then experimental, then others.
-    candidates.sort_by(|a, b| b.1.cmp(&a.1));
-
-    let (path, _) = candidates.into_iter().next().unwrap();
-    tracing::info!("Selected Proton at {}", path.display());
-    Ok(path)
 }
 
 /// Build the environment variables needed to run Wine inside a Proton prefix.
@@ -219,21 +221,34 @@ pub fn run_in_prefix(
     flatpak::host_command_with_env_sync(&wine_str, &arg_refs, &env)
 }
 
-fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Option<ConfiguredTool>> {
+fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
     let steamapps = steamapps_dir(game_path)?;
     let steam_roots = steam_root_candidates(game_path)?;
 
+    if steam_roots.is_empty() {
+        return Ok(ConfiguredToolLookup::MissingConfig);
+    }
+
     for steam_root in &steam_roots {
-        if let Some(tool_name) = compat_tool_name_from_config(steam_root, app_id)? {
-            let proton_dir = resolve_compat_tool_path(steam_root, &steamapps, &tool_name);
-            return Ok(Some(ConfiguredTool {
-                name: tool_name,
-                proton_dir,
-            }));
+        match compat_tool_name_from_config(steam_root, app_id)? {
+            ConfiguredToolLookup::Tool(ConfiguredTool { name, .. }) => {
+                if let Some(proton_dir) = resolve_compat_tool_path(steam_root, &steamapps, &name) {
+                    return Ok(ConfiguredToolLookup::Tool(ConfiguredTool {
+                        name,
+                        proton_dir,
+                    }));
+                }
+
+                return Ok(ConfiguredToolLookup::ConfiguredToolUnavailable {
+                    configured_tool: name,
+                });
+            }
+            ConfiguredToolLookup::MissingConfig => continue,
+            other => return Ok(other),
         }
     }
 
-    Ok(None)
+    Ok(ConfiguredToolLookup::MissingConfig)
 }
 
 fn find_proton_from_prefix_metadata(game_path: &Path, app_id: u32) -> Result<Option<PathBuf>> {
@@ -244,32 +259,26 @@ fn find_proton_from_prefix_metadata(game_path: &Path, app_id: u32) -> Result<Opt
 
 fn read_prefix_metadata(compatdata: &Path) -> Result<Option<PrefixMetadata>> {
     let config_info = compatdata.join("config_info");
-    if !config_info.is_file() {
+    let version = compatdata.join("version");
+
+    if !config_info.is_file() || !version.is_file() {
         return Ok(None);
     }
 
     let content = std::fs::read_to_string(&config_info)
         .with_context(|| format!("Failed to read {}", config_info.display()))?;
-    let tool_name = std::fs::read_to_string(compatdata.join("version"))
-        .ok()
-        .map(|content| content.trim().to_owned())
-        .filter(|name| !name.is_empty())
-        .or_else(|| {
-            content
-                .lines()
-                .next()
-                .map(str::trim)
-                .filter(|name| !name.is_empty())
-                .map(ToOwned::to_owned)
-        });
+    let tool_name = std::fs::read_to_string(&version)
+        .with_context(|| format!("Failed to read {}", version.display()))?
+        .trim()
+        .to_owned();
 
     let proton_dir = content
         .lines()
         .filter_map(proton_dir_from_config_info_line)
         .find(|path| has_wine_binary(path));
 
-    match (proton_dir, tool_name) {
-        (Some(proton_dir), Some(tool_name)) => Ok(Some(PrefixMetadata {
+    match proton_dir {
+        Some(proton_dir) if !tool_name.is_empty() => Ok(Some(PrefixMetadata {
             proton_dir,
             tool_name,
         })),
@@ -314,53 +323,33 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn steam_client_root(game_path: &Path) -> Result<PathBuf> {
-    let steamapps = steamapps_dir(game_path)?;
-
     for root in steam_root_candidates(game_path)? {
         if root.join("config/config.vdf").is_file() {
             return Ok(root);
         }
     }
 
-    Ok(steamapps.parent().unwrap_or(&steamapps).to_path_buf())
+    anyhow::bail!(
+        "Steam's config.vdf could not be found for {}",
+        game_path.display()
+    )
 }
 
-fn proton_common_dirs(game_path: &Path) -> Result<Vec<PathBuf>> {
-    let steamapps = steamapps_dir(game_path)?;
-    let mut dirs = Vec::new();
-
-    let current_library_common = steamapps.join("common");
-    if current_library_common.is_dir() {
-        dirs.push(current_library_common);
-    }
-
-    for steam_root in steam_root_candidates(game_path)? {
-        let common = steam_root.join("steamapps/common");
-        if common.is_dir() && !dirs.iter().any(|existing| existing == &common) {
-            dirs.push(common);
-        }
-    }
-
-    if dirs.is_empty() {
-        anyhow::bail!(
-            "Steam common directory not found for {}",
-            game_path.display()
-        );
-    }
-
-    Ok(dirs)
-}
-
-fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<Option<String>> {
+fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
     let config_path = steam_root.join("config/config.vdf");
     if !config_path.is_file() {
-        return Ok(None);
+        return Ok(ConfiguredToolLookup::MissingConfig);
     }
 
-    let content = std::fs::read_to_string(&config_path)
-        .with_context(|| format!("Failed to read {}", config_path.display()))?;
+    let content = match std::fs::read_to_string(&config_path) {
+        Ok(content) => content,
+        Err(err) => {
+            tracing::warn!("Failed to read {}: {err}", config_path.display());
+            return Ok(ConfiguredToolLookup::InvalidConfig);
+        }
+    };
     let Some(root) = vdf::parse(&content) else {
-        anyhow::bail!("Failed to parse {}", config_path.display());
+        return Ok(ConfiguredToolLookup::InvalidConfig);
     };
 
     let Some(mapping) = root
@@ -370,7 +359,7 @@ fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<Option
         .and_then(|v| v.get("Steam"))
         .and_then(|v| v.get("CompatToolMapping"))
     else {
-        return Ok(None);
+        return Ok(ConfiguredToolLookup::MissingConfiguredTool);
     };
 
     let app_id = app_id.to_string();
@@ -382,11 +371,14 @@ fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<Option
             .map(str::trim)
             .filter(|name| !name.is_empty())
         {
-            return Ok(Some(name.to_owned()));
+            return Ok(ConfiguredToolLookup::Tool(ConfiguredTool {
+                name: name.to_owned(),
+                proton_dir: PathBuf::new(),
+            }));
         }
     }
 
-    Ok(None)
+    Ok(ConfiguredToolLookup::MissingConfiguredTool)
 }
 
 fn resolve_compat_tool_path(
@@ -619,73 +611,6 @@ mod tests {
         assert!(v8 > exp);
     }
 
-    #[test]
-    fn test_find_proton_selects_highest_version() {
-        let tmp = tempfile::tempdir().unwrap();
-        let common = tmp.path().join("steamapps/common");
-
-        // Create two Proton dirs with wine binaries
-        let p8 = common.join("Proton 8.0/files/bin");
-        let p9 = common.join("Proton 9.0/files/bin");
-        std::fs::create_dir_all(&p8).unwrap();
-        std::fs::create_dir_all(&p9).unwrap();
-        std::fs::write(p8.join("wine64"), "").unwrap();
-        std::fs::write(p9.join("wine64"), "").unwrap();
-
-        let game_path = common.join("Sonic Adventure DX");
-        std::fs::create_dir_all(&game_path).unwrap();
-
-        let result = find_proton(&game_path).unwrap();
-        assert_eq!(result, common.join("Proton 9.0"));
-    }
-
-    #[test]
-    fn test_find_proton_experimental_fallback() {
-        let tmp = tempfile::tempdir().unwrap();
-        let common = tmp.path().join("steamapps/common");
-
-        let exp = common.join("Proton - Experimental/files/bin");
-        std::fs::create_dir_all(&exp).unwrap();
-        std::fs::write(exp.join("wine64"), "").unwrap();
-
-        let game_path = common.join("Sonic Adventure DX");
-        std::fs::create_dir_all(&game_path).unwrap();
-
-        let result = find_proton(&game_path).unwrap();
-        assert_eq!(result, common.join("Proton - Experimental"));
-    }
-
-    #[test]
-    fn test_find_proton_ignores_higher_version_without_wine_binary() {
-        let tmp = tempfile::tempdir().unwrap();
-        let common = tmp.path().join("steamapps/common");
-
-        // Higher version directory exists, but no wine binary.
-        std::fs::create_dir_all(common.join("Proton 9.0/files/bin")).unwrap();
-
-        // Experimental has a working wine binary and should be selected.
-        let exp = common.join("Proton - Experimental/files/bin");
-        std::fs::create_dir_all(&exp).unwrap();
-        std::fs::write(exp.join("wine64"), "").unwrap();
-
-        let game_path = common.join("Sonic Adventure DX");
-        std::fs::create_dir_all(&game_path).unwrap();
-
-        let result = find_proton(&game_path).unwrap();
-        assert_eq!(result, common.join("Proton - Experimental"));
-    }
-
-    #[test]
-    fn test_find_proton_no_proton_fails() {
-        let tmp = tempfile::tempdir().unwrap();
-        let common = tmp.path().join("steamapps/common");
-        let game_path = common.join("Sonic Adventure DX");
-        std::fs::create_dir_all(&game_path).unwrap();
-
-        let result = find_proton(&game_path);
-        assert!(result.is_err());
-    }
-
     fn write_prefix_metadata(compatdata: &Path, tool_name: &str, proton_dir: &Path) {
         std::fs::create_dir_all(compatdata).unwrap();
         std::fs::write(compatdata.join("version"), format!("{tool_name}\n")).unwrap();
@@ -746,6 +671,152 @@ mod tests {
 
         let result = prefix_state(&game_path, 71250).unwrap();
         assert_eq!(result, PrefixState::MissingMetadata);
+    }
+
+    #[test]
+    fn test_prefix_state_missing_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "Proton - Experimental",
+            &steam_root.join("steamapps/common/Proton - Experimental"),
+        );
+
+        let result = prefix_state(&game_path, 71250).unwrap();
+        assert_eq!(result, PrefixState::MissingConfig);
+    }
+
+    #[test]
+    fn test_prefix_state_invalid_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "Proton - Experimental",
+            &steam_root.join("steamapps/common/Proton - Experimental"),
+        );
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join("config.vdf"), "definitely not valid vdf").unwrap();
+
+        let result = prefix_state(&game_path, 71250).unwrap();
+        assert_eq!(result, PrefixState::InvalidConfig);
+    }
+
+    #[test]
+    fn test_prefix_state_missing_configured_tool() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "Proton - Experimental",
+            &steam_root.join("steamapps/common/Proton - Experimental"),
+        );
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = prefix_state(&game_path, 71250).unwrap();
+        assert_eq!(result, PrefixState::MissingConfiguredTool);
+    }
+
+    #[test]
+    fn test_prefix_state_configured_tool_unavailable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "Proton - Experimental",
+            &steam_root.join("steamapps/common/Proton - Experimental"),
+        );
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"  "Custom-Proton-That-Is-Not-Installed"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = prefix_state(&game_path, 71250).unwrap();
+        assert_eq!(
+            result,
+            PrefixState::ConfiguredToolUnavailable {
+                configured_tool: "Custom-Proton-That-Is-Not-Installed".to_string(),
+            }
+        );
     }
 
     #[test]

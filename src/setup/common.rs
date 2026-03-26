@@ -91,7 +91,9 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         // Runtimes: check Proton prefix for dotnetdesktop8 marker
         "dotnet" => {
-            let prefix = proton_prefix(p, game.kind.app_id());
+            let Ok(prefix) = proton_prefix(p, game.kind.app_id()) else {
+                return false;
+            };
             matches!(
                 proton::prefix_state(p, game.kind.app_id()),
                 Ok(proton::PrefixState::Ready)
@@ -145,8 +147,7 @@ pub fn steam_config_message(game: &Game) -> String {
 ///
 /// Game path is typically `.../steamapps/common/<game>/`, and the prefix lives
 /// at `.../steamapps/compatdata/<appid>/pfx/`.
-fn proton_prefix(game_path: &Path, app_id: u32) -> std::path::PathBuf {
-    // Go from .../steamapps/common/<game> up to .../steamapps/
+fn proton_prefix(game_path: &Path, app_id: u32) -> Result<std::path::PathBuf> {
     game_path
         .parent() // common/
         .and_then(|p| p.parent()) // steamapps/
@@ -156,7 +157,10 @@ fn proton_prefix(game_path: &Path, app_id: u32) -> std::path::PathBuf {
                 .join(app_id.to_string())
                 .join("pfx")
         })
-        .unwrap_or_else(|| game_path.join("pfx"))
+        .context(format!(
+            "Cannot derive Proton prefix from game path: {}",
+            game_path.display()
+        ))
 }
 
 /// Install .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022)
@@ -938,7 +942,7 @@ mod tests {
         let game_path = std::path::Path::new(
             "/home/user/.local/share/Steam/steamapps/common/Sonic Adventure DX",
         );
-        let prefix = proton_prefix(game_path, 71250);
+        let prefix = proton_prefix(game_path, 71250).unwrap();
         assert_eq!(
             prefix,
             std::path::PathBuf::from(
@@ -948,17 +952,15 @@ mod tests {
     }
 
     #[test]
-    fn test_proton_prefix_shallow_path_fallback() {
-        // A path with no grandparent falls back to game_path/pfx
+    fn test_proton_prefix_shallow_path_fails() {
         let game_path = std::path::Path::new("/game");
-        let prefix = proton_prefix(game_path, 71250);
-        assert_eq!(prefix, std::path::PathBuf::from("/game/pfx"));
+        assert!(proton_prefix(game_path, 71250).is_err());
     }
 
     #[test]
     fn test_proton_prefix_sa2_app_id() {
         let game_path = std::path::Path::new("/mnt/steam/steamapps/common/Sonic Adventure 2");
-        let prefix = proton_prefix(game_path, 213610);
+        let prefix = proton_prefix(game_path, 213610).unwrap();
         assert_eq!(
             prefix,
             std::path::PathBuf::from("/mnt/steam/steamapps/compatdata/213610/pfx")
