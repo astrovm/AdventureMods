@@ -236,7 +236,16 @@ impl AdventureModsSetupPage {
         imp.content_box.set_vexpand(!centered_layout);
 
         imp.step_title.set_label(step.title);
-        imp.step_description.set_label(step.description);
+        let step_description = if step.id == "steam_config" {
+            imp.game
+                .borrow()
+                .as_ref()
+                .map(common::steam_config_message)
+                .unwrap_or_else(|| step.description.to_string())
+        } else {
+            step.description.to_string()
+        };
+        imp.step_description.set_label(&step_description);
 
         let is_last_step = step_idx + 1 >= all_steps.len();
         imp.back_button.set_visible(!is_last_step);

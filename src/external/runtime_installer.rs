@@ -38,6 +38,8 @@ pub fn is_dotnet_installed(prefix: &Path) -> bool {
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
 pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
+    proton::ensure_prefix_ready(game_path, app_id)?;
+
     let env = proton::proton_env(game_path, app_id)?;
     let prefix = std::path::PathBuf::from(&env["WINEPREFIX"]);
 

@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use gtk::gio;
 
-use crate::external::{archive, download, runtime_installer};
+use crate::external::{archive, download, proton, runtime_installer};
 use crate::steam::game::{Game, GameKind};
 
 use super::{config, sa2, sadx};
@@ -85,12 +85,17 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
     let p = &game.path;
     match step_id {
         // Info / external-action steps: always show to the user
-        "steam_config" => false,
+        "steam_config" => proton::prefix_state(p, game.kind.app_id())
+            .map(|state| matches!(state, proton::PrefixState::Ready))
+            .unwrap_or(false),
 
         // Runtimes: check Proton prefix for dotnetdesktop8 marker
         "dotnet" => {
             let prefix = proton_prefix(p, game.kind.app_id());
-            prefix
+            matches!(
+                proton::prefix_state(p, game.kind.app_id()),
+                Ok(proton::PrefixState::Ready)
+            ) && prefix
                 .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
                 .is_dir()
         }
@@ -130,6 +135,10 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         _ => false,
     }
+}
+
+pub fn steam_config_message(game: &Game) -> String {
+    proton::steam_config_message(game.kind.name(), &game.path, game.kind.app_id())
 }
 
 /// Derive the Proton prefix path from a game's install directory and app ID.
