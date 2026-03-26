@@ -11,6 +11,7 @@
     "--socket=fallback-x11",
     "--device=dri",
     "--socket=wayland",
+    "--filesystem=~/.steam/debian-installation",
     "--filesystem=~/.steam/steam",
     "--filesystem=~/.local/share/Steam",
     "--filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam",

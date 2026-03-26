@@ -14,6 +14,7 @@ fn steam_root() -> Option<PathBuf> {
 
     // Check common Steam paths
     let candidates = [
+        home.join(".steam/debian-installation"),
         home.join(".steam/steam"),
         home.join(".local/share/Steam"),
         home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
@@ -25,7 +26,11 @@ fn steam_root() -> Option<PathBuf> {
 fn library_folders_path() -> Option<PathBuf> {
     let root = steam_root()?;
     let path = root.join("steamapps/libraryfolders.vdf");
-    if path.is_file() { Some(path) } else { None }
+    if path.is_file() {
+        Some(path)
+    } else {
+        None
+    }
 }
 
 fn find_game_in_libraries(
