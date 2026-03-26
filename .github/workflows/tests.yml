@@ -20,6 +20,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y \
+            curl \
             pkg-config \
             libgtk-4-dev \
             libadwaita-1-dev
