@@ -190,13 +190,19 @@ fn parse_proton_dir_name(name: &str) -> Option<ProtonVersion> {
     // Try to parse "9.0", "8.0-4", "9.0-1" etc.
     let version_part = rest.split('-').next().unwrap_or(rest);
     let mut parts = version_part.split('.');
-    let major: u32 = parts.next()?.trim().parse().ok()?;
-    let minor: u32 = parts
-        .next()
-        .and_then(|s| s.trim().parse().ok())
-        .unwrap_or(0);
 
-    Some(ProtonVersion::Numbered(major, minor))
+    if let Some(major_str) = parts.next() {
+        if let Ok(major) = major_str.trim().parse::<u32>() {
+            let minor: u32 = parts
+                .next()
+                .and_then(|s| s.trim().parse().ok())
+                .unwrap_or(0);
+
+            return Some(ProtonVersion::Numbered(major, minor));
+        }
+    }
+
+    Some(ProtonVersion::Other(name.to_string()))
 }
 
 #[cfg(test)]

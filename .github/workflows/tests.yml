@@ -11,7 +11,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: debian:unstable
+      image: ubuntu:26.04
 
     steps:
       - uses: actions/checkout@v4
