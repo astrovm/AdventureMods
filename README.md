@@ -40,7 +40,7 @@ chmod +x Adventure_Mods-x86_64.AppImage
 ### Flatpak build
 
 ```sh
-flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.json
+flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.Devel.json
 ```
 
 ### Native build
