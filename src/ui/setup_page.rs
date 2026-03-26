@@ -998,4 +998,15 @@ mod tests {
     fn initial_preview_is_none_when_no_mods_exist() {
         assert_eq!(initial_preview_index(0, &[0]), None);
     }
+
+    #[test]
+    fn initial_preview_is_none_when_no_mods_and_no_selection() {
+        assert_eq!(initial_preview_index(0, &[]), None);
+    }
+
+    #[test]
+    fn initial_preview_falls_back_to_zero_when_all_selections_out_of_range() {
+        // All selected indices are out of range, but mods exist
+        assert_eq!(initial_preview_index(3, &[5, 10, 99]), Some(0));
+    }
 }
