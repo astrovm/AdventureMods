@@ -837,4 +837,129 @@ mod tests {
         assert!(!sa2_mods.is_empty());
         assert_ne!(sadx_mods.len(), sa2_mods.len());
     }
+
+    #[test]
+    fn test_find_mod_root_three_levels_deep_returns_none() {
+        // find_mod_root only searches two levels deep; three levels should return None
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let deep = staging.join("a").join("b").join("DeepMod");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(deep.join("mod.ini"), b"[mod]").unwrap();
+
+        assert!(find_mod_root(&staging).is_none());
+    }
+
+    #[test]
+    fn test_move_dir_contents_empty_source() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("empty_src");
+        let dest = tmp.path().join("dest");
+        std::fs::create_dir_all(&src).unwrap();
+
+        move_dir_contents(&src, &dest).unwrap();
+        assert!(dest.is_dir());
+        assert!(std::fs::read_dir(&dest).unwrap().next().is_none());
+    }
+
+    #[test]
+    fn test_move_dir_contents_nested_subdirectory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let subdir = src.join("sub");
+        let dest = tmp.path().join("dest");
+        std::fs::create_dir_all(&subdir).unwrap();
+        std::fs::write(src.join("top.txt"), b"top").unwrap();
+        std::fs::write(subdir.join("nested.txt"), b"nested").unwrap();
+
+        move_dir_contents(&src, &dest).unwrap();
+
+        assert!(dest.join("top.txt").is_file());
+        assert!(dest.join("sub").join("nested.txt").is_file());
+    }
+
+    #[test]
+    fn test_proton_prefix_standard_path() {
+        let game_path = std::path::Path::new(
+            "/home/user/.local/share/Steam/steamapps/common/Sonic Adventure DX",
+        );
+        let prefix = proton_prefix(game_path, 71250);
+        assert_eq!(
+            prefix,
+            std::path::PathBuf::from(
+                "/home/user/.local/share/Steam/steamapps/compatdata/71250/pfx"
+            )
+        );
+    }
+
+    #[test]
+    fn test_proton_prefix_shallow_path_fallback() {
+        // A path with no grandparent falls back to game_path/pfx
+        let game_path = std::path::Path::new("/game");
+        let prefix = proton_prefix(game_path, 71250);
+        assert_eq!(prefix, std::path::PathBuf::from("/game/pfx"));
+    }
+
+    #[test]
+    fn test_proton_prefix_sa2_app_id() {
+        let game_path = std::path::Path::new("/mnt/steam/steamapps/common/Sonic Adventure 2");
+        let prefix = proton_prefix(game_path, 213610);
+        assert_eq!(
+            prefix,
+            std::path::PathBuf::from("/mnt/steam/steamapps/compatdata/213610/pfx")
+        );
+    }
+
+    #[test]
+    fn test_find_file_icase_finds_uppercase_variant() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("CHRMODELS.DLL"), b"").unwrap();
+
+        let found = find_file_icase(tmp.path(), "chrmodels.dll");
+        assert!(found.is_some());
+        assert!(found.unwrap().ends_with("CHRMODELS.DLL"));
+    }
+
+    #[test]
+    fn test_find_file_icase_missing_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(find_file_icase(tmp.path(), "nonexistent.dll").is_none());
+    }
+
+    #[test]
+    fn test_find_file_icase_nonexistent_dir_returns_none() {
+        let path = std::path::Path::new("/nonexistent/path/that/does/not/exist");
+        assert!(find_file_icase(path, "anything.dll").is_none());
+    }
+
+    #[test]
+    fn test_mod_entry_dir_name_fallback_to_name() {
+        // When dir_name is None, the name field is used as the directory name
+        let mod_entry = ModEntry {
+            name: "MyMod",
+            source: ModSource::DirectUrl { url: "https://example.com/mod.7z" },
+            description: "A test mod",
+            full_description: None,
+            pictures: &[],
+            dir_name: None,
+            links: &[],
+        };
+        let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
+        assert_eq!(dir_name, "MyMod");
+    }
+
+    #[test]
+    fn test_mod_entry_explicit_dir_name() {
+        let mod_entry = ModEntry {
+            name: "Display Name",
+            source: ModSource::DirectUrl { url: "https://example.com/mod.7z" },
+            description: "A test mod",
+            full_description: None,
+            pictures: &[],
+            dir_name: Some("FolderName"),
+            links: &[],
+        };
+        let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
+        assert_eq!(dir_name, "FolderName");
+    }
 }

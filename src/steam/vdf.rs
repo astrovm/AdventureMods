@@ -58,58 +58,26 @@ impl<'a> Parser<'a> {
         }
         self.pos += 1;
 
-        let start = self.pos;
         let mut result = String::new();
+        let mut start = self.pos;
 
         while self.pos < self.input.len() {
             let ch = self.input.as_bytes()[self.pos];
             if ch == b'\\' && self.pos + 1 < self.input.len() {
                 result.push_str(&self.input[start..self.pos]);
                 self.pos += 1;
-                let escaped = self.input.as_bytes()[self.pos];
-                match escaped {
+                match self.input.as_bytes()[self.pos] {
                     b'n' => result.push('\n'),
                     b't' => result.push('\t'),
                     b'\\' => result.push('\\'),
                     b'"' => result.push('"'),
-                    _ => {
+                    b => {
                         result.push('\\');
-                        result.push(escaped as char);
+                        result.push(b as char);
                     }
                 }
                 self.pos += 1;
-                return self.parse_quoted_string_continue(result);
-            } else if ch == b'"' {
-                result.push_str(&self.input[start..self.pos]);
-                self.pos += 1;
-                return Some(result);
-            } else {
-                self.pos += 1;
-            }
-        }
-        None
-    }
-
-    fn parse_quoted_string_continue(&mut self, mut result: String) -> Option<String> {
-        let start = self.pos;
-        while self.pos < self.input.len() {
-            let ch = self.input.as_bytes()[self.pos];
-            if ch == b'\\' && self.pos + 1 < self.input.len() {
-                result.push_str(&self.input[start..self.pos]);
-                self.pos += 1;
-                let escaped = self.input.as_bytes()[self.pos];
-                match escaped {
-                    b'n' => result.push('\n'),
-                    b't' => result.push('\t'),
-                    b'\\' => result.push('\\'),
-                    b'"' => result.push('"'),
-                    _ => {
-                        result.push('\\');
-                        result.push(escaped as char);
-                    }
-                }
-                self.pos += 1;
-                return self.parse_quoted_string_continue(result);
+                start = self.pos;
             } else if ch == b'"' {
                 result.push_str(&self.input[start..self.pos]);
                 self.pos += 1;
@@ -536,5 +504,152 @@ mod tests {
         assert_eq!(map.len(), 10_000);
         assert_eq!(map.get("key_0").unwrap().as_str().unwrap(), "0");
         assert_eq!(map.get("key_9999").unwrap().as_str().unwrap(), "9999");
+    }
+
+    #[test]
+    fn test_parse_unicode_values() {
+        let input = "\"root\" { \"path\" \"/home/ünïcödé/♪music/Steam\" }";
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("path")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "/home/ünïcödé/♪music/Steam"
+        );
+    }
+
+    #[test]
+    fn test_parse_unicode_key() {
+        let input = "\"root\" { \"ключ\" \"значение\" }";
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("ключ")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "значение"
+        );
+    }
+
+    #[test]
+    fn test_parse_empty_key() {
+        // VDF allows empty string keys (edge case from some malformed files)
+        let input = r#""root" { "" "value" }"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "value"
+        );
+    }
+
+    #[test]
+    fn test_parse_backslash_at_eof_in_string() {
+        // Backslash with no following char: unterminated escape → parse fails
+        let input = "\"root\" \"value\\";
+        assert!(parse(input).is_none());
+    }
+
+    #[test]
+    fn test_parse_newline_in_path_value() {
+        // Real Steam paths never contain newlines, but the parser should handle
+        // the \n escape sequence producing an actual newline in the value.
+        let input = r#""root" "line1\nline2""#;
+        let root = parse(input).unwrap();
+        assert_eq!(root.get("root").unwrap().as_str().unwrap(), "line1\nline2");
+    }
+
+    #[test]
+    fn test_parse_multiple_consecutive_escape_sequences() {
+        // \t\n\\ in one value
+        let input = r#""root" "\t\n\\""#;
+        let root = parse(input).unwrap();
+        assert_eq!(root.get("root").unwrap().as_str().unwrap(), "\t\n\\");
+    }
+
+    #[test]
+    fn test_parse_windows_style_path() {
+        // Some VDF entries on Linux can contain Windows-style paths with backslashes.
+        // Each \\ in VDF decodes to a single \, which is what a Windows path contains.
+        let input = r#""root" { "path" "C:\\Program Files\\Steam" }"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("path")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "C:\\Program Files\\Steam"
+        );
+    }
+
+    #[test]
+    fn test_parse_value_is_map_not_string() {
+        let input = r#""root" { "nested" { "key" "val" } }"#;
+        let root = parse(input).unwrap();
+        // Trying to get "nested" as a string should fail
+        assert!(
+            root.get("root")
+                .unwrap()
+                .get("nested")
+                .unwrap()
+                .as_str()
+                .is_none()
+        );
+        // Getting it as a map should work
+        assert!(
+            root.get("root")
+                .unwrap()
+                .get("nested")
+                .unwrap()
+                .as_map()
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_parse_comment_before_closing_brace() {
+        let input = r#"
+"root"
+{
+    "key"   "value"
+    // This comment is right before the closing brace
+}
+"#;
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "value"
+        );
+    }
+
+    #[test]
+    fn test_parse_mixed_crlf_lf_line_endings() {
+        let input = "\"root\"\r\n{\r\n\t\"key\"\t\"value\"\r\n}\r\n";
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "value"
+        );
     }
 }

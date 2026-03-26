@@ -3,6 +3,7 @@ use adw::subclass::prelude::*;
 use gtk::gio;
 use gtk::glib;
 
+use crate::steam::game::GameKind;
 use crate::steam::library::DetectionResult;
 use crate::ui::game_card::AdventureModsGameCard;
 
@@ -150,22 +151,43 @@ impl AdventureModsWelcomePage {
             return;
         }
 
-        for game in result.games {
-            let card = AdventureModsGameCard::new(&game);
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let kind_games: Vec<_> = result.games.iter().filter(|g| g.kind == kind).collect();
+            if kind_games.is_empty() {
+                continue;
+            }
 
-            let game_clone = game.clone();
-            let nav_view_clone = nav_view.clone();
-            card.connect_setup_clicked(move || {
-                let setup_page =
-                    crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
-                let nav_page = adw::NavigationPage::builder()
-                    .title(game_clone.kind.name())
-                    .child(&setup_page)
+            if kind_games.len() > 1 {
+                let label = gtk::Label::builder()
+                    .label(format!(
+                        "Multiple {} installations found. Select one to set up:",
+                        kind.name()
+                    ))
+                    .justify(gtk::Justification::Center)
+                    .wrap(true)
+                    .margin_bottom(4)
                     .build();
-                nav_view_clone.push(&nav_page);
-            });
+                label.add_css_class("heading");
+                games_box.append(&label);
+            }
 
-            games_box.append(&card);
+            for game in kind_games {
+                let card = AdventureModsGameCard::new(game);
+
+                let game_clone = game.clone();
+                let nav_view_clone = nav_view.clone();
+                card.connect_setup_clicked(move || {
+                    let setup_page =
+                        crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
+                    let nav_page = adw::NavigationPage::builder()
+                        .title(game_clone.kind.name())
+                        .child(&setup_page)
+                        .build();
+                    nav_view_clone.push(&nav_page);
+                });
+
+                games_box.append(&card);
+            }
         }
     }
 
