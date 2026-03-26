@@ -422,18 +422,20 @@ mod tests {
             Some("val")
         );
         // Missing intermediate key
-        assert!(root
-            .get("root")
-            .and_then(|v| v.get("x"))
-            .and_then(|v| v.get("b"))
-            .is_none());
+        assert!(
+            root.get("root")
+                .and_then(|v| v.get("x"))
+                .and_then(|v| v.get("b"))
+                .is_none()
+        );
         // get() on a string value
-        assert!(root
-            .get("root")
-            .and_then(|v| v.get("a"))
-            .and_then(|v| v.get("b"))
-            .and_then(|v| v.get("anything"))
-            .is_none());
+        assert!(
+            root.get("root")
+                .and_then(|v| v.get("a"))
+                .and_then(|v| v.get("b"))
+                .and_then(|v| v.get("anything"))
+                .is_none()
+        );
     }
 
     #[test]

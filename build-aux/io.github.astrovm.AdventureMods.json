@@ -1,100 +1,86 @@
 {
-    "id": "io.github.astrovm.AdventureMods",
-    "runtime": "org.gnome.Platform",
-    "runtime-version": "49",
-    "sdk": "org.gnome.Sdk",
-    "sdk-extensions": [
-        "org.freedesktop.Sdk.Extension.rust-stable"
-    ],
-    "command": "adventure-mods",
-    "finish-args": [
-        "--share=network",
-        "--share=ipc",
-        "--socket=fallback-x11",
-        "--device=dri",
-        "--socket=wayland",
-        "--filesystem=~/.steam/steam",
-        "--filesystem=~/.local/share/Steam",
-        "--filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam",
-        "--filesystem=/mnt",
-        "--filesystem=/media",
-        "--filesystem=/run/media",
-        "--talk-name=org.freedesktop.Flatpak"
-    ],
-    "cleanup": [
-        "/include",
-        "/lib/pkgconfig",
-        "/share/pkgconfig",
-        "/share/aclocal",
-        "/man",
-        "/share/man",
-        "/share/gtk-doc",
-        "/share/vala",
-        "*.la",
-        "*.a"
-    ],
-    "build-options": {
-        "append-path": "/usr/lib/sdk/rust-stable/bin",
-        "env": {
-            "RUST_BACKTRACE": "1",
-            "RUSTFLAGS": "-D warnings",
-            "CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse"
+  "id": "io.github.astrovm.AdventureMods",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "49",
+  "sdk": "org.gnome.Sdk",
+  "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+  "command": "adventure-mods",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=fallback-x11",
+    "--device=dri",
+    "--socket=wayland",
+    "--filesystem=~/.steam/steam",
+    "--filesystem=~/.local/share/Steam",
+    "--filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam",
+    "--filesystem=/mnt",
+    "--filesystem=/media",
+    "--filesystem=/run/media",
+    "--talk-name=org.freedesktop.Flatpak"
+  ],
+  "cleanup": [
+    "/include",
+    "/lib/pkgconfig",
+    "/share/pkgconfig",
+    "/share/aclocal",
+    "/man",
+    "/share/man",
+    "/share/gtk-doc",
+    "/share/vala",
+    "*.la",
+    "*.a"
+  ],
+  "build-options": {
+    "append-path": "/usr/lib/sdk/rust-stable/bin",
+    "env": {
+      "RUST_BACKTRACE": "1",
+      "RUSTFLAGS": "-D warnings",
+      "CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse"
+    }
+  },
+  "modules": [
+    {
+      "name": "p7zip",
+      "buildsystem": "simple",
+      "build-commands": ["make 7z", "make install DEST_DIR= DEST_HOME=/app"],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/p7zip-project/p7zip/archive/refs/tags/v17.05.tar.gz",
+          "sha256": "d2788f892571058c08d27095c22154579dfefb807ebe357d145ab2ddddefb1a6"
         }
+      ]
     },
-    "modules": [
+    {
+      "name": "hdiffpatch",
+      "buildsystem": "simple",
+      "build-commands": ["install -Dm755 hpatchz /app/bin/hpatchz"],
+      "sources": [
         {
-            "name": "p7zip",
-            "buildsystem": "simple",
-            "build-commands": [
-                "make 7z",
-                "make install DEST_DIR= DEST_HOME=/app"
-            ],
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://github.com/p7zip-project/p7zip/archive/refs/tags/v17.05.tar.gz",
-                    "sha256": "d2788f892571058c08d27095c22154579dfefb807ebe357d145ab2ddddefb1a6"
-                }
-            ]
-        },
-        {
-            "name": "hdiffpatch",
-            "buildsystem": "simple",
-            "build-commands": [
-                "install -Dm755 hpatchz /app/bin/hpatchz"
-            ],
-            "sources": [
-                {
-                    "type": "archive",
-                    "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip",
-                    "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a"
-                }
-            ]
-        },
-        {
-            "name": "adventure-mods",
-            "buildsystem": "meson",
-            "config-opts": [
-                "-Dprofile=default"
-            ],
-            "build-options": {
-                "env": {
-                    "CARGO_HOME": "/run/build/adventure-mods/cargo"
-                }
-            },
-            "sources": [
-                {
-                    "type": "dir",
-                    "path": "..",
-                    "skip": [
-                        ".flatpak-builder",
-                        "appimage-build",
-                        "build",
-                        "target"
-                    ]
-                },
-                "cargo-sources.json"
-            ]
+          "type": "archive",
+          "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip",
+          "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a"
         }
-    ]
+      ]
+    },
+    {
+      "name": "adventure-mods",
+      "buildsystem": "meson",
+      "config-opts": ["-Dprofile=default"],
+      "build-options": {
+        "env": {
+          "CARGO_HOME": "/run/build/adventure-mods/cargo"
+        }
+      },
+      "sources": [
+        {
+          "type": "dir",
+          "path": "..",
+          "skip": [".flatpak-builder", "appimage-build", "build", "target"]
+        },
+        "cargo-sources.json"
+      ]
+    }
+  ]
 }
