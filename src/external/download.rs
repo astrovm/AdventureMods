@@ -26,9 +26,22 @@ async fn download_file_async(url: &str, dest: &Path, progress: Option<ProgressFn
         .get(url)
         .send()
         .await
-        .with_context(|| format!("Failed to GET {url}"))?
-        .error_for_status()
-        .with_context(|| format!("HTTP error for {url}"))?;
+        .with_context(|| format!("Failed to GET {url}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| String::from("<response body unavailable>"));
+        let body = body.trim();
+        let snippet = if body.is_empty() {
+            String::from("<empty response body>")
+        } else {
+            body.chars().take(200).collect()
+        };
+        anyhow::bail!("HTTP error {} for {url}: {snippet}", status);
+    }
 
     if let Some(content_type) = response.headers().get(reqwest::header::CONTENT_TYPE) {
         if let Ok(ct) = content_type.to_str() {

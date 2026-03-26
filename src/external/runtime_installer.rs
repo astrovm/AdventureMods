@@ -10,10 +10,16 @@ const VCREDIST_URL: &str = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
 
 /// .NET Desktop Runtime 8.0 x64 offline installer.
 ///
-/// This URL points to a specific patch version and should be updated when new
-/// patches are released. Using the offline installer avoids network dependencies
-/// during Wine execution.
-const DOTNET_DESKTOP_8_URL: &str = "https://download.visualstudio.microsoft.com/download/pr/27bcdd70-ce64-4049-ba24-2b1971545497/5e58f0e5e0b8b33825c3caef1fae00a4/windowsdesktop-runtime-8.0.14-win-x64.exe";
+/// Use the stable aka.ms redirect so Microsoft can rotate the underlying build
+/// without breaking downloads when old patch-specific URLs expire.
+const DOTNET_DESKTOP_8_URL: &str = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe";
+
+fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
+    let dir = compat_data.join("adventure-mods-installers");
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("Failed to create installer staging dir {}", dir.display()))?;
+    Ok(dir)
+}
 
 fn is_success_or_reboot_code(code: i32) -> bool {
     code == 0 || code == 3010
@@ -41,7 +47,9 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
     proton::ensure_prefix_ready(game_path, app_id)?;
 
     let env = proton::proton_env(game_path, app_id)?;
+    let compat_data = std::path::PathBuf::from(&env["STEAM_COMPAT_DATA_PATH"]);
     let prefix = std::path::PathBuf::from(&env["WINEPREFIX"]);
+    let installer_dir = installer_staging_dir(&compat_data)?;
 
     if !prefix.is_dir() {
         anyhow::bail!(
@@ -50,12 +58,10 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
         );
     }
 
-    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
-
     // Install VC++ first — .NET installer may depend on it.
     if !is_vcrun_installed(&prefix) {
         tracing::info!("Installing VC++ 2022 Redistributable...");
-        let vcredist_path = temp_dir.path().join("vc_redist.x64.exe");
+        let vcredist_path = installer_dir.join("vc_redist.x64.exe");
         download::download_file(VCREDIST_URL, &vcredist_path, None)?;
 
         let output = proton::run_in_prefix(
@@ -74,13 +80,14 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             }
         }
         tracing::info!("VC++ 2022 Redistributable installed");
+        let _ = std::fs::remove_file(&vcredist_path);
     } else {
         tracing::info!("VC++ 2022 already installed, skipping");
     }
 
     if !is_dotnet_installed(&prefix) {
         tracing::info!("Installing .NET Desktop Runtime 8...");
-        let dotnet_path = temp_dir.path().join("windowsdesktop-runtime-8-win-x64.exe");
+        let dotnet_path = installer_dir.join("windowsdesktop-runtime-8-win-x64.exe");
         download::download_file(DOTNET_DESKTOP_8_URL, &dotnet_path, None)?;
 
         let output = proton::run_in_prefix(
@@ -98,9 +105,12 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             }
         }
         tracing::info!(".NET Desktop Runtime 8 installed");
+        let _ = std::fs::remove_file(&dotnet_path);
     } else {
         tracing::info!(".NET Desktop Runtime 8 already installed, skipping");
     }
+
+    let _ = std::fs::remove_dir(&installer_dir);
 
     Ok(())
 }
@@ -148,5 +158,16 @@ mod tests {
         assert!(is_success_or_reboot_code(3010));
         assert!(!is_success_or_reboot_code(1603));
         assert!(!is_success_or_reboot_code(-1));
+    }
+
+    #[test]
+    fn test_installer_staging_dir_uses_compatdata() {
+        let tmp = tempfile::tempdir().unwrap();
+        let compatdata = tmp.path().join("compatdata/213610");
+
+        let dir = installer_staging_dir(&compatdata).unwrap();
+
+        assert_eq!(dir, compatdata.join("adventure-mods-installers"));
+        assert!(dir.is_dir());
     }
 }
