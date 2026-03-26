@@ -217,6 +217,18 @@ mod tests {
             parse_proton_dir_name("Proton 7.0"),
             Some(ProtonVersion::Numbered(7, 0))
         );
+        assert_eq!(
+            parse_proton_dir_name("Proton 9"),
+            Some(ProtonVersion::Numbered(9, 0))
+        );
+        assert_eq!(
+            parse_proton_dir_name("Proton 9.0 (Beta)"),
+            Some(ProtonVersion::Numbered(9, 0))
+        );
+        assert_eq!(
+            parse_proton_dir_name("Proton 8.0-4"),
+            Some(ProtonVersion::Numbered(8, 0))
+        );
     }
 
     #[test]
@@ -284,6 +296,26 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let common = tmp.path().join("steamapps/common");
 
+        let exp = common.join("Proton - Experimental/files/bin");
+        std::fs::create_dir_all(&exp).unwrap();
+        std::fs::write(exp.join("wine64"), "").unwrap();
+
+        let game_path = common.join("Sonic Adventure DX");
+        std::fs::create_dir_all(&game_path).unwrap();
+
+        let result = find_proton(&game_path).unwrap();
+        assert_eq!(result, common.join("Proton - Experimental"));
+    }
+
+    #[test]
+    fn test_find_proton_ignores_higher_version_without_wine_binary() {
+        let tmp = tempfile::tempdir().unwrap();
+        let common = tmp.path().join("steamapps/common");
+
+        // Higher version directory exists, but no wine binary.
+        std::fs::create_dir_all(common.join("Proton 9.0/files/bin")).unwrap();
+
+        // Experimental has a working wine binary and should be selected.
         let exp = common.join("Proton - Experimental/files/bin");
         std::fs::create_dir_all(&exp).unwrap();
         std::fs::write(exp.join("wine64"), "").unwrap();

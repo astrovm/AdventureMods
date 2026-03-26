@@ -15,6 +15,10 @@ const VCREDIST_URL: &str = "https://aka.ms/vs/17/release/vc_redist.x64.exe";
 /// during Wine execution.
 const DOTNET_DESKTOP_8_URL: &str = "https://download.visualstudio.microsoft.com/download/pr/27bcdd70-ce64-4049-ba24-2b1971545497/5e58f0e5e0b8b33825c3caef1fae00a4/windowsdesktop-runtime-8.0.14-win-x64.exe";
 
+fn is_success_or_reboot_code(code: i32) -> bool {
+    code == 0 || code == 3010
+}
+
 /// Check whether the VC++ runtime is already installed in the prefix.
 pub fn is_vcrun_installed(prefix: &Path) -> bool {
     prefix
@@ -63,7 +67,7 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let code = output.status.code().unwrap_or(-1);
             // VC++ installer may return 3010 (reboot required) which is success.
-            if code != 3010 {
+            if !is_success_or_reboot_code(code) {
                 anyhow::bail!("VC++ 2022 installation failed (code {code}): {stderr}");
             }
         }
@@ -87,7 +91,7 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let code = output.status.code().unwrap_or(-1);
-            if code != 3010 {
+            if !is_success_or_reboot_code(code) {
                 anyhow::bail!(".NET Desktop Runtime 8 installation failed (code {code}): {stderr}");
             }
         }
@@ -134,5 +138,13 @@ mod tests {
     fn test_is_dotnet_installed_false() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(!is_dotnet_installed(tmp.path()));
+    }
+
+    #[test]
+    fn test_is_success_or_reboot_code() {
+        assert!(is_success_or_reboot_code(0));
+        assert!(is_success_or_reboot_code(3010));
+        assert!(!is_success_or_reboot_code(1603));
+        assert!(!is_success_or_reboot_code(-1));
     }
 }
