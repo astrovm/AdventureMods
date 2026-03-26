@@ -39,8 +39,8 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         },
         SetupStep {
             id: "dotnet",
-            title: "Install .NET Runtimes",
-            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022). This may take several minutes...",
+            title: "Install .NET Runtime",
+            description: "Installing .NET Desktop Runtime 8.0. This may take several minutes...",
             kind: StepKind::Auto,
         },
     ];
