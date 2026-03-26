@@ -1,8 +1,9 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use gtk::gio;
 
-use crate::external::{archive, download, protontricks};
+use crate::external::{archive, download, runtime_installer};
 use crate::steam::game::{Game, GameKind};
 
 use super::{config, sa2, sadx};
@@ -83,9 +84,6 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
 pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
     let p = &game.path;
     match step_id {
-        // protontricks: checked live in ensure_protontricks, always fast, don't skip
-        "check_deps" => false,
-
         // Info / external-action steps: always show to the user
         "steam_config" => false,
 
@@ -152,20 +150,12 @@ fn proton_prefix(game_path: &Path, app_id: u32) -> std::path::PathBuf {
         .unwrap_or_else(|| game_path.join("pfx"))
 }
 
-/// Ensure protontricks is installed, installing it if needed.
-pub async fn ensure_protontricks() -> Result<()> {
-    if protontricks::is_available().await {
-        tracing::info!("protontricks is available");
-        return Ok(());
-    }
-
-    tracing::info!("Installing protontricks...");
-    protontricks::install().await
-}
-
-/// Install .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) for the given game's prefix.
-pub async fn install_dotnet(app_id: u32) -> Result<()> {
-    protontricks::install_dotnet(app_id).await
+/// Install .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022)
+/// into the game's Proton prefix using the game's own Proton/Wine.
+pub async fn install_runtimes(game_path: std::path::PathBuf, app_id: u32) -> Result<()> {
+    gio::spawn_blocking(move || runtime_installer::install_runtimes(&game_path, app_id))
+        .await
+        .map_err(|e| anyhow::anyhow!("spawn error: {e:?}"))?
 }
 
 /// Download and install SA Mod Manager and the mod loader into the game directory.

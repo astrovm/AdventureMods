@@ -240,7 +240,7 @@ impl AdventureModsSetupPage {
 
         let is_last_step = step_idx + 1 >= all_steps.len();
         imp.back_button.set_visible(!is_last_step);
-        imp.back_button.set_sensitive(step_idx > 0);
+        imp.back_button.set_sensitive(true);
 
         // Clear content box
         let content_box = &imp.content_box;
@@ -618,10 +618,9 @@ impl AdventureModsSetupPage {
 
         glib::spawn_future_local(async move {
             let result = match step_id {
-                "check_deps" => common::ensure_protontricks().await,
                 "dotnet" => {
                     if let Some(ref game) = game {
-                        common::install_dotnet(game.kind.app_id()).await
+                        common::install_runtimes(game.path.clone(), game.kind.app_id()).await
                     } else {
                         Ok(())
                     }

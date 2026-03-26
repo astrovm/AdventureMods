@@ -25,12 +25,6 @@ pub enum StepKind {
 pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     let mut steps = vec![
         SetupStep {
-            id: "check_deps",
-            title: "Check Dependencies",
-            description: "Checking that protontricks is installed...",
-            kind: StepKind::Auto,
-        },
-        SetupStep {
             id: "steam_config",
             title: "Steam Configuration",
             description: match kind {
@@ -46,7 +40,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: "dotnet",
             title: "Install .NET Runtimes",
-            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022) via protontricks. This may take several minutes...",
+            description: "Installing .NET Desktop Runtime 8.0 and VC++ Redistributable (2015-2022). This may take several minutes...",
             kind: StepKind::Auto,
         },
     ];
@@ -105,12 +99,12 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 8);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 7);
     }
 
     #[test]
     fn test_sa2_step_count() {
-        assert_eq!(steps_for_game(GameKind::SA2).len(), 7);
+        assert_eq!(steps_for_game(GameKind::SA2).len(), 6);
     }
 
     #[test]
@@ -211,8 +205,8 @@ mod tests {
             let first = steps.first().unwrap();
             let last = steps.last().unwrap();
 
-            assert_eq!(first.id, "check_deps");
-            assert!(matches!(first.kind, StepKind::Auto));
+            assert_eq!(first.id, "steam_config");
+            assert!(matches!(first.kind, StepKind::Info));
 
             assert_eq!(last.id, "complete");
             assert!(matches!(last.kind, StepKind::Info));
