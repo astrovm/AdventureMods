@@ -309,7 +309,11 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
     let mut roots = Vec::new();
 
     roots.push(derived_root.to_path_buf());
-    roots.extend(library::steam_roots());
+    roots.extend(
+        library::steam_roots()
+            .into_iter()
+            .filter(|root| steam_root_references_library(root, derived_root)),
+    );
 
     let mut unique = Vec::new();
     for root in roots {
@@ -320,6 +324,37 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
     }
 
     Ok(unique)
+}
+
+fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool {
+    if steam_root == library_path {
+        return true;
+    }
+
+    let libraryfolders = steam_root.join("steamapps/libraryfolders.vdf");
+    let Ok(content) = std::fs::read_to_string(&libraryfolders) else {
+        return false;
+    };
+    let Some(root) = vdf::parse(&content) else {
+        return false;
+    };
+    let Some(folders) = root.get("libraryfolders").and_then(|value| value.as_map()) else {
+        return false;
+    };
+
+    let target = library_path
+        .canonicalize()
+        .unwrap_or_else(|_| library_path.to_path_buf());
+
+    folders.values().any(|folder| {
+        folder
+            .as_map()
+            .and_then(|map| map.get("path"))
+            .and_then(|value| value.as_str())
+            .map(PathBuf::from)
+            .and_then(|path| path.canonicalize().ok().or(Some(path)))
+            .is_some_and(|path| path == target)
+    })
 }
 
 fn steam_client_root(game_path: &Path) -> Result<PathBuf> {
@@ -636,11 +671,37 @@ mod tests {
         std::fs::create_dir_all(&game_path).unwrap();
         std::fs::create_dir_all(&proton8).unwrap();
         std::fs::write(proton8.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
         write_prefix_metadata(
             &compatdata,
             "Proton 8.0",
             &steam_root.join("steamapps/common/Proton 8.0"),
         );
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "Proton 8.0"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
 
         let result = find_proton_for_app(&game_path, 71250).unwrap();
         assert_eq!(result, common.join("Proton 8.0"));
@@ -964,7 +1025,7 @@ mod tests {
                 {
                     "0"
                     {
-                        "name"  "GE-Proton10-33"
+                        "name"  "proton_experimental"
                     }
                 }
             }
@@ -983,21 +1044,34 @@ mod tests {
 
     #[test]
     fn test_proton_env_paths() {
-        let game_path =
-            Path::new("/home/user/.local/share/Steam/steamapps/common/Sonic Adventure DX");
-        let env = proton_env(game_path, 71250).unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(steam_root.join("config")).unwrap();
+        std::fs::write(
+            steam_root.join("config/config.vdf"),
+            "\"InstallConfigStore\"\n{\n}\n",
+        )
+        .unwrap();
+
+        let env = proton_env(&game_path, 71250).unwrap();
 
         assert_eq!(
             env["WINEPREFIX"],
-            "/home/user/.local/share/Steam/steamapps/compatdata/71250/pfx"
+            steam_root
+                .join("steamapps/compatdata/71250/pfx")
+                .to_string_lossy()
         );
         assert_eq!(
             env["STEAM_COMPAT_DATA_PATH"],
-            "/home/user/.local/share/Steam/steamapps/compatdata/71250"
+            steam_root
+                .join("steamapps/compatdata/71250")
+                .to_string_lossy()
         );
         assert_eq!(
             env["STEAM_COMPAT_CLIENT_INSTALL_PATH"],
-            "/home/user/.local/share/Steam"
+            steam_root.to_string_lossy()
         );
         assert_eq!(env["SteamAppId"], "71250");
     }
