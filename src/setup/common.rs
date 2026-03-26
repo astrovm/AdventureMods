@@ -417,7 +417,9 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
     }
     // Check one level deep
     if let Ok(entries) = std::fs::read_dir(staging) {
-        for entry in entries.flatten() {
+        let mut first_level: Vec<_> = entries.flatten().collect();
+        first_level.sort_by_key(|e| e.file_name());
+        for entry in first_level {
             let p = entry.path();
             if p.is_dir() {
                 if p.join("mod.ini").is_file() {
@@ -425,7 +427,9 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
                 }
                 // Check two levels deep
                 if let Ok(inner) = std::fs::read_dir(&p) {
-                    for inner_entry in inner.flatten() {
+                    let mut second_level: Vec<_> = inner.flatten().collect();
+                    second_level.sort_by_key(|e| e.file_name());
+                    for inner_entry in second_level {
                         let ip = inner_entry.path();
                         if ip.is_dir() && ip.join("mod.ini").is_file() {
                             return Some(ip);
@@ -444,6 +448,9 @@ fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let target = dest.join(entry.file_name());
+        if target.exists() {
+            remove_path(&target)?;
+        }
         if std::fs::rename(entry.path(), &target).is_err() {
             // rename fails across filesystems; fall back to copy + remove
             if entry.path().is_dir() {
@@ -454,6 +461,15 @@ fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
                 std::fs::remove_file(entry.path())?;
             }
         }
+    }
+    Ok(())
+}
+
+fn remove_path(path: &Path) -> Result<()> {
+    if path.is_dir() {
+        std::fs::remove_dir_all(path)?;
+    } else {
+        std::fs::remove_file(path)?;
     }
     Ok(())
 }
@@ -675,6 +691,36 @@ mod tests {
         move_dir_contents(&staging, &mods_dir).unwrap();
 
         assert!(mods_dir.join("SomeMod").join("mod.ini").is_file());
+    }
+
+    #[test]
+    fn test_find_mod_root_prefers_deterministic_order() {
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let b_dir = staging.join("b_mod");
+        let a_dir = staging.join("a_mod");
+        std::fs::create_dir_all(&b_dir).unwrap();
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::write(b_dir.join("mod.ini"), b"[mod]").unwrap();
+        std::fs::write(a_dir.join("mod.ini"), b"[mod]").unwrap();
+
+        let root = find_mod_root(&staging).unwrap();
+        assert_eq!(root, a_dir);
+    }
+
+    #[test]
+    fn test_move_dir_contents_overwrites_existing_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("src");
+        let dest = tmp.path().join("dest");
+        std::fs::create_dir_all(&src).unwrap();
+        std::fs::create_dir_all(&dest).unwrap();
+        std::fs::write(src.join("shared.txt"), b"new").unwrap();
+        std::fs::write(dest.join("shared.txt"), b"old").unwrap();
+
+        move_dir_contents(&src, &dest).unwrap();
+        assert_eq!(std::fs::read(dest.join("shared.txt")).unwrap(), b"new");
+        assert!(!src.join("shared.txt").exists());
     }
 
     /// Helper: simulate the Steam exe replacement logic from `install_mod_manager`.
@@ -937,7 +983,9 @@ mod tests {
         // When dir_name is None, the name field is used as the directory name
         let mod_entry = ModEntry {
             name: "MyMod",
-            source: ModSource::DirectUrl { url: "https://example.com/mod.7z" },
+            source: ModSource::DirectUrl {
+                url: "https://example.com/mod.7z",
+            },
             description: "A test mod",
             full_description: None,
             pictures: &[],
@@ -952,7 +1000,9 @@ mod tests {
     fn test_mod_entry_explicit_dir_name() {
         let mod_entry = ModEntry {
             name: "Display Name",
-            source: ModSource::DirectUrl { url: "https://example.com/mod.7z" },
+            source: ModSource::DirectUrl {
+                url: "https://example.com/mod.7z",
+            },
             description: "A test mod",
             full_description: None,
             pictures: &[],

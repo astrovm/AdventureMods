@@ -129,6 +129,7 @@ impl<'a> Parser<'a> {
 }
 
 pub fn parse(input: &str) -> Option<VdfValue> {
+    let input = input.strip_prefix('\u{FEFF}').unwrap_or(input);
     let mut parser = Parser::new(input);
     let value = parser.parse_root()?;
     parser.skip_whitespace();
@@ -316,6 +317,21 @@ mod tests {
         assert!(parse("").is_none());
         assert!(parse("   ").is_none());
         assert!(parse("// just a comment\n").is_none());
+    }
+
+    #[test]
+    fn test_parse_with_utf8_bom() {
+        let input = "\u{FEFF}\"root\" { \"key\" \"value\" }";
+        let root = parse(input).unwrap();
+        assert_eq!(
+            root.get("root")
+                .unwrap()
+                .get("key")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "value"
+        );
     }
 
     #[test]

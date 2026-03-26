@@ -70,8 +70,9 @@ fn find_all_games_in_libraries(
 
         if apps.contains_key(&app_id) {
             let lib_path = match folder_map.get("path").and_then(|v| v.as_str()) {
-                Some(p) => Path::new(p),
+                Some(p) if !p.trim().is_empty() => Path::new(p),
                 None => continue,
+                Some(_) => continue,
             };
 
             if !lib_path.exists() {
@@ -106,9 +107,13 @@ fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf>
     };
 
     let exe_path = game_path.join(executable);
-    let alt_exe = game_path.join("sonic.exe");
+    let alt_exe = match kind {
+        GameKind::SADX => Some(game_path.join("sonic.exe")),
+        GameKind::SA2 => None,
+    };
 
-    if exe_path.exists() || alt_exe.exists() {
+    let has_alt = alt_exe.as_ref().is_some_and(|p| p.exists());
+    if exe_path.exists() || has_alt {
         let real_path = game_path
             .canonicalize()
             .unwrap_or_else(|_| game_path.clone());
@@ -826,8 +831,8 @@ mod tests {
     }
 
     #[test]
-    fn test_sa2_alt_exe_sonic_exe_detected() {
-        // SA2 directory with only sonic.exe (the fallback executable)
+    fn test_sa2_alt_exe_sonic_exe_not_detected() {
+        // SA2 should require sonic2app.exe. sonic.exe is a SADX fallback only.
         let tmp = tempfile::tempdir().unwrap();
         let game_dir = tmp
             .path()
@@ -838,8 +843,57 @@ mod tests {
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
         let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
-        assert_eq!(paths, vec![game_dir]);
+        assert!(paths.is_empty());
         assert!(inaccessible.is_empty());
+    }
+
+    #[test]
+    fn test_skips_whitespace_only_library_path() {
+        let mut apps = HashMap::new();
+        apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
+
+        let mut folder = HashMap::new();
+        folder.insert("path".to_string(), vdf::VdfValue::String("   ".to_string()));
+        folder.insert("apps".to_string(), vdf::VdfValue::Map(apps));
+
+        let mut folders = HashMap::new();
+        folders.insert("0".to_string(), vdf::VdfValue::Map(folder));
+        let mut root = HashMap::new();
+        root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+
+        let (paths, inaccessible) =
+            find_all_games_in_libraries(&vdf::VdfValue::Map(root), GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_detect_games_dedupes_symlinked_library_paths() {
+        use std::os::unix::fs::symlink;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let real_lib = tmp.path().join("real-lib");
+        let link_lib = tmp.path().join("link-lib");
+
+        std::fs::create_dir_all(real_lib.join("steamapps/common/Sonic Adventure DX")).unwrap();
+        std::fs::write(
+            real_lib.join("steamapps/common/Sonic Adventure DX/Sonic Adventure DX.exe"),
+            "",
+        )
+        .unwrap();
+        symlink(&real_lib, &link_lib).unwrap();
+
+        let root_a = mock_vdf(real_lib.to_str().unwrap(), &["71250"]);
+        let root_b = mock_vdf(link_lib.to_str().unwrap(), &["71250"]);
+        let result = detect_games_from_parsed_vdfs(&[root_a, root_b], &[]);
+
+        let sadx: Vec<_> = result
+            .games
+            .iter()
+            .filter(|g| g.kind == GameKind::SADX)
+            .collect();
+        assert_eq!(sadx.len(), 1);
     }
 
     #[test]
