@@ -33,9 +33,7 @@ jobs:
             wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh
 
       - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build AppImage
         run: bash build-aux/appimage/build-appimage.sh
