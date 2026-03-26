@@ -107,13 +107,7 @@ fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf>
     };
 
     let exe_path = game_path.join(executable);
-    let alt_exe = match kind {
-        GameKind::SADX => Some(game_path.join("sonic.exe")),
-        GameKind::SA2 => None,
-    };
-
-    let has_alt = alt_exe.as_ref().is_some_and(|p| p.exists());
-    if exe_path.exists() || has_alt {
+    if exe_path.exists() {
         let real_path = game_path
             .canonicalize()
             .unwrap_or_else(|_| game_path.clone());
@@ -832,7 +826,7 @@ mod tests {
 
     #[test]
     fn test_sa2_alt_exe_sonic_exe_not_detected() {
-        // SA2 should require sonic2app.exe. sonic.exe is a SADX fallback only.
+        // SA2 should require sonic2app.exe.
         let tmp = tempfile::tempdir().unwrap();
         let game_dir = tmp
             .path()
@@ -843,6 +837,22 @@ mod tests {
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
         let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
+    }
+
+    #[test]
+    fn test_sadx_alt_exe_sonic_exe_not_detected() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game_dir = tmp
+            .path()
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("sonic.exe"), "").unwrap();
+
+        let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
         assert!(paths.is_empty());
         assert!(inaccessible.is_empty());
     }

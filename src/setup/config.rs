@@ -12,13 +12,9 @@ pub fn linux_to_wine_path(path: &Path) -> String {
     format!("Z:{}\\", resolved.to_string_lossy().replace('/', "\\"))
 }
 
-/// Resolve the `System` directory, handling case differences on Linux.
+/// Return the game's `System` directory path.
 pub fn system_dir(game_path: &Path) -> std::path::PathBuf {
-    if game_path.join("System").is_dir() {
-        game_path.join("System")
-    } else {
-        game_path.join("system")
-    }
+    game_path.join("System")
 }
 
 // --- Shared JSON structures for SA Mod Manager config files ---
@@ -228,14 +224,13 @@ mod tests {
     fn test_system_dir_lowercase() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
-        assert_eq!(system_dir(tmp.path()), tmp.path().join("system"));
+        assert_eq!(system_dir(tmp.path()), tmp.path().join("System"));
     }
 
     #[test]
     fn test_system_dir_default() {
         let tmp = tempfile::tempdir().unwrap();
-        // Neither exists, defaults to "system"
-        assert_eq!(system_dir(tmp.path()), tmp.path().join("system"));
+        assert_eq!(system_dir(tmp.path()), tmp.path().join("System"));
     }
 
     #[test]
