@@ -77,6 +77,14 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
     }
 }
 
+/// Return whether a recommended mod should be preselected for a fresh install.
+pub fn is_mod_enabled_by_default(kind: GameKind, mod_entry: &ModEntry) -> bool {
+    match kind {
+        GameKind::SADX => true,
+        GameKind::SA2 => mod_entry.name != "Stage Atmosphere Tweaks",
+    }
+}
+
 /// Check whether a setup step has already been completed for the given game.
 ///
 /// Returns `true` if the step's effects are already present on disk and it
@@ -112,17 +120,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         // SA Mod Manager: installed when the original exe was backed up,
         // the mod loader DLLs are extracted, and the DLL swap has been done.
-        "install_mod_manager" => {
-            let exe_backed_up = p.join("Launcher.exe.bak").exists()
-                || p.join("Sonic Adventure DX.exe.bak").exists();
-            let loader_extracted = p.join("mods/.modloader/SADXModLoader.dll").exists()
-                || p.join("mods/.modloader/SA2ModLoader.dll").exists();
-            let dll_swapped = find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll")
-                .is_some()
-                || find_file_icase(&p.join("resource/gd_PC/DLL/Win32"), "Data_DLL_orig.dll")
-                    .is_some();
-            exe_backed_up && loader_extracted && dll_swapped
-        }
+        "install_mod_manager" => is_mod_manager_fully_installed(p, game.kind),
 
         // Mod selection: always show so the user can change their picks
         "select_mods" => false,
@@ -141,6 +139,27 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
 pub fn steam_config_message(game: &Game) -> String {
     proton::steam_config_message(game.kind.name(), &game.path, game.kind.app_id())
+}
+
+fn is_mod_manager_fully_installed(game_path: &Path, game_kind: GameKind) -> bool {
+    let exe_backed_up = game_path.join("Launcher.exe.bak").exists()
+        || game_path.join("Sonic Adventure DX.exe.bak").exists();
+    let loader_extracted = match game_kind {
+        GameKind::SADX => game_path.join("mods/.modloader/SADXModLoader.dll").exists(),
+        GameKind::SA2 => game_path.join("mods/.modloader/SA2ModLoader.dll").exists(),
+    };
+    let dll_swapped = match game_kind {
+        GameKind::SADX => sadx_data_dir(game_path)
+            .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
+            .is_some(),
+        GameKind::SA2 => find_file_icase(
+            &game_path.join("resource/gd_PC/DLL/Win32"),
+            "Data_DLL_orig.dll",
+        )
+        .is_some(),
+    };
+
+    exe_backed_up && loader_extracted && dll_swapped
 }
 
 /// Derive the Proton prefix path from a game's install directory and app ID.
@@ -183,12 +202,7 @@ pub fn install_mod_manager(
     game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    // Skip if already installed
-    let loader_dll = match game_kind {
-        GameKind::SADX => "SADXModLoader.dll",
-        GameKind::SA2 => "SA2ModLoader.dll",
-    };
-    if game_path.join("mods/.modloader").join(loader_dll).exists() {
+    if is_mod_manager_fully_installed(game_path, game_kind) {
         tracing::info!("SA Mod Manager and loader already present, skipping installation");
         return Ok(());
     }
@@ -261,7 +275,8 @@ pub fn install_mod_loader(
     };
 
     if game_path.join("mods/.modloader").join(loader_dll).exists() {
-        tracing::info!("Mod loader already present, skipping installation");
+        tracing::info!("Mod loader already present, refreshing DLL replacement");
+        install_loader_dll(game_path, game_kind)?;
         return Ok(());
     }
 
@@ -299,7 +314,7 @@ pub fn install_mod_loader(
 fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     let (loader_dll_name, data_dll_path, orig_dll_path) = match game_kind {
         GameKind::SADX => {
-            let sys = config::system_dir(game_path);
+            let sys = sadx_data_dir(game_path).unwrap_or_else(|| config::system_dir(game_path));
             // The DLL may have different casing on Linux (e.g. CHRMODELS.DLL vs
             // CHRMODELS.dll) depending on how Steam extracted or hpatchz produced it.
             let chrmodels =
@@ -361,6 +376,21 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
         data_dll_path.display()
     );
     Ok(())
+}
+
+fn sadx_data_dir(game_path: &Path) -> Option<std::path::PathBuf> {
+    for dir in [game_path.join("system"), game_path.join("System")] {
+        if dir.is_dir()
+            && (find_file_icase(&dir, "CHRMODELS.dll").is_some()
+                || find_file_icase(&dir, "CHRMODELS_orig.dll").is_some())
+        {
+            return Some(dir);
+        }
+    }
+
+    [game_path.join("system"), game_path.join("System")]
+        .into_iter()
+        .find(|dir| dir.is_dir())
 }
 
 /// Download and install a single mod into the game's mods directory.
@@ -987,6 +1017,51 @@ mod tests {
     fn test_find_file_icase_nonexistent_dir_returns_none() {
         let path = std::path::Path::new("/nonexistent/path/that/does/not/exist");
         assert!(find_file_icase(path, "anything.dll").is_none());
+    }
+
+    #[test]
+    fn test_install_loader_dll_sadx_uses_lowercase_system_data_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+        let uppercase_system = game_path.join("System");
+        let lowercase_system = game_path.join("system");
+        let modloader_dir = game_path.join("mods/.modloader");
+
+        std::fs::create_dir_all(&uppercase_system).unwrap();
+        std::fs::create_dir_all(&lowercase_system).unwrap();
+        std::fs::create_dir_all(&modloader_dir).unwrap();
+        std::fs::write(uppercase_system.join("sonicDX.ini"), b"ini").unwrap();
+        std::fs::write(lowercase_system.join("CHRMODELS.dll"), b"original_dll").unwrap();
+        std::fs::write(modloader_dir.join("SADXModLoader.dll"), b"mod_loader").unwrap();
+
+        install_loader_dll(game_path, GameKind::SADX).unwrap();
+
+        assert_eq!(
+            std::fs::read(lowercase_system.join("CHRMODELS_orig.dll")).unwrap(),
+            b"original_dll"
+        );
+        assert_eq!(
+            std::fs::read(lowercase_system.join("CHRMODELS.dll")).unwrap(),
+            b"mod_loader"
+        );
+    }
+
+    #[test]
+    fn test_is_mod_manager_fully_installed_requires_dll_swap() {
+        let dir = tempfile::tempdir().unwrap();
+        let game_path = dir.path();
+
+        std::fs::create_dir_all(game_path.join("mods/.modloader")).unwrap();
+        std::fs::write(
+            game_path.join("mods/.modloader/SADXModLoader.dll"),
+            b"mod_loader",
+        )
+        .unwrap();
+        std::fs::write(game_path.join("Sonic Adventure DX.exe.bak"), b"backup").unwrap();
+        std::fs::create_dir_all(game_path.join("system")).unwrap();
+        std::fs::write(game_path.join("system/CHRMODELS.dll"), b"original_dll").unwrap();
+
+        assert!(!is_mod_manager_fully_installed(game_path, GameKind::SADX));
     }
 
     #[test]

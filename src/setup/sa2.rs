@@ -293,6 +293,9 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    use crate::setup::common;
+    use crate::steam::game::GameKind;
+
     #[test]
     fn test_recommended_mods_count() {
         assert_eq!(RECOMMENDED_MODS.len(), 13);
@@ -385,5 +388,25 @@ mod tests {
                 picture
             );
         }
+    }
+
+    #[test]
+    fn test_stage_atmosphere_tweaks_disabled_by_default() {
+        let mod_entry = RECOMMENDED_MODS
+            .iter()
+            .find(|m| m.name == "Stage Atmosphere Tweaks")
+            .expect("Stage Atmosphere Tweaks entry missing");
+
+        assert!(!common::is_mod_enabled_by_default(GameKind::SA2, mod_entry));
+    }
+
+    #[test]
+    fn test_render_fix_enabled_by_default() {
+        let mod_entry = RECOMMENDED_MODS
+            .iter()
+            .find(|m| m.name == "SA2 Render Fix")
+            .expect("SA2 Render Fix entry missing");
+
+        assert!(common::is_mod_enabled_by_default(GameKind::SA2, mod_entry));
     }
 }

@@ -525,7 +525,9 @@ impl AdventureModsSetupPage {
                     let is_active = if let Some(preset) = default_preset {
                         preset.mod_names.contains(&mod_entry.name)
                     } else {
-                        true
+                        game_kind
+                            .map(|kind| common::is_mod_enabled_by_default(kind, mod_entry))
+                            .unwrap_or(false)
                     };
 
                     let check = gtk::CheckButton::builder().active(is_active).build();
