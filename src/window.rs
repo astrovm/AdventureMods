@@ -9,6 +9,7 @@ use crate::ui::{WIZARD_DEFAULT_HEIGHT, WIZARD_DEFAULT_WIDTH};
 
 mod imp {
     use super::*;
+    use std::cell::RefCell;
 
     #[derive(Debug, Default, gtk::CompositeTemplate)]
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/window.ui")]
@@ -19,6 +20,8 @@ mod imp {
         pub navigation_view: TemplateChild<adw::NavigationView>,
         #[template_child]
         pub welcome_page: TemplateChild<AdventureModsWelcomePage>,
+        pub extra_library_paths: RefCell<Vec<std::path::PathBuf>>,
+        pub settings: RefCell<Option<gio::Settings>>,
     }
 
     #[glib::object_subclass]
@@ -48,6 +51,7 @@ mod imp {
             }
 
             obj.setup_settings();
+            obj.setup_welcome_page_signals();
             obj.detect_games();
         }
     }
@@ -69,6 +73,37 @@ impl AdventureModsWindow {
         glib::Object::builder().property("application", app).build()
     }
 
+    fn setup_welcome_page_signals(&self) {
+        let welcome_page = self.imp().welcome_page.clone();
+
+        welcome_page.connect_local("refresh", true, {
+            let obj = self.clone();
+            move |_| {
+                obj.detect_games();
+                None
+            }
+        });
+
+        welcome_page.connect_local("library-access-granted", true, {
+            let obj = self.clone();
+            move |args| {
+                let Ok(path) = args[1].get::<String>() else {
+                    return None;
+                };
+
+                let path_buf = std::path::PathBuf::from(path);
+                let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
+                if !extra_paths.iter().any(|existing| existing == &path_buf) {
+                    extra_paths.push(path_buf);
+                    obj.save_extra_library_paths();
+                }
+
+                obj.detect_games();
+                None
+            }
+        });
+    }
+
     fn setup_settings(&self) {
         let schema_source = gio::SettingsSchemaSource::default();
         let has_schema =
@@ -84,6 +119,8 @@ impl AdventureModsWindow {
         }
 
         let settings = gio::Settings::new(crate::config::APP_ID);
+        self.load_extra_library_paths(&settings);
+        self.imp().settings.replace(Some(settings.clone()));
 
         self.set_default_size(settings.int("window-width"), settings.int("window-height"));
         self.set_maximized(settings.boolean("window-maximized"));
@@ -96,23 +133,42 @@ impl AdventureModsWindow {
         });
     }
 
+    fn load_extra_library_paths(&self, settings: &gio::Settings) {
+        let paths = settings
+            .strv("extra-library-paths")
+            .into_iter()
+            .map(std::path::PathBuf::from)
+            .collect();
+        self.imp().extra_library_paths.replace(paths);
+    }
+
+    fn save_extra_library_paths(&self) {
+        let Some(settings) = self.imp().settings.borrow().clone() else {
+            return;
+        };
+
+        let extra_paths = self.imp().extra_library_paths.borrow();
+        let path_strings: Vec<String> = extra_paths
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+
+        let refs: Vec<&str> = path_strings.iter().map(String::as_str).collect();
+        let _ = settings.set_strv("extra-library-paths", refs);
+    }
+
     fn detect_games(&self) {
         let imp = self.imp();
         let welcome_page = imp.welcome_page.clone();
         let nav_view = imp.navigation_view.clone();
-
-        welcome_page.connect_local("refresh", true, {
-            let obj = self.clone();
-            move |_| {
-                obj.detect_games();
-                None
-            }
-        });
+        let extra_library_paths = imp.extra_library_paths.borrow().clone();
 
         glib::spawn_future_local(async move {
-            let result = gio::spawn_blocking(|| steam::library::detect_games())
-                .await
-                .unwrap_or_default();
+            let result = gio::spawn_blocking(move || {
+                steam::library::detect_games_with_extra_libraries(&extra_library_paths)
+            })
+            .await
+            .unwrap_or_default();
 
             welcome_page.set_detection_result(result, nav_view);
         });

@@ -13,5 +13,9 @@
       <default>false</default>
       <summary>Whether the window is maximized</summary>
     </key>
+    <key name="extra-library-paths" type="as">
+      <default>[]</default>
+      <summary>Extra Steam library paths granted through portals</summary>
+    </key>
   </schema>
 </schemalist>

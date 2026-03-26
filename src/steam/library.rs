@@ -26,11 +26,7 @@ fn steam_root() -> Option<PathBuf> {
 fn library_folders_path() -> Option<PathBuf> {
     let root = steam_root()?;
     let path = root.join("steamapps/libraryfolders.vdf");
-    if path.is_file() {
-        Some(path)
-    } else {
-        None
-    }
+    if path.is_file() { Some(path) } else { None }
 }
 
 fn find_game_in_libraries(
@@ -75,39 +71,82 @@ fn find_game_in_libraries(
                 );
             }
 
-            let game_path = lib_path.join("steamapps/common").join(kind.install_dir());
-
-            if game_path.is_dir() {
-                let executable = match kind {
-                    GameKind::SADX => "Sonic Adventure DX.exe",
-                    GameKind::SA2 => "sonic2app.exe",
-                };
-
-                let exe_path = game_path.join(executable);
-                let alt_exe = game_path.join("sonic.exe");
-
-                if exe_path.exists() || alt_exe.exists() {
-                    let real_path = game_path
-                        .canonicalize()
-                        .unwrap_or_else(|_| game_path.clone());
-                    tracing::info!(
-                        "Found {} at {} (Real path: {})",
-                        kind.name(),
-                        game_path.display(),
-                        real_path.display()
-                    );
-                    return (Some(game_path), None);
-                } else {
-                    tracing::warn!(
-                        "Found directory for {} but no executable found at {}. Likely a stale Steam library entry.",
-                        kind.name(),
-                        game_path.display()
-                    );
-                }
+            if let Some(game_path) = find_game_in_library_path(lib_path, kind) {
+                return (Some(game_path), None);
             }
         }
     }
     (None, None)
+}
+
+fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf> {
+    let game_path = lib_path.join("steamapps/common").join(kind.install_dir());
+
+    if !game_path.is_dir() {
+        return None;
+    }
+
+    let executable = match kind {
+        GameKind::SADX => "Sonic Adventure DX.exe",
+        GameKind::SA2 => "sonic2app.exe",
+    };
+
+    let exe_path = game_path.join(executable);
+    let alt_exe = game_path.join("sonic.exe");
+
+    if exe_path.exists() || alt_exe.exists() {
+        let real_path = game_path
+            .canonicalize()
+            .unwrap_or_else(|_| game_path.clone());
+        tracing::info!(
+            "Found {} at {} (Real path: {})",
+            kind.name(),
+            game_path.display(),
+            real_path.display()
+        );
+        Some(game_path)
+    } else {
+        tracing::warn!(
+            "Found directory for {} but no executable found at {}. Likely a stale Steam library entry.",
+            kind.name(),
+            game_path.display()
+        );
+        None
+    }
+}
+
+fn detect_games_from_parsed_vdf(
+    root: &vdf::VdfValue,
+    extra_libraries: &[PathBuf],
+) -> DetectionResult {
+    let mut result = DetectionResult::default();
+
+    for kind in [GameKind::SADX, GameKind::SA2] {
+        let (path, inaccessible) = find_game_in_libraries(root, kind);
+
+        if let Some(p) = path {
+            result.games.push(Game { kind, path: p });
+        } else if let Some(inc) = inaccessible {
+            result.inaccessible.push(inc);
+        } else {
+            tracing::info!("{} not found", kind.name());
+        }
+    }
+
+    for lib_path in extra_libraries {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            if result.games.iter().any(|game| game.kind == kind) {
+                continue;
+            }
+
+            if let Some(path) = find_game_in_library_path(lib_path, kind) {
+                result.games.push(Game { kind, path });
+                result.inaccessible.retain(|inc| inc.kind != kind);
+            }
+        }
+    }
+
+    result
 }
 
 #[derive(Debug, Clone, Default)]
@@ -116,8 +155,16 @@ pub struct DetectionResult {
     pub inaccessible: Vec<InaccessibleGame>,
 }
 
+#[cfg(test)]
 /// Detect games from a specific VDF file path.
 pub fn detect_games_from_vdf(vdf_path: &Path) -> DetectionResult {
+    detect_games_from_vdf_with_extra_libraries(vdf_path, &[])
+}
+
+pub fn detect_games_from_vdf_with_extra_libraries(
+    vdf_path: &Path,
+    extra_libraries: &[PathBuf],
+) -> DetectionResult {
     let content = match std::fs::read_to_string(vdf_path) {
         Ok(c) => c,
         Err(e) => {
@@ -134,24 +181,10 @@ pub fn detect_games_from_vdf(vdf_path: &Path) -> DetectionResult {
         }
     };
 
-    let mut result = DetectionResult::default();
-
-    for kind in [GameKind::SADX, GameKind::SA2] {
-        let (path, inaccessible) = find_game_in_libraries(&root, kind);
-
-        if let Some(p) = path {
-            result.games.push(Game { kind, path: p });
-        } else if let Some(inc) = inaccessible {
-            result.inaccessible.push(inc);
-        } else {
-            tracing::info!("{} not found", kind.name());
-        }
-    }
-
-    result
+    detect_games_from_parsed_vdf(&root, extra_libraries)
 }
 
-pub fn detect_games() -> DetectionResult {
+pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> DetectionResult {
     let vdf_path = match library_folders_path() {
         Some(p) => p,
         None => {
@@ -160,7 +193,7 @@ pub fn detect_games() -> DetectionResult {
         }
     };
 
-    detect_games_from_vdf(&vdf_path)
+    detect_games_from_vdf_with_extra_libraries(&vdf_path, extra_libraries)
 }
 
 #[cfg(test)]
@@ -221,6 +254,29 @@ mod tests {
         let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SA2);
         assert_eq!(path, Some(game_dir));
         assert!(inaccessible.is_none());
+    }
+
+    #[test]
+    fn test_detect_games_with_extra_library_finds_inaccessible_game() {
+        let tmp = tempfile::tempdir().unwrap();
+        let extra_lib = tmp.path().join("portable-library");
+        let game_dir = extra_lib
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+
+        let inaccessible_path = tmp.path().join("missing-library");
+        let root = mock_vdf(inaccessible_path.to_str().unwrap(), &["71250"]);
+        let result = detect_games_from_parsed_vdf(&root, std::slice::from_ref(&extra_lib));
+
+        assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
+        assert!(
+            !result
+                .inaccessible
+                .iter()
+                .any(|game| game.kind == GameKind::SADX)
+        );
     }
 
     #[test]
