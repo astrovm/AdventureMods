@@ -103,6 +103,8 @@ impl<'a> Parser<'a> {
 
     fn parse_map(&mut self) -> Option<HashMap<String, VdfValue>> {
         let mut map = HashMap::new();
+        let mut found_closing_brace = false;
+
         loop {
             self.skip_whitespace();
             if self.pos >= self.input.len() {
@@ -110,13 +112,15 @@ impl<'a> Parser<'a> {
             }
             if self.input.as_bytes()[self.pos] == b'}' {
                 self.pos += 1;
+                found_closing_brace = true;
                 break;
             }
             let key = self.parse_quoted_string()?;
             let value = self.parse_value()?;
             map.insert(key, value);
         }
-        Some(map)
+
+        if found_closing_brace { Some(map) } else { None }
     }
 
     fn parse_root(&mut self) -> Option<VdfValue> {
@@ -130,7 +134,14 @@ impl<'a> Parser<'a> {
 
 pub fn parse(input: &str) -> Option<VdfValue> {
     let mut parser = Parser::new(input);
-    parser.parse_root()
+    let value = parser.parse_root()?;
+    parser.skip_whitespace();
+
+    if parser.pos == input.len() {
+        Some(value)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -301,9 +312,7 @@ mod tests {
     #[test]
     fn test_parse_malformed_unclosed_brace() {
         let input = r#""root" { "key" "value""#;
-        // Missing closing brace: parse_map will consume to end without finding }
-        // This may still parse depending on implementation; the key point is it doesn't panic
-        let _ = parse(input);
+        assert!(parse(input).is_none());
     }
 
     #[test]
@@ -542,12 +551,7 @@ mod tests {
         let input = r#""root" { "" "value" }"#;
         let root = parse(input).unwrap();
         assert_eq!(
-            root.get("root")
-                .unwrap()
-                .get("")
-                .unwrap()
-                .as_str()
-                .unwrap(),
+            root.get("root").unwrap().get("").unwrap().as_str().unwrap(),
             "value"
         );
     }
@@ -651,5 +655,17 @@ mod tests {
                 .unwrap(),
             "value"
         );
+    }
+
+    #[test]
+    fn test_parse_rejects_trailing_non_whitespace_text() {
+        let input = r#""root" "value" trailing"#;
+        assert!(parse(input).is_none());
+    }
+
+    #[test]
+    fn test_parse_rejects_second_root_object() {
+        let input = r#""root" "value" "another" "entry""#;
+        assert!(parse(input).is_none());
     }
 }
