@@ -19,6 +19,10 @@
     font-weight: bold;
 }
 
+.wizard-step-complete {
+    color: @success_color;
+}
+
 .progress-bar {
     min-height: 8px;
 }

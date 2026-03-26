@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -22,6 +23,10 @@ mod imp {
         #[template_child]
         pub body_box: TemplateChild<gtk::Box>,
         #[template_child]
+        pub steps_list: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub content_area_box: TemplateChild<gtk::Box>,
+        #[template_child]
         pub step_title: TemplateChild<gtk::Label>,
         #[template_child]
         pub step_description: TemplateChild<gtk::Label>,
@@ -36,6 +41,7 @@ mod imp {
         pub current_step: Cell<usize>,
         pub all_steps: RefCell<Vec<steps::SetupStep>>,
         pub selected_mods: RefCell<Vec<usize>>,
+        pub completed_steps: RefCell<HashSet<&'static str>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
     }
@@ -197,8 +203,71 @@ impl AdventureModsSetupPage {
 
         let initial_step = obj.skip_completed_steps(0);
         obj.imp().current_step.set(initial_step);
+        obj.refresh_step_sidebar();
         obj.show_current_step();
         obj
+    }
+
+    fn refresh_step_sidebar(&self) {
+        let imp = self.imp();
+
+        while let Some(child) = imp.steps_list.first_child() {
+            imp.steps_list.remove(&child);
+        }
+
+        let all_steps = imp.all_steps.borrow();
+        let current_step = imp.current_step.get();
+        let completed_steps = imp.completed_steps.borrow();
+        let game = imp.game.borrow().clone();
+
+        for (idx, step) in all_steps.iter().enumerate() {
+            let row_box = gtk::Box::builder()
+                .orientation(gtk::Orientation::Horizontal)
+                .spacing(12)
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(10)
+                .margin_bottom(10)
+                .build();
+
+            let check_icon = gtk::Image::builder()
+                .icon_name("emblem-ok-symbolic")
+                .pixel_size(16)
+                .visible(false)
+                .build();
+
+            let step_label = gtk::Label::builder()
+                .label(step.title)
+                .wrap(true)
+                .xalign(0.0)
+                .hexpand(true)
+                .build();
+
+            let is_completed = game
+                .as_ref()
+                .map(|g| common::is_step_complete(step.id, g))
+                .unwrap_or(false)
+                || completed_steps.contains(step.id);
+
+            if is_completed {
+                check_icon.set_visible(true);
+                check_icon.add_css_class("wizard-step-complete");
+            }
+
+            if idx == current_step {
+                row_box.add_css_class("setup-step-current");
+            }
+
+            row_box.append(&check_icon);
+            row_box.append(&step_label);
+
+            let row = gtk::ListBoxRow::builder()
+                .activatable(false)
+                .selectable(false)
+                .child(&row_box)
+                .build();
+            imp.steps_list.append(&row);
+        }
     }
 
     fn show_current_step(&self) {
@@ -206,6 +275,7 @@ impl AdventureModsSetupPage {
         let step_idx = imp.current_step.get();
         let all_steps = imp.all_steps.borrow();
         imp.is_error.set(false);
+        self.refresh_step_sidebar();
 
         // Cancel any in-flight operation
         if let Some(flag) = imp.cancel_flag.borrow().as_ref() {
@@ -219,6 +289,11 @@ impl AdventureModsSetupPage {
 
         let centered_layout = uses_centered_layout(&step.kind);
         imp.body_box.set_valign(if centered_layout {
+            gtk::Align::Center
+        } else {
+            gtk::Align::Fill
+        });
+        imp.content_area_box.set_valign(if centered_layout {
             gtk::Align::Center
         } else {
             gtk::Align::Fill
@@ -862,6 +937,9 @@ impl AdventureModsSetupPage {
     }
     fn advance_step(&self) {
         let imp = self.imp();
+        if let Some(current_step) = imp.all_steps.borrow().get(imp.current_step.get()) {
+            imp.completed_steps.borrow_mut().insert(current_step.id);
+        }
         let next = imp.current_step.get() + 1;
         let total = imp.all_steps.borrow().len();
 
