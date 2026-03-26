@@ -18,7 +18,7 @@ fn main() -> ExitCode {
 
     tracing_subscriber::fmt::init();
 
-    glib::set_application_name("Adventure Mods");
+    glib::set_application_name(config::APP_NAME);
 
     let gresource_name = "adventure-mods.gresource";
 

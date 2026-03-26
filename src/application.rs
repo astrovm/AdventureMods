@@ -51,7 +51,7 @@ mod imp {
             let about_action = gio::ActionEntry::builder("about")
                 .activate(|app: &super::AdventureModsApplication, _, _| {
                     let about = adw::AboutDialog::builder()
-                        .application_name("Adventure Mods")
+                        .application_name(config::APP_NAME)
                         .application_icon(config::APP_ID)
                         .developer_name("astrovm")
                         .version(config::VERSION)

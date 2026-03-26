@@ -35,6 +35,11 @@ mod imp {
     }
 
     impl ObjectImpl for AdventureModsWelcomePage {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.status_page.set_icon_name(Some(crate::config::APP_ID));
+        }
+
         fn signals() -> &'static [glib::subclass::Signal] {
             use std::sync::OnceLock;
             static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();

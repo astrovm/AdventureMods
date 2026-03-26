@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="adventure-mods">
-  <schema id="io.github.astrovm.AdventureMods" path="/io/github/astrovm/AdventureMods/">
+  <schema id="@APP_ID_RAW@" path="@APP_PATH_RAW@">
     <key name="window-width" type="i">
       <default>872</default>
       <summary>Default window width</summary>

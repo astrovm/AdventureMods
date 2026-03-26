@@ -1,5 +1,11 @@
-desktop_file = i18n.merge_file(
+configured_desktop = configure_file(
   input: '@0@.desktop.in'.format(base_id),
+  output: '@0@.desktop.in'.format(app_id),
+  configuration: conf,
+)
+
+desktop_file = i18n.merge_file(
+  input: configured_desktop,
   output: '@0@.desktop'.format(app_id),
   type: 'desktop',
   po_dir: meson.project_source_root() / 'po',
@@ -12,8 +18,14 @@ if desktop_utils.found()
   test('Validate desktop file', desktop_utils, args: [desktop_file])
 endif
 
-metainfo_file = i18n.merge_file(
+configured_metainfo = configure_file(
   input: '@0@.metainfo.xml.in'.format(base_id),
+  output: '@0@.metainfo.xml.in'.format(app_id),
+  configuration: conf,
+)
+
+metainfo_file = i18n.merge_file(
+  input: configured_metainfo,
   output: '@0@.metainfo.xml'.format(app_id),
   po_dir: meson.project_source_root() / 'po',
   install: true,
@@ -27,8 +39,14 @@ if appstreamcli.found()
   )
 endif
 
+configured_schema = configure_file(
+  input: '@0@.gschema.xml'.format(base_id),
+  output: '@0@.gschema.xml'.format(app_id),
+  configuration: conf,
+)
+
 install_data(
-  '@0@.gschema.xml'.format(base_id),
+  configured_schema,
   install_dir: datadir / 'glib-2.0' / 'schemas',
 )
 

@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=Adventure Mods
+Name=@APP_NAME_RAW@
 Comment=Set up Sonic Adventure mods
 Type=Application
 Exec=adventure-mods
-Icon=io.github.astrovm.AdventureMods
+Icon=@APP_ID_RAW@
 Terminal=false
 Categories=Utility;Game;
 Keywords=sonic;adventure;mods;sadx;sa2;
