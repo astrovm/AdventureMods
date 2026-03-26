@@ -12,6 +12,7 @@
           <object class="AdwClamp">
             <property name="maximum-size">1080</property>
             <property name="tightening-threshold">640</property>
+            <property name="width-request">640</property>
             <property name="hexpand">true</property>
             <property name="vexpand">true</property>
             <property name="valign">center</property>
