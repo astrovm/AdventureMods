@@ -103,24 +103,20 @@ impl<'a> Parser<'a> {
 
     fn parse_map(&mut self) -> Option<HashMap<String, VdfValue>> {
         let mut map = HashMap::new();
-        let mut found_closing_brace = false;
 
         loop {
             self.skip_whitespace();
             if self.pos >= self.input.len() {
-                break;
+                return None;
             }
             if self.input.as_bytes()[self.pos] == b'}' {
                 self.pos += 1;
-                found_closing_brace = true;
-                break;
+                return Some(map);
             }
             let key = self.parse_quoted_string()?;
             let value = self.parse_value()?;
             map.insert(key, value);
         }
-
-        if found_closing_brace { Some(map) } else { None }
     }
 
     fn parse_root(&mut self) -> Option<VdfValue> {

@@ -162,12 +162,9 @@ fn detect_games_from_parsed_vdfs(
         }
 
         let kind_found = result.games.iter().any(|g| g.kind == kind);
-
-        if kind_found {
-            // Drop any inaccessible entries for this kind since we found it
-        } else if kind_inaccessible.is_empty() {
+        if !kind_found && kind_inaccessible.is_empty() {
             tracing::info!("{} not found", kind.name());
-        } else {
+        } else if !kind_found {
             // Deduplicate inaccessible entries by canonical library path
             let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
             for inc in kind_inaccessible {
@@ -408,6 +405,61 @@ mod tests {
     }
 
     #[test]
+    fn test_find_game_skips_non_map_library_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut folders = HashMap::new();
+        folders.insert(
+            "0".to_string(),
+            vdf::VdfValue::String("not-a-map".to_string()),
+        );
+        folders.insert(
+            "1".to_string(),
+            vdf::VdfValue::Map({
+                let mut valid = HashMap::new();
+                valid.insert(
+                    "path".to_string(),
+                    vdf::VdfValue::String(tmp.path().to_string_lossy().to_string()),
+                );
+                valid.insert("apps".to_string(), vdf::VdfValue::Map(HashMap::new()));
+                valid
+            }),
+        );
+
+        let mut root = HashMap::new();
+        root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+        let vdf = vdf::VdfValue::Map(root);
+
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
+    }
+
+    #[test]
+    fn test_find_game_skips_non_map_apps() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut folder = HashMap::new();
+        folder.insert(
+            "path".to_string(),
+            vdf::VdfValue::String(tmp.path().to_string_lossy().to_string()),
+        );
+        folder.insert(
+            "apps".to_string(),
+            vdf::VdfValue::String("invalid".to_string()),
+        );
+
+        let mut folders = HashMap::new();
+        folders.insert("0".to_string(), vdf::VdfValue::Map(folder));
+
+        let mut root = HashMap::new();
+        root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+        let vdf = vdf::VdfValue::Map(root);
+
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
+    }
+
+    #[test]
     fn test_find_both_games_in_same_library() {
         let tmp = tempfile::tempdir().unwrap();
         let sadx_dir = tmp
@@ -598,8 +650,16 @@ mod tests {
         let result = detect_games_from_parsed_vdfs(&[root1, root2], &[]);
 
         // Both distinct installations should be reported
-        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
-        assert_eq!(sadx_installs.len(), 2, "Expected both SADX installations to be reported");
+        let sadx_installs: Vec<_> = result
+            .games
+            .iter()
+            .filter(|g| g.kind == GameKind::SADX)
+            .collect();
+        assert_eq!(
+            sadx_installs.len(),
+            2,
+            "Expected both SADX installations to be reported"
+        );
         assert!(result.inaccessible.is_empty());
     }
 
@@ -620,8 +680,16 @@ mod tests {
         let result = detect_games_from_parsed_vdfs(&[root1, root2], &[]);
 
         // Same physical path should only appear once
-        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
-        assert_eq!(sadx_installs.len(), 1, "Same path from two Steam roots should be deduplicated");
+        let sadx_installs: Vec<_> = result
+            .games
+            .iter()
+            .filter(|g| g.kind == GameKind::SADX)
+            .collect();
+        assert_eq!(
+            sadx_installs.len(),
+            1,
+            "Same path from two Steam roots should be deduplicated"
+        );
     }
 
     #[test]
@@ -639,7 +707,10 @@ mod tests {
         folders.insert("0".to_string(), vdf::VdfValue::Map(folder.clone()));
 
         let mut root_map = HashMap::new();
-        root_map.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders.clone()));
+        root_map.insert(
+            "libraryfolders".to_string(),
+            vdf::VdfValue::Map(folders.clone()),
+        );
         let root1 = vdf::VdfValue::Map(root_map.clone());
 
         // Second root with same inaccessible library
@@ -687,8 +758,16 @@ mod tests {
         // Same path appears twice in extra_libraries (e.g. user granted access twice)
         let result = detect_games_from_parsed_vdfs(&[], &[lib.clone(), lib.clone()]);
 
-        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
-        assert_eq!(sadx_installs.len(), 1, "Same extra library path should not produce duplicates");
+        let sadx_installs: Vec<_> = result
+            .games
+            .iter()
+            .filter(|g| g.kind == GameKind::SADX)
+            .collect();
+        assert_eq!(
+            sadx_installs.len(),
+            1,
+            "Same extra library path should not produce duplicates"
+        );
     }
 
     #[test]
@@ -705,8 +784,16 @@ mod tests {
         let root = mock_vdf(lib.to_str().unwrap(), &["71250"]);
         let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&lib));
 
-        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
-        assert_eq!(sadx_installs.len(), 1, "Game in both VDF and extra_library should not be duplicated");
+        let sadx_installs: Vec<_> = result
+            .games
+            .iter()
+            .filter(|g| g.kind == GameKind::SADX)
+            .collect();
+        assert_eq!(
+            sadx_installs.len(),
+            1,
+            "Game in both VDF and extra_library should not be duplicated"
+        );
     }
 
     #[test]
@@ -769,8 +856,12 @@ mod tests {
         let lib1 = tmp.path().join("lib1");
         let lib2 = tmp.path().join("lib2");
 
-        let sadx_dir = lib1.join("steamapps/common").join(GameKind::SADX.install_dir());
-        let sa2_dir = lib2.join("steamapps/common").join(GameKind::SA2.install_dir());
+        let sadx_dir = lib1
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        let sa2_dir = lib2
+            .join("steamapps/common")
+            .join(GameKind::SA2.install_dir());
         std::fs::create_dir_all(&sadx_dir).unwrap();
         std::fs::create_dir_all(&sa2_dir).unwrap();
         std::fs::write(sadx_dir.join("Sonic Adventure DX.exe"), "").unwrap();
@@ -779,13 +870,19 @@ mod tests {
         let mut apps1 = HashMap::new();
         apps1.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
         let mut folder1 = HashMap::new();
-        folder1.insert("path".to_string(), vdf::VdfValue::String(lib1.to_str().unwrap().to_string()));
+        folder1.insert(
+            "path".to_string(),
+            vdf::VdfValue::String(lib1.to_str().unwrap().to_string()),
+        );
         folder1.insert("apps".to_string(), vdf::VdfValue::Map(apps1));
 
         let mut apps2 = HashMap::new();
         apps2.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
         let mut folder2 = HashMap::new();
-        folder2.insert("path".to_string(), vdf::VdfValue::String(lib2.to_str().unwrap().to_string()));
+        folder2.insert(
+            "path".to_string(),
+            vdf::VdfValue::String(lib2.to_str().unwrap().to_string()),
+        );
         folder2.insert("apps".to_string(), vdf::VdfValue::Map(apps2));
 
         let mut folders = HashMap::new();
