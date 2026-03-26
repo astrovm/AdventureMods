@@ -10,27 +10,63 @@
         <property name="valign">fill</property>
         <child>
           <object class="AdwClamp">
-            <property name="maximum-size">872</property>
+            <property name="maximum-size">1080</property>
             <property name="tightening-threshold">640</property>
             <property name="hexpand">true</property>
             <property name="vexpand">true</property>
             <property name="child">
-              <object class="AdwStatusPage" id="status_page">
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">16</property>
                 <property name="margin-start">24</property>
                 <property name="margin-end">24</property>
                 <property name="margin-top">24</property>
                 <property name="margin-bottom">24</property>
-                <property name="icon-name">io.github.astrovm.AdventureMods</property>
-                <property name="title" translatable="yes">Adventure Mods</property>
-                <property name="description" translatable="yes">Install mods for Sonic Adventure games with just a few clicks</property>
-                <property name="child">
-                  <object class="GtkBox" id="games_box">
+                <child>
+                  <object class="GtkBox">
                     <property name="orientation">vertical</property>
-                    <property name="spacing">18</property>
+                    <property name="spacing">8</property>
                     <property name="halign">center</property>
-                    <property name="valign">center</property>
+                    <property name="margin-bottom">4</property>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label" translatable="yes">Game Selection</property>
+                        <property name="justify">center</property>
+                        <property name="wrap">true</property>
+                        <style>
+                          <class name="title-1"/>
+                          <class name="welcome-section-title"/>
+                        </style>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label" translatable="yes">Choose which game to set up:</property>
+                        <property name="justify">center</property>
+                        <property name="wrap">true</property>
+                        <style>
+                          <class name="dim-label"/>
+                          <class name="welcome-subtitle"/>
+                        </style>
+                      </object>
+                    </child>
                   </object>
-                </property>
+                </child>
+                <child>
+                  <object class="GtkBox" id="alerts_box">
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">12</property>
+                    <property name="visible">false</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkBox" id="games_row">
+                    <property name="orientation">horizontal</property>
+                    <property name="spacing">16</property>
+                    <property name="halign">center</property>
+                    <property name="valign">start</property>
+                  </object>
+                </child>
               </object>
             </property>
           </object>

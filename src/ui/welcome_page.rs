@@ -3,8 +3,8 @@ use adw::subclass::prelude::*;
 use gtk::gio;
 use gtk::glib;
 
-use crate::steam::game::GameKind;
-use crate::steam::library::DetectionResult;
+use crate::steam::game::{Game, GameKind};
+use crate::steam::library::{DetectionResult, InaccessibleGame};
 use crate::ui::game_card::AdventureModsGameCard;
 
 mod imp {
@@ -14,9 +14,9 @@ mod imp {
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/welcome_page.ui")]
     pub struct AdventureModsWelcomePage {
         #[template_child]
-        pub games_box: TemplateChild<gtk::Box>,
+        pub alerts_box: TemplateChild<gtk::Box>,
         #[template_child]
-        pub status_page: TemplateChild<adw::StatusPage>,
+        pub games_row: TemplateChild<gtk::Box>,
     }
 
     #[glib::object_subclass]
@@ -38,7 +38,6 @@ mod imp {
     impl ObjectImpl for AdventureModsWelcomePage {
         fn constructed(&self) {
             self.parent_constructed();
-            self.status_page.set_icon_name(Some(crate::config::APP_ID));
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -46,7 +45,6 @@ mod imp {
             static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
             SIGNALS.get_or_init(|| {
                 vec![
-                    glib::subclass::Signal::builder("refresh").action().build(),
                     glib::subclass::Signal::builder("library-access-granted")
                         .param_types([String::static_type()])
                         .build(),
@@ -66,128 +64,70 @@ glib::wrapper! {
 
 impl AdventureModsWelcomePage {
     pub fn set_detection_result(&self, result: DetectionResult, nav_view: adw::NavigationView) {
-        let games_box = &self.imp().games_box;
+        let alerts_box = &self.imp().alerts_box;
+        let games_row = &self.imp().games_row;
 
-        while let Some(child) = games_box.first_child() {
-            games_box.remove(&child);
+        while let Some(child) = alerts_box.first_child() {
+            alerts_box.remove(&child);
+        }
+
+        while let Some(child) = games_row.first_child() {
+            games_row.remove(&child);
         }
 
         if !result.inaccessible.is_empty() {
             let inaccessible_names: Vec<&str> =
                 result.inaccessible.iter().map(|g| g.kind.name()).collect();
-            let label = gtk::Label::builder()
+            let alert = gtk::Label::builder()
                 .label(format!(
-                    "The following games are installed but their Steam library is inaccessible:\n{}\n\nThe partition may not be mounted, or Flatpak may need access to that library.",
+                    "Some Steam libraries still need access: {}. Those games stay visible below, and you can grant access directly from their cards.",
                     inaccessible_names.join(", ")
                 ))
-                .justify(gtk::Justification::Center)
                 .wrap(true)
+                .justify(gtk::Justification::Center)
                 .build();
-            label.add_css_class("warning");
-            games_box.append(&label);
-
-            for inaccessible in &result.inaccessible {
-                let path_label = gtk::Label::builder()
-                    .label(format!(
-                        "Steam library path: {}",
-                        inaccessible.library_path.display()
-                    ))
-                    .justify(gtk::Justification::Center)
-                    .wrap(true)
-                    .selectable(true)
-                    .margin_top(6)
-                    .build();
-                path_label.add_css_class("caption");
-                path_label.add_css_class("dim-label");
-                games_box.append(&path_label);
-
-                let grant_button = gtk::Button::builder()
-                    .label(format!(
-                        "Grant Access for {} Library",
-                        inaccessible.kind.name()
-                    ))
-                    .halign(gtk::Align::Center)
-                    .margin_top(8)
-                    .build();
-                let obj = self.clone();
-                let expected_library = inaccessible.library_path.clone();
-                grant_button.connect_clicked(move |_| {
-                    obj.request_library_access(expected_library.clone());
-                });
-                games_box.append(&grant_button);
-            }
-
-            let refresh_button = gtk::Button::builder()
-                .label("Refresh")
-                .halign(gtk::Align::Center)
-                .margin_top(12)
-                .build();
-            let obj = self.clone();
-            refresh_button.connect_clicked(move |_| {
-                obj.emit_by_name::<()>("refresh", &[]);
-            });
-            games_box.append(&refresh_button);
-
-            if !result.games.is_empty() {
-                let separator = gtk::Separator::builder()
-                    .orientation(gtk::Orientation::Horizontal)
-                    .margin_top(18)
-                    .margin_bottom(18)
-                    .build();
-                games_box.append(&separator);
-            }
+            alert.add_css_class("welcome-alert");
+            alerts_box.append(&alert);
         }
 
-        if result.games.is_empty() {
-            if result.inaccessible.is_empty() {
-                let label = gtk::Label::builder()
-                    .label(
-                        "No Sonic Adventure games found.\n\nInstall Sonic Adventure DX or Sonic Adventure 2 via Steam, then restart this app.",
-                    )
-                    .justify(gtk::Justification::Center)
-                    .build();
-                games_box.append(&label);
+        alerts_box.set_visible(alerts_box.first_child().is_some());
+
+        for card_spec in build_game_cards(&result) {
+            let card = AdventureModsGameCard::new();
+
+            match &card_spec.state {
+                GameCardState::Detected(game) => {
+                    card.set_detected(
+                        game,
+                        card_spec.installation_index,
+                        card_spec.installation_total,
+                    );
+                    let game_clone = game.clone();
+                    let nav_view_clone = nav_view.clone();
+                    card.connect_setup_clicked(move || {
+                        let setup_page =
+                            crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
+                        let nav_page = adw::NavigationPage::builder()
+                            .title(game_clone.kind.name())
+                            .child(&setup_page)
+                            .build();
+                        nav_view_clone.push(&nav_page);
+                    });
+                }
+                GameCardState::Missing => {
+                    card.set_missing(card_spec.kind);
+                }
+                GameCardState::Inaccessible(inaccessible) => {
+                    card.set_inaccessible(card_spec.kind, &inaccessible.library_path);
+                    let obj = self.clone();
+                    let expected_library = inaccessible.library_path.clone();
+                    card.connect_secondary_clicked(move || {
+                        obj.request_library_access(expected_library.clone());
+                    });
+                }
             }
-            return;
-        }
 
-        for kind in [GameKind::SADX, GameKind::SA2] {
-            let kind_games: Vec<_> = result.games.iter().filter(|g| g.kind == kind).collect();
-            if kind_games.is_empty() {
-                continue;
-            }
-
-            if kind_games.len() > 1 {
-                let label = gtk::Label::builder()
-                    .label(format!(
-                        "Multiple {} installations found. Select one to set up:",
-                        kind.name()
-                    ))
-                    .justify(gtk::Justification::Center)
-                    .wrap(true)
-                    .margin_bottom(4)
-                    .build();
-                label.add_css_class("heading");
-                games_box.append(&label);
-            }
-
-            for game in kind_games {
-                let card = AdventureModsGameCard::new(game);
-
-                let game_clone = game.clone();
-                let nav_view_clone = nav_view.clone();
-                card.connect_setup_clicked(move || {
-                    let setup_page =
-                        crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
-                    let nav_page = adw::NavigationPage::builder()
-                        .title(game_clone.kind.name())
-                        .child(&setup_page)
-                        .build();
-                    nav_view_clone.push(&nav_page);
-                });
-
-                games_box.append(&card);
-            }
+            games_row.append(&card);
         }
     }
 
@@ -222,5 +162,116 @@ impl AdventureModsWelcomePage {
                 }
             }
         });
+    }
+}
+
+#[derive(Clone, Debug)]
+struct GameCardSpec {
+    kind: GameKind,
+    state: GameCardState,
+    installation_index: usize,
+    installation_total: usize,
+}
+
+#[derive(Clone, Debug)]
+enum GameCardState {
+    Detected(Game),
+    Missing,
+    Inaccessible(InaccessibleGame),
+}
+
+fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
+    let mut cards = Vec::new();
+
+    for kind in [GameKind::SADX, GameKind::SA2] {
+        let kind_games: Vec<Game> = result
+            .games
+            .iter()
+            .filter(|game| game.kind == kind)
+            .cloned()
+            .collect();
+
+        if !kind_games.is_empty() {
+            let total = kind_games.len();
+            for (index, game) in kind_games.into_iter().enumerate() {
+                cards.push(GameCardSpec {
+                    kind,
+                    state: GameCardState::Detected(game),
+                    installation_index: index,
+                    installation_total: total,
+                });
+            }
+            continue;
+        }
+
+        let kind_inaccessible: Vec<InaccessibleGame> = result
+            .inaccessible
+            .iter()
+            .filter(|game| game.kind == kind)
+            .cloned()
+            .collect();
+
+        if !kind_inaccessible.is_empty() {
+            let total = kind_inaccessible.len();
+            for (index, inaccessible) in kind_inaccessible.into_iter().enumerate() {
+                cards.push(GameCardSpec {
+                    kind,
+                    state: GameCardState::Inaccessible(inaccessible),
+                    installation_index: index,
+                    installation_total: total,
+                });
+            }
+            continue;
+        }
+
+        cards.push(GameCardSpec {
+            kind,
+            state: GameCardState::Missing,
+            installation_index: 0,
+            installation_total: 1,
+        });
+    }
+
+    cards
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::steam::game::Game;
+    use crate::steam::library::InaccessibleGame;
+
+    #[test]
+    fn build_game_cards_always_includes_missing_games() {
+        let result = DetectionResult {
+            games: vec![Game {
+                kind: GameKind::SA2,
+                path: "/games/sa2".into(),
+            }],
+            inaccessible: vec![],
+        };
+
+        let cards = build_game_cards(&result);
+
+        assert_eq!(cards.len(), 2);
+        assert!(matches!(cards[0].state, GameCardState::Missing));
+        assert!(matches!(cards[1].state, GameCardState::Detected(_)));
+    }
+
+    #[test]
+    fn build_game_cards_marks_inaccessible_games() {
+        let result = DetectionResult {
+            games: vec![],
+            inaccessible: vec![InaccessibleGame {
+                kind: GameKind::SADX,
+                library_path: "/mnt/steam".into(),
+            }],
+        };
+
+        let cards = build_game_cards(&result);
+
+        assert!(matches!(cards[0].state, GameCardState::Inaccessible(_)));
+        assert!(matches!(cards[1].state, GameCardState::Missing));
     }
 }

@@ -1,21 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="AdventureModsGameCard" parent="GtkBox">
-    <property name="orientation">horizontal</property>
-    <property name="spacing">12</property>
+    <property name="orientation">vertical</property>
+    <property name="spacing">0</property>
+    <property name="width-request">180</property>
+    <property name="hexpand">false</property>
+    <property name="halign">center</property>
     <style>
       <class name="card"/>
       <class name="game-card"/>
     </style>
     <child>
+      <object class="GtkPicture" id="cover_picture">
+        <property name="width-request">180</property>
+        <property name="height-request">60</property>
+        <property name="can-shrink">true</property>
+        <property name="content-fit">cover</property>
+        <style>
+          <class name="game-card-cover"/>
+        </style>
+      </object>
+    </child>
+    <child>
       <object class="GtkBox">
         <property name="orientation">vertical</property>
-        <property name="spacing">4</property>
-        <property name="hexpand">true</property>
-        <property name="valign">center</property>
+        <property name="spacing">6</property>
+        <property name="margin-start">10</property>
+        <property name="margin-end">10</property>
+        <property name="margin-top">10</property>
+        <property name="margin-bottom">10</property>
+        <child>
+          <object class="GtkBox" id="status_row">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkImage" id="status_icon">
+                <property name="pixel-size">16</property>
+                <style>
+                  <class name="game-card-status-icon"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="badge_label">
+                <property name="xalign">0</property>
+                <style>
+                  <class name="game-card-badge"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
         <child>
           <object class="GtkLabel" id="title_label">
             <property name="xalign">0</property>
+            <property name="wrap">true</property>
             <style>
               <class name="game-card-title"/>
             </style>
@@ -24,17 +63,45 @@
         <child>
           <object class="GtkLabel" id="status_label">
             <property name="xalign">0</property>
+            <property name="wrap">true</property>
+            <style>
+              <class name="game-card-status"/>
+            </style>
           </object>
         </child>
-      </object>
-    </child>
-    <child>
-      <object class="GtkButton" id="setup_button">
-        <property name="label" translatable="yes">Set Up</property>
-        <property name="valign">center</property>
-        <style>
-          <class name="suggested-action"/>
-        </style>
+        <child>
+          <object class="GtkLabel" id="details_label">
+            <property name="xalign">0</property>
+            <property name="wrap">false</property>
+            <property name="ellipsize">end</property>
+            <property name="visible">false</property>
+            <style>
+              <class name="caption"/>
+              <class name="dim-label"/>
+            </style>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="action_box">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">8</property>
+            <property name="margin-top">4</property>
+            <child>
+              <object class="GtkButton" id="setup_button">
+                <property name="label" translatable="yes">Set Up</property>
+                <property name="halign">start</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="secondary_button">
+                <property name="visible">false</property>
+              </object>
+            </child>
+          </object>
+        </child>
       </object>
     </child>
   </template>

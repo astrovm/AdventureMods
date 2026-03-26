@@ -17,6 +17,8 @@ mod imp {
         #[template_child]
         pub header_bar: TemplateChild<adw::HeaderBar>,
         #[template_child]
+        pub refresh_button: TemplateChild<gtk::Button>,
+        #[template_child]
         pub navigation_view: TemplateChild<adw::NavigationView>,
         #[template_child]
         pub welcome_page: TemplateChild<AdventureModsWelcomePage>,
@@ -51,6 +53,7 @@ mod imp {
             }
 
             obj.setup_settings();
+            obj.setup_header_actions();
             obj.setup_welcome_page_signals();
             obj.detect_games();
         }
@@ -76,14 +79,6 @@ impl AdventureModsWindow {
     fn setup_welcome_page_signals(&self) {
         let welcome_page = self.imp().welcome_page.clone();
 
-        welcome_page.connect_local("refresh", true, {
-            let obj = self.clone();
-            move |_| {
-                obj.detect_games();
-                None
-            }
-        });
-
         welcome_page.connect_local("library-access-granted", true, {
             let obj = self.clone();
             move |args| {
@@ -101,6 +96,14 @@ impl AdventureModsWindow {
                 obj.detect_games();
                 None
             }
+        });
+    }
+
+    fn setup_header_actions(&self) {
+        let refresh_button = self.imp().refresh_button.clone();
+        let obj = self.clone();
+        refresh_button.connect_clicked(move |_| {
+            obj.detect_games();
         });
     }
 

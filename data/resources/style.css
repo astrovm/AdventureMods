@@ -1,18 +1,105 @@
 .game-card {
-    padding: 12px;
+    min-width: 180px;
+    max-width: 180px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+}
+
+.welcome-title {
+    letter-spacing: 0.02em;
+}
+
+.welcome-section-title {
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.welcome-subtitle {
+    font-size: 1em;
+}
+
+.welcome-refresh-button {
+    border-radius: 999px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    background: alpha(@accent_color, 0.10);
+}
+
+.game-card-cover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.game-card-clickable {
+    transition: box-shadow 160ms ease, transform 160ms ease;
+}
+
+.game-card-clickable:hover {
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
 }
 
 .game-card-title {
     font-weight: bold;
-    font-size: 1.2em;
+    font-size: 0.95em;
 }
 
-.game-card-status-installed {
+.game-card-badge {
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.72em;
+}
+
+.game-card-status {
+    font-weight: 600;
+    font-size: 0.84em;
+}
+
+.game-card-status-icon {
+    margin-top: 1px;
+}
+
+.game-card-status-icon-installed {
     color: @success_color;
 }
 
-.game-card-status-missing {
+.game-card-status-icon-missing {
     color: @warning_color;
+}
+
+.game-card-status-icon-inaccessible {
+    color: @accent_color;
+}
+
+.game-card-status-installed,
+.game-card-badge-installed {
+    color: @success_color;
+}
+
+.game-card-status-missing,
+.game-card-badge-missing {
+    color: @warning_color;
+}
+
+.game-card-status-inaccessible,
+.game-card-badge-inaccessible {
+    color: @accent_color;
+}
+
+.game-card-missing {
+    opacity: 0.8;
+}
+
+.game-card-inaccessible {
+    border: 1px solid alpha(@accent_color, 0.24);
+}
+
+.welcome-alert {
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: alpha(@accent_color, 0.10);
 }
 
 .setup-step-current {

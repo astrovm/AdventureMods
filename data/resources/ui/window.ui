@@ -9,6 +9,19 @@
         <child type="top">
           <object class="AdwHeaderBar" id="header_bar">
             <property name="centering-policy">strict</property>
+            <child type="end">
+              <object class="GtkButton" id="refresh_button">
+                <property name="tooltip-text" translatable="yes">Refresh detected Steam libraries</property>
+                <style>
+                  <class name="flat"/>
+                </style>
+                <child>
+                  <object class="GtkImage">
+                    <property name="icon-name">view-refresh-symbolic</property>
+                  </object>
+                </child>
+              </object>
+            </child>
           </object>
         </child>
         <property name="content">
