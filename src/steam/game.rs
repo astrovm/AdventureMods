@@ -6,7 +6,7 @@ pub struct Game {
     pub path: PathBuf,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameKind {
     SADX,
     SA2,

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::steam::game::{Game, GameKind};
@@ -9,10 +10,12 @@ pub struct InaccessibleGame {
     pub library_path: PathBuf,
 }
 
-fn steam_root() -> Option<PathBuf> {
-    let home = dirs::home_dir()?;
+fn steam_roots() -> Vec<PathBuf> {
+    let Some(home) = dirs::home_dir() else {
+        return vec![];
+    };
 
-    // Check common Steam paths
+    // Check all common Steam paths, including both native and Flatpak installs
     let candidates = [
         home.join(".steam/debian-installation"),
         home.join(".steam/steam"),
@@ -20,23 +23,38 @@ fn steam_root() -> Option<PathBuf> {
         home.join(".var/app/com.valvesoftware.Steam/.local/share/Steam"),
     ];
 
-    candidates.into_iter().find(|p| p.is_dir())
+    candidates.into_iter().filter(|p| p.is_dir()).collect()
 }
 
-fn library_folders_path() -> Option<PathBuf> {
-    let root = steam_root()?;
-    let path = root.join("steamapps/libraryfolders.vdf");
-    if path.is_file() { Some(path) } else { None }
+fn library_folders_paths() -> Vec<PathBuf> {
+    let mut seen: HashSet<PathBuf> = HashSet::new();
+    let mut result = vec![];
+
+    for root in steam_roots() {
+        let path = root.join("steamapps/libraryfolders.vdf");
+        if path.is_file() {
+            // Deduplicate by canonical path in case multiple Steam roots share a symlink
+            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if seen.insert(canonical) {
+                result.push(path);
+            }
+        }
+    }
+
+    result
 }
 
-fn find_game_in_libraries(
+fn find_all_games_in_libraries(
     libraries: &vdf::VdfValue,
     kind: GameKind,
-) -> (Option<PathBuf>, Option<InaccessibleGame>) {
+) -> (Vec<PathBuf>, Vec<InaccessibleGame>) {
     let app_id = kind.app_id().to_string();
+    let mut paths = vec![];
+    let mut inaccessible = vec![];
+
     let folders = match libraries.get("libraryfolders").and_then(|v| v.as_map()) {
         Some(f) => f,
-        None => return (None, None),
+        None => return (vec![], vec![]),
     };
 
     for folder in folders.values() {
@@ -62,21 +80,17 @@ fn find_game_in_libraries(
                     kind.name(),
                     lib_path.display()
                 );
-                return (
-                    None,
-                    Some(InaccessibleGame {
-                        kind,
-                        library_path: lib_path.to_path_buf(),
-                    }),
-                );
-            }
-
-            if let Some(game_path) = find_game_in_library_path(lib_path, kind) {
-                return (Some(game_path), None);
+                inaccessible.push(InaccessibleGame {
+                    kind,
+                    library_path: lib_path.to_path_buf(),
+                });
+            } else if let Some(game_path) = find_game_in_library_path(lib_path, kind) {
+                paths.push(game_path);
             }
         }
     }
-    (None, None)
+
+    (paths, inaccessible)
 }
 
 fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf> {
@@ -115,33 +129,55 @@ fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf>
     }
 }
 
-fn detect_games_from_parsed_vdf(
-    root: &vdf::VdfValue,
+fn detect_games_from_parsed_vdfs(
+    roots: &[vdf::VdfValue],
     extra_libraries: &[PathBuf],
 ) -> DetectionResult {
     let mut result = DetectionResult::default();
 
     for kind in [GameKind::SADX, GameKind::SA2] {
-        let (path, inaccessible) = find_game_in_libraries(root, kind);
+        let mut seen_canonical: HashSet<PathBuf> = HashSet::new();
+        let mut kind_inaccessible: Vec<InaccessibleGame> = vec![];
 
-        if let Some(p) = path {
-            result.games.push(Game { kind, path: p });
-        } else if let Some(inc) = inaccessible {
-            result.inaccessible.push(inc);
-        } else {
-            tracing::info!("{} not found", kind.name());
-        }
-    }
+        for root in roots {
+            let (paths, inaccessible) = find_all_games_in_libraries(root, kind);
 
-    for lib_path in extra_libraries {
-        for kind in [GameKind::SADX, GameKind::SA2] {
-            if result.games.iter().any(|game| game.kind == kind) {
-                continue;
+            for path in paths {
+                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+                if seen_canonical.insert(canonical) {
+                    result.games.push(Game { kind, path });
+                }
             }
 
+            kind_inaccessible.extend(inaccessible);
+        }
+
+        for lib_path in extra_libraries {
             if let Some(path) = find_game_in_library_path(lib_path, kind) {
-                result.games.push(Game { kind, path });
-                result.inaccessible.retain(|inc| inc.kind != kind);
+                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+                if seen_canonical.insert(canonical) {
+                    result.games.push(Game { kind, path });
+                }
+            }
+        }
+
+        let kind_found = result.games.iter().any(|g| g.kind == kind);
+
+        if kind_found {
+            // Drop any inaccessible entries for this kind since we found it
+        } else if kind_inaccessible.is_empty() {
+            tracing::info!("{} not found", kind.name());
+        } else {
+            // Deduplicate inaccessible entries by canonical library path
+            let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
+            for inc in kind_inaccessible {
+                let canonical = inc
+                    .library_path
+                    .canonicalize()
+                    .unwrap_or_else(|_| inc.library_path.clone());
+                if seen_inacc.insert(canonical) {
+                    result.inaccessible.push(inc);
+                }
             }
         }
     }
@@ -181,19 +217,28 @@ pub fn detect_games_from_vdf_with_extra_libraries(
         }
     };
 
-    detect_games_from_parsed_vdf(&root, extra_libraries)
+    detect_games_from_parsed_vdfs(&[root], extra_libraries)
 }
 
 pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> DetectionResult {
-    let vdf_path = match library_folders_path() {
-        Some(p) => p,
-        None => {
-            tracing::warn!("Could not find libraryfolders.vdf");
-            return DetectionResult::default();
-        }
-    };
+    let vdf_paths = library_folders_paths();
 
-    detect_games_from_vdf_with_extra_libraries(&vdf_path, extra_libraries)
+    if vdf_paths.is_empty() {
+        tracing::warn!("Could not find any libraryfolders.vdf");
+    }
+
+    let mut roots = vec![];
+    for vdf_path in &vdf_paths {
+        match std::fs::read_to_string(vdf_path) {
+            Ok(content) => match vdf::parse(&content) {
+                Some(root) => roots.push(root),
+                None => tracing::warn!("Failed to parse VDF at {}", vdf_path.display()),
+            },
+            Err(e) => tracing::warn!("Failed to read {}: {}", vdf_path.display(), e),
+        }
+    }
+
+    detect_games_from_parsed_vdfs(&roots, extra_libraries)
 }
 
 #[cfg(test)]
@@ -235,9 +280,9 @@ mod tests {
         std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert_eq!(path, Some(game_dir));
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert_eq!(paths, vec![game_dir]);
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -251,9 +296,9 @@ mod tests {
         std::fs::write(game_dir.join("sonic2app.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SA2);
-        assert_eq!(path, Some(game_dir));
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+        assert_eq!(paths, vec![game_dir]);
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -268,7 +313,7 @@ mod tests {
 
         let inaccessible_path = tmp.path().join("missing-library");
         let root = mock_vdf(inaccessible_path.to_str().unwrap(), &["71250"]);
-        let result = detect_games_from_parsed_vdf(&root, std::slice::from_ref(&extra_lib));
+        let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&extra_lib));
 
         assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
         assert!(
@@ -283,29 +328,29 @@ mod tests {
     fn test_game_not_in_libraries() {
         let tmp = tempfile::tempdir().unwrap();
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["400", "500"]);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SA2);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
     fn test_missing_libraryfolders_key() {
         let root = vdf::VdfValue::Map(HashMap::new());
-        let (path, inaccessible) = find_game_in_libraries(&root, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&root, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
     fn test_find_game_app_present_but_dir_missing() {
         let tmp = tempfile::tempdir().unwrap();
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -323,9 +368,9 @@ mod tests {
         root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
 
         let vdf = vdf::VdfValue::Map(root);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -343,9 +388,9 @@ mod tests {
         root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
 
         let vdf = vdf::VdfValue::Map(root);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -356,9 +401,9 @@ mod tests {
             vdf::VdfValue::String("oops".to_string()),
         );
         let vdf = vdf::VdfValue::Map(root);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -378,12 +423,12 @@ mod tests {
         std::fs::write(sa2_dir.join("sonic2app.exe"), "").unwrap();
 
         let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250", "213610"]);
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert_eq!(path, Some(sadx_dir));
-        assert!(inaccessible.is_none());
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SA2);
-        assert_eq!(path, Some(sa2_dir));
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert_eq!(paths, vec![sadx_dir]);
+        assert!(inaccessible.is_empty());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+        assert_eq!(paths, vec![sa2_dir]);
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -501,9 +546,9 @@ mod tests {
         root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
         let vdf = vdf::VdfValue::Map(root);
 
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SA2);
-        assert_eq!(path, Some(game_dir));
-        assert!(inaccessible.is_none());
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+        assert_eq!(paths, vec![game_dir]);
+        assert!(inaccessible.is_empty());
     }
 
     #[test]
@@ -524,10 +569,90 @@ mod tests {
         root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
         let vdf = vdf::VdfValue::Map(root);
 
-        let (path, inaccessible) = find_game_in_libraries(&vdf, GameKind::SADX);
-        assert!(path.is_none());
-        let inc = inaccessible.expect("Should detect inaccessible game");
+        let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+        assert!(paths.is_empty());
+        assert_eq!(inaccessible.len(), 1);
+        let inc = &inaccessible[0];
         assert_eq!(inc.kind, GameKind::SADX);
         assert_eq!(inc.library_path, PathBuf::from("/mnt/games/SteamLibrary"));
+    }
+
+    #[test]
+    fn test_duplicate_installations_across_steam_roots() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lib1 = tmp.path().join("lib1");
+        let lib2 = tmp.path().join("lib2");
+
+        for lib in [&lib1, &lib2] {
+            let game_dir = lib
+                .join("steamapps/common")
+                .join(GameKind::SADX.install_dir());
+            std::fs::create_dir_all(&game_dir).unwrap();
+            std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+        }
+
+        let root1 = mock_vdf(lib1.to_str().unwrap(), &["71250"]);
+        let root2 = mock_vdf(lib2.to_str().unwrap(), &["71250"]);
+
+        let result = detect_games_from_parsed_vdfs(&[root1, root2], &[]);
+
+        // Both distinct installations should be reported
+        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
+        assert_eq!(sadx_installs.len(), 2, "Expected both SADX installations to be reported");
+        assert!(result.inaccessible.is_empty());
+    }
+
+    #[test]
+    fn test_duplicate_installations_same_path_deduped() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lib = tmp.path().join("lib");
+        let game_dir = lib
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+
+        // Two Steam roots pointing to the same library
+        let root1 = mock_vdf(lib.to_str().unwrap(), &["71250"]);
+        let root2 = mock_vdf(lib.to_str().unwrap(), &["71250"]);
+
+        let result = detect_games_from_parsed_vdfs(&[root1, root2], &[]);
+
+        // Same physical path should only appear once
+        let sadx_installs: Vec<_> = result.games.iter().filter(|g| g.kind == GameKind::SADX).collect();
+        assert_eq!(sadx_installs.len(), 1, "Same path from two Steam roots should be deduplicated");
+    }
+
+    #[test]
+    fn test_inaccessible_deduped_across_roots() {
+        let mut folder = HashMap::new();
+        folder.insert(
+            "path".to_string(),
+            vdf::VdfValue::String("/mnt/games/SteamLibrary".to_string()),
+        );
+        let mut apps = HashMap::new();
+        apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
+        folder.insert("apps".to_string(), vdf::VdfValue::Map(apps.clone()));
+
+        let mut folders = HashMap::new();
+        folders.insert("0".to_string(), vdf::VdfValue::Map(folder.clone()));
+
+        let mut root_map = HashMap::new();
+        root_map.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders.clone()));
+        let root1 = vdf::VdfValue::Map(root_map.clone());
+
+        // Second root with same inaccessible library
+        let mut root_map2 = HashMap::new();
+        root_map2.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+        let root2 = vdf::VdfValue::Map(root_map2);
+
+        let result = detect_games_from_parsed_vdfs(&[root1, root2], &[]);
+
+        // Same inaccessible library from two roots should only appear once
+        assert_eq!(
+            result.inaccessible.len(),
+            1,
+            "Same inaccessible library from two roots should be deduplicated"
+        );
     }
 }
