@@ -10,7 +10,7 @@ pub struct InaccessibleGame {
     pub library_path: PathBuf,
 }
 
-fn steam_roots() -> Vec<PathBuf> {
+pub(crate) fn steam_roots() -> Vec<PathBuf> {
     let Some(home) = dirs::home_dir() else {
         return vec![];
     };

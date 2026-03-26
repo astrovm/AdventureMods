@@ -5,34 +5,48 @@ use std::process::Output;
 use anyhow::{Context, Result};
 
 use super::flatpak;
+use crate::steam::{library, vdf};
+
+/// Locate the Proton installation configured by Steam for a specific game.
+///
+/// If Steam does not have an app-specific mapping, falls back to the newest
+/// installed Proton found in the same library as the game.
+pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
+    if let Some(mapped) = find_compat_tool_mapping(game_path, app_id)? {
+        tracing::info!(
+            "Selected Proton from Steam compat mapping for app {} at {}",
+            app_id,
+            mapped.display()
+        );
+        return Ok(mapped);
+    }
+
+    find_proton(game_path)
+}
 
 /// Locate the Proton installation to use for a game.
 ///
-/// Searches `steamapps/common/` in the same library as the game for directories
-/// matching `Proton *` or `Proton - Experimental`. Picks the highest numeric
-/// version, falling back to `Proton - Experimental` if no numbered version
-/// has a working Wine binary.
+/// Searches Proton directories in the game's library and known Steam client
+/// roots for directories matching `Proton *` or `Proton - Experimental`.
+/// Picks the highest numeric version, falling back to `Proton - Experimental`
+/// if no numbered version has a working Wine binary.
 pub fn find_proton(game_path: &Path) -> Result<PathBuf> {
-    let steamapps = steamapps_dir(game_path)?;
-    let common = steamapps.join("common");
-
-    if !common.is_dir() {
-        anyhow::bail!("Steam common directory not found at {}", common.display());
-    }
-
     let mut candidates: Vec<(PathBuf, ProtonVersion)> = Vec::new();
 
-    let entries = std::fs::read_dir(&common)
-        .with_context(|| format!("Failed to read {}", common.display()))?;
+    for common in proton_common_dirs(game_path)? {
+        let entries = std::fs::read_dir(&common)
+            .with_context(|| format!("Failed to read {}", common.display()))?;
 
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
 
-        if let Some(version) = parse_proton_dir_name(&name_str) {
-            let dir = entry.path();
-            if has_wine_binary(&dir) {
-                candidates.push((dir, version));
+            if let Some(version) = parse_proton_dir_name(&name_str) {
+                let dir = entry.path();
+                if has_wine_binary(&dir) && !candidates.iter().any(|(existing, _)| existing == &dir)
+                {
+                    candidates.push((dir, version));
+                }
             }
         }
     }
@@ -40,7 +54,7 @@ pub fn find_proton(game_path: &Path) -> Result<PathBuf> {
     if candidates.is_empty() {
         anyhow::bail!(
             "No Proton installation found in {}. Install Proton through Steam first.",
-            common.display()
+            steamapps_dir(game_path)?.display()
         );
     }
 
@@ -57,9 +71,7 @@ pub fn proton_env(game_path: &Path, app_id: u32) -> Result<HashMap<String, Strin
     let steamapps = steamapps_dir(game_path)?;
     let compat_data = steamapps.join("compatdata").join(app_id.to_string());
     let prefix = compat_data.join("pfx");
-
-    // Steam root is one level above steamapps/
-    let steam_root = steamapps.parent().unwrap_or(&steamapps).to_path_buf();
+    let steam_root = steam_client_root(game_path)?;
 
     let mut env = HashMap::new();
     env.insert("WINEPREFIX".into(), prefix.to_string_lossy().into_owned());
@@ -86,7 +98,7 @@ pub fn run_in_prefix(
     exe: &Path,
     extra_args: &[&str],
 ) -> Result<Output> {
-    let proton_dir = find_proton(game_path)?;
+    let proton_dir = find_proton_for_app(game_path, app_id)?;
     let env = proton_env(game_path, app_id)?;
 
     let wine = wine_binary(&proton_dir);
@@ -106,6 +118,233 @@ pub fn run_in_prefix(
     );
 
     flatpak::host_command_with_env_sync(&wine_str, &arg_refs, &env)
+}
+
+fn find_compat_tool_mapping(game_path: &Path, app_id: u32) -> Result<Option<PathBuf>> {
+    let steamapps = steamapps_dir(game_path)?;
+    let steam_roots = steam_root_candidates(game_path)?;
+
+    for steam_root in &steam_roots {
+        for tool_name in compat_tool_names_from_config(steam_root, app_id)? {
+            if let Some(path) = resolve_compat_tool_path(steam_root, &steamapps, &tool_name) {
+                return Ok(Some(path));
+            }
+
+            tracing::warn!(
+                "Steam compat mapping for app {} points to '{}' but no usable Wine binary was found",
+                app_id,
+                tool_name
+            );
+        }
+
+        for localconfig_path in localconfig_paths(steam_root)? {
+            let tool_name = match compat_tool_name_from_localconfig(&localconfig_path, app_id) {
+                Ok(tool_name) => tool_name,
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to read Steam compat mapping from {}: {err}",
+                        localconfig_path.display()
+                    );
+                    continue;
+                }
+            };
+
+            let Some(tool_name) = tool_name else {
+                continue;
+            };
+
+            if let Some(path) = resolve_compat_tool_path(steam_root, &steamapps, &tool_name) {
+                return Ok(Some(path));
+            }
+
+            tracing::warn!(
+                "Steam compat mapping for app {} points to '{}' but no usable Wine binary was found",
+                app_id,
+                tool_name
+            );
+        }
+    }
+
+    Ok(None)
+}
+
+fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
+    let steamapps = steamapps_dir(game_path)?;
+    let derived_root = steamapps.parent().unwrap_or(&steamapps);
+    let mut roots = Vec::new();
+
+    roots.push(derived_root.to_path_buf());
+    roots.extend(library::steam_roots());
+
+    let mut unique = Vec::new();
+    for root in roots {
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
+        if !unique.iter().any(|existing| existing == &canonical) {
+            unique.push(canonical);
+        }
+    }
+
+    Ok(unique)
+}
+
+fn steam_client_root(game_path: &Path) -> Result<PathBuf> {
+    let steamapps = steamapps_dir(game_path)?;
+
+    for root in steam_root_candidates(game_path)? {
+        if root.join("config/config.vdf").is_file() {
+            return Ok(root);
+        }
+    }
+
+    Ok(steamapps.parent().unwrap_or(&steamapps).to_path_buf())
+}
+
+fn proton_common_dirs(game_path: &Path) -> Result<Vec<PathBuf>> {
+    let steamapps = steamapps_dir(game_path)?;
+    let mut dirs = Vec::new();
+
+    let current_library_common = steamapps.join("common");
+    if current_library_common.is_dir() {
+        dirs.push(current_library_common);
+    }
+
+    for steam_root in steam_root_candidates(game_path)? {
+        let common = steam_root.join("steamapps/common");
+        if common.is_dir() && !dirs.iter().any(|existing| existing == &common) {
+            dirs.push(common);
+        }
+    }
+
+    if dirs.is_empty() {
+        anyhow::bail!(
+            "Steam common directory not found for {}",
+            game_path.display()
+        );
+    }
+
+    Ok(dirs)
+}
+
+fn compat_tool_names_from_config(steam_root: &Path, app_id: u32) -> Result<Vec<String>> {
+    let config_path = steam_root.join("config/config.vdf");
+    if !config_path.is_file() {
+        return Ok(Vec::new());
+    }
+
+    let content = std::fs::read_to_string(&config_path)
+        .with_context(|| format!("Failed to read {}", config_path.display()))?;
+    let Some(root) = vdf::parse(&content) else {
+        anyhow::bail!("Failed to parse {}", config_path.display());
+    };
+
+    let Some(mapping) = root
+        .get("InstallConfigStore")
+        .and_then(|v| v.get("Software"))
+        .and_then(|v| v.get("Valve"))
+        .and_then(|v| v.get("Steam"))
+        .and_then(|v| v.get("CompatToolMapping"))
+    else {
+        return Ok(Vec::new());
+    };
+
+    let app_id = app_id.to_string();
+    let mut names = Vec::new();
+
+    for key in [app_id.as_str(), "0"] {
+        if let Some(name) = mapping
+            .get(key)
+            .and_then(|v| v.get("name"))
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        {
+            if !names.iter().any(|existing| existing == name) {
+                names.push(name.to_owned());
+            }
+        }
+    }
+
+    Ok(names)
+}
+
+fn localconfig_paths(steam_root: &Path) -> Result<Vec<PathBuf>> {
+    let userdata = steam_root.join("userdata");
+    if !userdata.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut paths = Vec::new();
+    let entries = std::fs::read_dir(&userdata)
+        .with_context(|| format!("Failed to read {}", userdata.display()))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path().join("config/localconfig.vdf");
+        if path.is_file() {
+            paths.push(path);
+        }
+    }
+
+    Ok(paths)
+}
+
+fn compat_tool_name_from_localconfig(
+    localconfig_path: &Path,
+    app_id: u32,
+) -> Result<Option<String>> {
+    let content = std::fs::read_to_string(localconfig_path)
+        .with_context(|| format!("Failed to read {}", localconfig_path.display()))?;
+    let Some(root) = vdf::parse(&content) else {
+        anyhow::bail!("Failed to parse {}", localconfig_path.display());
+    };
+
+    Ok(root
+        .get("UserLocalConfigStore")
+        .and_then(|v| v.get("Software"))
+        .and_then(|v| v.get("Valve"))
+        .and_then(|v| v.get("Steam"))
+        .and_then(|v| v.get("CompatToolMapping"))
+        .and_then(|v| v.get(&app_id.to_string()))
+        .and_then(|v| v.get("name"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(ToOwned::to_owned))
+}
+
+fn resolve_compat_tool_path(
+    steam_root: &Path,
+    steamapps: &Path,
+    tool_name: &str,
+) -> Option<PathBuf> {
+    compat_tool_dir_candidates(tool_name)
+        .into_iter()
+        .flat_map(|candidate| {
+            [
+                steamapps.join("common").join(&candidate),
+                steam_root.join("steamapps/common").join(&candidate),
+                steam_root.join("compatibilitytools.d").join(&candidate),
+            ]
+        })
+        .find(|path| has_wine_binary(path))
+}
+
+fn compat_tool_dir_candidates(tool_name: &str) -> Vec<String> {
+    let trimmed = tool_name.trim();
+    let mut candidates = vec![trimmed.to_owned()];
+
+    let aliases = match trimmed {
+        "proton_experimental" => vec!["Proton - Experimental", "Proton Experimental"],
+        "proton_hotfix" => vec!["Proton Hotfix"],
+        _ => Vec::new(),
+    };
+
+    for alias in aliases {
+        if !candidates.iter().any(|candidate| candidate == alias) {
+            candidates.push(alias.to_owned());
+        }
+    }
+
+    candidates
 }
 
 /// Navigate from a game install path up to the steamapps/ directory.
@@ -342,6 +581,263 @@ mod tests {
 
         let result = find_proton(&game_path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_find_proton_for_app_uses_game_compat_mapping() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton8 = common.join("Proton 8.0/files/bin");
+        let proton9 = common.join("Proton 9.0/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton8).unwrap();
+        std::fs::create_dir_all(&proton9).unwrap();
+        std::fs::write(proton8.join("wine64"), "").unwrap();
+        std::fs::write(proton9.join("wine64"), "").unwrap();
+
+        let localconfig = steam_root.join("userdata/12345/config");
+        std::fs::create_dir_all(&localconfig).unwrap();
+        std::fs::write(
+            localconfig.join("localconfig.vdf"),
+            r#""UserLocalConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "Proton 8.0"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = find_proton_for_app(&game_path, 71250).unwrap();
+        assert_eq!(result, common.join("Proton 8.0"));
+    }
+
+    #[test]
+    fn test_find_proton_for_app_falls_back_when_mapping_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let common = tmp.path().join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton8 = common.join("Proton 8.0/files/bin");
+        let proton9 = common.join("Proton 9.0/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton8).unwrap();
+        std::fs::create_dir_all(&proton9).unwrap();
+        std::fs::write(proton8.join("wine64"), "").unwrap();
+        std::fs::write(proton9.join("wine64"), "").unwrap();
+
+        let result = find_proton_for_app(&game_path, 71250).unwrap();
+        assert_eq!(result, common.join("Proton 9.0"));
+    }
+
+    #[test]
+    fn test_find_proton_for_app_supports_compatibility_tools_d() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton9 = common.join("Proton 9.0/files/bin");
+        let ge = steam_root.join("compatibilitytools.d/GE-Proton/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton9).unwrap();
+        std::fs::create_dir_all(&ge).unwrap();
+        std::fs::write(proton9.join("wine64"), "").unwrap();
+        std::fs::write(ge.join("wine64"), "").unwrap();
+
+        let localconfig = steam_root.join("userdata/12345/config");
+        std::fs::create_dir_all(&localconfig).unwrap();
+        std::fs::write(
+            localconfig.join("localconfig.vdf"),
+            r#""UserLocalConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "GE-Proton"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = find_proton_for_app(&game_path, 71250).unwrap();
+        assert_eq!(result, steam_root.join("compatibilitytools.d/GE-Proton"));
+    }
+
+    #[test]
+    fn test_find_proton_for_app_uses_global_compat_mapping_from_config_vdf() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let ge = steam_root.join("compatibilitytools.d/GE-Proton10-33/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::create_dir_all(&ge).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::write(ge.join("wine64"), "").unwrap();
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"  "GE-Proton10-33"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = find_proton_for_app(&game_path, 71250).unwrap();
+        assert_eq!(
+            result,
+            steam_root.join("compatibilitytools.d/GE-Proton10-33")
+        );
+    }
+
+    #[test]
+    fn test_find_proton_for_app_prefers_app_specific_config_mapping_over_global() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let proton_hotfix = common.join("Proton Hotfix/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::create_dir_all(&proton_hotfix).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::write(proton_hotfix.join("wine64"), "").unwrap();
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"  "Proton - Experimental"
+                    }
+                    "71250"
+                    {
+                        "name"  "Proton Hotfix"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = find_proton_for_app(&game_path, 71250).unwrap();
+        assert_eq!(result, steam_root.join("steamapps/common/Proton Hotfix"));
+    }
+
+    #[test]
+    fn test_find_proton_for_app_resolves_internal_experimental_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure 2");
+        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let ge = steam_root.join("compatibilitytools.d/GE-Proton10-33/files/bin");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&proton_exp).unwrap();
+        std::fs::create_dir_all(&ge).unwrap();
+        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::write(ge.join("wine64"), "").unwrap();
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"  "GE-Proton10-33"
+                    }
+                    "213610"
+                    {
+                        "name"  "proton_experimental"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        let result = find_proton_for_app(&game_path, 213610).unwrap();
+        assert_eq!(
+            result,
+            steam_root.join("steamapps/common/Proton - Experimental")
+        );
     }
 
     #[test]
