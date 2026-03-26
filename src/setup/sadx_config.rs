@@ -310,7 +310,7 @@ mod tests {
     fn test_generate_creates_all_files() {
         let tmp = tempfile::tempdir().unwrap();
         let game_path = tmp.path();
-        std::fs::create_dir_all(game_path.join("System")).unwrap();
+        std::fs::create_dir_all(game_path.join("system")).unwrap();
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
@@ -338,13 +338,13 @@ mod tests {
                 .is_file()
         );
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
-        assert!(game_path.join("System/sonicDX.ini").is_file());
+        assert!(game_path.join("system/sonicDX.ini").is_file());
     }
 
     #[test]
     fn test_default_profile_mods_and_patches() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn test_profiles_match_across_locations() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
@@ -401,10 +401,10 @@ mod tests {
     #[test]
     fn test_sonic_dx_ini_content() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         write_sonic_dx_ini(tmp.path()).unwrap();
 
-        let content = std::fs::read_to_string(tmp.path().join("System/sonicDX.ini")).unwrap();
+        let content = std::fs::read_to_string(tmp.path().join("system/sonicDX.ini")).unwrap();
         assert!(content.contains("[sonicDX]"));
         assert!(content.contains("framerate=1"));
         assert!(content.contains("bgmv=100"));
@@ -414,7 +414,7 @@ mod tests {
     #[test]
     fn test_empty_mod_selection() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
@@ -433,7 +433,7 @@ mod tests {
     #[test]
     fn test_json_field_names_match_sa_mod_manager() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 
         let profile =
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn test_game_path_in_profile() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
         generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
 

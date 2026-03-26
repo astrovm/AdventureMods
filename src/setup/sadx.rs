@@ -1105,8 +1105,8 @@ mod tests {
     #[test]
     fn test_convert_skips_if_chrmodels_orig_exists() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
-        std::fs::write(tmp.path().join("System/CHRMODELS_orig.dll"), "dummy").unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        std::fs::write(tmp.path().join("system/CHRMODELS_orig.dll"), "dummy").unwrap();
 
         // Should return Ok without needing hpatchz or downloads
         convert_steam_to_2004(tmp.path(), None).unwrap();

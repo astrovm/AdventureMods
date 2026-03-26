@@ -112,7 +112,9 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
 
         // Steam-to-2004 conversion (SADX only): same markers as convert_steam_to_2004
         "convert_steam" => {
-            find_file_icase(&config::system_dir(p), "CHRMODELS_orig.dll").is_some()
+            sadx_data_dir(p)
+                .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
+                .is_some()
                 || p.join("SADXModLoader.dll").exists()
                 || p.join("mods/.modloader/SADXModLoader.dll").exists()
                 || p.join("sonic.exe").exists()
@@ -309,7 +311,7 @@ pub fn install_mod_loader(
 /// game executable loads at startup is backed up (with an `_orig` suffix) and
 /// the mod loader DLL is copied in its place.
 ///
-/// - SADX: `System/CHRMODELS.dll` → `System/CHRMODELS_orig.dll`
+/// - SADX: `system/CHRMODELS.dll` → `system/CHRMODELS_orig.dll`
 /// - SA2:  `resource/gd_PC/DLL/Win32/Data_DLL.dll` → `…/Data_DLL_orig.dll`
 fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     let (loader_dll_name, data_dll_path, orig_dll_path) = match game_kind {
