@@ -121,11 +121,32 @@ Key decisions and gotchas for the AppImage packaging:
 
 **Mod pipeline**: `ModEntry` defines each mod with a `ModSource` (`GameBanana { file_id }` or `DirectUrl { url }`). Downloads stream with progress via reqwest. Sources include GameBanana, dcmods.unreliable.network, GitHub, and GitLab. Config generation writes `Default.json` with native resolution, optimal settings, and mod load order.
 
+## Agent Approach
+
+- Read existing files before writing or modifying code. Never edit blind.
+- Prefer editing over rewriting whole files.
+- Do not re-read files already read unless the file may have changed.
+- One focused coding pass. Avoid write-delete-rewrite cycles.
+- Test once, fix if needed, verify once. No unnecessary iterations.
+- Keep solutions simple and direct. No over-engineering.
+- If unsure, say so. Never guess or invent file paths.
+- Return code first. Explanation after, only if non-obvious.
+- No boilerplate, docstrings, or type annotations on code not being changed.
+- No speculative features or "you might also want..." additions.
+- User instructions always override this file.
+
+## Review and Debugging
+
+- State the bug. Show the fix. Stop. No suggestions beyond the scope of the review.
+- Never speculate about a bug without reading the relevant code first. State what you found, where, and the fix in one pass.
+- If the cause is unclear, say so. Do not guess.
+
 ## Conventions
 
-- **Writing style**: Text must sound natural and human-written. Avoid unnecessary em-dashes (use commas, periods, or nothing), overly complex sentences, AI-typical phrasing, corporate or excessively formal language, and bullet lists where a paragraph works better. Keep the tone conversational, direct, and simple.
+- **Writing style**: Text must sound natural and human-written. Avoid unnecessary em-dashes (use commas, periods, or nothing), overly complex sentences, AI-typical phrasing, corporate or excessively formal language, and bullet lists where a paragraph works better. Keep the tone conversational, direct, and simple. Code output must use plain hyphens and straight quotes -- no smart quotes or Unicode bullets.
 - **Rust style**: Default `rustfmt`, `snake_case` for functions/modules, `PascalCase` for types, `SCREAMING_SNAKE_CASE` for constants. Game-specific logic stays in `sadx*`/`sa2*` files.
-- **Error handling**: `anyhow::Result` everywhere. Errors get shown in the UI. Never panic.
+- **Error handling**: `anyhow::Result` everywhere. Errors get shown in the UI. Never panic. No error handling for scenarios that cannot happen.
+- **Abstractions**: Three similar lines of code is better than a premature abstraction. No helpers or utilities for single-use operations.
 - **Tests**: Colocated in `#[cfg(test)] mod tests`. Deterministic unit tests for config generation, VDF parsing, step sequencing. Run `cargo test` before PRs.
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`). Imperative, specific subjects.
 - **IDs**: Release `io.github.astrovm.AdventureMods`, dev `.Devel`. GResource prefix `/io/github/astrovm/AdventureMods/`. Protontricks `com.github.Matoking.protontricks`.
