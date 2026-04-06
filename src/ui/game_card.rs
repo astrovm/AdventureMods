@@ -113,9 +113,11 @@ impl AdventureModsGameCard {
             String::from("Installed in Steam and ready for setup")
         };
 
+        let show_status = installation_total > 1;
+
         imp.title_label.set_label(game.kind.name());
         imp.badge_label.set_label("Ready");
-        imp.status_label.set_visible(false);
+        imp.status_label.set_visible(show_status);
         imp.status_label.set_label(&status_text);
         imp.details_label.set_visible(true);
         imp.details_label
@@ -276,6 +278,40 @@ mod tests {
         card.set_detected(&game, 0, 1);
 
         assert!(card.imp().setup_button.is_visible());
+    }
+
+    #[gtk::test]
+    fn detected_single_install_cards_hide_status() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+        let game = Game {
+            kind: GameKind::SADX,
+            path: PathBuf::from("/games/sadx"),
+        };
+
+        card.set_detected(&game, 0, 1);
+
+        assert!(!card.imp().status_label.is_visible());
+    }
+
+    #[gtk::test]
+    fn detected_cards_show_duplicate_install_status() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+        let game = Game {
+            kind: GameKind::SADX,
+            path: PathBuf::from("/games/sadx"),
+        };
+
+        card.set_detected(&game, 1, 2);
+
+        assert!(card.imp().status_label.is_visible());
+        assert_eq!(
+            card.imp().status_label.label().as_str(),
+            "Multiple installs found, this is 2 of 2"
+        );
     }
 
     #[gtk::test]

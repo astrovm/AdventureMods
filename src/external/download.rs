@@ -91,24 +91,7 @@ async fn fetch_download_response(client: &Client, url: &str) -> Result<Response>
     if response_is_html(&response)
         && let Some(file_id) = gamebanana_file_id_from_url(response.url())
     {
-        let resolved_url = resolve_gamebanana_file_url(client, file_id).await?;
-        let fallback_response = client
-            .get(&resolved_url)
-            .send()
-            .await
-            .with_context(|| format!("Failed to GET {resolved_url}"))?;
-
-        if !fallback_response.status().is_success() {
-            return http_error(fallback_response, &resolved_url).await;
-        }
-
-        if response_is_html(&fallback_response) {
-            anyhow::bail!(
-                "GameBanana returned HTML for file {file_id} even after resolving via API"
-            );
-        }
-
-        return Ok(fallback_response);
+        unsupported_gamebanana_file_download::<Response>(file_id)?;
     }
 
     if response_is_html(&response) {
@@ -183,27 +166,10 @@ async fn resolve_gamebanana_download_url(client: &Client, mod_id: u64) -> Result
     })
 }
 
-async fn resolve_gamebanana_file_url(client: &Client, file_id: u64) -> Result<String> {
-    let api_url = format!(
-        "https://api.gamebanana.com/Core/Item/Data?itemtype=File&itemid={file_id}&fields=sDownloadUrl()"
-    );
-    let response = client
-        .get(&api_url)
-        .send()
-        .await
-        .with_context(|| format!("Failed to query GameBanana API at {api_url}"))?;
-
-    if !response.status().is_success() {
-        return http_error(response, &api_url).await;
-    }
-
-    let payload = response
-        .text()
-        .await
-        .with_context(|| format!("Failed to read GameBanana API response for file {file_id}"))?;
-
-    pick_gamebanana_file_url(&payload)
-        .with_context(|| format!("Failed to resolve a downloadable file for GameBanana file {file_id}"))
+fn unsupported_gamebanana_file_download<T>(file_id: u64) -> Result<T> {
+    anyhow::bail!(
+        "GameBanana file pages do not expose a supported headless download path for file {file_id}"
+    )
 }
 
 fn pick_gamebanana_download_url(payload: &str) -> Result<String> {
@@ -229,16 +195,6 @@ fn pick_gamebanana_download_url(payload: &str) -> Result<String> {
         .context("GameBanana API files did not include a usable download URL")?;
 
     Ok(best)
-}
-
-fn pick_gamebanana_file_url(payload: &str) -> Result<String> {
-    let value: Value = serde_json::from_str(payload).context("Invalid GameBanana File API JSON")?;
-    value
-        .as_array()
-        .and_then(|arr| arr.first())
-        .and_then(Value::as_str)
-        .map(String::from)
-        .context("GameBanana File API did not return a download URL")
 }
 
 #[cfg(test)]
@@ -283,15 +239,11 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_gamebanana_file_url_parses_response() {
-        let payload = r#"["https://files.gamebanana.com/mods/file.7z"]"#;
-        let parsed = pick_gamebanana_file_url(payload).unwrap();
-        assert_eq!(parsed, "https://files.gamebanana.com/mods/file.7z");
-    }
+    fn test_gamebanana_file_download_is_unsupported() {
+        let err = unsupported_gamebanana_file_download::<()>(1388911)
+            .unwrap_err()
+            .to_string();
 
-    #[test]
-    fn test_resolve_gamebanana_file_url_rejects_empty() {
-        let payload = r#"[null]"#;
-        assert!(pick_gamebanana_file_url(payload).is_err());
+        assert!(err.contains("supported headless download path"));
     }
 }
