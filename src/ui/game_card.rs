@@ -120,7 +120,7 @@ impl AdventureModsGameCard {
         imp.details_label.set_visible(true);
         imp.details_label
             .set_label(&game.path.display().to_string());
-        imp.setup_button.set_visible(false);
+        imp.setup_button.set_visible(true);
         imp.secondary_button.set_visible(false);
         self.add_css_class("game-card-clickable");
         self.set_cursor_from_name(Some("pointer"));
@@ -238,5 +238,54 @@ impl AdventureModsGameCard {
         self.imp()
             .secondary_callback
             .replace(Some(Box::new(callback)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Once;
+
+    use super::*;
+
+    fn init_resource_overlay() {
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| unsafe {
+            std::env::set_var(
+                "G_RESOURCE_OVERLAYS",
+                concat!(
+                    "/io/github/astrovm/AdventureMods=",
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/data"
+                ),
+            );
+        });
+    }
+
+    #[gtk::test]
+    fn detected_cards_keep_setup_button_visible() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+        let game = Game {
+            kind: GameKind::SADX,
+            path: PathBuf::from("/games/sadx"),
+        };
+
+        card.set_detected(&game, 0, 1);
+
+        assert!(card.imp().setup_button.is_visible());
+    }
+
+    #[gtk::test]
+    fn missing_cards_hide_setup_button() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+
+        card.set_missing(GameKind::SA2);
+
+        assert!(!card.imp().setup_button.is_visible());
     }
 }

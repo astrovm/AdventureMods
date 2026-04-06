@@ -12,12 +12,6 @@ pub enum PrefixState {
     Ready,
     MissingPrefix,
     MissingMetadata,
-    MissingConfig,
-    InvalidConfig,
-    MissingConfiguredTool,
-    ConfiguredToolUnavailable {
-        configured_tool: String,
-    },
     ConfigMismatch {
         prefix_tool: String,
         configured_tool: String,
@@ -42,7 +36,7 @@ enum ConfiguredToolLookup {
     MissingConfig,
     InvalidConfig,
     MissingConfiguredTool,
-    ConfiguredToolUnavailable { configured_tool: String },
+    ConfiguredToolUnavailable,
 }
 
 pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
@@ -76,14 +70,10 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
                 });
             }
         }
-        ConfiguredToolLookup::MissingConfig => return Ok(PrefixState::MissingConfig),
-        ConfiguredToolLookup::InvalidConfig => return Ok(PrefixState::InvalidConfig),
-        ConfiguredToolLookup::MissingConfiguredTool => {
-            return Ok(PrefixState::MissingConfiguredTool);
-        }
-        ConfiguredToolLookup::ConfiguredToolUnavailable { configured_tool } => {
-            return Ok(PrefixState::ConfiguredToolUnavailable { configured_tool });
-        }
+        ConfiguredToolLookup::MissingConfig
+        | ConfiguredToolLookup::InvalidConfig
+        | ConfiguredToolLookup::MissingConfiguredTool
+        | ConfiguredToolLookup::ConfiguredToolUnavailable => {}
     }
 
     Ok(PrefixState::Ready)
@@ -94,18 +84,6 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
         PrefixState::Ready => Ok(()),
         PrefixState::MissingPrefix | PrefixState::MissingMetadata => anyhow::bail!(
             "Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
-        ),
-        PrefixState::MissingConfig => anyhow::bail!(
-            "Steam's config.vdf could not be found. Open Steam normally and try again."
-        ),
-        PrefixState::InvalidConfig => anyhow::bail!(
-            "Steam's config.vdf could not be read correctly. Check your Steam configuration, then try again."
-        ),
-        PrefixState::MissingConfiguredTool => anyhow::bail!(
-            "Steam does not have a Proton tool configured for this game yet. Open the game's Properties in Steam, make sure a compatibility tool is selected, then try again."
-        ),
-        PrefixState::ConfiguredToolUnavailable { configured_tool } => anyhow::bail!(
-            "Steam is configured to use {configured_tool}, but that Proton installation was not found. Install it in Steam, then try again."
         ),
         PrefixState::ConfigMismatch {
             prefix_tool,
@@ -123,18 +101,6 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         }
         Ok(PrefixState::MissingPrefix) | Ok(PrefixState::MissingMetadata) => format!(
             "Open {game_name} from Steam once, wait for Proton to finish setting it up, then close the game and continue here."
-        ),
-        Ok(PrefixState::MissingConfig) => format!(
-            "Steam's main configuration file could not be found, so {game_name}'s Proton setup could not be verified. Open Steam normally, then continue here."
-        ),
-        Ok(PrefixState::InvalidConfig) => format!(
-            "Steam's configuration for {game_name} could not be read correctly. Fix Steam's config and then continue here."
-        ),
-        Ok(PrefixState::MissingConfiguredTool) => format!(
-            "Steam does not currently have a Proton compatibility tool selected for {game_name}. Pick one in Steam and then continue here."
-        ),
-        Ok(PrefixState::ConfiguredToolUnavailable { configured_tool }) => format!(
-            "Steam is configured to use {configured_tool} for {game_name}, but that Proton installation is not available. Install it in Steam, then continue here."
         ),
         Ok(PrefixState::ConfigMismatch {
             prefix_tool,
@@ -241,9 +207,8 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
                     }));
                 }
 
-                best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable {
-                    configured_tool: name,
-                };
+                let _ = name;
+                best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable;
             }
             other => {
                 if failure_priority(&other) > failure_priority(&best_failure) {
@@ -259,7 +224,7 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
 fn failure_priority(lookup: &ConfiguredToolLookup) -> u8 {
     match lookup {
         ConfiguredToolLookup::Tool(_) => 4,
-        ConfiguredToolLookup::ConfiguredToolUnavailable { .. } => 3,
+        ConfiguredToolLookup::ConfiguredToolUnavailable => 3,
         ConfiguredToolLookup::MissingConfiguredTool => 2,
         ConfiguredToolLookup::InvalidConfig => 1,
         ConfiguredToolLookup::MissingConfig => 0,
@@ -725,9 +690,8 @@ mod tests {
     #[test]
     fn test_failure_priority_ordering() {
         assert!(
-            failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable {
-                configured_tool: "x".into()
-            }) > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
+            failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable)
+                > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
         );
         assert!(
             failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
@@ -797,7 +761,7 @@ mod tests {
         );
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(result, PrefixState::MissingConfig);
+        assert_eq!(result, PrefixState::Ready);
     }
 
     #[test]
@@ -824,7 +788,7 @@ mod tests {
         std::fs::write(config_dir.join("config.vdf"), "definitely not valid vdf").unwrap();
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(result, PrefixState::InvalidConfig);
+        assert_eq!(result, PrefixState::Ready);
     }
 
     #[test]
@@ -866,7 +830,7 @@ mod tests {
         .unwrap();
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(result, PrefixState::MissingConfiguredTool);
+        assert_eq!(result, PrefixState::Ready);
     }
 
     #[test]
@@ -915,12 +879,7 @@ mod tests {
         .unwrap();
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(
-            result,
-            PrefixState::ConfiguredToolUnavailable {
-                configured_tool: "Custom-Proton-That-Is-Not-Installed".to_string(),
-            }
-        );
+        assert_eq!(result, PrefixState::Ready);
     }
 
     #[test]
