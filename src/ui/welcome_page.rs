@@ -80,7 +80,7 @@ impl AdventureModsWelcomePage {
                 result.inaccessible.iter().map(|g| g.kind.name()).collect();
             let alert = gtk::Label::builder()
                 .label(format!(
-                    "Some Steam libraries still need access: {}. Those games stay visible below, and you can grant access directly from their cards.",
+                    "Some Steam libraries still need access: {}.",
                     inaccessible_names.join(", ")
                 ))
                 .wrap(true)
@@ -220,14 +220,16 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
             index += 1;
         }
 
-        for inaccessible in &kind_inaccessible {
-            cards.push(GameCardSpec {
-                kind,
-                state: GameCardState::Inaccessible((*inaccessible).clone()),
-                installation_index: index,
-                installation_total: detected_total,
-            });
-            index += 1;
+        if kind_games.is_empty() {
+            for inaccessible in &kind_inaccessible {
+                cards.push(GameCardSpec {
+                    kind,
+                    state: GameCardState::Inaccessible((*inaccessible).clone()),
+                    installation_index: index,
+                    installation_total: detected_total,
+                });
+                index += 1;
+            }
         }
     }
 
@@ -237,9 +239,25 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Once;
 
     use crate::steam::game::Game;
     use crate::steam::library::InaccessibleGame;
+
+    fn init_resource_overlay() {
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| unsafe {
+            std::env::set_var(
+                "G_RESOURCE_OVERLAYS",
+                concat!(
+                    "/io/github/astrovm/AdventureMods=",
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/data"
+                ),
+            );
+        });
+    }
 
     #[test]
     fn build_game_cards_always_includes_missing_games() {
@@ -275,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn build_game_cards_includes_both_detected_and_inaccessible() {
+    fn build_game_cards_hides_inaccessible_when_detected_exists() {
         let result = DetectionResult {
             games: vec![Game {
                 kind: GameKind::SADX,
@@ -289,11 +307,41 @@ mod tests {
 
         let cards = build_game_cards(&result);
 
-        assert_eq!(cards.len(), 3);
+        assert_eq!(cards.len(), 2);
         assert!(matches!(cards[0].state, GameCardState::Detected(_)));
         assert_eq!(cards[0].installation_total, 1);
-        assert!(matches!(cards[1].state, GameCardState::Inaccessible(_)));
-        assert_eq!(cards[1].installation_total, 1);
-        assert!(matches!(cards[2].state, GameCardState::Missing));
+        assert!(matches!(cards[1].state, GameCardState::Missing));
+    }
+
+    #[gtk::test]
+    fn detection_result_alert_does_not_claim_hidden_cards_are_visible() {
+        init_resource_overlay();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let nav_view = adw::NavigationView::new();
+        let result = DetectionResult {
+            games: vec![Game {
+                kind: GameKind::SADX,
+                path: "/games/sadx".into(),
+            }],
+            inaccessible: vec![InaccessibleGame {
+                kind: GameKind::SADX,
+                library_path: "/mnt/steam".into(),
+            }],
+        };
+
+        page.set_detection_result(result, nav_view);
+
+        let alert = page
+            .imp()
+            .alerts_box
+            .first_child()
+            .and_downcast::<gtk::Label>()
+            .unwrap();
+
+        assert_eq!(
+            alert.label().as_str(),
+            "Some Steam libraries still need access: Sonic Adventure DX."
+        );
     }
 }
