@@ -120,7 +120,7 @@ async fn fetch_download_response(client: &Client, url: &str) -> Result<Response>
     Ok(response)
 }
 
-async fn http_error(response: Response, url: &str) -> Result<Response> {
+async fn http_error<T>(response: Response, url: &str) -> Result<T> {
     let status = response.status();
     let body = response
         .text()
@@ -170,18 +170,7 @@ async fn resolve_gamebanana_download_url(client: &Client, mod_id: u64) -> Result
         .with_context(|| format!("Failed to query GameBanana API at {api_url}"))?;
 
     if !response.status().is_success() {
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .unwrap_or_else(|_| String::from("<response body unavailable>"));
-        let body = body.trim();
-        let snippet = if body.is_empty() {
-            String::from("<empty response body>")
-        } else {
-            body.chars().take(200).collect()
-        };
-        anyhow::bail!("HTTP error {} for {api_url}: {snippet}", status);
+        return http_error(response, &api_url).await;
     }
 
     let payload = response
@@ -205,18 +194,7 @@ async fn resolve_gamebanana_file_url(client: &Client, file_id: u64) -> Result<St
         .with_context(|| format!("Failed to query GameBanana API at {api_url}"))?;
 
     if !response.status().is_success() {
-        let status = response.status();
-        let body = response
-            .text()
-            .await
-            .unwrap_or_else(|_| String::from("<response body unavailable>"));
-        let body = body.trim();
-        let snippet = if body.is_empty() {
-            String::from("<empty response body>")
-        } else {
-            body.chars().take(200).collect()
-        };
-        anyhow::bail!("HTTP error {} for {api_url}: {snippet}", status);
+        return http_error(response, &api_url).await;
     }
 
     let payload = response

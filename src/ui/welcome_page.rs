@@ -196,6 +196,7 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
             .filter(|game| game.kind == kind)
             .collect();
 
+        let detected_total = kind_games.len();
         let total = kind_games.len() + kind_inaccessible.len();
 
         if total == 0 {
@@ -214,7 +215,7 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
                 kind,
                 state: GameCardState::Detected((*game).clone()),
                 installation_index: index,
-                installation_total: total,
+                installation_total: detected_total,
             });
             index += 1;
         }
@@ -224,7 +225,7 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
                 kind,
                 state: GameCardState::Inaccessible((*inaccessible).clone()),
                 installation_index: index,
-                installation_total: total,
+                installation_total: detected_total,
             });
             index += 1;
         }
@@ -290,9 +291,9 @@ mod tests {
 
         assert_eq!(cards.len(), 3);
         assert!(matches!(cards[0].state, GameCardState::Detected(_)));
-        assert_eq!(cards[0].installation_total, 2);
+        assert_eq!(cards[0].installation_total, 1);
         assert!(matches!(cards[1].state, GameCardState::Inaccessible(_)));
-        assert_eq!(cards[1].installation_total, 2);
+        assert_eq!(cards[1].installation_total, 1);
         assert!(matches!(cards[2].state, GameCardState::Missing));
     }
 }

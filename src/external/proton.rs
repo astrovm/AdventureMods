@@ -207,7 +207,6 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
                     }));
                 }
 
-                let _ = name;
                 best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable;
             }
             other => {

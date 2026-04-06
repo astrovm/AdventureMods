@@ -164,7 +164,7 @@ impl AdventureModsWindow {
         let extra_paths = self.imp().extra_library_paths.borrow();
         let path_strings: Vec<String> = extra_paths
             .iter()
-            .map(|path| path.to_string_lossy().into_owned())
+            .filter_map(|path| path.to_str().map(String::from))
             .collect();
 
         let refs: Vec<&str> = path_strings.iter().map(String::as_str).collect();

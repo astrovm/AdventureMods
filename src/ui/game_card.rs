@@ -59,7 +59,7 @@ mod imp {
 
             let obj = self.obj().clone();
             let gesture = gtk::GestureClick::new();
-            gesture.set_button(0);
+            gesture.set_button(1);
             gesture.connect_released(move |_, _, _, _| {
                 let imp = obj.imp();
                 if let Some(ref cb) = *imp.setup_callback.borrow() {
