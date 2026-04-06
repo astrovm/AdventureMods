@@ -88,6 +88,29 @@ async fn fetch_download_response(client: &Client, url: &str) -> Result<Response>
         return Ok(fallback_response);
     }
 
+    if response_is_html(&response)
+        && let Some(file_id) = gamebanana_file_id_from_url(response.url())
+    {
+        let resolved_url = resolve_gamebanana_file_url(client, file_id).await?;
+        let fallback_response = client
+            .get(&resolved_url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to GET {resolved_url}"))?;
+
+        if !fallback_response.status().is_success() {
+            return http_error(fallback_response, &resolved_url).await;
+        }
+
+        if response_is_html(&fallback_response) {
+            anyhow::bail!(
+                "GameBanana returned HTML for file {file_id} even after resolving via API"
+            );
+        }
+
+        return Ok(fallback_response);
+    }
+
     if response_is_html(&response) {
         anyhow::bail!(
             "Server returned HTML instead of a file for {url}. The download link may be broken"
@@ -128,6 +151,14 @@ fn gamebanana_mod_id_from_url(url: &Url) -> Option<u64> {
     }
 }
 
+fn gamebanana_file_id_from_url(url: &Url) -> Option<u64> {
+    let segments: Vec<_> = url.path_segments()?.collect();
+    match segments.as_slice() {
+        ["dl", file_id] => file_id.parse().ok(),
+        _ => None,
+    }
+}
+
 async fn resolve_gamebanana_download_url(client: &Client, mod_id: u64) -> Result<String> {
     let api_url = format!(
         "https://api.gamebanana.com/Core/Item/Data?itemtype=Mod&itemid={mod_id}&fields=Files().aFiles()"
@@ -163,6 +194,40 @@ async fn resolve_gamebanana_download_url(client: &Client, mod_id: u64) -> Result
     })
 }
 
+async fn resolve_gamebanana_file_url(client: &Client, file_id: u64) -> Result<String> {
+    let api_url = format!(
+        "https://api.gamebanana.com/Core/Item/Data?itemtype=File&itemid={file_id}&fields=sDownloadUrl()"
+    );
+    let response = client
+        .get(&api_url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to query GameBanana API at {api_url}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| String::from("<response body unavailable>"));
+        let body = body.trim();
+        let snippet = if body.is_empty() {
+            String::from("<empty response body>")
+        } else {
+            body.chars().take(200).collect()
+        };
+        anyhow::bail!("HTTP error {} for {api_url}: {snippet}", status);
+    }
+
+    let payload = response
+        .text()
+        .await
+        .with_context(|| format!("Failed to read GameBanana API response for file {file_id}"))?;
+
+    pick_gamebanana_file_url(&payload)
+        .with_context(|| format!("Failed to resolve a downloadable file for GameBanana file {file_id}"))
+}
+
 fn pick_gamebanana_download_url(payload: &str) -> Result<String> {
     let value: Value = serde_json::from_str(payload).context("Invalid GameBanana API JSON")?;
     let files = value
@@ -188,6 +253,16 @@ fn pick_gamebanana_download_url(payload: &str) -> Result<String> {
     Ok(best)
 }
 
+fn pick_gamebanana_file_url(payload: &str) -> Result<String> {
+    let value: Value = serde_json::from_str(payload).context("Invalid GameBanana File API JSON")?;
+    value
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(Value::as_str)
+        .map(String::from)
+        .context("GameBanana File API did not return a download URL")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,6 +271,18 @@ mod tests {
     fn test_gamebanana_mod_id_from_url() {
         let url = Url::parse("https://gamebanana.com/mods/download/452445").unwrap();
         assert_eq!(gamebanana_mod_id_from_url(&url), Some(452445));
+    }
+
+    #[test]
+    fn test_gamebanana_file_id_from_url() {
+        let url = Url::parse("https://gamebanana.com/dl/1388911").unwrap();
+        assert_eq!(gamebanana_file_id_from_url(&url), Some(1388911));
+    }
+
+    #[test]
+    fn test_gamebanana_file_id_from_url_rejects_non_dl() {
+        let url = Url::parse("https://gamebanana.com/mods/452445").unwrap();
+        assert_eq!(gamebanana_file_id_from_url(&url), None);
     }
 
     #[test]
@@ -215,5 +302,18 @@ mod tests {
 
         let resolved = pick_gamebanana_download_url(payload).unwrap();
         assert_eq!(resolved, "https://gamebanana.com/dl/222");
+    }
+
+    #[test]
+    fn test_resolve_gamebanana_file_url_parses_response() {
+        let payload = r#"["https://files.gamebanana.com/mods/file.7z"]"#;
+        let parsed = pick_gamebanana_file_url(payload).unwrap();
+        assert_eq!(parsed, "https://files.gamebanana.com/mods/file.7z");
+    }
+
+    #[test]
+    fn test_resolve_gamebanana_file_url_rejects_empty() {
+        let payload = r#"[null]"#;
+        assert!(pick_gamebanana_file_url(payload).is_err());
     }
 }

@@ -229,6 +229,8 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
         return Ok(ConfiguredToolLookup::MissingConfig);
     }
 
+    let mut best_failure = ConfiguredToolLookup::MissingConfig;
+
     for steam_root in &steam_roots {
         match compat_tool_name_from_config(steam_root, app_id)? {
             ConfiguredToolLookup::Tool(ConfiguredTool { name, .. }) => {
@@ -239,16 +241,29 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
                     }));
                 }
 
-                return Ok(ConfiguredToolLookup::ConfiguredToolUnavailable {
+                best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable {
                     configured_tool: name,
-                });
+                };
             }
-            ConfiguredToolLookup::MissingConfig => continue,
-            other => return Ok(other),
+            other => {
+                if failure_priority(&other) > failure_priority(&best_failure) {
+                    best_failure = other;
+                }
+            }
         }
     }
 
-    Ok(ConfiguredToolLookup::MissingConfig)
+    Ok(best_failure)
+}
+
+fn failure_priority(lookup: &ConfiguredToolLookup) -> u8 {
+    match lookup {
+        ConfiguredToolLookup::Tool(_) => 4,
+        ConfiguredToolLookup::ConfiguredToolUnavailable { .. } => 3,
+        ConfiguredToolLookup::MissingConfiguredTool => 2,
+        ConfiguredToolLookup::InvalidConfig => 1,
+        ConfiguredToolLookup::MissingConfig => 0,
+    }
 }
 
 fn find_proton_from_prefix_metadata(game_path: &Path, app_id: u32) -> Result<Option<PathBuf>> {
@@ -705,6 +720,34 @@ mod tests {
 
         let result = find_proton_for_app(&game_path, 71250).unwrap();
         assert_eq!(result, common.join("Proton 8.0"));
+    }
+
+    #[test]
+    fn test_failure_priority_ordering() {
+        assert!(
+            failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable {
+                configured_tool: "x".into()
+            }) > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
+        );
+        assert!(
+            failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
+                > failure_priority(&ConfiguredToolLookup::InvalidConfig)
+        );
+        assert!(
+            failure_priority(&ConfiguredToolLookup::InvalidConfig)
+                > failure_priority(&ConfiguredToolLookup::MissingConfig)
+        );
+    }
+
+    #[test]
+    fn test_compat_tool_name_invalid_vdf_returns_invalid_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join("config.vdf"), "not valid vdf content").unwrap();
+
+        let result = compat_tool_name_from_config(tmp.path(), 71250).unwrap();
+        assert!(matches!(result, ConfiguredToolLookup::InvalidConfig));
     }
 
     #[test]
