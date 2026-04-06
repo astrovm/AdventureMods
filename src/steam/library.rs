@@ -163,17 +163,17 @@ fn detect_games_from_parsed_vdfs(
         let kind_found = result.games.iter().any(|g| g.kind == kind);
         if !kind_found && kind_inaccessible.is_empty() {
             tracing::info!("{} not found", kind.name());
-        } else if !kind_found {
-            // Deduplicate inaccessible entries by canonical library path
-            let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
-            for inc in kind_inaccessible {
-                let canonical = inc
-                    .library_path
-                    .canonicalize()
-                    .unwrap_or_else(|_| inc.library_path.clone());
-                if seen_inacc.insert(canonical) {
-                    result.inaccessible.push(inc);
-                }
+        }
+
+        // Deduplicate inaccessible entries by canonical library path.
+        let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
+        for inc in kind_inaccessible {
+            let canonical = inc
+                .library_path
+                .canonicalize()
+                .unwrap_or_else(|_| inc.library_path.clone());
+            if seen_inacc.insert(canonical) {
+                result.inaccessible.push(inc);
             }
         }
     }
@@ -313,12 +313,30 @@ mod tests {
         let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&extra_lib));
 
         assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
-        assert!(
-            !result
-                .inaccessible
-                .iter()
-                .any(|game| game.kind == GameKind::SADX)
-        );
+        assert!(result
+            .inaccessible
+            .iter()
+            .any(|game| game.kind == GameKind::SADX));
+    }
+
+    #[test]
+    fn test_detect_games_keeps_inaccessible_alongside_detected() {
+        let tmp = tempfile::tempdir().unwrap();
+        let accessible_lib = tmp.path().join("accessible");
+        let game_dir = accessible_lib
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir());
+        std::fs::create_dir_all(&game_dir).unwrap();
+        std::fs::write(game_dir.join("Sonic Adventure DX.exe"), "").unwrap();
+
+        let inaccessible_path = tmp.path().join("inaccessible-library");
+
+        let vdf_accessible = mock_vdf(accessible_lib.to_str().unwrap(), &["71250"]);
+        let vdf_inaccessible = mock_vdf(inaccessible_path.to_str().unwrap(), &["71250"]);
+        let result = detect_games_from_parsed_vdfs(&[vdf_accessible, vdf_inaccessible], &[]);
+
+        assert!(result.games.iter().any(|g| g.kind == GameKind::SADX));
+        assert!(result.inaccessible.iter().any(|g| g.kind == GameKind::SADX));
     }
 
     #[test]

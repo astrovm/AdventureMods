@@ -308,30 +308,33 @@ impl AdventureModsSetupPage {
                 let cancel_flag = Arc::new(AtomicBool::new(false));
                 imp.cancel_flag.replace(Some(cancel_flag.clone()));
 
-                let cancel_button = gtk::Button::builder()
-                    .label("Cancel")
-                    .halign(gtk::Align::Center)
-                    .css_classes(vec!["destructive-action".to_string()])
-                    .build();
-
-                let flag = cancel_flag.clone();
-                let obj = self.clone();
-                cancel_button.connect_clicked(move |btn| {
-                    flag.store(true, Ordering::Relaxed);
-                    btn.set_sensitive(false);
-                    btn.set_label("Cancelling...");
-                    // Re-show the step so user can retry
-                    let obj2 = obj.clone();
-                    glib::timeout_add_local_once(
-                        std::time::Duration::from_millis(500),
-                        move || {
-                            obj2.show_current_step();
-                        },
-                    );
-                });
-
                 content_box.append(&progress_bar);
-                content_box.append(&cancel_button);
+
+                if step.id == "download_mods" {
+                    let cancel_button = gtk::Button::builder()
+                        .label("Cancel")
+                        .halign(gtk::Align::Center)
+                        .css_classes(vec!["destructive-action".to_string()])
+                        .build();
+
+                    let flag = cancel_flag.clone();
+                    let obj = self.clone();
+                    cancel_button.connect_clicked(move |btn| {
+                        flag.store(true, Ordering::Relaxed);
+                        btn.set_sensitive(false);
+                        btn.set_label("Cancelling...");
+                        // Re-show the step so user can retry
+                        let obj2 = obj.clone();
+                        glib::timeout_add_local_once(
+                            std::time::Duration::from_millis(500),
+                            move || {
+                                obj2.show_current_step();
+                            },
+                        );
+                    });
+
+                    content_box.append(&cancel_button);
+                }
 
                 self.run_download_step(step.id, progress_bar, cancel_flag);
             }

@@ -19,7 +19,9 @@ fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
 }
 
 fn is_success_or_reboot_code(code: i32) -> bool {
-    code == 0 || code == 3010
+    // Wine on Linux truncates Windows exit codes to the low 8 bits,
+    // so 3010 (reboot required) arrives as 194.
+    code == 0 || code == 3010 || code == (3010 & 0xff)
 }
 
 /// Check whether .NET Desktop Runtime 8 is already installed in the prefix.
@@ -103,6 +105,7 @@ mod tests {
     fn test_is_success_or_reboot_code() {
         assert!(is_success_or_reboot_code(0));
         assert!(is_success_or_reboot_code(3010));
+        assert!(is_success_or_reboot_code(3010 & 0xff));
         assert!(!is_success_or_reboot_code(1603));
         assert!(!is_success_or_reboot_code(-1));
     }
