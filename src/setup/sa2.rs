@@ -3,7 +3,7 @@ use super::common::{ModEntry, ModLink, ModSource};
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "SA2 Render Fix",
-        source: ModSource::GameBanana { file_id: 1626250 },
+        source: ModSource::GameBanana { file_id: 1656654 },
         description: "Comprehensive graphics restoration and enhancement for SA2 PC.",
         full_description: Some(
             "SA2 Render Fix is an essential mod for Sonic Adventure 2 on PC that repairs numerous graphical bugs and oversights. It fixes transparency sorting issues, back-face culling, and broken material properties while restoring features like Cart billboards and Dreamcast-style specular highlights. It also merges several specialized fixes like the Eggman Lighting Fix to achieve a visual style closer to the original 2001 Dreamcast release.",
