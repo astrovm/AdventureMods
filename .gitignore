@@ -31,3 +31,6 @@ appimage-build
 .flatpak-builder
 build-dir
 repo
+
+# Local git worktrees
+.worktrees/
