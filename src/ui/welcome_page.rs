@@ -197,7 +197,8 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
             .collect();
 
         let detected_total = kind_games.len();
-        let total = kind_games.len() + kind_inaccessible.len();
+        let inaccessible_total = kind_inaccessible.len();
+        let total = detected_total + inaccessible_total;
 
         if total == 0 {
             cards.push(GameCardSpec {
@@ -209,27 +210,22 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
             continue;
         }
 
-        let mut index = 0;
-        for game in &kind_games {
+        for (index, game) in kind_games.iter().enumerate() {
             cards.push(GameCardSpec {
                 kind,
                 state: GameCardState::Detected((*game).clone()),
                 installation_index: index,
                 installation_total: detected_total,
             });
-            index += 1;
         }
 
-        if kind_games.is_empty() {
-            for inaccessible in &kind_inaccessible {
-                cards.push(GameCardSpec {
-                    kind,
-                    state: GameCardState::Inaccessible((*inaccessible).clone()),
-                    installation_index: index,
-                    installation_total: detected_total,
-                });
-                index += 1;
-            }
+        for (index, inaccessible) in kind_inaccessible.iter().enumerate() {
+            cards.push(GameCardSpec {
+                kind,
+                state: GameCardState::Inaccessible((*inaccessible).clone()),
+                installation_index: index,
+                installation_total: inaccessible_total,
+            });
         }
     }
 
@@ -293,24 +289,38 @@ mod tests {
     }
 
     #[test]
-    fn build_game_cards_hides_inaccessible_when_detected_exists() {
+    fn build_game_cards_shows_detected_and_inaccessible_cards_for_mixed_installs() {
         let result = DetectionResult {
-            games: vec![Game {
-                kind: GameKind::SADX,
-                path: "/games/sadx".into(),
-            }],
-            inaccessible: vec![InaccessibleGame {
-                kind: GameKind::SADX,
-                library_path: "/mnt/steam".into(),
-            }],
+            games: vec![
+                Game {
+                    kind: GameKind::SADX,
+                    path: "/games/sadx-1".into(),
+                },
+                Game {
+                    kind: GameKind::SADX,
+                    path: "/games/sadx-2".into(),
+                },
+            ],
+            inaccessible: vec![
+                InaccessibleGame {
+                    kind: GameKind::SADX,
+                    library_path: "/mnt/steam-1".into(),
+                },
+                InaccessibleGame {
+                    kind: GameKind::SADX,
+                    library_path: "/mnt/steam-2".into(),
+                },
+            ],
         };
 
         let cards = build_game_cards(&result);
 
-        assert_eq!(cards.len(), 2);
+        assert_eq!(cards.len(), 5);
         assert!(matches!(cards[0].state, GameCardState::Detected(_)));
-        assert_eq!(cards[0].installation_total, 1);
-        assert!(matches!(cards[1].state, GameCardState::Missing));
+        assert!(matches!(cards[1].state, GameCardState::Detected(_)));
+        assert!(matches!(cards[2].state, GameCardState::Inaccessible(_)));
+        assert!(matches!(cards[3].state, GameCardState::Inaccessible(_)));
+        assert!(matches!(cards[4].state, GameCardState::Missing));
     }
 
     #[gtk::test]

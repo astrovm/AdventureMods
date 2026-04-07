@@ -12,6 +12,7 @@ pub enum PrefixState {
     Ready,
     MissingPrefix,
     MissingMetadata,
+    SteamConfigIncomplete,
     ConfigMismatch {
         prefix_tool: String,
         configured_tool: String,
@@ -70,9 +71,10 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
                 });
             }
         }
-        ConfiguredToolLookup::MissingConfig
-        | ConfiguredToolLookup::InvalidConfig
-        | ConfiguredToolLookup::MissingConfiguredTool
+        ConfiguredToolLookup::MissingConfig | ConfiguredToolLookup::InvalidConfig => {
+            return Ok(PrefixState::SteamConfigIncomplete);
+        }
+        ConfiguredToolLookup::MissingConfiguredTool
         | ConfiguredToolLookup::ConfiguredToolUnavailable => {}
     }
 
@@ -82,7 +84,9 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
 pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
     match prefix_state(game_path, app_id)? {
         PrefixState::Ready => Ok(()),
-        PrefixState::MissingPrefix | PrefixState::MissingMetadata => anyhow::bail!(
+        PrefixState::MissingPrefix
+        | PrefixState::MissingMetadata
+        | PrefixState::SteamConfigIncomplete => anyhow::bail!(
             "Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
         ),
         PrefixState::ConfigMismatch {
@@ -99,7 +103,9 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         Ok(PrefixState::Ready) => {
             format!("The Proton prefix for {game_name} is ready. You can continue right away.")
         }
-        Ok(PrefixState::MissingPrefix) | Ok(PrefixState::MissingMetadata) => format!(
+        Ok(PrefixState::MissingPrefix)
+        | Ok(PrefixState::MissingMetadata)
+        | Ok(PrefixState::SteamConfigIncomplete) => format!(
             "Open {game_name} from Steam once, wait for Proton to finish setting it up, then close the game and continue here."
         ),
         Ok(PrefixState::ConfigMismatch {
@@ -760,7 +766,7 @@ mod tests {
         );
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(result, PrefixState::Ready);
+        assert_eq!(result, PrefixState::SteamConfigIncomplete);
     }
 
     #[test]
@@ -787,7 +793,7 @@ mod tests {
         std::fs::write(config_dir.join("config.vdf"), "definitely not valid vdf").unwrap();
 
         let result = prefix_state(&game_path, 71250).unwrap();
-        assert_eq!(result, PrefixState::Ready);
+        assert_eq!(result, PrefixState::SteamConfigIncomplete);
     }
 
     #[test]
