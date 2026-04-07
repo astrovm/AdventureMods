@@ -15,12 +15,11 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It fin
 - Quick presets: DX Enhanced and Dreamcast Restoration
 - Gets mod managers, mods, and dependencies all at once
 - Sets up native resolution, window mode, and optimal settings
-- Installs .NET runtime and protontricks if they're missing
+- Installs .NET runtime if it's missing
 
 ## Requirements
 
 - Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610)
-- [protontricks](https://flathub.org/apps/com.github.Matoking.protontricks) (installed automatically if missing)
 
 ## Installation
 
