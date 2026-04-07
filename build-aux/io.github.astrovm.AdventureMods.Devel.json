@@ -44,7 +44,7 @@
     {
       "name": "p7zip",
       "buildsystem": "simple",
-      "build-commands": ["make 7z", "make install DEST_DIR= DEST_HOME=/app"],
+      "build-commands": ["make 7z", "install -Dm755 bin/7z /app/bin/7z"],
       "sources": [
         {
           "type": "archive",
