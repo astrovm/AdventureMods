@@ -43,6 +43,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.2.0" date="2026-04-07">
+      <description>
+        <p>Direct Proton integration replacing protontricks, multi-library Steam detection, overhauled welcome page with cover images, SA2 mod presets, and numerous bug fixes for game card visibility and download handling.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-03-15">
       <description>
         <p>First release. Full mod setup for Sonic Adventure DX and Sonic Adventure 2 with Steam detection, mod presets, mod manager installation, and .NET runtime setup through protontricks.</p>

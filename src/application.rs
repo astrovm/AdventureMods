@@ -57,7 +57,7 @@ mod imp {
                         .version(config::VERSION)
                         .developers(vec!["astrovm"])
                         .copyright("2026 astrovm")
-                        .license_type(gtk::License::Gpl30)
+                        .license_type(gtk::License::MitX11)
                         .issue_url("https://github.com/astrovm/AdventureMods/issues")
                         .build();
 
