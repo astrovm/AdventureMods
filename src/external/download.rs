@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use reqwest::{Client, Response, Url};
-use serde_json::Value;
 
 /// Progress callback: (downloaded_bytes, total_bytes_if_known)
 pub type ProgressFn = Box<dyn Fn(u64, Option<u64>) + Send>;
@@ -66,29 +65,6 @@ async fn fetch_download_response(client: &Client, url: &str) -> Result<Response>
     }
 
     if response_is_html(&response)
-        && let Some(mod_id) = gamebanana_mod_id_from_url(response.url())
-    {
-        let resolved_url = resolve_gamebanana_download_url(client, mod_id).await?;
-        let fallback_response = client
-            .get(&resolved_url)
-            .send()
-            .await
-            .with_context(|| format!("Failed to GET {resolved_url}"))?;
-
-        if !fallback_response.status().is_success() {
-            return http_error(fallback_response, &resolved_url).await;
-        }
-
-        if response_is_html(&fallback_response) {
-            anyhow::bail!(
-                "GameBanana returned HTML for mod {mod_id} even after resolving its latest file"
-            );
-        }
-
-        return Ok(fallback_response);
-    }
-
-    if response_is_html(&response)
         && let Some(file_id) = gamebanana_file_id_from_url(response.url())
     {
         unsupported_gamebanana_file_download::<Response>(file_id)?;
@@ -126,14 +102,6 @@ fn response_is_html(response: &Response) -> bool {
         .is_some_and(|content_type| content_type.starts_with("text/html"))
 }
 
-fn gamebanana_mod_id_from_url(url: &Url) -> Option<u64> {
-    let segments: Vec<_> = url.path_segments()?.collect();
-    match segments.as_slice() {
-        ["mods", "download", mod_id] => mod_id.parse().ok(),
-        _ => None,
-    }
-}
-
 fn gamebanana_file_id_from_url(url: &Url) -> Option<u64> {
     let segments: Vec<_> = url.path_segments()?.collect();
     match segments.as_slice() {
@@ -142,70 +110,15 @@ fn gamebanana_file_id_from_url(url: &Url) -> Option<u64> {
     }
 }
 
-async fn resolve_gamebanana_download_url(client: &Client, mod_id: u64) -> Result<String> {
-    let api_url = format!(
-        "https://api.gamebanana.com/Core/Item/Data?itemtype=Mod&itemid={mod_id}&fields=Files().aFiles()"
-    );
-    let response = client
-        .get(&api_url)
-        .send()
-        .await
-        .with_context(|| format!("Failed to query GameBanana API at {api_url}"))?;
-
-    if !response.status().is_success() {
-        return http_error(response, &api_url).await;
-    }
-
-    let payload = response
-        .text()
-        .await
-        .with_context(|| format!("Failed to read GameBanana API response for mod {mod_id}"))?;
-
-    pick_gamebanana_download_url(&payload).with_context(|| {
-        format!("Failed to resolve a downloadable file for GameBanana mod {mod_id}")
-    })
-}
-
 fn unsupported_gamebanana_file_download<T>(file_id: u64) -> Result<T> {
     anyhow::bail!(
         "GameBanana file pages do not expose a supported headless download path for file {file_id}"
     )
 }
 
-fn pick_gamebanana_download_url(payload: &str) -> Result<String> {
-    let value: Value = serde_json::from_str(payload).context("Invalid GameBanana API JSON")?;
-    let files = value
-        .as_array()
-        .and_then(|items| items.first())
-        .and_then(Value::as_object)
-        .context("GameBanana API returned no files")?;
-
-    let best = files
-        .values()
-        .filter_map(|file| {
-            let download_url = file.get("_sDownloadUrl")?.as_str()?;
-            let added = file
-                .get("_tsDateAdded")
-                .and_then(Value::as_i64)
-                .unwrap_or(0);
-            Some((added, download_url))
-        })
-        .max_by_key(|(added, _)| *added)
-        .map(|(_, url)| url.to_string())
-        .context("GameBanana API files did not include a usable download URL")?;
-
-    Ok(best)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_gamebanana_mod_id_from_url() {
-        let url = Url::parse("https://gamebanana.com/mods/download/452445").unwrap();
-        assert_eq!(gamebanana_mod_id_from_url(&url), Some(452445));
-    }
 
     #[test]
     fn test_gamebanana_file_id_from_url() {
@@ -220,22 +133,9 @@ mod tests {
     }
 
     #[test]
-    fn test_pick_gamebanana_download_url_prefers_newest_file() {
-        let payload = r#"[
-            {
-                "111": {
-                    "_sDownloadUrl": "https://gamebanana.com/dl/111",
-                    "_tsDateAdded": 100
-                },
-                "222": {
-                    "_sDownloadUrl": "https://gamebanana.com/dl/222",
-                    "_tsDateAdded": 200
-                }
-            }
-        ]"#;
-
-        let resolved = pick_gamebanana_download_url(payload).unwrap();
-        assert_eq!(resolved, "https://gamebanana.com/dl/222");
+    fn test_gamebanana_mod_id_from_url_is_not_supported() {
+        let url = Url::parse("https://gamebanana.com/mods/download/452445").unwrap();
+        assert_eq!(gamebanana_file_id_from_url(&url), None);
     }
 
     #[test]

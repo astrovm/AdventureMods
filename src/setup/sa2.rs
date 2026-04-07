@@ -409,4 +409,17 @@ mod tests {
 
         assert!(common::is_mod_enabled_by_default(GameKind::SA2, mod_entry));
     }
+
+    #[test]
+    fn test_render_fix_is_locked_to_gamebanana_file_id() {
+        let mod_entry = RECOMMENDED_MODS
+            .iter()
+            .find(|m| m.name == "SA2 Render Fix")
+            .expect("SA2 Render Fix entry missing");
+
+        match mod_entry.source {
+            ModSource::GameBanana { file_id } => assert_eq!(file_id, 1656654),
+            ModSource::DirectUrl { .. } => panic!("SA2 Render Fix should use GameBanana"),
+        }
+    }
 }
