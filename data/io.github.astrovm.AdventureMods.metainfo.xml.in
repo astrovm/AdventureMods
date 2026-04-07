@@ -43,6 +43,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.2.1" date="2026-04-07">
+      <description>
+        <p>CI release workflow fix: releases now publish correctly with AppImage assets.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-04-07">
       <description>
         <p>Direct Proton integration replacing protontricks, multi-library Steam detection, overhauled welcome page with cover images, SA2 mod presets, and numerous bug fixes for game card visibility and download handling.</p>
