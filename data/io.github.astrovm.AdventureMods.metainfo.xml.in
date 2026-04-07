@@ -43,6 +43,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.2.2" date="2026-04-07">
+      <description>
+        <p>Fix AppImage archive extraction by bundling 7z binary directly instead of using wrapper script with hardcoded paths.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-04-07">
       <description>
         <p>CI release workflow fix: releases now publish correctly with AppImage assets.</p>
