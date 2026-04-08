@@ -12,7 +12,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It fin
 
 - Finds SADX and SA2 across all your Steam library folders
 - 29 SADX mods and 12 SA2 mods to pick from
-- Quick presets: DX Enhanced and Dreamcast Restoration
+- Quick SADX presets: DX Enhanced and Dreamcast Restoration
 - Gets mod managers, mods, and dependencies all at once
 - Sets up native resolution, window mode, and optimal settings
 - Installs .NET runtime if it's missing
@@ -36,34 +36,44 @@ chmod +x Adventure_Mods-x86_64.AppImage
 
 ## CLI
 
-The same binary can run in terminal mode when you pass a subcommand:
+The same app can run in terminal mode when you pass a subcommand.
+
+### AppImage
 
 ```sh
-adventure-mods detect
-adventure-mods list-mods --game sadx
-adventure-mods setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+./Adventure_Mods-x86_64.AppImage detect
+./Adventure_Mods-x86_64.AppImage list-mods --game sadx
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+```
+
+### Flatpak
+
+```sh
+flatpak run io.github.astrovm.AdventureMods detect
+flatpak run io.github.astrovm.AdventureMods list-mods --game sadx
+flatpak run io.github.astrovm.AdventureMods setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
 ```
 
 ### Detect installed games
 
 ```sh
-adventure-mods detect
-adventure-mods detect --libraryfolders-vdf ~/.local/share/Steam/steamapps/libraryfolders.vdf
+./Adventure_Mods-x86_64.AppImage detect
+./Adventure_Mods-x86_64.AppImage detect --libraryfolders-vdf ~/.local/share/Steam/steamapps/libraryfolders.vdf
 ```
 
 ### List available presets and mods
 
 ```sh
-adventure-mods list-mods --game sadx
-adventure-mods list-mods --game sa2
+./Adventure_Mods-x86_64.AppImage list-mods --game sadx
+./Adventure_Mods-x86_64.AppImage list-mods --game sa2
 ```
 
 ### Run a full headless setup
 
 ```sh
-adventure-mods setup --game sadx --preset "DX Enhanced"
-adventure-mods setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
-adventure-mods setup --game sadx --game-path "/path/to/Sonic Adventure DX" --width 2560 --height 1440
+./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/Sonic Adventure DX" --width 2560 --height 1440
 ```
 
 If you omit `--game`, `--game-path`, `--preset`, and `--mod`, the CLI falls back to terminal prompts.
@@ -72,21 +82,23 @@ If you omit `--game`, `--game-path`, `--preset`, and `--mod`, the CLI falls back
 
 | Command | Purpose |
 |--------|---------|
-| `adventure-mods detect` | Show detected SADX and SA2 installs plus inaccessible Steam libraries |
-| `adventure-mods list-mods --game <sadx|sa2>` | Show presets and recommended mods for one game |
-| `adventure-mods setup ...` | Install runtimes, mod manager, selected mods, and generated config files |
+| `detect` | Show detected SADX and SA2 installs plus inaccessible Steam libraries |
+| `list-mods --game <sadx|sa2>` | Show available presets and recommended mods for one game |
+| `setup ...` | Install runtimes, mod manager, selected mods, and generated config files |
 
-Useful flags:
+### Common flags
 
 - `--game sadx|sa2` picks the game explicitly
 - `--game-path /path/to/game` skips Steam detection for setup
-- `--preset "DX Enhanced"` uses a named preset
-- repeated `--mod "..."` selects specific mods
+- `--preset "DX Enhanced"` uses a named preset when the selected game provides presets
+- repeat `--mod "..."` to select specific mods
 - `--libraryfolders-vdf /path/to/libraryfolders.vdf` points detection at a specific Steam library file
-- repeated `--steam-library /path/to/library` adds extra Steam library roots during detection
+- repeat `--steam-library /path/to/library` to add extra Steam library roots during detection
 - `--width` and `--height` override the generated game resolution for setup
 
 ## Development
+
+Build instructions for local development:
 
 ### Flatpak build
 
