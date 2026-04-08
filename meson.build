@@ -1,7 +1,7 @@
 project(
   'adventure-mods',
   'rust',
-  version: '0.2.3',
+  version: '0.2.4',
   meson_version: '>= 1.2.0',
   license: 'MIT',
 )

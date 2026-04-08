@@ -43,7 +43,7 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
-    <release version="0.2.3" date="2026-04-07">
+    <release version="0.2.4" date="2026-04-08">
       <description>
         <p>Direct Proton integration replaced protontricks, Steam library detection was expanded, the welcome and setup flow were improved, release publishing was fixed, and packaged archive extraction was corrected.</p>
       </description>
