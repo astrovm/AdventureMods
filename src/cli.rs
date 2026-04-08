@@ -1,7 +1,8 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
+use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use tokio::runtime::Builder;
 
@@ -265,8 +266,11 @@ fn resolve_setup_mods(
         let index = selected
             .parse::<usize>()
             .context("Expected a preset number")?;
-        if index <= presets.len() {
+        if (1..=presets.len()).contains(&index) {
             return pipeline::resolve_selected_mods(game_kind, Some(presets[index - 1].name), &[]);
+        }
+        if index != presets.len() + 1 {
+            bail!("Invalid preset number");
         }
     }
 
@@ -329,10 +333,8 @@ fn read_prompt(input: &mut impl BufRead) -> Result<String> {
 
 pub fn looks_like_cli(args: &[String]) -> bool {
     args.len() > 1
-        && matches!(
-            args[1].as_str(),
-            "detect" | "list-mods" | "setup" | "help" | "--help" | "-h" | "--version" | "-V"
-        )
+        && (!args[1].starts_with('-')
+            || matches!(args[1].as_str(), "--help" | "-h" | "--version" | "-V"))
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -354,9 +356,19 @@ pub fn run_from_args_with_io(
         return Ok(false);
     }
 
+    let cli = match Cli::try_parse_from(&args) {
+        Ok(cli) => cli,
+        Err(error) => match error.kind() {
+            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
+                write!(output, "{error}")?;
+                return Ok(true);
+            }
+            _ => return Err(anyhow!(error.to_string().trim_end().to_string())),
+        },
+    };
+
     initialize_runtime()?;
 
-    let cli = Cli::parse_from(args);
     run_with_io(cli, input, output)?;
     Ok(true)
 }
@@ -365,7 +377,8 @@ pub fn run_from_args_with_io(
 mod tests {
     use clap::Parser;
 
-    use super::{run_from_args_with_io, Cli, Command};
+    use super::{Cli, Command, SetupArgs, resolve_setup_mods, run_from_args_with_io};
+    use crate::steam::game::GameKind;
 
     #[test]
     fn parses_detect_command() {
@@ -429,5 +442,51 @@ mod tests {
 
         assert!(handled);
         assert!(initialized);
+    }
+
+    #[test]
+    fn setup_rejects_zero_preset_selection() {
+        let args = SetupArgs {
+            game: Some("sadx".to_string()),
+            mods: Vec::new(),
+            preset: None,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+        let mut input = std::io::Cursor::new(b"0\n");
+        let mut output = Vec::new();
+
+        let error = match resolve_setup_mods(&args, GameKind::SADX, &mut input, &mut output) {
+            Ok(_) => panic!("preset selection should reject 0"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("Invalid preset number"));
+    }
+
+    #[test]
+    fn run_from_args_rejects_unknown_subcommands() {
+        let mut initialized = false;
+        let mut output = Vec::new();
+
+        let error = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "detcet".to_string()],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut std::io::empty(),
+            &mut output,
+        )
+        .expect_err("unknown subcommand should be rejected");
+
+        assert!(!initialized);
+        assert!(
+            error
+                .to_string()
+                .contains("unrecognized subcommand 'detcet'")
+        );
     }
 }
