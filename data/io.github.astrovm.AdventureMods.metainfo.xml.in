@@ -14,7 +14,7 @@
     </p>
     <ul>
       <li>Finds SADX and SA2 across all your Steam library folders</li>
-      <li>29 SADX mods and 13 SA2 mods to pick from</li>
+      <li>29 SADX mods and 12 SA2 mods to pick from</li>
       <li>Quick presets: DX Enhanced and Dreamcast Restoration</li>
       <li>Gets mod managers, mods, and dependencies all at once</li>
       <li>Sets up native resolution, window mode, and optimal settings</li>
@@ -45,22 +45,7 @@
   <releases>
     <release version="0.2.3" date="2026-04-07">
       <description>
-        <p>Update vendored Flatpak dependencies.</p>
-      </description>
-    </release>
-    <release version="0.2.2" date="2026-04-07">
-      <description>
-        <p>Fix AppImage archive extraction by bundling 7z binary directly instead of using wrapper script with hardcoded paths.</p>
-      </description>
-    </release>
-    <release version="0.2.1" date="2026-04-07">
-      <description>
-        <p>CI release workflow fix: releases now publish correctly with AppImage assets.</p>
-      </description>
-    </release>
-    <release version="0.2.0" date="2026-04-07">
-      <description>
-        <p>Direct Proton integration replacing protontricks, multi-library Steam detection, overhauled welcome page with cover images, SA2 mod presets, and numerous bug fixes for game card visibility and download handling.</p>
+        <p>Direct Proton integration replaced protontricks, Steam library detection was expanded, the welcome and setup flow were improved, release publishing was fixed, and packaged archive extraction was corrected.</p>
       </description>
     </release>
     <release version="0.1.0" date="2026-03-15">

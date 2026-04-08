@@ -11,7 +11,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. It fin
 ## Features
 
 - Finds SADX and SA2 across all your Steam library folders
-- 29 SADX mods and 13 SA2 mods to pick from
+- 29 SADX mods and 12 SA2 mods to pick from
 - Quick presets: DX Enhanced and Dreamcast Restoration
 - Gets mod managers, mods, and dependencies all at once
 - Sets up native resolution, window mode, and optimal settings
