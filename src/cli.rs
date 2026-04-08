@@ -215,7 +215,7 @@ fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
 
 fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> Result<()> {
     let term_width = console::Term::stdout().size().1 as usize;
-    if term_width >= 72 {
+    if term_width >= 30 {
         banner::print_banner(&mut out.writer, out.use_color)?;
     }
     banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
