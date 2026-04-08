@@ -77,14 +77,6 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
     }
 }
 
-/// Return whether a recommended mod should be preselected for a fresh install.
-pub fn is_mod_enabled_by_default(kind: GameKind, _mod_entry: &ModEntry) -> bool {
-    match kind {
-        GameKind::SADX => true,
-        GameKind::SA2 => true,
-    }
-}
-
 /// Check whether a setup step has already been completed for the given game.
 ///
 /// Returns `true` if the step's effects are already present on disk and it
