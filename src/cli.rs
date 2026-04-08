@@ -471,7 +471,11 @@ fn read_prompt(input: &mut impl BufRead) -> Result<String> {
 }
 
 pub fn looks_like_cli(args: &[String]) -> bool {
-    args.len() > 1 && matches!(args[1].as_str(), "detect" | "list-mods" | "setup")
+    args.len() > 1
+        && matches!(
+            args[1].as_str(),
+            "detect" | "list-mods" | "setup" | "--help" | "-h" | "--version" | "-V"
+        )
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -652,6 +656,14 @@ mod tests {
         assert!(super::looks_like_cli(&[
             "adventure-mods".to_string(),
             "setup".to_string()
+        ]));
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--help".to_string()
+        ]));
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--version".to_string()
         ]));
     }
 
