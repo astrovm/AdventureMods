@@ -66,6 +66,11 @@ pub fn run_with_io(cli: Cli, input: &mut impl Read, output: &mut impl Write) -> 
     }
 }
 
+pub fn initialize_crypto_provider() -> Result<()> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    Ok(())
+}
+
 fn run_detect(args: DetectArgs, output: &mut impl Write) -> Result<()> {
     let result = detect_games(&args);
 
@@ -329,12 +334,28 @@ pub fn looks_like_cli(args: &[String]) -> bool {
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
+    run_from_args_with_io(
+        args,
+        initialize_crypto_provider,
+        &mut std::io::stdin(),
+        &mut std::io::stdout(),
+    )
+}
+
+pub fn run_from_args_with_io(
+    args: Vec<String>,
+    initialize_runtime: impl FnOnce() -> Result<()>,
+    input: &mut impl Read,
+    output: &mut impl Write,
+) -> Result<bool> {
     if !looks_like_cli(&args) {
         return Ok(false);
     }
 
+    initialize_runtime()?;
+
     let cli = Cli::parse_from(args);
-    run_with_io(cli, &mut std::io::stdin(), &mut std::io::stdout())?;
+    run_with_io(cli, input, output)?;
     Ok(true)
 }
 
@@ -342,7 +363,7 @@ pub fn run_from_args(args: Vec<String>) -> Result<bool> {
 mod tests {
     use clap::Parser;
 
-    use super::{Cli, Command};
+    use super::{run_from_args_with_io, Cli, Command};
 
     #[test]
     fn parses_detect_command() {
@@ -386,5 +407,25 @@ mod tests {
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn run_from_args_initializes_runtime_for_cli_commands() {
+        let mut initialized = false;
+        let mut output = Vec::new();
+
+        let handled = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "detect".to_string()],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut std::io::empty(),
+            &mut output,
+        )
+        .unwrap();
+
+        assert!(handled);
+        assert!(initialized);
     }
 }
