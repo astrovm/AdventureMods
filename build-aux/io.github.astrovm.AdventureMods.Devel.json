@@ -44,7 +44,7 @@
     {
       "name": "p7zip",
       "buildsystem": "simple",
-      "build-commands": ["make 7z", "install -Dm755 bin/7z /app/bin/7z"],
+      "build-commands": ["make 7z", "install -Dm755 bin/7z /app/bin/7z", "install -Dm755 bin/7z.so /app/bin/7z.so"],
       "sources": [
         {
           "type": "archive",

@@ -29,3 +29,23 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    fn assert_manifest_installs_7z_shared_object(manifest: &str) {
+        assert!(manifest.contains("install -Dm755 bin/7z /app/bin/7z"));
+        assert!(manifest.contains("install -Dm755 bin/7z.so /app/bin/7z.so"));
+    }
+
+    #[test]
+    fn flatpak_manifest_installs_7z_shared_object() {
+        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
+        assert_manifest_installs_7z_shared_object(manifest);
+    }
+
+    #[test]
+    fn flatpak_devel_manifest_installs_7z_shared_object() {
+        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
+        assert_manifest_installs_7z_shared_object(manifest);
+    }
+}
