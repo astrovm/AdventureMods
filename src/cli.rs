@@ -67,7 +67,9 @@ pub fn run_with_io(cli: Cli, input: &mut impl Read, output: &mut impl Write) -> 
 }
 
 pub fn initialize_crypto_provider() -> Result<()> {
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .map_err(|_| anyhow!("failed to install TLS crypto provider: already installed"))?;
     Ok(())
 }
 
