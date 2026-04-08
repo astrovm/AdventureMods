@@ -9,7 +9,7 @@ APPDIR="$BUILD_DIR/AppDir"
 LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
 GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
 HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip"
-P7ZIP_URL="https://github.com/p7zip-project/p7zip/archive/refs/tags/v17.05.tar.gz"
+SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz"
 
 GTK4_VERSION="4.20.3"
 GTK4_URL="https://download.gnome.org/sources/gtk/4.20/gtk-${GTK4_VERSION}.tar.xz"
@@ -85,14 +85,10 @@ wget -q -O "$BUILD_DIR/tmp/hpatchz.zip" "$HPATCHZ_URL"
 unzip -o -j "$BUILD_DIR/tmp/hpatchz.zip" "linux64/hpatchz" -d "$BUILD_DIR/tmp/"
 install -Dm755 "$BUILD_DIR/tmp/hpatchz" "$APPDIR/usr/bin/hpatchz"
 
-echo "==> Building p7zip"
-wget -q -O "$BUILD_DIR/tmp/p7zip.tar.gz" "$P7ZIP_URL"
-tar xf "$BUILD_DIR/tmp/p7zip.tar.gz" -C "$BUILD_DIR/tmp/"
-make -C "$BUILD_DIR/tmp/p7zip-17.05" 7z -j"$(nproc)"
-# Install 7z binary directly to bin/ instead of using 'make install' which creates
-# a wrapper script with hardcoded build paths that break in AppImage
-install -Dm755 "$BUILD_DIR/tmp/p7zip-17.05/bin/7z" "$APPDIR/usr/bin/7z"
-install -Dm755 "$BUILD_DIR/tmp/p7zip-17.05/bin/7z.so" "$APPDIR/usr/bin/7z.so"
+echo "==> Downloading 7-Zip"
+wget -q -O "$BUILD_DIR/tmp/7zip.tar.xz" "$SEVENZIP_URL"
+tar xf "$BUILD_DIR/tmp/7zip.tar.xz" -C "$BUILD_DIR/tmp/"
+install -Dm755 "$BUILD_DIR/tmp/7zz" "$APPDIR/usr/bin/7zz"
 
 echo "==> Compiling GSettings schemas"
 glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas/"

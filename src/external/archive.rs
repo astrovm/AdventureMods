@@ -3,26 +3,30 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
+const ARCHIVE_PROGRAM: &str = "7zz";
+
 /// Extract an archive using 7z (supports .7z, .zip, .rar, .tar.*, etc.).
 pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
     std::fs::create_dir_all(dest)
         .with_context(|| format!("Failed to create directory {}", dest.display()))?;
 
     let dest_arg = format!("-o{}", dest.display());
-    let output = std::process::Command::new(resolve_program("7z"))
+    let program = resolve_archive_program();
+    let output = std::process::Command::new(&program)
         .arg("x")
         .arg("-y")
         .arg(&dest_arg)
         .arg(archive)
         .output()
-        .context("Failed to run 7z. Is p7zip installed?")?;
+        .with_context(|| format!("Failed to run {}. Is 7-Zip installed?", program.display()))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         anyhow::bail!(
-            "Archive extraction failed for {}:\n{}\n{}",
+            "Archive extraction failed for {} with {}:\n{}\n{}",
             archive.display(),
+            program.display(),
             stdout,
             stderr,
         );
@@ -31,8 +35,13 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-fn resolve_program(program: &str) -> PathBuf {
-    resolve_program_with_search_path(program, std::env::var_os("PATH").as_deref())
+fn resolve_archive_program() -> PathBuf {
+    resolve_archive_program_with_search_path(std::env::var_os("PATH").as_deref())
+}
+
+fn resolve_archive_program_with_search_path(search_path: Option<&OsStr>) -> PathBuf {
+    find_program_in_search_path(ARCHIVE_PROGRAM, search_path)
+        .unwrap_or_else(|| PathBuf::from(ARCHIVE_PROGRAM))
 }
 
 fn resolve_program_with_search_path(program: &str, search_path: Option<&OsStr>) -> PathBuf {
@@ -41,6 +50,10 @@ fn resolve_program_with_search_path(program: &str, search_path: Option<&OsStr>) 
         return program_path.to_path_buf();
     }
 
+    find_program_in_search_path(program, search_path).unwrap_or_else(|| program_path.to_path_buf())
+}
+
+fn find_program_in_search_path(program: &str, search_path: Option<&OsStr>) -> Option<PathBuf> {
     search_path
         .into_iter()
         .flat_map(std::env::split_paths)
@@ -50,25 +63,18 @@ fn resolve_program_with_search_path(program: &str, search_path: Option<&OsStr>) 
                 .is_file()
                 .then(|| candidate.canonicalize().unwrap_or(candidate))
         })
-        .unwrap_or_else(|| program_path.to_path_buf())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn assert_manifest_installs_7z_shared_object(manifest: &str) {
-        assert!(manifest.contains("install -Dm755 bin/7z /app/bin/7z"));
-        assert!(manifest.contains("install -Dm755 bin/7z.so /app/bin/7z.so"));
+    fn assert_manifest_installs_7zz(manifest: &str) {
+        assert!(manifest.contains("install -Dm755 7zz /app/bin/7zz"));
     }
 
-    fn assert_appimage_build_installs_7z_shared_object(script: &str) {
-        assert!(script.contains(
-            "install -Dm755 \"$BUILD_DIR/tmp/p7zip-17.05/bin/7z\" \"$APPDIR/usr/bin/7z\""
-        ));
-        assert!(script.contains(
-            "install -Dm755 \"$BUILD_DIR/tmp/p7zip-17.05/bin/7z.so\" \"$APPDIR/usr/bin/7z.so\""
-        ));
+    fn assert_appimage_build_installs_7zz(script: &str) {
+        assert!(script.contains("install -Dm755 \"$BUILD_DIR/tmp/7zz\" \"$APPDIR/usr/bin/7zz\""));
     }
 
     #[test]
@@ -106,20 +112,72 @@ mod tests {
     }
 
     #[test]
-    fn flatpak_manifest_installs_7z_shared_object() {
+    fn resolve_archive_program_uses_7zz_when_present() {
+        let temp = tempfile::tempdir().unwrap();
+        let bin_dir = temp.path().join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+
+        let seven_zz = bin_dir.join("7zz");
+        std::fs::write(&seven_zz, b"#!/bin/sh\nexit 0\n").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            for path in [&seven_zz] {
+                let mut permissions = std::fs::metadata(path).unwrap().permissions();
+                permissions.set_mode(0o755);
+                std::fs::set_permissions(path, permissions).unwrap();
+            }
+        }
+
+        let search_path = std::env::join_paths([&bin_dir]).unwrap();
+        assert_eq!(
+            resolve_archive_program_with_search_path(Some(search_path.as_os_str())),
+            seven_zz.canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn resolve_archive_program_does_not_fall_back_to_7z() {
+        let temp = tempfile::tempdir().unwrap();
+        let bin_dir = temp.path().join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+
+        let seven_z = bin_dir.join("7z");
+        std::fs::write(&seven_z, b"#!/bin/sh\nexit 0\n").unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            let mut permissions = std::fs::metadata(&seven_z).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&seven_z, permissions).unwrap();
+        }
+
+        let search_path = std::env::join_paths([&bin_dir]).unwrap();
+        assert_eq!(
+            resolve_archive_program_with_search_path(Some(search_path.as_os_str())),
+            PathBuf::from("7zz")
+        );
+    }
+
+    #[test]
+    fn flatpak_manifest_installs_7zz() {
         let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
-        assert_manifest_installs_7z_shared_object(manifest);
+        assert_manifest_installs_7zz(manifest);
     }
 
     #[test]
-    fn flatpak_devel_manifest_installs_7z_shared_object() {
+    fn flatpak_devel_manifest_installs_7zz() {
         let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
-        assert_manifest_installs_7z_shared_object(manifest);
+        assert_manifest_installs_7zz(manifest);
     }
 
     #[test]
-    fn appimage_build_installs_7z_shared_object() {
+    fn appimage_build_installs_7zz() {
         let script = include_str!("../../build-aux/appimage/build-appimage.sh");
-        assert_appimage_build_installs_7z_shared_object(script);
+        assert_appimage_build_installs_7zz(script);
     }
 }
