@@ -1,6 +1,7 @@
 name: Rust Tests
 
 on:
+  push:
   pull_request:
   workflow_dispatch:
 
@@ -24,7 +25,8 @@ jobs:
             curl \
             pkg-config \
             libgtk-4-dev \
-            libadwaita-1-dev
+            libadwaita-1-dev \
+            xvfb
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -32,4 +34,4 @@ jobs:
       - name: Run tests
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
-        run: cargo test
+        run: xvfb-run cargo test
