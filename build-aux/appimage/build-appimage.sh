@@ -92,6 +92,7 @@ make -C "$BUILD_DIR/tmp/p7zip-17.05" 7z -j"$(nproc)"
 # Install 7z binary directly to bin/ instead of using 'make install' which creates
 # a wrapper script with hardcoded build paths that break in AppImage
 install -Dm755 "$BUILD_DIR/tmp/p7zip-17.05/bin/7z" "$APPDIR/usr/bin/7z"
+install -Dm755 "$BUILD_DIR/tmp/p7zip-17.05/bin/7z.so" "$APPDIR/usr/bin/7z.so"
 
 echo "==> Compiling GSettings schemas"
 glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas/"

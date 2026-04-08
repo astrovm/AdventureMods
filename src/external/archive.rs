@@ -62,6 +62,15 @@ mod tests {
         assert!(manifest.contains("install -Dm755 bin/7z.so /app/bin/7z.so"));
     }
 
+    fn assert_appimage_build_installs_7z_shared_object(script: &str) {
+        assert!(script.contains(
+            "install -Dm755 \"$BUILD_DIR/tmp/p7zip-17.05/bin/7z\" \"$APPDIR/usr/bin/7z\""
+        ));
+        assert!(script.contains(
+            "install -Dm755 \"$BUILD_DIR/tmp/p7zip-17.05/bin/7z.so\" \"$APPDIR/usr/bin/7z.so\""
+        ));
+    }
+
     #[test]
     fn resolve_program_with_search_path_returns_absolute_match() {
         let temp = tempfile::tempdir().unwrap();
@@ -106,5 +115,11 @@ mod tests {
     fn flatpak_devel_manifest_installs_7z_shared_object() {
         let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
         assert_manifest_installs_7z_shared_object(manifest);
+    }
+
+    #[test]
+    fn appimage_build_installs_7z_shared_object() {
+        let script = include_str!("../../build-aux/appimage/build-appimage.sh");
+        assert_appimage_build_installs_7z_shared_object(script);
     }
 }
