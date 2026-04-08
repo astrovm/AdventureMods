@@ -42,35 +42,6 @@ chmod +x Adventure_Mods-x86_64.AppImage
 flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.Devel.json
 ```
 
-### Native build
-
-Install system dependencies:
-
-```sh
-# Debian/Ubuntu
-sudo apt install libgtk-4-dev libadwaita-1-dev meson
-
-# Fedora
-sudo dnf install gtk4-devel libadwaita-devel meson
-
-# Arch
-sudo pacman -S gtk4 libadwaita meson
-```
-
-Build and install:
-
-```sh
-meson setup builddir
-meson compile -C builddir
-meson install -C builddir
-```
-
-Or build with Cargo directly for development:
-
-```sh
-cargo build
-```
-
 ### AppImage build
 
 Build locally in Docker with `debian:13`:
