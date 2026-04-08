@@ -5,6 +5,15 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 
 fn main() -> ExitCode {
+    match adventure_mods::cli::run_from_args(std::env::args().collect()) {
+        Ok(true) => return ExitCode::SUCCESS,
+        Ok(false) => {}
+        Err(error) => {
+            eprintln!("{error:#}");
+            return ExitCode::FAILURE;
+        }
+    }
+
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");

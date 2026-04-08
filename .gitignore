@@ -34,3 +34,6 @@ repo
 
 # Local git worktrees
 .worktrees/
+
+# Superpowers workflow artifacts
+docs/superpowers/

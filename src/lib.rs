@@ -1,5 +1,6 @@
 pub mod application;
 pub mod blocking;
+pub mod cli;
 pub mod config;
 pub mod external;
 pub mod setup;
