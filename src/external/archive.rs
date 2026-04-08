@@ -44,6 +44,7 @@ fn resolve_archive_program_with_search_path(search_path: Option<&OsStr>) -> Path
         .unwrap_or_else(|| PathBuf::from(ARCHIVE_PROGRAM))
 }
 
+#[cfg(test)]
 fn resolve_program_with_search_path(program: &str, search_path: Option<&OsStr>) -> PathBuf {
     let program_path = Path::new(program);
     if program_path.is_absolute() || program.contains(std::path::MAIN_SEPARATOR) {
@@ -70,6 +71,8 @@ mod tests {
     use super::*;
 
     fn assert_manifest_installs_7zz(manifest: &str) {
+        assert!(manifest.contains("\"type\": \"file\""));
+        assert!(manifest.contains("tar xf 7zip.tar.xz"));
         assert!(manifest.contains("install -Dm755 7zz /app/bin/7zz"));
     }
 
