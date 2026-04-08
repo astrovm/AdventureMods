@@ -345,7 +345,7 @@ impl AdventureModsSetupPage {
 
                 let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
                 let presets = game_kind
-                    .map(|k| common::presets_for_game(k))
+                    .map(common::presets_for_game)
                     .unwrap_or(&[]);
 
                 let main_box = gtk::Box::builder()
@@ -425,7 +425,7 @@ impl AdventureModsSetupPage {
 
                             let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
                             let mods_list = game_kind
-                                .map(|k| common::recommended_mods_for_game(k))
+                                .map(common::recommended_mods_for_game)
                                 .unwrap_or(&[]);
 
                             for (i, check) in checks_clone.borrow().iter().enumerate() {
@@ -509,7 +509,7 @@ impl AdventureModsSetupPage {
                 preview_box.append(&links_box);
 
                 let mods_list = game_kind
-                    .map(|k| common::recommended_mods_for_game(k))
+                    .map(common::recommended_mods_for_game)
                     .unwrap_or(&[]);
                 let mut initial_selected = Vec::new();
 
@@ -653,9 +653,7 @@ impl AdventureModsSetupPage {
 
     fn run_external_action(step_id: &'static str, _game: Game, button: gtk::Button) {
         glib::spawn_future_local(async move {
-            let result: anyhow::Result<()> = match step_id {
-                _ => Ok(()),
-            };
+            let result: anyhow::Result<()> = Ok(());
 
             button.set_sensitive(true);
             if let Err(e) = result {

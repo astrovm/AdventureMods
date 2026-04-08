@@ -566,8 +566,8 @@ fn parse_proton_dir_name(name: &str) -> Option<ProtonVersion> {
     let version_part = rest.split('-').next().unwrap_or(rest);
     let mut parts = version_part.split('.');
 
-    if let Some(major_str) = parts.next() {
-        if let Ok(major) = major_str.trim().parse::<u32>() {
+    if let Some(major_str) = parts.next()
+        && let Ok(major) = major_str.trim().parse::<u32>() {
             let minor: u32 = parts
                 .next()
                 .and_then(|s| s.trim().parse().ok())
@@ -575,7 +575,6 @@ fn parse_proton_dir_name(name: &str) -> Option<ProtonVersion> {
 
             return Some(ProtonVersion::Numbered(major, minor));
         }
-    }
 
     Some(ProtonVersion::Other(name.to_string()))
 }

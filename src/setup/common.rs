@@ -540,7 +540,7 @@ fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
                 copy_dir_all(&entry.path(), &target)?;
                 std::fs::remove_dir_all(entry.path())?;
             } else {
-                std::fs::copy(&entry.path(), &target)?;
+                std::fs::copy(entry.path(), &target)?;
                 std::fs::remove_file(entry.path())?;
             }
         }
@@ -581,7 +581,7 @@ fn copy_dir_all(src: &Path, dest: &Path) -> Result<()> {
         if entry.path().is_dir() {
             copy_dir_all(&entry.path(), &target)?;
         } else {
-            std::fs::copy(&entry.path(), &target)?;
+            std::fs::copy(entry.path(), &target)?;
         }
     }
     Ok(())

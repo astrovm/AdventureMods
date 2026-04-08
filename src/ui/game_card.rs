@@ -96,6 +96,12 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+impl Default for AdventureModsGameCard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AdventureModsGameCard {
     pub fn new() -> Self {
         glib::Object::builder().build()

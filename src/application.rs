@@ -80,6 +80,12 @@ glib::wrapper! {
         @implements gio::ActionGroup, gio::ActionMap;
 }
 
+impl Default for AdventureModsApplication {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AdventureModsApplication {
     pub fn new() -> Self {
         glib::Object::builder()
