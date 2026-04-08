@@ -437,8 +437,7 @@ pub fn install_mod(
         let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
         move_dir_contents(&content_root, &dest)?;
     } else {
-        // No dir_name: extract directly and trust the archive structure.
-        move_dir_contents(&staging_dir, &mods_dir)?;
+        install_passthrough_mod(&staging_dir, &mods_dir)?;
     }
 
     tracing::info!("Installed mod: {}", mod_entry.name);
@@ -479,6 +478,35 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+
+fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<()> {
+    let mut entries = std::fs::read_dir(staging)?.collect::<std::io::Result<Vec<_>>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+
+    if entries.len() != 1 || !entries[0].path().is_dir() {
+        anyhow::bail!(
+            "Expected archive to contain a single top-level mod directory, found {} entries",
+            entries.len()
+        );
+    }
+
+    let extracted_dir = entries.remove(0).path();
+    let dest = mods_dir.join(
+        extracted_dir
+            .file_name()
+            .context("Extracted mod directory is missing a file name")?,
+    );
+
+    if dest.is_dir() {
+        tracing::info!(
+            "Mod directory '{}' already exists, skipping install",
+            dest.display()
+        );
+        return Ok(());
+    }
+
+    move_dir_contents(&extracted_dir, &dest)
 }
 
 /// Recursively move all entries from `src` into `dest`, creating `dest` if needed.
@@ -730,6 +758,38 @@ mod tests {
         move_dir_contents(&staging, &mods_dir).unwrap();
 
         assert!(mods_dir.join("SomeMod").join("mod.ini").is_file());
+    }
+
+    #[test]
+    fn test_install_passthrough_mod_rejects_flat_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let mods_dir = tmp.path().join("mods");
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::create_dir_all(&mods_dir).unwrap();
+        std::fs::write(staging.join("mod.ini"), b"[mod]").unwrap();
+
+        let err = install_passthrough_mod(&staging, &mods_dir).unwrap_err();
+        assert!(err.to_string().contains("single top-level mod directory"));
+        assert!(!mods_dir.join("mod.ini").exists());
+    }
+
+    #[test]
+    fn test_install_passthrough_mod_preserves_existing_directory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let staging = tmp.path().join("staging");
+        let mods_dir = tmp.path().join("mods");
+        let extracted = staging.join("SomeMod");
+        let existing = mods_dir.join("SomeMod");
+        std::fs::create_dir_all(&extracted).unwrap();
+        std::fs::create_dir_all(&existing).unwrap();
+        std::fs::write(extracted.join("mod.ini"), b"[new]").unwrap();
+        std::fs::write(existing.join("mod.ini"), b"[old]").unwrap();
+
+        install_passthrough_mod(&staging, &mods_dir).unwrap();
+
+        assert_eq!(std::fs::read(existing.join("mod.ini")).unwrap(), b"[old]");
+        assert!(extracted.join("mod.ini").is_file());
     }
 
     #[test]

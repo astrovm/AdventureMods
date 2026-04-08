@@ -299,6 +299,11 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
             .into_iter()
             .filter(|root| steam_root_references_library(root, derived_root)),
     );
+    roots.extend(
+        sibling_steam_root_candidates(derived_root)
+            .into_iter()
+            .filter(|root| steam_root_references_library(root, derived_root)),
+    );
 
     let mut unique = Vec::new();
     for root in roots {
@@ -309,6 +314,22 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
     }
 
     Ok(unique)
+}
+
+fn sibling_steam_root_candidates(library_root: &Path) -> Vec<PathBuf> {
+    let Some(parent) = library_root.parent() else {
+        return vec![];
+    };
+
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return vec![];
+    };
+
+    entries
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| path != library_root)
+        .filter(|path| path.join("config/config.vdf").is_file())
+        .collect()
 }
 
 fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool {
@@ -690,6 +711,33 @@ mod tests {
 
         let result = find_proton_for_app(&game_path, 71250).unwrap();
         assert_eq!(result, common.join("Proton 8.0"));
+    }
+
+    #[test]
+    fn test_steam_client_root_finds_custom_sibling_steam_root_for_extra_library_game() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path().join("custom-steam");
+        let library_root = tmp.path().join("extra-library");
+        let game_path = library_root.join("steamapps/common/Sonic Adventure DX");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(steam_root.join("config")).unwrap();
+        std::fs::create_dir_all(steam_root.join("steamapps")).unwrap();
+        std::fs::write(
+            steam_root.join("config/config.vdf"),
+            "\"InstallConfigStore\"\n{\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            steam_root.join("steamapps/libraryfolders.vdf"),
+            format!(
+                "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"\t\"{}\"\n    }}\n}}\n",
+                library_root.display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(steam_client_root(&game_path).unwrap(), steam_root);
     }
 
     #[test]
