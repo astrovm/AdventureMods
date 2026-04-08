@@ -6,6 +6,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
+use crate::blocking;
 use crate::setup::{common, config, sadx, steps};
 use crate::steam::game::Game;
 
@@ -726,14 +727,10 @@ impl AdventureModsSetupPage {
                         Some(Box::new(move |dl, total| {
                             let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
-                    match gio::spawn_blocking(move || {
+                    blocking::flatten_spawn_result(gio::spawn_blocking(move || {
                         sadx::convert_steam_to_2004(&game_path, progress_fn)
                     })
-                    .await
-                    {
-                        Ok(inner) => inner,
-                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
-                    }
+                    .await)
                 }
                 "install_mod_manager" => {
                     let game_path = game.path.clone();
@@ -743,14 +740,10 @@ impl AdventureModsSetupPage {
                         Some(Box::new(move |dl, total| {
                             let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
-                    match gio::spawn_blocking(move || {
+                    blocking::flatten_spawn_result(gio::spawn_blocking(move || {
                         common::install_mod_manager(&game_path, game_kind, progress_fn)
                     })
-                    .await
-                    {
-                        Ok(inner) => inner,
-                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
-                    }
+                    .await)
                 }
                 "download_mods" => {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
@@ -758,7 +751,7 @@ impl AdventureModsSetupPage {
                     let game_path = game.path.clone();
                     let was_cancelled = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
-                    match gio::spawn_blocking(move || {
+                    match blocking::flatten_spawn_result(gio::spawn_blocking(move || {
                         for (i, idx) in selected.iter().enumerate() {
                             if cancel_flag.load(Ordering::Relaxed) {
                                 return Err(anyhow::anyhow!("cancelled"));
@@ -793,16 +786,14 @@ impl AdventureModsSetupPage {
 
                         Ok(())
                     })
-                    .await
-                    {
-                        Ok(Ok(())) => Ok(()),
-                        Ok(Err(e)) => {
+                    .await) {
+                        Ok(()) => Ok(()),
+                        Err(e) => {
                             if was_cancelled.load(Ordering::Relaxed) {
                                 return; // Was cancelled
                             }
                             Err(e)
                         }
-                        Err(e) => Err(anyhow::anyhow!("spawn error: {e:?}")),
                     }
                 }
                 _ => Ok(()),

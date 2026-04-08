@@ -2,6 +2,7 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 
+use crate::blocking;
 use crate::steam;
 use crate::ui::setup_page::AdventureModsSetupPage;
 use crate::ui::welcome_page::AdventureModsWelcomePage;
@@ -178,14 +179,13 @@ impl AdventureModsWindow {
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
 
         glib::spawn_future_local(async move {
-            let result = match gio::spawn_blocking(move || {
+            let result = match blocking::spawn_result(gio::spawn_blocking(move || {
                 steam::library::detect_games_with_extra_libraries(&extra_library_paths)
             })
-            .await
-            {
+            .await) {
                 Ok(result) => result,
                 Err(err) => {
-                    tracing::error!("Failed to detect games: {err:?}");
+                    tracing::error!("Failed to detect games: {err}");
                     return;
                 }
             };
