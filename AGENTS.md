@@ -39,6 +39,11 @@
 - State what you found, where, and the fix. One pass.
 - If cause is unclear: say so. Do not guess.
 
+## Git Rules
+
+- When merging completed work to `main`, always use a single squashed commit.
+- Do not merge a feature branch to `main` with multiple commits or a merge commit.
+
 ## Simple Formatting
 
 - No em dashes, smart quotes, or decorative Unicode symbols.
