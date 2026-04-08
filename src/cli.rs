@@ -1,11 +1,14 @@
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, IsTerminal, Read, Write};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
+use console::Style;
 use tokio::runtime::Builder;
 
+use crate::banner;
+use crate::config;
 use crate::setup::{common, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
@@ -13,11 +16,85 @@ use crate::steam::library::{self, DetectionResult};
 const DEFAULT_WIDTH: u32 = 1920;
 const DEFAULT_HEIGHT: u32 = 1080;
 
+struct CliOutput<'a> {
+    writer: &'a mut dyn Write,
+    use_color: bool,
+    bold: Style,
+    cyan: Style,
+    green: Style,
+    dim: Style,
+}
+
+impl<'a> CliOutput<'a> {
+    fn new(writer: &'a mut dyn Write, use_color: bool) -> Self {
+        CliOutput {
+            writer,
+            use_color,
+            bold: Style::new().bold(),
+            cyan: Style::new().cyan().bright(),
+            green: Style::new().green().bright(),
+            dim: Style::new().dim(),
+        }
+    }
+
+    fn heading(&mut self, s: &str) -> std::io::Result<()> {
+        if self.use_color {
+            writeln!(self.writer, "{}", self.bold.apply_to(s))
+        } else {
+            writeln!(self.writer, "{s}")
+        }
+    }
+
+    fn success(&mut self, s: &str) -> std::io::Result<()> {
+        if self.use_color {
+            writeln!(self.writer, "{}", self.green.apply_to(s))
+        } else {
+            writeln!(self.writer, "{s}")
+        }
+    }
+
+    fn path(&self, s: &str) -> String {
+        if self.use_color {
+            self.cyan.apply_to(s).to_string()
+        } else {
+            s.to_string()
+        }
+    }
+
+    fn bold_item(&mut self, name: &str, desc: &str) -> std::io::Result<()> {
+        if self.use_color {
+            writeln!(
+                self.writer,
+                "- {}: {}",
+                self.bold.apply_to(name),
+                self.dim.apply_to(desc)
+            )
+        } else {
+            writeln!(self.writer, "- {name}: {desc}")
+        }
+    }
+
+    fn prompt(&mut self, s: &str) -> std::io::Result<()> {
+        if self.use_color {
+            write!(self.writer, "{} ", self.bold.apply_to(s))
+        } else {
+            write!(self.writer, "{s} ")
+        }
+    }
+
+    fn writeln(&mut self, s: &str) -> std::io::Result<()> {
+        writeln!(self.writer, "{s}")
+    }
+}
+
 #[derive(Debug, Parser)]
 #[command(name = "adventure-mods")]
 pub struct Cli {
+    #[arg(long)]
+    no_color: bool,
+
     #[command(subcommand)]
-    pub command: Option<Command>,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -56,13 +133,19 @@ pub struct SetupArgs {
     pub detect: DetectArgs,
 }
 
-pub fn run_with_io(cli: Cli, input: &mut impl Read, output: &mut impl Write) -> Result<()> {
+pub fn run_with_io(
+    cli: Cli,
+    use_color: bool,
+    input: &mut impl Read,
+    output: &mut impl Write,
+) -> Result<()> {
     let mut input = BufReader::new(input);
+    let mut out = CliOutput::new(output, use_color);
 
     match cli.command {
-        Some(Command::Detect(args)) => run_detect(args, output),
-        Some(Command::ListMods { game }) => run_list_mods(&game, output),
-        Some(Command::Setup(args)) => run_setup(args, &mut input, output),
+        Some(Command::Detect(args)) => run_detect(args, &mut out),
+        Some(Command::ListMods { game }) => run_list_mods(&game, &mut out),
+        Some(Command::Setup(args)) => run_setup(args, &mut input, &mut out),
         None => Ok(()),
     }
 }
@@ -74,69 +157,82 @@ pub fn initialize_crypto_provider() -> Result<()> {
     Ok(())
 }
 
-fn run_detect(args: DetectArgs, output: &mut impl Write) -> Result<()> {
+fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
+    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+
     let result = detect_games_strict(&args)?;
 
     if result.games.is_empty() && result.inaccessible.is_empty() {
-        writeln!(output, "No supported games detected.")?;
+        out.writeln("No supported games detected.")?;
         return Ok(());
     }
 
     if !result.games.is_empty() {
-        writeln!(output, "Detected games:")?;
+        out.heading("Detected games:")?;
         for game in &result.games {
-            writeln!(output, "- {}: {}", game.kind.name(), game.path.display())?;
+            out.writeln(&format!(
+                "- {}: {}",
+                game.kind.name(),
+                out.path(&game.path.display().to_string())
+            ))?;
         }
     }
 
     if !result.inaccessible.is_empty() {
-        writeln!(output, "Inaccessible Steam libraries:")?;
+        out.heading("Inaccessible Steam libraries:")?;
         for game in &result.inaccessible {
-            writeln!(
-                output,
+            out.writeln(&format!(
                 "- {}: {}",
                 game.kind.name(),
-                game.library_path.display()
-            )?;
+                out.path(&game.library_path.display().to_string())
+            ))?;
         }
     }
 
     Ok(())
 }
 
-fn run_list_mods(game: &str, output: &mut impl Write) -> Result<()> {
+fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
     let game_kind = parse_game_kind(game)?;
-    writeln!(output, "Game: {}", game_kind.name())?;
+    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+    out.writeln(&format!("Game: {}", game_kind.name()))?;
 
     let presets = common::presets_for_game(game_kind);
     if !presets.is_empty() {
-        writeln!(output, "Presets:")?;
+        out.heading("Presets:")?;
         for preset in presets {
-            writeln!(output, "- {}: {}", preset.name, preset.description)?;
+            out.bold_item(preset.name, preset.description)?;
         }
     }
 
-    writeln!(output, "Mods:")?;
+    out.heading("Mods:")?;
     for mod_entry in common::recommended_mods_for_game(game_kind) {
-        writeln!(output, "- {}: {}", mod_entry.name, mod_entry.description)?;
+        out.bold_item(mod_entry.name, mod_entry.description)?;
     }
 
     Ok(())
 }
 
-fn run_setup(args: SetupArgs, input: &mut impl BufRead, output: &mut impl Write) -> Result<()> {
-    let game_kind = resolve_game_kind(&args, input, output)?;
-    let game_path = resolve_game_path(&args, game_kind, input, output)?;
-    let selected_mods = resolve_setup_mods(&args, game_kind, input, output)?;
+fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> Result<()> {
+    let term_width = console::Term::stdout().size().1 as usize;
+    if term_width >= 72 {
+        banner::print_banner(&mut out.writer, out.use_color)?;
+    }
+    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+    out.writeln("")?;
+
+    let game_kind = resolve_game_kind(&args, input, out)?;
+    let game_path = resolve_game_path(&args, game_kind, input, out)?;
+    let selected_mods = resolve_setup_mods(&args, game_kind, input, out)?;
     let width = args.width.unwrap_or(DEFAULT_WIDTH);
     let height = args.height.unwrap_or(DEFAULT_HEIGHT);
 
-    writeln!(
-        output,
+    out.writeln(&format!(
         "Setting up {} at {}",
         game_kind.name(),
-        game_path.display()
-    )?;
+        out.path(&game_path.display().to_string())
+    ))?;
+    out.writeln("")?;
 
     Builder::new_current_thread()
         .build()?
@@ -158,21 +254,22 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, output: &mut impl Write)
         height,
     )?;
 
-    writeln!(output, "Setup complete.")?;
+    out.writeln("")?;
+    out.success("Setup complete!")?;
     Ok(())
 }
 
 fn resolve_game_kind(
     args: &SetupArgs,
     input: &mut impl BufRead,
-    output: &mut impl Write,
+    out: &mut CliOutput,
 ) -> Result<GameKind> {
     if let Some(game) = &args.game {
         return parse_game_kind(game);
     }
 
     if args.game_path.is_some() {
-        writeln!(output, "Select game: [sadx/sa2]")?;
+        out.prompt("Select game [sadx/sa2]:")?;
         return parse_game_kind(&read_prompt(input)?);
     }
 
@@ -185,15 +282,14 @@ fn resolve_game_kind(
         bail!("No supported games detected. Pass --game and --game-path.");
     }
 
-    writeln!(output, "Select installation:")?;
+    out.heading("Select installation:")?;
     for (index, game) in result.games.iter().enumerate() {
-        writeln!(
-            output,
+        out.writeln(&format!(
             "{}. {} ({})",
             index + 1,
             game.kind.name(),
-            game.path.display()
-        )?;
+            out.path(&game.path.display().to_string())
+        ))?;
     }
 
     let selected = read_prompt(input)?;
@@ -242,7 +338,7 @@ fn resolve_game_path(
     args: &SetupArgs,
     game_kind: GameKind,
     input: &mut impl BufRead,
-    output: &mut impl Write,
+    out: &mut CliOutput,
 ) -> Result<PathBuf> {
     if let Some(path) = &args.game_path {
         validate_game_path(game_kind, path)?;
@@ -259,9 +355,13 @@ fn resolve_game_path(
         0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
         1 => Ok(games.remove(0).path),
         _ => {
-            writeln!(output, "Select {} installation:", game_kind.name())?;
+            out.heading(&format!("Select {} installation:", game_kind.name()))?;
             for (index, game) in games.iter().enumerate() {
-                writeln!(output, "{}. {}", index + 1, game.path.display())?;
+                out.writeln(&format!(
+                    "{}. {}",
+                    index + 1,
+                    out.path(&game.path.display().to_string())
+                ))?;
             }
             let selected = read_prompt(input)?;
             let index = selected
@@ -279,7 +379,7 @@ fn resolve_setup_mods(
     args: &SetupArgs,
     game_kind: GameKind,
     input: &mut impl BufRead,
-    output: &mut impl Write,
+    out: &mut CliOutput,
 ) -> Result<Vec<&'static common::ModEntry>> {
     let named_mods: Vec<&str> = args.mods.iter().map(String::as_str).collect();
     let selected = pipeline::resolve_selected_mods(game_kind, args.preset.as_deref(), &named_mods)?;
@@ -289,11 +389,11 @@ fn resolve_setup_mods(
 
     let presets = common::presets_for_game(game_kind);
     if !presets.is_empty() {
-        writeln!(output, "Select preset:")?;
+        out.heading("Select preset:")?;
         for (index, preset) in presets.iter().enumerate() {
-            writeln!(output, "{}. {}", index + 1, preset.name)?;
+            out.writeln(&format!("{}. {}", index + 1, preset.name))?;
         }
-        writeln!(output, "{}. Custom mod list", presets.len() + 1)?;
+        out.writeln(&format!("{}. Custom mod list", presets.len() + 1))?;
         let selected = read_prompt(input)?;
         let index = selected
             .parse::<usize>()
@@ -306,18 +406,18 @@ fn resolve_setup_mods(
         }
     }
 
-    prompt_for_custom_mods(game_kind, input, output)
+    prompt_for_custom_mods(game_kind, input, out)
 }
 
 fn prompt_for_custom_mods(
     game_kind: GameKind,
     input: &mut impl BufRead,
-    output: &mut impl Write,
+    out: &mut CliOutput,
 ) -> Result<Vec<&'static common::ModEntry>> {
     let mods = common::recommended_mods_for_game(game_kind);
-    writeln!(output, "Select mods as comma-separated numbers:")?;
+    out.heading("Select mods as comma-separated numbers:")?;
     for (index, mod_entry) in mods.iter().enumerate() {
-        writeln!(output, "{}. {}", index + 1, mod_entry.name)?;
+        out.writeln(&format!("{}. {}", index + 1, mod_entry.name))?;
     }
     let selected = read_prompt(input)?;
     if selected.is_empty() {
@@ -375,11 +475,13 @@ pub fn looks_like_cli(args: &[String]) -> bool {
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
+    let is_terminal = std::io::stdout().is_terminal();
     run_from_args_with_io(
         args,
         initialize_crypto_provider,
         &mut std::io::stdin(),
         &mut std::io::stdout(),
+        is_terminal,
     )
 }
 
@@ -388,6 +490,7 @@ pub fn run_from_args_with_io(
     initialize_runtime: impl FnOnce() -> Result<()>,
     input: &mut impl Read,
     output: &mut impl Write,
+    is_terminal: bool,
 ) -> Result<bool> {
     if !looks_like_cli(&args) {
         return Ok(false);
@@ -404,17 +507,21 @@ pub fn run_from_args_with_io(
         },
     };
 
+    let use_color = !cli.no_color && std::env::var("NO_COLOR").is_err() && is_terminal;
+
     initialize_runtime()?;
 
-    run_with_io(cli, input, output)?;
+    run_with_io(cli, use_color, input, output)?;
     Ok(true)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::Write;
+
     use clap::Parser;
 
-    use super::{resolve_setup_mods, run_from_args_with_io, Cli, Command, SetupArgs};
+    use super::{resolve_setup_mods, run_from_args_with_io, Cli, CliOutput, Command, SetupArgs};
     use crate::steam::game::GameKind;
 
     #[test]
@@ -462,6 +569,12 @@ mod tests {
     }
 
     #[test]
+    fn parses_no_color_flag() {
+        let cli = Cli::parse_from(["adventure-mods", "--no-color", "detect"]);
+        assert!(cli.no_color);
+    }
+
+    #[test]
     fn run_from_args_initializes_runtime_for_cli_commands() {
         let mut initialized = false;
         let mut output = Vec::new();
@@ -474,6 +587,7 @@ mod tests {
             },
             &mut std::io::empty(),
             &mut output,
+            false,
         )
         .unwrap();
 
@@ -494,8 +608,9 @@ mod tests {
         };
         let mut input = std::io::Cursor::new(b"0\n");
         let mut output = Vec::new();
+        let mut out = CliOutput::new(&mut output as &mut dyn Write, false);
 
-        let error = match resolve_setup_mods(&args, GameKind::SADX, &mut input, &mut output) {
+        let error = match resolve_setup_mods(&args, GameKind::SADX, &mut input, &mut out) {
             Ok(_) => panic!("preset selection should reject 0"),
             Err(error) => error,
         };
@@ -516,6 +631,7 @@ mod tests {
             },
             &mut std::io::empty(),
             &mut output,
+            false,
         )
         .unwrap();
 
@@ -582,5 +698,21 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn cli_output_no_color_writes_plain() {
+        let mut buf = Vec::new();
+        let mut out = CliOutput::new(&mut buf as &mut dyn Write, false);
+
+        out.heading("Test Heading").unwrap();
+        out.success("Test Success").unwrap();
+        out.bold_item("name", "desc").unwrap();
+
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("Test Heading"));
+        assert!(s.contains("Test Success"));
+        assert!(s.contains("name: desc"));
+        assert!(!s.contains("\x1b["));
     }
 }

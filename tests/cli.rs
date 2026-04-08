@@ -20,7 +20,7 @@ fn detect_reports_games_from_explicit_vdf() {
     ]);
     let mut output = Vec::new();
 
-    run_with_io(cli, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
 
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("Sonic Adventure DX"));
@@ -32,7 +32,7 @@ fn list_mods_reports_presets_and_mods() {
     let cli = Cli::parse_from(["adventure-mods", "list-mods", "--game", "sadx"]);
     let mut output = Vec::new();
 
-    run_with_io(cli, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
 
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("DX Enhanced"));
@@ -123,7 +123,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
     ]);
     let mut output = Vec::new();
 
-    run_with_io(cli, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
     assert!(fixture

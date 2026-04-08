@@ -1,4 +1,5 @@
 pub mod application;
+pub mod banner;
 pub mod blocking;
 pub mod cli;
 pub mod config;
