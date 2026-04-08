@@ -104,31 +104,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         }],
     },
     ModEntry {
-        name: "Stage Atmosphere Tweaks",
-        source: ModSource::GameBanana { file_id: 884395 },
-        description: "Restores and improves stage lighting, fog, and environment effects.",
-        full_description: Some(
-            "Stage Atmosphere Tweaks restores the dynamic lighting and fog effects that were lost in the SA2 ports. It features position-based lighting changes in stages like Radical Highway and Pyramid Cave, dynamic sunsets in City Escape, and pulsating fog in Prison Lane, making the environments feel more alive and faithful to the original vision.",
-        ),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_5.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_6.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_7.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_8.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/stage_atmosphere/stageatmospheretweaks_9.jpg",
-        ],
-        dir_name: Some("StageAtmosphereTweaks"),
-        links: &[ModLink {
-            label: "GameBanana",
-            url: "https://gamebanana.com/mods/407838",
-        }],
-    },
-    ModEntry {
         name: "SA2 Volume Controls",
         source: ModSource::GameBanana { file_id: 835829 },
         description: "Adds independent volume sliders for Music, SFX, and Voices.",
@@ -298,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_recommended_mods_count() {
-        assert_eq!(RECOMMENDED_MODS.len(), 13);
+        assert_eq!(RECOMMENDED_MODS.len(), 12);
     }
 
     #[test]
@@ -391,13 +366,10 @@ mod tests {
     }
 
     #[test]
-    fn test_stage_atmosphere_tweaks_disabled_by_default() {
-        let mod_entry = RECOMMENDED_MODS
+    fn test_stage_atmosphere_tweaks_not_in_recommended_mods() {
+        assert!(RECOMMENDED_MODS
             .iter()
-            .find(|m| m.name == "Stage Atmosphere Tweaks")
-            .expect("Stage Atmosphere Tweaks entry missing");
-
-        assert!(!common::is_mod_enabled_by_default(GameKind::SA2, mod_entry));
+            .all(|m| m.name != "Stage Atmosphere Tweaks"));
     }
 
     #[test]

@@ -78,10 +78,10 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
 }
 
 /// Return whether a recommended mod should be preselected for a fresh install.
-pub fn is_mod_enabled_by_default(kind: GameKind, mod_entry: &ModEntry) -> bool {
+pub fn is_mod_enabled_by_default(kind: GameKind, _mod_entry: &ModEntry) -> bool {
     match kind {
         GameKind::SADX => true,
-        GameKind::SA2 => mod_entry.name != "Stage Atmosphere Tweaks",
+        GameKind::SA2 => true,
     }
 }
 
