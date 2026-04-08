@@ -111,9 +111,12 @@ flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods
 Build locally in Docker with `debian:13`:
 
 ```sh
-docker run --rm -v "$(pwd):/src" -w /src debian:13 bash -c '
-  export HOST_UID="$(id -u)"
-  export HOST_GID="$(id -g)"
+docker run --rm \
+  -e HOST_UID="$(id -u)" \
+  -e HOST_GID="$(id -g)" \
+  -v "$(pwd):/src" \
+  -w /src \
+  debian:13 bash -c '
   apt-get update -qq
   apt-get install -y -qq \
     build-essential pkg-config meson gettext python3-pip python3-setuptools \
