@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use tokio::runtime::Builder;
@@ -75,7 +75,7 @@ pub fn initialize_crypto_provider() -> Result<()> {
 }
 
 fn run_detect(args: DetectArgs, output: &mut impl Write) -> Result<()> {
-    let result = detect_games(&args);
+    let result = detect_games_strict(&args)?;
 
     if result.games.is_empty() && result.inaccessible.is_empty() {
         writeln!(output, "No supported games detected.")?;
@@ -176,7 +176,7 @@ fn resolve_game_kind(
         return parse_game_kind(&read_prompt(input)?);
     }
 
-    let result = detect_games(&args.detect);
+    let result = detect_games_strict(&args.detect)?;
     if result.games.len() == 1 {
         return Ok(result.games[0].kind);
     }
@@ -207,6 +207,37 @@ fn resolve_game_kind(
     Ok(game.kind)
 }
 
+fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()> {
+    anyhow::ensure!(
+        path.is_dir(),
+        "Game path does not exist or is not a directory: {}",
+        path.display()
+    );
+
+    let has_game_marker = match game_kind {
+        GameKind::SADX => {
+            path.join("sonic.exe").is_file() || path.join("Sonic Adventure DX.exe").is_file()
+        }
+        GameKind::SA2 => path.join("sonic2app.exe").is_file(),
+    };
+
+    let dir_matches = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n == game_kind.install_dir());
+
+    if !has_game_marker && !dir_matches {
+        bail!(
+            "{} does not appear to be a {} installation (expected directory named '{}' or game executable)",
+            path.display(),
+            game_kind.name(),
+            game_kind.install_dir(),
+        );
+    }
+
+    Ok(())
+}
+
 fn resolve_game_path(
     args: &SetupArgs,
     game_kind: GameKind,
@@ -214,10 +245,11 @@ fn resolve_game_path(
     output: &mut impl Write,
 ) -> Result<PathBuf> {
     if let Some(path) = &args.game_path {
+        validate_game_path(game_kind, path)?;
         return Ok(path.clone());
     }
 
-    let mut games: Vec<Game> = detect_games(&args.detect)
+    let mut games: Vec<Game> = detect_games_strict(&args.detect)?
         .games
         .into_iter()
         .filter(|game| game.kind == game_kind)
@@ -305,12 +337,19 @@ fn prompt_for_custom_mods(
         .collect()
 }
 
-fn detect_games(args: &DetectArgs) -> DetectionResult {
+fn detect_games_strict(args: &DetectArgs) -> Result<DetectionResult> {
     match &args.libraryfolders_vdf {
         Some(path) => {
-            library::detect_games_from_vdf_with_extra_libraries(path, &args.steam_libraries)
+            anyhow::ensure!(
+                path.is_file(),
+                "Library folders file not found: {}",
+                path.display()
+            );
+            library::detect_games_from_vdf_strict(path, &args.steam_libraries)
         }
-        None => library::detect_games_with_extra_libraries(&args.steam_libraries),
+        None => Ok(library::detect_games_with_extra_libraries(
+            &args.steam_libraries,
+        )),
     }
 }
 
@@ -332,9 +371,7 @@ fn read_prompt(input: &mut impl BufRead) -> Result<String> {
 }
 
 pub fn looks_like_cli(args: &[String]) -> bool {
-    args.len() > 1
-        && (!args[1].starts_with('-')
-            || matches!(args[1].as_str(), "--help" | "-h" | "--version" | "-V"))
+    args.len() > 1 && matches!(args[1].as_str(), "detect" | "list-mods" | "setup")
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -377,7 +414,7 @@ pub fn run_from_args_with_io(
 mod tests {
     use clap::Parser;
 
-    use super::{Cli, Command, SetupArgs, resolve_setup_mods, run_from_args_with_io};
+    use super::{resolve_setup_mods, run_from_args_with_io, Cli, Command, SetupArgs};
     use crate::steam::game::GameKind;
 
     #[test]
@@ -467,11 +504,11 @@ mod tests {
     }
 
     #[test]
-    fn run_from_args_rejects_unknown_subcommands() {
+    fn run_from_args_ignores_unknown_positional_args() {
         let mut initialized = false;
         let mut output = Vec::new();
 
-        let error = run_from_args_with_io(
+        let handled = run_from_args_with_io(
             vec!["adventure-mods".to_string(), "detcet".to_string()],
             || {
                 initialized = true;
@@ -480,13 +517,70 @@ mod tests {
             &mut std::io::empty(),
             &mut output,
         )
-        .expect_err("unknown subcommand should be rejected");
+        .unwrap();
 
+        assert!(!handled);
         assert!(!initialized);
-        assert!(
-            error
-                .to_string()
-                .contains("unrecognized subcommand 'detcet'")
-        );
+    }
+
+    #[test]
+    fn looks_like_cli_matches_known_subcommands() {
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "detect".to_string()
+        ]));
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "list-mods".to_string()
+        ]));
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "setup".to_string()
+        ]));
+    }
+
+    #[test]
+    fn looks_like_cli_ignores_unknown_args() {
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "/some/path".to_string()
+        ]));
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "-g".to_string()
+        ]));
+        assert!(!super::looks_like_cli(&["adventure-mods".to_string()]));
+    }
+
+    #[test]
+    fn validate_game_path_rejects_missing_directory() {
+        let path = std::path::PathBuf::from("/nonexistent/path/Sonic Adventure DX");
+        let result = super::validate_game_path(GameKind::SADX, &path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn validate_game_path_rejects_wrong_game_directory() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sa2_path = tmp.path().join("Sonic Adventure 2");
+        std::fs::create_dir_all(&sa2_path).unwrap();
+
+        let result = super::validate_game_path(GameKind::SADX, &sa2_path);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
+    }
+
+    #[test]
+    fn validate_game_path_accepts_matching_directory_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sadx_path = tmp.path().join("Sonic Adventure DX");
+        std::fs::create_dir_all(&sadx_path).unwrap();
+
+        let result = super::validate_game_path(GameKind::SADX, &sadx_path);
+        assert!(result.is_ok());
     }
 }

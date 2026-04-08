@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::steam::game::{Game, GameKind};
 use crate::steam::vdf;
+use anyhow::Context;
 
 #[derive(Debug, Clone)]
 pub struct InaccessibleGame {
@@ -213,6 +214,19 @@ pub fn detect_games_from_vdf_with_extra_libraries(
     };
 
     detect_games_from_parsed_vdfs(&[root], extra_libraries)
+}
+
+pub fn detect_games_from_vdf_strict(
+    vdf_path: &Path,
+    extra_libraries: &[PathBuf],
+) -> anyhow::Result<DetectionResult> {
+    let content = std::fs::read_to_string(vdf_path)
+        .with_context(|| format!("Failed to read {}", vdf_path.display()))?;
+
+    let root = vdf::parse(&content)
+        .ok_or_else(|| anyhow::anyhow!("Failed to parse {}", vdf_path.display()))?;
+
+    Ok(detect_games_from_parsed_vdfs(&[root], extra_libraries))
 }
 
 pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> DetectionResult {
