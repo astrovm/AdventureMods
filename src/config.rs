@@ -1,6 +1,6 @@
 pub const APP_ID: &str = "io.github.astrovm.AdventureMods";
 pub const APP_NAME: &str = "Adventure Mods";
-pub const VERSION: &str = "0.2.4";
+pub const VERSION: &str = "0.3.0";
 #[allow(dead_code)]
 pub const GETTEXT_PACKAGE: &str = "adventure-mods";
 #[allow(dead_code)]
