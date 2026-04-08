@@ -36,6 +36,10 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
 }
 
 fn resolve_archive_program() -> PathBuf {
+    if let Some(program) = std::env::var_os("ADVENTURE_MODS_7ZZ") {
+        return PathBuf::from(program);
+    }
+
     resolve_archive_program_with_search_path(std::env::var_os("PATH").as_deref())
 }
 
@@ -69,6 +73,9 @@ fn find_program_in_search_path(program: &str, search_path: Option<&OsStr>) -> Op
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn assert_manifest_installs_7zz(manifest: &str) {
         assert!(manifest.contains("\"type\": \"file\""));
@@ -164,6 +171,20 @@ mod tests {
             resolve_archive_program_with_search_path(Some(search_path.as_os_str())),
             PathBuf::from("7zz")
         );
+    }
+
+    #[test]
+    fn resolve_archive_program_uses_override_path() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("ADVENTURE_MODS_7ZZ", "/tmp/fake-7zz");
+        }
+
+        assert_eq!(resolve_archive_program(), PathBuf::from("/tmp/fake-7zz"));
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        }
     }
 
     #[test]

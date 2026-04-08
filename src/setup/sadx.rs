@@ -11,6 +11,17 @@ use super::config;
 const STEAM_TOOLS_URL: &str =
     "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/steam_tools.7z";
 
+fn steam_tools_url() -> String {
+    std::env::var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS")
+        .unwrap_or_else(|_| STEAM_TOOLS_URL.to_string())
+}
+
+fn hpatchz_program() -> std::path::PathBuf {
+    std::env::var_os("ADVENTURE_MODS_HPATCHZ")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("hpatchz"))
+}
+
 /// Base URL for mods hosted on dcmods.unreliable.network.
 #[cfg(test)]
 const DCMODS_BASE: &str =
@@ -757,7 +768,8 @@ pub fn convert_steam_to_2004(
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join("steam_tools.7z");
 
-    download::download_file(STEAM_TOOLS_URL, &archive_path, progress)?;
+    let steam_tools_url = steam_tools_url();
+    download::download_file(&steam_tools_url, &archive_path, progress)?;
 
     let extract_dir = temp_dir.path().join("steam_tools");
     archive::extract(&archive_path, &extract_dir)?;
@@ -788,13 +800,19 @@ pub fn convert_steam_to_2004(
 
     tracing::info!("Applying Steam-to-2004 patch to {}", game_str);
 
-    let output = std::process::Command::new("hpatchz")
+    let hpatchz = hpatchz_program();
+    let output = std::process::Command::new(&hpatchz)
         .arg("-f")
         .arg(&game_str)
         .arg(&patch_str)
         .arg(&out_str)
         .output()
-        .context("Failed to run hpatchz. Is HDiffPatch installed?")?;
+        .with_context(|| {
+            format!(
+                "Failed to run {}. Is HDiffPatch installed?",
+                hpatchz.display()
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

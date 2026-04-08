@@ -11,6 +11,11 @@ use super::proton;
 /// without breaking downloads when old patch-specific URLs expire.
 const DOTNET_DESKTOP_8_URL: &str = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe";
 
+fn dotnet_desktop_8_url() -> String {
+    std::env::var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8")
+        .unwrap_or_else(|_| DOTNET_DESKTOP_8_URL.to_string())
+}
+
 fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
     let dir = compat_data.join("adventure-mods-installers");
     std::fs::create_dir_all(&dir)
@@ -53,7 +58,8 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
     if !is_dotnet_installed(&prefix) {
         tracing::info!("Installing .NET Desktop Runtime 8...");
         let dotnet_path = installer_dir.join("windowsdesktop-runtime-8-win-x64.exe");
-        download::download_file(DOTNET_DESKTOP_8_URL, &dotnet_path, None)?;
+        let dotnet_url = dotnet_desktop_8_url();
+        download::download_file(&dotnet_url, &dotnet_path, None)?;
 
         let output = proton::run_in_prefix(
             game_path,
@@ -83,6 +89,9 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_is_dotnet_installed_true() {
@@ -119,5 +128,22 @@ mod tests {
 
         assert_eq!(dir, compatdata.join("adventure-mods-installers"));
         assert!(dir.is_dir());
+    }
+
+    #[test]
+    fn test_dotnet_url_uses_override() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+                "http://127.0.0.1:4010/dotnet.exe",
+            );
+        }
+
+        assert_eq!(dotnet_desktop_8_url(), "http://127.0.0.1:4010/dotnet.exe");
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8");
+        }
     }
 }

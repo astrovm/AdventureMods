@@ -57,8 +57,27 @@ pub struct ModPreset {
 /// Resolve a `ModSource` to a download URL string.
 pub fn resolve_download_url(source: &ModSource) -> String {
     match source {
-        ModSource::GameBanana { file_id } => format!("https://gamebanana.com/dl/{file_id}"),
+        ModSource::GameBanana { file_id } => format!("{}{file_id}", gamebanana_download_base()),
         ModSource::DirectUrl { url } => (*url).to_string(),
+    }
+}
+
+fn env_or_default(var: &str, default: &'static str) -> String {
+    std::env::var(var).unwrap_or_else(|_| default.to_string())
+}
+
+fn gamebanana_download_base() -> String {
+    env_or_default("ADVENTURE_MODS_GAMEBANANA_BASE_URL", "https://gamebanana.com/dl/")
+}
+
+fn sa_mod_manager_url() -> String {
+    env_or_default("ADVENTURE_MODS_URL_SA_MOD_MANAGER", SA_MOD_MANAGER_URL)
+}
+
+fn mod_loader_url(game_kind: GameKind) -> String {
+    match game_kind {
+        GameKind::SADX => env_or_default("ADVENTURE_MODS_URL_SADX_MOD_LOADER", SADX_MOD_LOADER_URL),
+        GameKind::SA2 => env_or_default("ADVENTURE_MODS_URL_SA2_MOD_LOADER", SA2_MOD_LOADER_URL),
     }
 }
 
@@ -205,7 +224,8 @@ pub fn install_mod_manager(
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join("SAModManager.zip");
 
-    download::download_file(SA_MOD_MANAGER_URL, &archive_path, progress)?;
+    let manager_url = sa_mod_manager_url();
+    download::download_file(&manager_url, &archive_path, progress)?;
 
     // Extract to a temp subdirectory
     let extract_dir = temp_dir.path().join("extracted");
@@ -275,15 +295,12 @@ pub fn install_mod_loader(
         return Ok(());
     }
 
-    let url = match game_kind {
-        GameKind::SADX => SADX_MOD_LOADER_URL,
-        GameKind::SA2 => SA2_MOD_LOADER_URL,
-    };
+    let url = mod_loader_url(game_kind);
 
     let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
     let archive_path = temp_dir.path().join("ModLoader.7z");
 
-    download::download_file(url, &archive_path, progress)?;
+    download::download_file(&url, &archive_path, progress)?;
 
     // Extract into mods/.modloader (expected by the x64 Mod Manager)
     let loader_dir = game_path.join("mods").join(".modloader");
@@ -596,6 +613,60 @@ mod tests {
         assert!(SA_MOD_MANAGER_URL.starts_with("https://github.com/"));
         assert!(SA_MOD_MANAGER_URL.contains("/releases/"));
         assert!(SA_MOD_MANAGER_URL.ends_with(".zip"));
+    }
+
+    #[test]
+    fn test_gamebanana_download_base_uses_override() {
+        unsafe {
+            std::env::set_var("ADVENTURE_MODS_GAMEBANANA_BASE_URL", "http://127.0.0.1:4010/dl/");
+        }
+
+        assert_eq!(
+            resolve_download_url(&ModSource::GameBanana { file_id: 7 }),
+            "http://127.0.0.1:4010/dl/7"
+        );
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_BASE_URL");
+        }
+    }
+
+    #[test]
+    fn test_sa_mod_manager_url_uses_override() {
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+                "http://127.0.0.1:4010/samodmanager.zip",
+            );
+        }
+
+        assert_eq!(
+            sa_mod_manager_url(),
+            "http://127.0.0.1:4010/samodmanager.zip"
+        );
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_SA_MOD_MANAGER");
+        }
+    }
+
+    #[test]
+    fn test_mod_loader_url_uses_override() {
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+                "http://127.0.0.1:4010/sa2-loader.7z",
+            );
+        }
+
+        assert_eq!(
+            mod_loader_url(GameKind::SA2),
+            "http://127.0.0.1:4010/sa2-loader.7z"
+        );
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_SA2_MOD_LOADER");
+        }
     }
 
     #[test]

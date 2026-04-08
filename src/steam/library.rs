@@ -187,13 +187,11 @@ pub struct DetectionResult {
     pub inaccessible: Vec<InaccessibleGame>,
 }
 
-#[cfg(test)]
 /// Detect games from a specific VDF file path.
 pub fn detect_games_from_vdf(vdf_path: &Path) -> DetectionResult {
     detect_games_from_vdf_with_extra_libraries(vdf_path, &[])
 }
 
-#[cfg(test)]
 pub fn detect_games_from_vdf_with_extra_libraries(
     vdf_path: &Path,
     extra_libraries: &[PathBuf],

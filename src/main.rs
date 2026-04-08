@@ -1,13 +1,5 @@
-mod application;
-mod blocking;
-mod config;
-mod external;
-mod setup;
-mod steam;
-mod ui;
-mod window;
-
-use application::AdventureModsApplication;
+use adventure_mods::application::AdventureModsApplication;
+use adventure_mods::config;
 use glib::ExitCode;
 use gtk::prelude::*;
 use gtk::{gio, glib};
