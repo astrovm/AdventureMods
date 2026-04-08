@@ -34,8 +34,6 @@ chmod +x Adventure_Mods-x86_64.AppImage
 ./Adventure_Mods-x86_64.AppImage
 ```
 
-## Development
-
 ## CLI
 
 The same binary can run in terminal mode when you pass a subcommand:
@@ -87,6 +85,8 @@ Useful flags:
 - `--libraryfolders-vdf /path/to/libraryfolders.vdf` points detection at a specific Steam library file
 - repeated `--steam-library /path/to/library` adds extra Steam library roots during detection
 - `--width` and `--height` override the generated game resolution for setup
+
+## Development
 
 ### Flatpak build
 
