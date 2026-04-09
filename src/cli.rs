@@ -593,7 +593,10 @@ fn resolve_setup_mods_rich(
     for preset in presets {
         options.push(format!("{} - {}", preset.name, preset.description));
     }
-    options.push("Install all recommended mods".to_string());
+    let has_all_recommended_option = presets.is_empty();
+    if has_all_recommended_option {
+        options.push("Install all recommended mods".to_string());
+    }
     options.push("Choose mods manually".to_string());
 
     let selection = prompt.select("Choose setup mode", &options, 0)?;
@@ -601,7 +604,7 @@ fn resolve_setup_mods_rich(
     if selection < presets.len() {
         return pipeline::resolve_selected_mods(game_kind, Some(presets[selection].name), &[]);
     }
-    if selection == presets.len() {
+    if has_all_recommended_option && selection == presets.len() {
         return Ok(common::recommended_mods_for_game(game_kind)
             .iter()
             .collect());
@@ -954,6 +957,33 @@ mod tests {
         assert_eq!(
             selected.len(),
             common::recommended_mods_for_game(GameKind::SA2).len()
+        );
+    }
+
+    #[test]
+    fn resolve_setup_mods_rich_hides_all_recommended_when_presets_exist() {
+        let args = SetupArgs {
+            game: Some("sadx".to_string()),
+            mods: None,
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+        let prompt = MockPrompt {
+            select_result: 2,
+            multi_select_result: vec![0],
+            confirm_result: true,
+        };
+
+        let selected = resolve_setup_mods_rich(&args, GameKind::SADX, &prompt).unwrap();
+
+        assert_eq!(selected.len(), 1);
+        assert_eq!(
+            selected[0].name,
+            common::recommended_mods_for_game(GameKind::SADX)[0].name
         );
     }
 
