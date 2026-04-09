@@ -87,15 +87,29 @@ trait Prompt {
     fn confirm(&self, prompt: &str, default: bool) -> Result<bool>;
 }
 
-struct TerminalPrompt;
+struct TerminalPrompt {
+    use_color: bool,
+}
+
+impl TerminalPrompt {
+    fn with_stderr_colors<T>(&self, action: impl FnOnce() -> T) -> T {
+        let previous = console::colors_enabled_stderr();
+        console::set_colors_enabled_stderr(self.use_color);
+        let result = action();
+        console::set_colors_enabled_stderr(previous);
+        result
+    }
+}
 
 impl Prompt for TerminalPrompt {
     fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize> {
-        Ok(Select::with_theme(&prompt_theme())
-            .with_prompt(prompt)
-            .items(items)
-            .default(default)
-            .interact()?)
+        self.with_stderr_colors(|| {
+            Ok(Select::with_theme(&prompt_theme())
+                .with_prompt(prompt)
+                .items(items)
+                .default(default)
+                .interact()?)
+        })
     }
 
     fn multi_select(
@@ -104,18 +118,22 @@ impl Prompt for TerminalPrompt {
         items: &[String],
         defaults: &[bool],
     ) -> Result<Vec<usize>> {
-        Ok(MultiSelect::with_theme(&prompt_theme())
-            .with_prompt(prompt)
-            .items(items)
-            .defaults(defaults)
-            .interact()?)
+        self.with_stderr_colors(|| {
+            Ok(MultiSelect::with_theme(&prompt_theme())
+                .with_prompt(prompt)
+                .items(items)
+                .defaults(defaults)
+                .interact()?)
+        })
     }
 
     fn confirm(&self, prompt: &str, default: bool) -> Result<bool> {
-        Ok(Confirm::with_theme(&prompt_theme())
-            .with_prompt(prompt)
-            .default(default)
-            .interact()?)
+        self.with_stderr_colors(|| {
+            Ok(Confirm::with_theme(&prompt_theme())
+                .with_prompt(prompt)
+                .default(default)
+                .interact()?)
+        })
     }
 }
 
@@ -253,7 +271,9 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     out.writeln("")?;
 
     let rich_prompts = use_rich_prompts(&args);
-    let prompt = TerminalPrompt;
+    let prompt = TerminalPrompt {
+        use_color: out.use_color,
+    };
     let game_kind = if rich_prompts {
         resolve_game_kind_rich(&args, &prompt)?
     } else {
@@ -756,12 +776,23 @@ pub fn looks_like_cli(args: &[String]) -> bool {
     if args.len() <= 1 {
         return false;
     }
-    let second = &args[1];
-    second == "--help"
-        || second == "-h"
-        || second == "--version"
-        || second == "-V"
-        || !second.starts_with('-')
+
+    let has_top_level_help_or_version = args
+        .iter()
+        .skip(1)
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h" | "--version" | "-V"));
+    if has_top_level_help_or_version {
+        return true;
+    }
+
+    if args.iter().skip(1).any(|arg| arg == "--no-color") {
+        return true;
+    }
+
+    args.iter()
+        .skip(1)
+        .find(|arg| !arg.starts_with('-'))
+        .is_some()
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -812,7 +843,7 @@ mod tests {
 
     use super::{
         resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
-        setup_is_fully_specified, Cli, CliOutput, Command, Prompt, SetupArgs,
+        setup_is_fully_specified, Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1178,6 +1209,26 @@ mod tests {
             "adventure-mods".to_string(),
             "typo".to_string()
         ]));
+    }
+
+    #[test]
+    fn looks_like_cli_accepts_global_flags_before_subcommand() {
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--no-color".to_string(),
+            "detect".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn terminal_prompt_respects_no_color_setting() {
+        console::set_colors_enabled_stderr(true);
+
+        let prompt = TerminalPrompt { use_color: false };
+        let during = prompt.with_stderr_colors(|| console::colors_enabled_stderr());
+
+        assert!(!during);
+        assert!(console::colors_enabled_stderr());
     }
 
     #[test]
