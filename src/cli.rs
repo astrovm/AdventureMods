@@ -1,7 +1,7 @@
-use std::io::{BufRead, BufReader, IsTerminal, Read, Write};
+use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
@@ -75,16 +75,47 @@ impl<'a> CliOutput<'a> {
         }
     }
 
-    fn prompt(&mut self, s: &str) -> std::io::Result<()> {
-        if self.use_color {
-            write!(self.writer, "{} ", self.bold.apply_to(s))
-        } else {
-            write!(self.writer, "{s} ")
-        }
-    }
-
     fn writeln(&mut self, s: &str) -> std::io::Result<()> {
         writeln!(self.writer, "{s}")
+    }
+}
+
+trait Prompt {
+    fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize>;
+    fn multi_select(&self, prompt: &str, items: &[String], defaults: &[bool])
+        -> Result<Vec<usize>>;
+    fn confirm(&self, prompt: &str, default: bool) -> Result<bool>;
+}
+
+struct TerminalPrompt;
+
+impl Prompt for TerminalPrompt {
+    fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize> {
+        Ok(Select::with_theme(&prompt_theme())
+            .with_prompt(prompt)
+            .items(items)
+            .default(default)
+            .interact()?)
+    }
+
+    fn multi_select(
+        &self,
+        prompt: &str,
+        items: &[String],
+        defaults: &[bool],
+    ) -> Result<Vec<usize>> {
+        Ok(MultiSelect::with_theme(&prompt_theme())
+            .with_prompt(prompt)
+            .items(items)
+            .defaults(defaults)
+            .interact()?)
+    }
+
+    fn confirm(&self, prompt: &str, default: bool) -> Result<bool> {
+        Ok(Confirm::with_theme(&prompt_theme())
+            .with_prompt(prompt)
+            .default(default)
+            .interact()?)
     }
 }
 
@@ -136,19 +167,13 @@ pub struct SetupArgs {
     pub detect: DetectArgs,
 }
 
-pub fn run_with_io(
-    cli: Cli,
-    use_color: bool,
-    input: &mut impl Read,
-    output: &mut impl Write,
-) -> Result<()> {
-    let mut input = BufReader::new(input);
+pub fn run_with_io(cli: Cli, use_color: bool, output: &mut impl Write) -> Result<()> {
     let mut out = CliOutput::new(output, use_color);
 
     match cli.command {
         Some(Command::Detect(args)) => run_detect(args, &mut out),
         Some(Command::ListMods { game }) => run_list_mods(&game, &mut out),
-        Some(Command::Setup(args)) => run_setup(args, &mut input, &mut out),
+        Some(Command::Setup(args)) => run_setup(args, &mut out),
         None => Ok(()),
     }
 }
@@ -219,7 +244,7 @@ fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
     Ok(())
 }
 
-fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> Result<()> {
+fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let term_width = console::Term::stdout().size().1 as usize;
     if term_width >= 30 {
         banner::print_banner(&mut out.writer, out.use_color)?;
@@ -228,26 +253,35 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
     out.writeln("")?;
 
     let rich_prompts = use_rich_prompts(&args);
+    let prompt = TerminalPrompt;
     let game_kind = if rich_prompts {
-        resolve_game_kind_rich(&args)?
+        resolve_game_kind_rich(&args, &prompt)?
     } else {
-        resolve_game_kind(&args, input, out)?
+        resolve_game_kind(&args)?
     };
     let game_path = if rich_prompts {
-        resolve_game_path_rich(&args, game_kind)?
+        resolve_game_path_rich(&args, game_kind, &prompt)?
     } else {
-        resolve_game_path(&args, game_kind, input, out)?
+        resolve_game_path(&args, game_kind)?
     };
     let selected_mods = if rich_prompts {
-        resolve_setup_mods_rich(&args, game_kind)?
+        resolve_setup_mods_rich(&args, game_kind, &prompt)?
     } else {
-        resolve_setup_mods(&args, game_kind, input, out)?
+        resolve_setup_mods(&args, game_kind)?
     };
     let width = args.width.unwrap_or(DEFAULT_WIDTH);
     let height = args.height.unwrap_or(DEFAULT_HEIGHT);
 
     if rich_prompts {
-        confirm_setup_summary(out, game_kind, &game_path, &selected_mods, width, height)?;
+        confirm_setup_summary(
+            out,
+            game_kind,
+            &game_path,
+            &selected_mods,
+            width,
+            height,
+            &prompt,
+        )?;
     }
 
     out.writeln(&format!(
@@ -364,19 +398,15 @@ fn prompt_theme() -> ColorfulTheme {
     ColorfulTheme::default()
 }
 
-fn resolve_game_kind_rich(args: &SetupArgs) -> Result<GameKind> {
+fn resolve_game_kind_rich(args: &SetupArgs, prompt: &dyn Prompt) -> Result<GameKind> {
     if let Some(game) = &args.game {
         return parse_game_kind(game);
     }
 
     if args.game_path.is_some() {
         let options = [GameKind::SADX, GameKind::SA2];
-        let labels = [GameKind::SADX.name(), GameKind::SA2.name()];
-        let selection = Select::with_theme(&prompt_theme())
-            .with_prompt("Select game")
-            .items(&labels)
-            .default(0)
-            .interact()?;
+        let labels: Vec<String> = options.iter().map(|g| g.name().to_string()).collect();
+        let selection = prompt.select("Select game", &labels, 0)?;
         return Ok(options[selection]);
     }
 
@@ -393,15 +423,15 @@ fn resolve_game_kind_rich(args: &SetupArgs) -> Result<GameKind> {
         .iter()
         .map(|game| format!("{} ({})", game.kind.name(), game.path.display()))
         .collect();
-    let selection = Select::with_theme(&prompt_theme())
-        .with_prompt("Select installation")
-        .items(&items)
-        .default(0)
-        .interact()?;
+    let selection = prompt.select("Select installation", &items, 0)?;
     Ok(result.games[selection].kind)
 }
 
-fn resolve_game_path_rich(args: &SetupArgs, game_kind: GameKind) -> Result<PathBuf> {
+fn resolve_game_path_rich(
+    args: &SetupArgs,
+    game_kind: GameKind,
+    prompt: &dyn Prompt,
+) -> Result<PathBuf> {
     if let Some(path) = &args.game_path {
         validate_game_path(game_kind, path)?;
         return Ok(path.clone());
@@ -421,11 +451,11 @@ fn resolve_game_path_rich(args: &SetupArgs, game_kind: GameKind) -> Result<PathB
                 .iter()
                 .map(|game| game.path.display().to_string())
                 .collect();
-            let selection = Select::with_theme(&prompt_theme())
-                .with_prompt(format!("Select {} installation", game_kind.name()))
-                .items(&items)
-                .default(0)
-                .interact()?;
+            let selection = prompt.select(
+                &format!("Select {} installation", game_kind.name()),
+                &items,
+                0,
+            )?;
             Ok(games[selection].path.clone())
         }
     }
@@ -450,6 +480,11 @@ fn resolve_setup_mods_from_flags(
                 .iter()
                 .collect(),
         ));
+    }
+
+    if let Some(preset_name) = &args.preset {
+        let selected = pipeline::resolve_selected_mods(game_kind, Some(preset_name.as_str()), &[])?;
+        return Ok(Some(selected));
     }
 
     if let Some(mods) = &args.mods {
@@ -527,6 +562,7 @@ fn game_kind_arg(game_kind: GameKind) -> &'static str {
 fn resolve_setup_mods_rich(
     args: &SetupArgs,
     game_kind: GameKind,
+    prompt: &dyn Prompt,
 ) -> Result<Vec<&'static common::ModEntry>> {
     if let Some(selected) = resolve_setup_mods_from_flags(args, game_kind)? {
         return Ok(selected);
@@ -540,11 +576,7 @@ fn resolve_setup_mods_rich(
     options.push("Install all recommended mods".to_string());
     options.push("Choose mods manually".to_string());
 
-    let selection = Select::with_theme(&prompt_theme())
-        .with_prompt("Choose setup mode")
-        .items(&options)
-        .default(0)
-        .interact()?;
+    let selection = prompt.select("Choose setup mode", &options, 0)?;
 
     if selection < presets.len() {
         return pipeline::resolve_selected_mods(game_kind, Some(presets[selection].name), &[]);
@@ -561,11 +593,11 @@ fn resolve_setup_mods_rich(
         .map(|mod_entry| format!("{} - {}", mod_entry.name, mod_entry.description))
         .collect();
     let defaults = vec![true; items.len()];
-    let selections = MultiSelect::with_theme(&prompt_theme())
-        .with_prompt("Select mods (space to toggle, enter to confirm)")
-        .items(&items)
-        .defaults(&defaults)
-        .interact()?;
+    let selections = prompt.multi_select(
+        "Select mods (space to toggle, enter to confirm)",
+        &items,
+        &defaults,
+    )?;
 
     selections
         .into_iter()
@@ -583,6 +615,7 @@ fn confirm_setup_summary(
     selected_mods: &[&common::ModEntry],
     width: u32,
     height: u32,
+    prompt: &dyn Prompt,
 ) -> Result<()> {
     out.heading("Summary")?;
     out.writeln(&format!("Game: {}", game_kind.name()))?;
@@ -597,59 +630,41 @@ fn confirm_setup_summary(
     }
     out.writeln("")?;
 
-    if !Confirm::with_theme(&prompt_theme())
-        .with_prompt("Proceed with setup?")
-        .default(true)
-        .interact()?
-    {
+    if !prompt.confirm("Proceed with setup?", true)? {
         bail!("Setup cancelled");
     }
 
     Ok(())
 }
 
-fn resolve_game_kind(
-    args: &SetupArgs,
-    input: &mut impl BufRead,
-    out: &mut CliOutput,
-) -> Result<GameKind> {
+fn resolve_game_kind(args: &SetupArgs) -> Result<GameKind> {
     if let Some(game) = &args.game {
         return parse_game_kind(game);
     }
 
     if args.game_path.is_some() {
-        out.prompt("Select game [sadx/sa2]:")?;
-        return parse_game_kind(&read_prompt(input)?);
+        bail!(
+            "--game-path requires --game in non-interactive mode.\nPass --game sadx or --game sa2."
+        );
     }
 
     let result = detect_games_strict(&args.detect)?;
+    if result.games.is_empty() {
+        bail!("No supported games detected. Pass --game and --game-path.");
+    }
     if result.games.len() == 1 {
         return Ok(result.games[0].kind);
     }
 
-    if result.games.is_empty() {
-        bail!("No supported games detected. Pass --game and --game-path.");
-    }
-
-    out.heading("Select installation:")?;
-    for (index, game) in result.games.iter().enumerate() {
-        out.writeln(&format!(
-            "{}. {} ({})",
-            index + 1,
-            game.kind.name(),
-            out.path(&game.path.display().to_string())
-        ))?;
-    }
-
-    let selected = read_prompt(input)?;
-    let index = selected
-        .parse::<usize>()
-        .context("Expected an installation number")?;
-    let game = result
-        .games
-        .get(index.saturating_sub(1))
-        .ok_or_else(|| anyhow!("Invalid installation number"))?;
-    Ok(game.kind)
+    bail!(
+        "Multiple games detected ({}). Pass --game to select one.",
+        result
+            .games
+            .iter()
+            .map(|g| g.kind.name())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
 }
 
 fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()> {
@@ -676,12 +691,7 @@ fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()>
     Ok(())
 }
 
-fn resolve_game_path(
-    args: &SetupArgs,
-    game_kind: GameKind,
-    input: &mut impl BufRead,
-    out: &mut CliOutput,
-) -> Result<PathBuf> {
+fn resolve_game_path(args: &SetupArgs, game_kind: GameKind) -> Result<PathBuf> {
     if let Some(path) = &args.game_path {
         validate_game_path(game_kind, path)?;
         return Ok(path.clone());
@@ -696,85 +706,26 @@ fn resolve_game_path(
     match games.len() {
         0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
         1 => Ok(games.remove(0).path),
-        _ => {
-            out.heading(&format!("Select {} installation:", game_kind.name()))?;
-            for (index, game) in games.iter().enumerate() {
-                out.writeln(&format!(
-                    "{}. {}",
-                    index + 1,
-                    out.path(&game.path.display().to_string())
-                ))?;
-            }
-            let selected = read_prompt(input)?;
-            let index = selected
-                .parse::<usize>()
-                .context("Expected an installation number")?;
-            let game = games
-                .get(index.saturating_sub(1))
-                .ok_or_else(|| anyhow!("Invalid installation number"))?;
-            Ok(game.path.clone())
-        }
+        _ => bail!(
+            "Multiple {} installations detected. Pass --game-path to select one.",
+            game_kind.name()
+        ),
     }
 }
 
 fn resolve_setup_mods(
     args: &SetupArgs,
     game_kind: GameKind,
-    input: &mut impl BufRead,
-    out: &mut CliOutput,
 ) -> Result<Vec<&'static common::ModEntry>> {
     if let Some(selected) = resolve_setup_mods_from_flags(args, game_kind)? {
         return Ok(selected);
     }
 
-    let presets = common::presets_for_game(game_kind);
-    if !presets.is_empty() {
-        out.heading("Select preset:")?;
-        for (index, preset) in presets.iter().enumerate() {
-            out.writeln(&format!("{}. {}", index + 1, preset.name))?;
-        }
-        out.writeln(&format!("{}. Custom mod list", presets.len() + 1))?;
-        let selected = read_prompt(input)?;
-        let index = selected
-            .parse::<usize>()
-            .context("Expected a preset number")?;
-        if (1..=presets.len()).contains(&index) {
-            return pipeline::resolve_selected_mods(game_kind, Some(presets[index - 1].name), &[]);
-        }
-        if index != presets.len() + 1 {
-            bail!("Invalid preset number");
-        }
-    }
-
-    prompt_for_custom_mods(game_kind, input, out)
-}
-
-fn prompt_for_custom_mods(
-    game_kind: GameKind,
-    input: &mut impl BufRead,
-    out: &mut CliOutput,
-) -> Result<Vec<&'static common::ModEntry>> {
-    let mods = common::recommended_mods_for_game(game_kind);
-    out.heading("Select mods as comma-separated numbers:")?;
-    for (index, mod_entry) in mods.iter().enumerate() {
-        out.writeln(&format!("{}. {}", index + 1, mod_entry.name))?;
-    }
-    let selected = read_prompt(input)?;
-    if selected.is_empty() {
-        return Ok(mods.iter().collect());
-    }
-
-    selected
-        .split(',')
-        .map(|part| {
-            let index = part
-                .trim()
-                .parse::<usize>()
-                .context("Expected a mod number")?;
-            mods.get(index.saturating_sub(1))
-                .ok_or_else(|| anyhow!("Invalid mod number {}", index))
-        })
-        .collect()
+    bail!(
+        "No mod selection specified. Pass --all-mods, --preset <name>, or --mods <id1,id2>.\n\
+         Use 'list-mods --game {}' to see available mods and presets.",
+        game_kind_arg(game_kind)
+    )
 }
 
 fn detect_games_strict(args: &DetectArgs) -> Result<DetectionResult> {
@@ -801,15 +752,6 @@ fn parse_game_kind(raw: &str) -> Result<GameKind> {
     }
 }
 
-fn read_prompt(input: &mut impl BufRead) -> Result<String> {
-    let mut line = String::new();
-    let bytes = input.read_line(&mut line)?;
-    if bytes == 0 {
-        bail!("Interactive input required but stdin is empty")
-    }
-    Ok(line.trim().to_string())
-}
-
 pub fn looks_like_cli(args: &[String]) -> bool {
     if args.len() <= 1 {
         return false;
@@ -827,7 +769,6 @@ pub fn run_from_args(args: Vec<String>) -> Result<bool> {
     run_from_args_with_io(
         args,
         initialize_crypto_provider,
-        &mut std::io::stdin(),
         &mut std::io::stdout(),
         is_terminal,
     )
@@ -836,7 +777,6 @@ pub fn run_from_args(args: Vec<String>) -> Result<bool> {
 pub fn run_from_args_with_io(
     args: Vec<String>,
     initialize_runtime: impl FnOnce() -> Result<()>,
-    input: &mut impl Read,
     output: &mut impl Write,
     is_terminal: bool,
 ) -> Result<bool> {
@@ -859,7 +799,7 @@ pub fn run_from_args_with_io(
 
     initialize_runtime()?;
 
-    run_with_io(cli, use_color, input, output)?;
+    run_with_io(cli, use_color, output)?;
     Ok(true)
 }
 
@@ -871,11 +811,88 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        resolve_setup_mods, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
-        Command, SetupArgs,
+        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
+        setup_is_fully_specified, Cli, CliOutput, Command, Prompt, SetupArgs,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
+
+    struct MockPrompt {
+        select_result: usize,
+        multi_select_result: Vec<usize>,
+        confirm_result: bool,
+    }
+
+    impl Prompt for MockPrompt {
+        fn select(
+            &self,
+            _prompt: &str,
+            _items: &[String],
+            _default: usize,
+        ) -> anyhow::Result<usize> {
+            Ok(self.select_result)
+        }
+
+        fn multi_select(
+            &self,
+            _prompt: &str,
+            _items: &[String],
+            _defaults: &[bool],
+        ) -> anyhow::Result<Vec<usize>> {
+            Ok(self.multi_select_result.clone())
+        }
+
+        fn confirm(&self, _prompt: &str, _default: bool) -> anyhow::Result<bool> {
+            Ok(self.confirm_result)
+        }
+    }
+
+    #[test]
+    fn resolve_game_kind_rich_uses_game_flag() {
+        let args = SetupArgs {
+            game: Some("sa2".to_string()),
+            mods: None,
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+        let prompt = MockPrompt {
+            select_result: 0,
+            multi_select_result: vec![],
+            confirm_result: true,
+        };
+
+        let kind = resolve_game_kind_rich(&args, &prompt).unwrap();
+        assert_eq!(kind, GameKind::SA2);
+    }
+
+    #[test]
+    fn resolve_setup_mods_rich_with_all_mods_flag() {
+        let args = SetupArgs {
+            game: Some("sa2".to_string()),
+            mods: None,
+            preset: None,
+            all_mods: true,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+        let prompt = MockPrompt {
+            select_result: 0,
+            multi_select_result: vec![],
+            confirm_result: true,
+        };
+
+        let selected = resolve_setup_mods_rich(&args, GameKind::SA2, &prompt).unwrap();
+        assert_eq!(
+            selected.len(),
+            common::recommended_mods_for_game(GameKind::SA2).len()
+        );
+    }
 
     #[test]
     fn parses_detect_command() {
@@ -980,7 +997,6 @@ mod tests {
                 initialized = true;
                 Ok(())
             },
-            &mut std::io::empty(),
             &mut output,
             false,
         )
@@ -991,7 +1007,7 @@ mod tests {
     }
 
     #[test]
-    fn setup_rejects_zero_preset_selection() {
+    fn resolve_setup_mods_bails_without_mod_selection() {
         let args = SetupArgs {
             game: Some("sadx".to_string()),
             mods: None,
@@ -1002,16 +1018,13 @@ mod tests {
             game_path: None,
             detect: Default::default(),
         };
-        let mut input = std::io::Cursor::new(b"0\n");
-        let mut output = Vec::new();
-        let mut out = CliOutput::new(&mut output as &mut dyn Write, false);
 
-        let error = match resolve_setup_mods(&args, GameKind::SADX, &mut input, &mut out) {
-            Ok(_) => panic!("preset selection should reject 0"),
-            Err(error) => error,
+        let Err(error) = resolve_setup_mods(&args, GameKind::SADX) else {
+            panic!("expected error when no mod selection specified");
         };
 
-        assert!(error.to_string().contains("Invalid preset number"));
+        assert!(error.to_string().contains("--all-mods"));
+        assert!(error.to_string().contains("list-mods"));
     }
 
     #[test]
@@ -1026,11 +1039,8 @@ mod tests {
             game_path: None,
             detect: Default::default(),
         };
-        let mut input = std::io::Cursor::new(Vec::<u8>::new());
-        let mut output = Vec::new();
-        let mut out = CliOutput::new(&mut output as &mut dyn Write, false);
 
-        let selected = resolve_setup_mods(&args, GameKind::SA2, &mut input, &mut out).unwrap();
+        let selected = resolve_setup_mods(&args, GameKind::SA2).unwrap();
 
         assert_eq!(
             selected.len(),
@@ -1050,13 +1060,9 @@ mod tests {
             game_path: None,
             detect: Default::default(),
         };
-        let mut input = std::io::Cursor::new(Vec::<u8>::new());
-        let mut output = Vec::new();
-        let mut out = CliOutput::new(&mut output as &mut dyn Write, false);
 
-        let error = match resolve_setup_mods(&args, GameKind::SADX, &mut input, &mut out) {
-            Ok(_) => panic!("expected incompatible all-mods selection to fail"),
-            Err(error) => error,
+        let Err(error) = resolve_setup_mods(&args, GameKind::SADX) else {
+            panic!("expected incompatible all-mods selection to fail");
         };
 
         assert!(error.to_string().contains("Cannot use --all-mods"));
@@ -1074,14 +1080,47 @@ mod tests {
             game_path: None,
             detect: Default::default(),
         };
-        let mut input = std::io::Cursor::new(Vec::<u8>::new());
-        let mut output = Vec::new();
-        let mut out = CliOutput::new(&mut output as &mut dyn Write, false);
 
-        let selected = resolve_setup_mods(&args, GameKind::SA2, &mut input, &mut out).unwrap();
+        let selected = resolve_setup_mods(&args, GameKind::SA2).unwrap();
         let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
 
         assert_eq!(names, vec!["SA2 Render Fix", "HD GUI: SA2 Edition"]);
+    }
+
+    #[test]
+    fn resolve_setup_mods_accepts_preset_flag() {
+        let args = SetupArgs {
+            game: Some("sadx".to_string()),
+            mods: None,
+            preset: Some("DX Enhanced".to_string()),
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+
+        let selected = resolve_setup_mods(&args, GameKind::SADX).unwrap();
+
+        assert!(!selected.is_empty());
+        assert!(selected.iter().any(|m| m.name == "Dreamcast Conversion"));
+    }
+
+    #[test]
+    fn resolve_game_kind_requires_game_flag_when_game_path_given() {
+        let args = SetupArgs {
+            game: None,
+            mods: Some("sa2-render-fix".to_string()),
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: Some(PathBuf::from("/tmp/sa2")),
+            detect: Default::default(),
+        };
+
+        let error = super::resolve_game_kind(&args).unwrap_err();
+        assert!(error.to_string().contains("--game"));
     }
 
     #[test]
@@ -1091,7 +1130,6 @@ mod tests {
         let result = run_from_args_with_io(
             vec!["adventure-mods".to_string(), "detcet".to_string()],
             || Ok(()),
-            &mut std::io::empty(),
             &mut output,
             false,
         );

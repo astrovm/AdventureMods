@@ -20,7 +20,7 @@ fn detect_reports_games_from_explicit_vdf() {
     ]);
     let mut output = Vec::new();
 
-    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut output).unwrap();
 
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("Sonic Adventure DX"));
@@ -32,7 +32,7 @@ fn list_mods_reports_presets_and_mods() {
     let cli = Cli::parse_from(["adventure-mods", "list-mods", "--game", "sadx"]);
     let mut output = Vec::new();
 
-    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut output).unwrap();
 
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("DX Enhanced"));
@@ -122,7 +122,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
     ]);
     let mut output = Vec::new();
 
-    run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
+    run_with_io(cli, false, &mut output).unwrap();
 
     let output = String::from_utf8(output).unwrap();
 
@@ -144,4 +144,44 @@ fn setup_installs_selected_mods_from_cli_flags() {
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
     assert!(output.contains("Installing mod 1/2: SA2 Render Fix"));
     assert!(output.contains("Generating mod config"));
+}
+
+#[test]
+fn setup_bails_without_mod_selection_in_noninteractive_mode() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let fixture = create_sa2_fixture();
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sa2",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+
+    let result = run_with_io(cli, false, &mut output);
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(error.to_string().contains("--all-mods"));
+    assert!(error.to_string().contains("--preset"));
+    assert!(error.to_string().contains("--mods"));
+}
+
+#[test]
+fn setup_bails_without_game_in_noninteractive_mode() {
+    let fixture = create_sa2_fixture();
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--all-mods",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+
+    let result = run_with_io(cli, false, &mut output);
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(error.to_string().contains("--game"));
 }
