@@ -138,7 +138,7 @@ impl Prompt for TerminalPrompt {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "adventure-mods")]
+#[command(name = "adventure-mods", version = config::VERSION)]
 pub struct Cli {
     #[arg(long)]
     no_color: bool,
@@ -800,7 +800,12 @@ fn gui_flag_requires_value(arg: &str) -> bool {
 
     matches!(
         gui_flag_name(arg),
-        "--display" | "--class" | "--name" | "--gapplication-app-id"
+        "--display"
+            | "--class"
+            | "--name"
+            | "--gapplication-app-id"
+            | "--gtk-debug"
+            | "--gdk-debug"
     )
 }
 
@@ -1308,6 +1313,74 @@ mod tests {
     }
 
     #[test]
+    fn run_from_args_ignores_gui_flags_that_take_separate_values() {
+        let mut output = Vec::new();
+        let mut initialized = false;
+
+        let handled = run_from_args_with_io(
+            vec![
+                "adventure-mods".to_string(),
+                "--gtk-debug".to_string(),
+                "interactive".to_string(),
+            ],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut output,
+            false,
+        )
+        .unwrap();
+
+        assert!(!handled);
+        assert!(!initialized);
+    }
+
+    #[test]
+    fn run_from_args_help_does_not_initialize_runtime() {
+        let mut output = Vec::new();
+        let mut initialized = false;
+
+        let handled = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "--help".to_string()],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut output,
+            false,
+        )
+        .unwrap();
+
+        assert!(handled);
+        assert!(!initialized);
+        assert!(String::from_utf8(output).unwrap().contains("Usage:"));
+    }
+
+    #[test]
+    fn run_from_args_version_does_not_initialize_runtime() {
+        let mut output = Vec::new();
+        let mut initialized = false;
+
+        let handled = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "--version".to_string()],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut output,
+            false,
+        )
+        .unwrap();
+
+        assert!(handled);
+        assert!(!initialized);
+        assert!(String::from_utf8(output)
+            .unwrap()
+            .contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    #[test]
     fn looks_like_cli_matches_known_subcommands() {
         assert!(super::looks_like_cli(&[
             "adventure-mods".to_string(),
@@ -1341,6 +1414,15 @@ mod tests {
             "adventure-mods".to_string(),
             "--display".to_string(),
             ":1".to_string()
+        ]));
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--gtk-debug".to_string(),
+            "interactive".to_string()
+        ]));
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--gdk-debug=events".to_string()
         ]));
         assert!(!super::looks_like_cli(&["adventure-mods".to_string()]));
     }

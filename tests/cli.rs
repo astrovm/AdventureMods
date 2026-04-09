@@ -10,6 +10,65 @@ use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
 use support::{env_lock, EnvGuard};
 
 #[test]
+fn detect_rejects_malformed_explicit_vdf() {
+    let tmp = tempfile::tempdir().unwrap();
+    let vdf_path = tmp.path().join("libraryfolders.vdf");
+    std::fs::write(&vdf_path, "not valid vdf").unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "detect",
+        "--libraryfolders-vdf",
+        vdf_path.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+
+    let result = run_with_io(cli, false, &mut output);
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Failed to parse"));
+}
+
+#[test]
+fn detect_reports_inaccessible_libraries_from_explicit_vdf() {
+    let fixture = create_sadx_fixture();
+    let tmp = tempfile::tempdir().unwrap();
+    let missing_library = tmp.path().join("MissingSteamLibrary");
+    let vdf_path = tmp.path().join("libraryfolders.vdf");
+
+    std::fs::write(
+        &vdf_path,
+        format!(
+            "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"\t\"{}\"\n        \"apps\"\n        {{\n            \"71250\"\t\"0\"\n        }}\n    }}\n    \"1\"\n    {{\n        \"path\"\t\"{}\"\n        \"apps\"\n        {{\n            \"71250\"\t\"0\"\n        }}\n    }}\n}}\n",
+            fixture
+                .libraryfolders_vdf
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .display(),
+            missing_library.display(),
+        ),
+    )
+    .unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "detect",
+        "--libraryfolders-vdf",
+        vdf_path.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+
+    run_with_io(cli, false, &mut output).unwrap();
+
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Detected games:"));
+    assert!(output.contains("Inaccessible Steam libraries:"));
+    assert!(output.contains(missing_library.to_str().unwrap()));
+}
+
+#[test]
 fn detect_reports_games_from_explicit_vdf() {
     let fixture = create_sadx_fixture();
     let cli = Cli::parse_from([
@@ -39,6 +98,95 @@ fn list_mods_reports_presets_and_mods() {
     assert!(output.contains("Dreamcast Restoration"));
     assert!(output.contains("Dreamcast Conversion"));
     assert!(output.contains("dreamcast-conversion"));
+}
+
+#[test]
+fn setup_accepts_human_readable_mod_names_with_whitespace() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    let server = TestServer::start(HashMap::from([
+        (
+            "/samodmanager.zip",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "samodmanager",
+            },
+        ),
+        (
+            "/sa2-loader.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "sa2-loader",
+            },
+        ),
+        (
+            "/dotnet.exe",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "dotnet-installer",
+            },
+        ),
+        (
+            "/files/render-fix.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "render-fix",
+            },
+        ),
+        (
+            "/files/test-flat.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "test-flat",
+            },
+        ),
+        ("/dl/1656654", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/409120", Response::Redirect("/files/test-flat.7z")),
+    ]));
+
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+            server.gamebanana_base(),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ]);
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sa2",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+        "--mods",
+        " SA2 Render Fix , hd gui: sa2 edition ",
+    ]);
+    let mut output = Vec::new();
+
+    run_with_io(cli, false, &mut output).unwrap();
+
+    assert!(fixture
+        .game_path
+        .join("mods/sa2-render-fix/mod.ini")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("mods/HD GUI for SA2/mod.ini")
+        .is_file());
 }
 
 #[test]
