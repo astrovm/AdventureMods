@@ -317,19 +317,12 @@ fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()>
         GameKind::SA2 => path.join("sonic2app.exe").is_file(),
     };
 
-    let dir_matches = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|n| n == game_kind.install_dir());
-
-    if !has_game_marker && !dir_matches {
-        bail!(
-            "{} does not appear to be a {} installation (expected directory named '{}' or game executable)",
-            path.display(),
-            game_kind.name(),
-            game_kind.install_dir(),
-        );
-    }
+    anyhow::ensure!(
+        has_game_marker,
+        "{} does not appear to be a {} installation (expected game executable)",
+        path.display(),
+        game_kind.name(),
+    );
 
     Ok(())
 }
@@ -381,6 +374,10 @@ fn resolve_setup_mods(
     input: &mut impl BufRead,
     out: &mut CliOutput,
 ) -> Result<Vec<&'static common::ModEntry>> {
+    if !args.mods.is_empty() && args.preset.is_some() {
+        bail!("Cannot use both --preset and --mod at the same time");
+    }
+
     let named_mods: Vec<&str> = args.mods.iter().map(String::as_str).collect();
     let selected = pipeline::resolve_selected_mods(game_kind, args.preset.as_deref(), &named_mods)?;
     if !selected.is_empty() {
@@ -471,11 +468,15 @@ fn read_prompt(input: &mut impl BufRead) -> Result<String> {
 }
 
 pub fn looks_like_cli(args: &[String]) -> bool {
-    args.len() > 1
-        && matches!(
-            args[1].as_str(),
-            "detect" | "list-mods" | "setup" | "--help" | "-h" | "--version" | "-V"
-        )
+    if args.len() <= 1 {
+        return false;
+    }
+    let second = &args[1];
+    second == "--help"
+        || second == "-h"
+        || second == "--version"
+        || second == "-V"
+        || !second.starts_with('-')
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -623,24 +624,20 @@ mod tests {
     }
 
     #[test]
-    fn run_from_args_ignores_unknown_positional_args() {
-        let mut initialized = false;
+    fn run_from_args_surfaces_unknown_subcommand_as_error() {
         let mut output = Vec::new();
 
-        let handled = run_from_args_with_io(
+        let result = run_from_args_with_io(
             vec!["adventure-mods".to_string(), "detcet".to_string()],
-            || {
-                initialized = true;
-                Ok(())
-            },
+            || Ok(()),
             &mut std::io::empty(),
             &mut output,
             false,
-        )
-        .unwrap();
+        );
 
-        assert!(!handled);
-        assert!(!initialized);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("detcet"));
     }
 
     #[test]
@@ -668,16 +665,20 @@ mod tests {
     }
 
     #[test]
-    fn looks_like_cli_ignores_unknown_args() {
-        assert!(!super::looks_like_cli(&[
-            "adventure-mods".to_string(),
-            "/some/path".to_string()
-        ]));
+    fn looks_like_cli_ignores_flags() {
         assert!(!super::looks_like_cli(&[
             "adventure-mods".to_string(),
             "-g".to_string()
         ]));
         assert!(!super::looks_like_cli(&["adventure-mods".to_string()]));
+    }
+
+    #[test]
+    fn looks_like_cli_detects_any_positional_arg() {
+        assert!(super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "typo".to_string()
+        ]));
     }
 
     #[test]
@@ -703,13 +704,28 @@ mod tests {
     }
 
     #[test]
-    fn validate_game_path_accepts_matching_directory_name() {
+    fn validate_game_path_accepts_directory_with_game_executable() {
+        let tmp = tempfile::tempdir().unwrap();
+        let sadx_path = tmp.path().join("Sonic Adventure DX");
+        std::fs::create_dir_all(&sadx_path).unwrap();
+        std::fs::File::create(sadx_path.join("sonic.exe")).unwrap();
+
+        let result = super::validate_game_path(GameKind::SADX, &sadx_path);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn validate_game_path_rejects_directory_without_executable() {
         let tmp = tempfile::tempdir().unwrap();
         let sadx_path = tmp.path().join("Sonic Adventure DX");
         std::fs::create_dir_all(&sadx_path).unwrap();
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
     }
 
     #[test]
