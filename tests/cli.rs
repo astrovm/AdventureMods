@@ -2,12 +2,12 @@ mod support;
 
 use std::collections::HashMap;
 
-use adventure_mods::cli::{Cli, run_with_io};
+use adventure_mods::cli::{run_with_io, Cli};
 use clap::Parser;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
-use support::{EnvGuard, env_lock};
+use support::{env_lock, EnvGuard};
 
 #[test]
 fn detect_reports_games_from_explicit_vdf() {
@@ -127,26 +127,20 @@ fn setup_installs_selected_mods_from_cli_flags() {
     let output = String::from_utf8(output).unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("mods/.modloader/SA2ModLoader.dll")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("mods/sa2-render-fix/mod.ini")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("mods/HD GUI for SA2/mod.ini")
-            .is_file()
-    );
-    assert!(output.contains("Step 1/3: Install .NET Runtime"));
-    assert!(output.contains("Step 2/3: Install Mod Manager & Loader"));
+    assert!(fixture
+        .game_path
+        .join("mods/.modloader/SA2ModLoader.dll")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("mods/sa2-render-fix/mod.ini")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("mods/HD GUI for SA2/mod.ini")
+        .is_file());
+    assert!(output.contains("Step 1/3: Install .NET Runtime\nDone\n"));
+    assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
     assert!(output.contains("Installing mod 1/2: SA2 Render Fix"));
     assert!(output.contains("Generating mod config"));

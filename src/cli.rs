@@ -1,13 +1,11 @@
 use std::io::{BufRead, BufReader, IsTerminal, Read, Write};
 use std::path::PathBuf;
-use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
-use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
-use indicatif::ProgressBar;
+use dialoguer::{theme::ColorfulTheme, Confirm, MultiSelect, Select};
 use tokio::runtime::Builder;
 
 use crate::banner;
@@ -262,21 +260,14 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
     let total_steps = total_setup_steps(game_kind);
     let mut step_index = 1;
 
-    run_setup_step(
-        out,
-        step_index,
-        total_steps,
-        "Install .NET Runtime",
-        rich_prompts,
-        || {
-            Builder::new_current_thread()
-                .build()?
-                .block_on(common::install_runtimes(
-                    game_path.clone(),
-                    game_kind.app_id(),
-                ))
-        },
-    )?;
+    run_setup_step(out, step_index, total_steps, "Install .NET Runtime", || {
+        Builder::new_current_thread()
+            .build()?
+            .block_on(common::install_runtimes(
+                game_path.clone(),
+                game_kind.app_id(),
+            ))
+    })?;
     step_index += 1;
 
     if game_kind == GameKind::SADX {
@@ -285,7 +276,6 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
             step_index,
             total_steps,
             "Convert Steam to 2004",
-            rich_prompts,
             || sadx::convert_steam_to_2004(&game_path, None),
         )?;
         step_index += 1;
@@ -296,7 +286,6 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
         step_index,
         total_steps,
         "Install Mod Manager & Loader",
-        rich_prompts,
         || common::install_mod_manager(&game_path, game_kind, None),
     )?;
     step_index += 1;
@@ -318,13 +307,14 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
                 total,
                 mod_name,
             } => {
-                let _ = out.writeln(&format!("Installing mod {index}/{total}: {mod_name}"));
+                let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
             }
             pipeline::InstallProgress::GeneratingConfig => {
-                let _ = out.writeln("Generating mod config");
+                let _ = out.writeln("  - Generating mod config");
             }
         },
     )?;
+    out.writeln("Done")?;
 
     out.writeln("")?;
     out.success("Setup complete!")?;
@@ -344,7 +334,11 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
 }
 
 fn total_setup_steps(game_kind: GameKind) -> usize {
-    if game_kind == GameKind::SADX { 4 } else { 3 }
+    if game_kind == GameKind::SADX {
+        4
+    } else {
+        3
+    }
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
@@ -356,29 +350,14 @@ fn run_setup_step<T>(
     index: usize,
     total: usize,
     label: &str,
-    use_spinner: bool,
     action: impl FnOnce() -> Result<T>,
 ) -> Result<T> {
     let heading = step_heading(index, total, label);
-    if use_spinner {
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_message(heading.clone());
-        spinner.enable_steady_tick(Duration::from_millis(100));
-
-        match action() {
-            Ok(value) => {
-                spinner.finish_with_message(format!("{heading} - done"));
-                Ok(value)
-            }
-            Err(error) => {
-                spinner.abandon_with_message(format!("{heading} - failed"));
-                Err(error)
-            }
-        }
-    } else {
-        out.heading(&heading)?;
-        action()
-    }
+    out.heading(&heading)?;
+    let value = action()?;
+    out.writeln("Done")?;
+    out.writeln("")?;
+    Ok(value)
 }
 
 fn prompt_theme() -> ColorfulTheme {
@@ -892,8 +871,8 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        Cli, CliOutput, Command, SetupArgs, resolve_setup_mods, run_from_args_with_io,
-        setup_is_fully_specified,
+        resolve_setup_mods, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
+        Command, SetupArgs,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1179,12 +1158,10 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sa2_path);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("does not appear to be")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
     }
 
     #[test]
@@ -1206,12 +1183,10 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("does not appear to be")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
     }
 
     #[test]
