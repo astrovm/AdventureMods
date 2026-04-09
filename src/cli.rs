@@ -129,8 +129,6 @@ pub struct SetupArgs {
     #[arg(long)]
     pub all_mods: bool,
     #[arg(long)]
-    pub non_interactive: bool,
-    #[arg(long)]
     pub width: Option<u32>,
     #[arg(long)]
     pub height: Option<u32>,
@@ -334,7 +332,15 @@ fn run_setup(args: SetupArgs, input: &mut impl BufRead, out: &mut CliOutput) -> 
 }
 
 fn use_rich_prompts(args: &SetupArgs) -> bool {
-    !args.non_interactive && std::io::stdin().is_terminal() && std::io::stdout().is_terminal()
+    std::io::stdin().is_terminal()
+        && std::io::stdout().is_terminal()
+        && !setup_is_fully_specified(args)
+}
+
+fn setup_is_fully_specified(args: &SetupArgs) -> bool {
+    args.game.is_some()
+        && args.game_path.is_some()
+        && (args.preset.is_some() || args.all_mods || args.mods.is_some())
 }
 
 fn total_setup_steps(game_kind: GameKind) -> usize {
@@ -633,9 +639,6 @@ fn resolve_game_kind(
     }
 
     if args.game_path.is_some() {
-        if args.non_interactive {
-            bail!("--non-interactive requires --game when --game-path is provided");
-        }
         out.prompt("Select game [sadx/sa2]:")?;
         return parse_game_kind(&read_prompt(input)?);
     }
@@ -647,9 +650,6 @@ fn resolve_game_kind(
 
     if result.games.is_empty() {
         bail!("No supported games detected. Pass --game and --game-path.");
-    }
-    if args.non_interactive {
-        bail!("Multiple installations detected. Pass --game to select one.");
     }
 
     out.heading("Select installation:")?;
@@ -718,12 +718,6 @@ fn resolve_game_path(
         0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
         1 => Ok(games.remove(0).path),
         _ => {
-            if args.non_interactive {
-                bail!(
-                    "Multiple {} installations detected. Pass --game-path.",
-                    game_kind.name()
-                );
-            }
             out.heading(&format!("Select {} installation:", game_kind.name()))?;
             for (index, game) in games.iter().enumerate() {
                 out.writeln(&format!(
@@ -752,9 +746,6 @@ fn resolve_setup_mods(
 ) -> Result<Vec<&'static common::ModEntry>> {
     if let Some(selected) = resolve_setup_mods_from_flags(args, game_kind)? {
         return Ok(selected);
-    }
-    if args.non_interactive {
-        bail!("--non-interactive requires --preset, --all-mods, or --mods");
     }
 
     let presets = common::presets_for_game(game_kind);
@@ -896,10 +887,14 @@ pub fn run_from_args_with_io(
 #[cfg(test)]
 mod tests {
     use std::io::Write;
+    use std::path::PathBuf;
 
     use clap::Parser;
 
-    use super::{Cli, CliOutput, Command, SetupArgs, resolve_setup_mods, run_from_args_with_io};
+    use super::{
+        Cli, CliOutput, Command, SetupArgs, resolve_setup_mods, run_from_args_with_io,
+        setup_is_fully_specified,
+    };
     use crate::setup::common;
     use crate::steam::game::GameKind;
 
@@ -942,7 +937,6 @@ mod tests {
                     Some("sa2-render-fix,hd-gui-sa2-edition")
                 );
                 assert!(!args.all_mods);
-                assert!(!args.non_interactive);
                 assert_eq!(args.width, Some(1280));
                 assert_eq!(args.height, Some(720));
             }
@@ -951,24 +945,43 @@ mod tests {
     }
 
     #[test]
-    fn parses_setup_command_with_all_mods_and_non_interactive() {
-        let cli = Cli::parse_from([
-            "adventure-mods",
-            "setup",
-            "--game",
-            "sa2",
-            "--all-mods",
-            "--non-interactive",
-        ]);
+    fn rejects_removed_non_interactive_flag() {
+        let error =
+            Cli::try_parse_from(["adventure-mods", "setup", "--non-interactive"]).unwrap_err();
 
-        match cli.command {
-            Some(Command::Setup(args)) => {
-                assert_eq!(args.game.as_deref(), Some("sa2"));
-                assert!(args.all_mods);
-                assert!(args.non_interactive);
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
+        assert!(error.to_string().contains("--non-interactive"));
+    }
+
+    #[test]
+    fn setup_is_fully_specified_with_explicit_flags() {
+        let args = SetupArgs {
+            game: Some("sa2".to_string()),
+            mods: Some("sa2-render-fix".to_string()),
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: Some(PathBuf::from("/tmp/sa2")),
+            detect: Default::default(),
+        };
+
+        assert!(setup_is_fully_specified(&args));
+    }
+
+    #[test]
+    fn setup_is_not_fully_specified_without_mod_choice() {
+        let args = SetupArgs {
+            game: Some("sa2".to_string()),
+            mods: None,
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: Some(PathBuf::from("/tmp/sa2")),
+            detect: Default::default(),
+        };
+
+        assert!(!setup_is_fully_specified(&args));
     }
 
     #[test]
@@ -1005,7 +1018,6 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
-            non_interactive: false,
             width: None,
             height: None,
             game_path: None,
@@ -1030,7 +1042,6 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: true,
-            non_interactive: true,
             width: None,
             height: None,
             game_path: None,
@@ -1055,7 +1066,6 @@ mod tests {
             mods: None,
             preset: Some("DX Enhanced".to_string()),
             all_mods: true,
-            non_interactive: true,
             width: None,
             height: None,
             game_path: None,
@@ -1080,7 +1090,6 @@ mod tests {
             mods: Some("sa2-render-fix,hd-gui-sa2-edition".to_string()),
             preset: None,
             all_mods: false,
-            non_interactive: true,
             width: None,
             height: None,
             game_path: None,

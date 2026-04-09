@@ -76,7 +76,7 @@ flatpak run io.github.astrovm.AdventureMods setup --game sa2 --all-mods
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/Sonic Adventure DX" --width 2560 --height 1440
 ```
 
-In a terminal, `setup` opens a guided wizard with installation selection, preset shortcuts, multi-select mod picking, and step-by-step setup progress.
+In a terminal, `setup` opens a guided wizard when game selection, install path, or mod selection is missing. A fully specified command runs directly.
 
 For a headless run, pass the full selection explicitly with flags such as `--game`, `--game-path`, `--preset`, `--all-mods`, or `--mods`.
 
@@ -95,7 +95,6 @@ For a headless run, pass the full selection explicitly with flags such as `--gam
 - `--preset "DX Enhanced"` uses a named preset when the selected game provides presets
 - `--all-mods` installs every recommended mod for the selected game
 - `--mods id1,id2` selects specific mods in headless mode
-- `--non-interactive` disables the guided wizard and requires explicit selections
 - `--libraryfolders-vdf /path/to/libraryfolders.vdf` points detection at a specific Steam library file
 - repeat `--steam-library /path/to/library` to add extra Steam library roots during detection
 - `--width` and `--height` override the generated game resolution for setup
