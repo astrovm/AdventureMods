@@ -1,6 +1,8 @@
 mod support;
 
 use std::collections::HashMap;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 use adventure_mods::cli::{run_with_io, Cli};
 use clap::Parser;
@@ -101,6 +103,27 @@ fn list_mods_reports_presets_and_mods() {
 }
 
 #[test]
+fn setup_rejects_unknown_preset() {
+    let fixture = create_sadx_fixture();
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sadx",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+        "--preset",
+        "Nope",
+    ]);
+    let mut output = Vec::new();
+
+    let result = run_with_io(cli, false, &mut output);
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Unknown preset"));
+}
+
+#[test]
 fn setup_accepts_human_readable_mod_names_with_whitespace() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let _env_lock = env_lock();
@@ -187,6 +210,107 @@ fn setup_accepts_human_readable_mod_names_with_whitespace() {
         .game_path
         .join("mods/HD GUI for SA2/mod.ini")
         .is_file());
+}
+
+#[test]
+fn setup_surfaces_mod_download_failures() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    let server = TestServer::start(HashMap::from([
+        (
+            "/samodmanager.zip",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "samodmanager",
+            },
+        ),
+        (
+            "/sa2-loader.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "sa2-loader",
+            },
+        ),
+        (
+            "/dotnet.exe",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "dotnet-installer",
+            },
+        ),
+    ]));
+
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+            server.gamebanana_base(),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ]);
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sa2",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+        "--mods",
+        "sa2-render-fix",
+    ]);
+    let mut output = Vec::new();
+
+    let result = run_with_io(cli, false, &mut output);
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("HTTP error 404"));
+}
+
+#[test]
+fn interactive_setup_can_be_cancelled_via_tty() {
+    let script = match Command::new("script").arg("--version").output() {
+        Ok(_) => "script",
+        Err(_) => return,
+    };
+
+    let fixture = create_sa2_fixture();
+    let binary = env!("CARGO_BIN_EXE_adventure-mods");
+    let command = format!(
+        "\"{}\" setup --game sa2 --game-path \"{}\"",
+        binary,
+        fixture.game_path.display()
+    );
+
+    let mut child = Command::new(script)
+        .args(["-qfec", &command, "/dev/null"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    child.stdin.take().unwrap().write_all(b"\nn\n").unwrap();
+    let output = child.wait_with_output().unwrap();
+
+    assert!(!output.status.success());
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stdout.contains("Choose setup mode") || stderr.contains("Choose setup mode"));
+    assert!(stdout.contains("Setup cancelled") || stderr.contains("Setup cancelled"));
 }
 
 #[test]
