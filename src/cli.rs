@@ -175,9 +175,9 @@ pub struct SetupArgs {
     pub preset: Option<String>,
     #[arg(long)]
     pub all_mods: bool,
-    #[arg(long)]
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
     pub width: Option<u32>,
-    #[arg(long)]
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
     pub height: Option<u32>,
     #[arg(long)]
     pub game_path: Option<PathBuf>,
@@ -619,6 +619,10 @@ fn resolve_setup_mods_rich(
         &defaults,
     )?;
 
+    if selections.is_empty() {
+        bail!("Select at least one mod.");
+    }
+
     selections
         .into_iter()
         .map(|index| {
@@ -772,27 +776,55 @@ fn parse_game_kind(raw: &str) -> Result<GameKind> {
     }
 }
 
-pub fn looks_like_cli(args: &[String]) -> bool {
-    if args.len() <= 1 {
+fn gui_flag_name(arg: &str) -> &str {
+    arg.split_once('=').map(|(flag, _)| flag).unwrap_or(arg)
+}
+
+fn is_known_gui_flag(arg: &str) -> bool {
+    let flag = gui_flag_name(arg);
+    matches!(
+        flag,
+        "--display" | "--class" | "--name" | "--sync" | "--g-fatal-warnings"
+    ) || flag.starts_with("--gapplication-")
+        || flag.starts_with("--gtk-")
+        || flag.starts_with("--gdk-")
+}
+
+fn gui_flag_requires_value(arg: &str) -> bool {
+    if arg.contains('=') {
         return false;
     }
 
-    let has_top_level_help_or_version = args
-        .iter()
-        .skip(1)
-        .any(|arg| matches!(arg.as_str(), "--help" | "-h" | "--version" | "-V"));
-    if has_top_level_help_or_version {
-        return true;
+    matches!(
+        gui_flag_name(arg),
+        "--display" | "--class" | "--name" | "--gapplication-app-id"
+    )
+}
+
+fn has_only_gui_flags(args: &[String]) -> bool {
+    let mut index = 1;
+
+    while index < args.len() {
+        let arg = &args[index];
+        if !arg.starts_with('-') || !is_known_gui_flag(arg) {
+            return false;
+        }
+
+        if gui_flag_requires_value(arg) {
+            index += 1;
+            if index >= args.len() {
+                return false;
+            }
+        }
+
+        index += 1;
     }
 
-    if args.iter().skip(1).any(|arg| arg == "--no-color") {
-        return true;
-    }
+    true
+}
 
-    args.iter()
-        .skip(1)
-        .find(|arg| !arg.starts_with('-'))
-        .is_some()
+pub fn looks_like_cli(args: &[String]) -> bool {
+    args.len() > 1 && !has_only_gui_flags(args)
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
@@ -926,6 +958,31 @@ mod tests {
     }
 
     #[test]
+    fn resolve_setup_mods_rich_rejects_empty_manual_selection() {
+        let args = SetupArgs {
+            game: Some("sa2".to_string()),
+            mods: None,
+            preset: None,
+            all_mods: false,
+            width: None,
+            height: None,
+            game_path: None,
+            detect: Default::default(),
+        };
+        let prompt = MockPrompt {
+            select_result: 1,
+            multi_select_result: vec![],
+            confirm_result: true,
+        };
+
+        let Err(error) = resolve_setup_mods_rich(&args, GameKind::SA2, &prompt) else {
+            panic!("expected empty manual selection to fail");
+        };
+
+        assert!(error.to_string().contains("at least one mod"));
+    }
+
+    #[test]
     fn parses_detect_command() {
         let cli = Cli::parse_from(["adventure-mods", "detect"]);
         assert!(matches!(cli.command, Some(Command::Detect(_))));
@@ -977,6 +1034,40 @@ mod tests {
             Cli::try_parse_from(["adventure-mods", "setup", "--non-interactive"]).unwrap_err();
 
         assert!(error.to_string().contains("--non-interactive"));
+    }
+
+    #[test]
+    fn rejects_zero_width_flag() {
+        let error = Cli::try_parse_from([
+            "adventure-mods",
+            "setup",
+            "--game",
+            "sa2",
+            "--mods",
+            "sa2-render-fix",
+            "--width",
+            "0",
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("--width"));
+    }
+
+    #[test]
+    fn rejects_zero_height_flag() {
+        let error = Cli::try_parse_from([
+            "adventure-mods",
+            "setup",
+            "--game",
+            "sa2",
+            "--mods",
+            "sa2-render-fix",
+            "--height",
+            "0",
+        ])
+        .unwrap_err();
+
+        assert!(error.to_string().contains("--height"));
     }
 
     #[test]
@@ -1171,6 +1262,22 @@ mod tests {
     }
 
     #[test]
+    fn run_from_args_surfaces_unknown_top_level_flag_as_error() {
+        let mut output = Vec::new();
+
+        let result = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "--bogus".to_string()],
+            || Ok(()),
+            &mut output,
+            false,
+        );
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("--bogus"));
+    }
+
+    #[test]
     fn looks_like_cli_matches_known_subcommands() {
         assert!(super::looks_like_cli(&[
             "adventure-mods".to_string(),
@@ -1195,10 +1302,15 @@ mod tests {
     }
 
     #[test]
-    fn looks_like_cli_ignores_flags() {
+    fn looks_like_cli_ignores_gui_flags() {
         assert!(!super::looks_like_cli(&[
             "adventure-mods".to_string(),
-            "-g".to_string()
+            "--gapplication-service".to_string()
+        ]));
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--display".to_string(),
+            ":1".to_string()
         ]));
         assert!(!super::looks_like_cli(&["adventure-mods".to_string()]));
     }
