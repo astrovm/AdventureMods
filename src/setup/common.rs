@@ -67,7 +67,10 @@ fn env_or_default(var: &str, default: &'static str) -> String {
 }
 
 fn gamebanana_download_base() -> String {
-    env_or_default("ADVENTURE_MODS_GAMEBANANA_BASE_URL", "https://gamebanana.com/dl/")
+    env_or_default(
+        "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+        "https://gamebanana.com/dl/",
+    )
 }
 
 fn sa_mod_manager_url() -> String {
@@ -618,7 +621,10 @@ mod tests {
     #[test]
     fn test_gamebanana_download_base_uses_override() {
         unsafe {
-            std::env::set_var("ADVENTURE_MODS_GAMEBANANA_BASE_URL", "http://127.0.0.1:4010/dl/");
+            std::env::set_var(
+                "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+                "http://127.0.0.1:4010/dl/",
+            );
         }
 
         assert_eq!(

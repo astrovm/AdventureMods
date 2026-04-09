@@ -179,10 +179,12 @@ impl AdventureModsWindow {
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
 
         glib::spawn_future_local(async move {
-            let result = match blocking::spawn_result(gio::spawn_blocking(move || {
-                steam::library::detect_games_with_extra_libraries(&extra_library_paths)
-            })
-            .await) {
+            let result = match blocking::spawn_result(
+                gio::spawn_blocking(move || {
+                    steam::library::detect_games_with_extra_libraries(&extra_library_paths)
+                })
+                .await,
+            ) {
                 Ok(result) => result,
                 Err(err) => {
                     tracing::error!("Failed to detect games: {err}");

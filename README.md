@@ -43,7 +43,7 @@ The same app can run in terminal mode when you pass a subcommand.
 ```sh
 ./Adventure_Mods-x86_64.AppImage detect
 ./Adventure_Mods-x86_64.AppImage list-mods --game sadx
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
 ```
 
 ### Flatpak
@@ -51,7 +51,7 @@ The same app can run in terminal mode when you pass a subcommand.
 ```sh
 flatpak run io.github.astrovm.AdventureMods detect
 flatpak run io.github.astrovm.AdventureMods list-mods --game sadx
-flatpak run io.github.astrovm.AdventureMods setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+flatpak run io.github.astrovm.AdventureMods setup --game sa2 --all-mods
 ```
 
 ### Detect installed games
@@ -72,11 +72,13 @@ flatpak run io.github.astrovm.AdventureMods setup --game sa2 --mod "SA2 Render F
 
 ```sh
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --mod "SA2 Render Fix" --mod "HD GUI: SA2 Edition"
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,hd-gui-sa2-edition
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/Sonic Adventure DX" --width 2560 --height 1440
 ```
 
-If you omit `--game`, `--game-path`, `--preset`, and `--mod`, the CLI falls back to terminal prompts.
+In a terminal, `setup` opens a guided wizard with installation selection, preset shortcuts, multi-select mod picking, and step-by-step setup progress.
+
+For a headless run, pass the full selection explicitly with flags such as `--game`, `--game-path`, `--preset`, `--all-mods`, or `--mods`.
 
 ### Command reference
 
@@ -91,7 +93,9 @@ If you omit `--game`, `--game-path`, `--preset`, and `--mod`, the CLI falls back
 - `--game sadx|sa2` picks the game explicitly
 - `--game-path /path/to/game` skips Steam detection for setup
 - `--preset "DX Enhanced"` uses a named preset when the selected game provides presets
-- repeat `--mod "..."` to select specific mods
+- `--all-mods` installs every recommended mod for the selected game
+- `--mods id1,id2` selects specific mods in headless mode
+- `--non-interactive` disables the guided wizard and requires explicit selections
 - `--libraryfolders-vdf /path/to/libraryfolders.vdf` points detection at a specific Steam library file
 - repeat `--steam-library /path/to/library` to add extra Steam library roots during detection
 - `--width` and `--height` override the generated game resolution for setup

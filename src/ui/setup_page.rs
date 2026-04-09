@@ -344,9 +344,7 @@ impl AdventureModsSetupPage {
                 imp.next_button.set_sensitive(true);
 
                 let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
-                let presets = game_kind
-                    .map(common::presets_for_game)
-                    .unwrap_or(&[]);
+                let presets = game_kind.map(common::presets_for_game).unwrap_or(&[]);
 
                 let main_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
@@ -725,10 +723,12 @@ impl AdventureModsSetupPage {
                         Some(Box::new(move |dl, total| {
                             let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
-                    blocking::flatten_spawn_result(gio::spawn_blocking(move || {
-                        sadx::convert_steam_to_2004(&game_path, progress_fn)
-                    })
-                    .await)
+                    blocking::flatten_spawn_result(
+                        gio::spawn_blocking(move || {
+                            sadx::convert_steam_to_2004(&game_path, progress_fn)
+                        })
+                        .await,
+                    )
                 }
                 "install_mod_manager" => {
                     let game_path = game.path.clone();
@@ -738,10 +738,12 @@ impl AdventureModsSetupPage {
                         Some(Box::new(move |dl, total| {
                             let _ = tx_clone.send_blocking((dl, total, String::new()));
                         }));
-                    blocking::flatten_spawn_result(gio::spawn_blocking(move || {
-                        common::install_mod_manager(&game_path, game_kind, progress_fn)
-                    })
-                    .await)
+                    blocking::flatten_spawn_result(
+                        gio::spawn_blocking(move || {
+                            common::install_mod_manager(&game_path, game_kind, progress_fn)
+                        })
+                        .await,
+                    )
                 }
                 "download_mods" => {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
@@ -749,42 +751,47 @@ impl AdventureModsSetupPage {
                     let game_path = game.path.clone();
                     let was_cancelled = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
-                    match blocking::flatten_spawn_result(gio::spawn_blocking(move || {
-                        for (i, idx) in selected.iter().enumerate() {
-                            if cancel_flag.load(Ordering::Relaxed) {
-                                return Err(anyhow::anyhow!("cancelled"));
+                    match blocking::flatten_spawn_result(
+                        gio::spawn_blocking(move || {
+                            for (i, idx) in selected.iter().enumerate() {
+                                if cancel_flag.load(Ordering::Relaxed) {
+                                    return Err(anyhow::anyhow!("cancelled"));
+                                }
+                                if let Some(mod_entry) = mods_list.get(*idx) {
+                                    let status =
+                                        format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
+                                    let _ = tx.send_blocking((
+                                        i as u64,
+                                        Some(total_count as u64),
+                                        status,
+                                    ));
+
+                                    common::install_mod(&game_path, mod_entry, None)?;
+                                }
                             }
-                            if let Some(mod_entry) = mods_list.get(*idx) {
-                                let status =
-                                    format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
-                                let _ =
-                                    tx.send_blocking((i as u64, Some(total_count as u64), status));
 
-                                common::install_mod(&game_path, mod_entry, None)?;
-                            }
-                        }
+                            // Generate SA Mod Manager config files
+                            let _ = tx.send_blocking((
+                                total_count as u64,
+                                Some(total_count as u64),
+                                "Configuring...".to_string(),
+                            ));
+                            let selected_entries: Vec<&common::ModEntry> = selected
+                                .iter()
+                                .filter_map(|idx| mods_list.get(*idx))
+                                .collect();
+                            config::generate_config(
+                                &game_path,
+                                game_kind,
+                                &selected_entries,
+                                width,
+                                height,
+                            )?;
 
-                        // Generate SA Mod Manager config files
-                        let _ = tx.send_blocking((
-                            total_count as u64,
-                            Some(total_count as u64),
-                            "Configuring...".to_string(),
-                        ));
-                        let selected_entries: Vec<&common::ModEntry> = selected
-                            .iter()
-                            .filter_map(|idx| mods_list.get(*idx))
-                            .collect();
-                        config::generate_config(
-                            &game_path,
-                            game_kind,
-                            &selected_entries,
-                            width,
-                            height,
-                        )?;
-
-                        Ok(())
-                    })
-                    .await) {
+                            Ok(())
+                        })
+                        .await,
+                    ) {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             if was_cancelled.load(Ordering::Relaxed) {

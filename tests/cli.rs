@@ -2,12 +2,12 @@ mod support;
 
 use std::collections::HashMap;
 
-use adventure_mods::cli::{run_with_io, Cli};
+use adventure_mods::cli::{Cli, run_with_io};
 use clap::Parser;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
-use support::{env_lock, EnvGuard};
+use support::{EnvGuard, env_lock};
 
 #[test]
 fn detect_reports_games_from_explicit_vdf() {
@@ -38,6 +38,7 @@ fn list_mods_reports_presets_and_mods() {
     assert!(output.contains("DX Enhanced"));
     assert!(output.contains("Dreamcast Restoration"));
     assert!(output.contains("Dreamcast Conversion"));
+    assert!(output.contains("dreamcast-conversion"));
 }
 
 #[test]
@@ -112,10 +113,8 @@ fn setup_installs_selected_mods_from_cli_flags() {
         "sa2",
         "--game-path",
         fixture.game_path.to_str().unwrap(),
-        "--mod",
-        "SA2 Render Fix",
-        "--mod",
-        "HD GUI: SA2 Edition",
+        "--mods",
+        "sa2-render-fix,hd-gui-sa2-edition",
         "--width",
         "1920",
         "--height",
@@ -125,17 +124,30 @@ fn setup_installs_selected_mods_from_cli_flags() {
 
     run_with_io(cli, false, &mut std::io::empty(), &mut output).unwrap();
 
+    let output = String::from_utf8(output).unwrap();
+
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/SA2ModLoader.dll")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/sa2-render-fix/mod.ini")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/HD GUI for SA2/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/SA2ModLoader.dll")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/sa2-render-fix/mod.ini")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/HD GUI for SA2/mod.ini")
+            .is_file()
+    );
+    assert!(output.contains("Step 1/3: Install .NET Runtime"));
+    assert!(output.contains("Step 2/3: Install Mod Manager & Loader"));
+    assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
+    assert!(output.contains("Installing mod 1/2: SA2 Render Fix"));
+    assert!(output.contains("Generating mod config"));
 }

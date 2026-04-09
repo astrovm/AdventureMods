@@ -567,14 +567,15 @@ fn parse_proton_dir_name(name: &str) -> Option<ProtonVersion> {
     let mut parts = version_part.split('.');
 
     if let Some(major_str) = parts.next()
-        && let Ok(major) = major_str.trim().parse::<u32>() {
-            let minor: u32 = parts
-                .next()
-                .and_then(|s| s.trim().parse().ok())
-                .unwrap_or(0);
+        && let Ok(major) = major_str.trim().parse::<u32>()
+    {
+        let minor: u32 = parts
+            .next()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0);
 
-            return Some(ProtonVersion::Numbered(major, minor));
-        }
+        return Some(ProtonVersion::Numbered(major, minor));
+    }
 
     Some(ProtonVersion::Other(name.to_string()))
 }

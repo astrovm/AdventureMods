@@ -11,7 +11,7 @@ use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sadx_fixture;
-use support::{env_lock, EnvGuard};
+use support::{EnvGuard, env_lock};
 
 const DREAMCAST_TEST: ModEntry = ModEntry {
     name: "Dreamcast Test",
@@ -129,33 +129,45 @@ fn sadx_setup_completes_against_fake_steam_install() {
     )
     .unwrap();
 
-    assert!(fixture
-        .prefix_path
-        .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
-        .is_dir());
+    assert!(
+        fixture
+            .prefix_path
+            .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
+            .is_dir()
+    );
     assert!(fixture.game_path.join("sonic.exe").is_file());
-    assert!(fixture
-        .game_path
-        .join("Sonic Adventure DX.exe.bak")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/SADXModLoader.dll")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("system/CHRMODELS_orig.dll")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("Sonic Adventure DX.exe.bak")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/SADXModLoader.dll")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("system/CHRMODELS_orig.dll")
+            .is_file()
+    );
     assert!(fixture.game_path.join("SAManager/Manager.json").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/profiles/Default.json")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/profiles/Default.json")
+            .is_file()
+    );
     assert!(fixture.game_path.join("system/sonicDX.ini").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/Dreamcast Test/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/Dreamcast Test/mod.ini")
+            .is_file()
+    );
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
     assert!(fixture.game_path.join("SoundData/voice_jp/wma").is_dir());
     assert!(fixture.wine_log.is_file());

@@ -364,9 +364,11 @@ mod tests {
 
     #[test]
     fn test_stage_atmosphere_tweaks_not_in_recommended_mods() {
-        assert!(RECOMMENDED_MODS
-            .iter()
-            .all(|m| m.name != "Stage Atmosphere Tweaks"));
+        assert!(
+            RECOMMENDED_MODS
+                .iter()
+                .all(|m| m.name != "Stage Atmosphere Tweaks")
+        );
     }
 
     #[test]
