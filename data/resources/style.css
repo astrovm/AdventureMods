@@ -1,6 +1,6 @@
 .game-card {
-    min-width: 180px;
-    max-width: 180px;
+    min-width: 280px;
+    max-width: 280px;
     border-radius: 16px;
     overflow: hidden;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
@@ -100,6 +100,17 @@
     border-radius: 14px;
     padding: 12px 14px;
     background: alpha(@accent_color, 0.10);
+}
+
+.status-banner {
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: alpha(@accent_color, 0.10);
+}
+
+.status-banner-error {
+    background: alpha(@error_color, 0.12);
+    color: @error_color;
 }
 
 .setup-step-current {

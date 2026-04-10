@@ -16,8 +16,18 @@
                   <class name="flat"/>
                 </style>
                 <child>
-                  <object class="GtkImage">
-                    <property name="icon-name">view-refresh-symbolic</property>
+                  <object class="GtkBox">
+                    <child>
+                      <object class="GtkImage" id="refresh_icon">
+                        <property name="icon-name">view-refresh-symbolic</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSpinner" id="refresh_spinner">
+                        <property name="visible">false</property>
+                        <property name="spinning">false</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -25,14 +35,42 @@
           </object>
         </child>
         <property name="content">
-          <object class="AdwNavigationView" id="navigation_view">
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
             <child>
-              <object class="AdwNavigationPage">
-                <property name="tag">welcome</property>
-                <property name="title" translatable="yes">Adventure Mods</property>
+              <object class="GtkRevealer" id="status_revealer">
+                <property name="reveal-child">false</property>
+                <property name="transition-type">slide-down</property>
                 <property name="child">
-                  <object class="AdventureModsWelcomePage" id="welcome_page"/>
+                  <object class="GtkBox" id="status_banner">
+                    <property name="margin-start">16</property>
+                    <property name="margin-end">16</property>
+                    <property name="margin-top">12</property>
+                    <property name="margin-bottom">4</property>
+                    <style>
+                      <class name="status-banner"/>
+                    </style>
+                    <child>
+                      <object class="GtkLabel" id="status_label">
+                        <property name="wrap">true</property>
+                        <property name="xalign">0</property>
+                      </object>
+                    </child>
+                  </object>
                 </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwNavigationView" id="navigation_view">
+                <child>
+                  <object class="AdwNavigationPage">
+                    <property name="tag">welcome</property>
+                    <property name="title" translatable="yes">Adventure Mods</property>
+                    <property name="child">
+                      <object class="AdventureModsWelcomePage" id="welcome_page"/>
+                    </property>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

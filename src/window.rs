@@ -20,6 +20,16 @@ mod imp {
         #[template_child]
         pub refresh_button: TemplateChild<gtk::Button>,
         #[template_child]
+        pub refresh_icon: TemplateChild<gtk::Image>,
+        #[template_child]
+        pub refresh_spinner: TemplateChild<gtk::Spinner>,
+        #[template_child]
+        pub status_revealer: TemplateChild<gtk::Revealer>,
+        #[template_child]
+        pub status_banner: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub status_label: TemplateChild<gtk::Label>,
+        #[template_child]
         pub navigation_view: TemplateChild<adw::NavigationView>,
         #[template_child]
         pub welcome_page: TemplateChild<AdventureModsWelcomePage>,
@@ -94,7 +104,10 @@ impl AdventureModsWindow {
                     obj.save_extra_library_paths();
                 }
 
-                obj.detect_games();
+                obj.detect_games_with_feedback(
+                    Some("Refreshing detected Steam libraries..."),
+                    Some("Library access granted. Detection updated."),
+                );
                 None
             }
         });
@@ -104,7 +117,10 @@ impl AdventureModsWindow {
         let refresh_button = self.imp().refresh_button.clone();
         let obj = self.clone();
         refresh_button.connect_clicked(move |_| {
-            obj.detect_games();
+            obj.detect_games_with_feedback(
+                Some("Refreshing detected Steam libraries..."),
+                Some("Detection updated."),
+            );
         });
 
         // Show/hide refresh button based on current navigation page
@@ -175,10 +191,24 @@ impl AdventureModsWindow {
     }
 
     fn detect_games(&self) {
+        self.detect_games_with_feedback(None, None);
+    }
+
+    fn detect_games_with_feedback(
+        &self,
+        start_message: Option<&'static str>,
+        success_message: Option<&'static str>,
+    ) {
         let imp = self.imp();
         let welcome_page = imp.welcome_page.clone();
         let nav_view = imp.navigation_view.clone();
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
+        let obj = self.clone();
+
+        if let Some(message) = start_message {
+            self.show_status_message(message, false);
+        }
+        self.set_refresh_busy(true);
 
         glib::spawn_future_local(async move {
             let result = match blocking::spawn_result(
@@ -190,12 +220,48 @@ impl AdventureModsWindow {
                 Ok(result) => result,
                 Err(err) => {
                     tracing::error!("Failed to detect games: {err}");
+                    obj.set_refresh_busy(false);
+                    obj.show_status_message(
+                        &format!("Failed to detect Steam libraries: {err}"),
+                        true,
+                    );
                     return;
                 }
             };
 
             welcome_page.set_detection_result(result, nav_view);
+            obj.set_refresh_busy(false);
+            if let Some(message) = success_message {
+                obj.show_status_message(message, false);
+            } else {
+                obj.clear_status_message();
+            }
         });
+    }
+
+    fn set_refresh_busy(&self, busy: bool) {
+        let imp = self.imp();
+        imp.refresh_button.set_sensitive(!busy);
+        imp.refresh_icon.set_visible(!busy);
+        imp.refresh_spinner.set_visible(busy);
+        imp.refresh_spinner.set_spinning(busy);
+    }
+
+    pub(crate) fn show_status_message(&self, message: &str, is_error: bool) {
+        let imp = self.imp();
+        imp.status_label.set_label(message);
+        imp.status_banner.remove_css_class("status-banner-error");
+        if is_error {
+            imp.status_banner.add_css_class("status-banner-error");
+        }
+        imp.status_revealer.set_reveal_child(true);
+    }
+
+    fn clear_status_message(&self) {
+        let imp = self.imp();
+        imp.status_label.set_label("");
+        imp.status_banner.remove_css_class("status-banner-error");
+        imp.status_revealer.set_reveal_child(false);
     }
 
     pub fn navigation_view(&self) -> &adw::NavigationView {

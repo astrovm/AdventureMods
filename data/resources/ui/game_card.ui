@@ -3,7 +3,7 @@
   <template class="AdventureModsGameCard" parent="GtkBox">
     <property name="orientation">vertical</property>
     <property name="spacing">0</property>
-    <property name="width-request">180</property>
+    <property name="width-request">280</property>
     <property name="hexpand">false</property>
     <property name="halign">center</property>
     <style>
@@ -12,7 +12,7 @@
     </style>
     <child>
       <object class="GtkPicture" id="cover_picture">
-        <property name="width-request">180</property>
+        <property name="width-request">280</property>
         <property name="height-request">60</property>
         <property name="can-shrink">true</property>
         <property name="content-fit">cover</property>
@@ -58,6 +58,12 @@
             <style>
               <class name="game-card-title"/>
             </style>
+          </object>
+        </child>
+        <child>
+          <object class="GtkDropDown" id="install_selector">
+            <property name="visible">false</property>
+            <property name="hexpand">true</property>
           </object>
         </child>
         <child>

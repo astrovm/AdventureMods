@@ -21,6 +21,8 @@ mod imp {
         #[template_child]
         pub title_label: TemplateChild<gtk::Label>,
         #[template_child]
+        pub install_selector: TemplateChild<gtk::DropDown>,
+        #[template_child]
         pub status_label: TemplateChild<gtk::Label>,
         #[template_child]
         pub details_label: TemplateChild<gtk::Label>,
@@ -28,6 +30,7 @@ mod imp {
         pub setup_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub secondary_button: TemplateChild<gtk::Button>,
+        pub(super) install_options: RefCell<Vec<super::GameInstallOption>>,
         pub setup_callback: RefCell<Option<Box<dyn Fn()>>>,
         pub secondary_callback: RefCell<Option<Box<dyn Fn()>>>,
     }
@@ -62,6 +65,9 @@ mod imp {
             gesture.set_button(1);
             gesture.connect_released(move |_, _, _, _| {
                 let imp = obj.imp();
+                if imp.install_selector.is_visible() {
+                    return;
+                }
                 if let Some(ref cb) = *imp.setup_callback.borrow() {
                     cb();
                 }
@@ -74,6 +80,11 @@ mod imp {
                 if let Some(ref cb) = *imp.setup_callback.borrow() {
                     cb();
                 }
+            });
+
+            let obj = self.obj().clone();
+            self.install_selector.connect_selected_notify(move |_| {
+                obj.update_selected_install_option();
             });
 
             let obj = self.obj().clone();
@@ -94,6 +105,40 @@ glib::wrapper! {
     pub struct AdventureModsGameCard(ObjectSubclass<imp::AdventureModsGameCard>)
         @extends gtk::Widget, gtk::Box,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum GameInstallOption {
+    Detected(std::path::PathBuf),
+    Inaccessible(std::path::PathBuf),
+}
+
+impl GameInstallOption {
+    pub(crate) fn detected(path: std::path::PathBuf) -> Self {
+        Self::Detected(path)
+    }
+
+    pub(crate) fn inaccessible(path: std::path::PathBuf) -> Self {
+        Self::Inaccessible(path)
+    }
+
+    pub(crate) fn path(&self) -> &std::path::Path {
+        match self {
+            Self::Detected(path) | Self::Inaccessible(path) => path,
+        }
+    }
+
+    fn is_accessible(&self) -> bool {
+        matches!(self, Self::Detected(_))
+    }
+
+    fn selector_label(&self) -> String {
+        if self.is_accessible() {
+            self.path().display().to_string()
+        } else {
+            format!("{} (Needs access)", self.path().display())
+        }
+    }
 }
 
 impl Default for AdventureModsGameCard {
@@ -137,6 +182,8 @@ impl AdventureModsGameCard {
         self.set_state_classes("installed", None);
 
         let self_imp = self.imp();
+        self_imp.install_selector.set_visible(false);
+        self_imp.install_options.replace(Vec::new());
         self_imp.setup_callback.replace(None);
         self_imp.secondary_callback.replace(None);
     }
@@ -153,6 +200,7 @@ impl AdventureModsGameCard {
         imp.details_label.set_label(
             "If it is already installed, refresh after Steam finishes detecting the library.",
         );
+        imp.install_selector.set_visible(false);
         imp.setup_button.set_visible(false);
         imp.secondary_button.set_visible(false);
         self.remove_css_class("game-card-clickable");
@@ -161,6 +209,7 @@ impl AdventureModsGameCard {
         self.set_cover(kind);
         self.set_state_classes("missing", Some("game-card-missing"));
 
+        imp.install_options.replace(Vec::new());
         imp.setup_callback.replace(None);
         imp.secondary_callback.replace(None);
     }
@@ -174,6 +223,7 @@ impl AdventureModsGameCard {
         imp.status_label
             .set_label("Grant access to this Steam library to continue.");
         imp.details_label.set_visible(true);
+        imp.install_selector.set_visible(false);
         imp.details_label
             .set_label(&format!("Steam library path: {}", library_path.display()));
         imp.setup_button.set_visible(false);
@@ -185,8 +235,87 @@ impl AdventureModsGameCard {
         self.set_cover(kind);
         self.set_state_classes("inaccessible", Some("game-card-inaccessible"));
 
+        imp.install_options.replace(Vec::new());
         imp.setup_callback.replace(None);
         imp.secondary_callback.replace(None);
+    }
+
+    pub(crate) fn set_install_options(
+        &self,
+        kind: GameKind,
+        install_options: &[GameInstallOption],
+    ) {
+        let imp = self.imp();
+
+        imp.title_label.set_label(kind.name());
+        self.set_cover(kind);
+
+        imp.install_options.replace(install_options.to_vec());
+
+        let labels: Vec<String> = install_options
+            .iter()
+            .map(GameInstallOption::selector_label)
+            .collect();
+        let label_refs: Vec<&str> = labels.iter().map(String::as_str).collect();
+        let model = gtk::StringList::new(&label_refs);
+        imp.install_selector.set_model(Some(&model));
+        imp.install_selector.set_visible(install_options.len() > 1);
+
+        let default_index = install_options
+            .iter()
+            .position(GameInstallOption::is_accessible)
+            .unwrap_or(0) as u32;
+        imp.install_selector.set_selected(default_index);
+        imp.setup_button.set_visible(true);
+        imp.secondary_button.set_visible(false);
+        self.add_css_class("game-card-clickable");
+        self.set_cursor_from_name(Some("pointer"));
+
+        imp.setup_callback.replace(None);
+        imp.secondary_callback.replace(None);
+        self.update_selected_install_option();
+    }
+
+    pub(crate) fn selected_install_option(&self) -> Option<GameInstallOption> {
+        let imp = self.imp();
+        let install_options = imp.install_options.borrow();
+        install_options
+            .get(imp.install_selector.selected() as usize)
+            .cloned()
+            .or_else(|| install_options.first().cloned())
+    }
+
+    fn update_selected_install_option(&self) {
+        let imp = self.imp();
+        let install_count = imp.install_options.borrow().len();
+        let Some(option) = self.selected_install_option() else {
+            return;
+        };
+
+        imp.details_label.set_visible(true);
+        imp.details_label
+            .set_label(&option.path().display().to_string());
+        imp.secondary_button.set_visible(false);
+        self.add_css_class("game-card-clickable");
+        self.set_cursor_from_name(Some("pointer"));
+
+        if option.is_accessible() {
+            imp.badge_label.set_label("Ready");
+            imp.status_label.set_visible(install_count > 1);
+            if install_count > 1 {
+                imp.status_label
+                    .set_label("Choose which install to use for setup.");
+            }
+            imp.setup_button.set_label("Set Up");
+            self.set_state_classes("installed", None);
+        } else {
+            imp.badge_label.set_label("Needs access");
+            imp.status_label.set_visible(true);
+            imp.status_label
+                .set_label("Grant access to the selected Steam library to continue.");
+            imp.setup_button.set_label("Grant Access");
+            self.set_state_classes("inaccessible", Some("game-card-inaccessible"));
+        }
     }
 
     fn set_cover(&self, kind: GameKind) {
@@ -329,5 +458,22 @@ mod tests {
         card.set_missing(GameKind::SA2);
 
         assert!(!card.imp().setup_button.is_visible());
+    }
+
+    #[gtk::test]
+    fn cards_show_install_selector_for_multiple_paths() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+
+        card.set_install_options(
+            GameKind::SA2,
+            &[
+                GameInstallOption::detected(PathBuf::from("/games/sa2-a")),
+                GameInstallOption::inaccessible(PathBuf::from("/mnt/steam")),
+            ],
+        );
+
+        assert!(card.imp().install_selector.is_visible());
     }
 }

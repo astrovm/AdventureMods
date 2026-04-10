@@ -5,7 +5,7 @@ use gtk::glib;
 
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
-use crate::ui::game_card::AdventureModsGameCard;
+use crate::ui::game_card::{AdventureModsGameCard, GameInstallOption};
 
 mod imp {
     use super::*;
@@ -96,34 +96,39 @@ impl AdventureModsWelcomePage {
             let card = AdventureModsGameCard::new();
 
             match &card_spec.state {
-                GameCardState::Detected(game) => {
-                    card.set_detected(
-                        game,
-                        card_spec.installation_index,
-                        card_spec.installation_total,
-                    );
-                    let game_clone = game.clone();
+                GameCardState::Detected | GameCardState::Inaccessible => {
+                    card.set_install_options(card_spec.kind, &card_spec.install_options);
+                    let card_clone = card.clone();
                     let nav_view_clone = nav_view.clone();
+                    let obj = self.clone();
                     card.connect_setup_clicked(move || {
-                        let setup_page =
-                            crate::ui::setup_page::AdventureModsSetupPage::new(game_clone.clone());
-                        let nav_page = adw::NavigationPage::builder()
-                            .title(game_clone.kind.name())
-                            .child(&setup_page)
-                            .build();
-                        nav_view_clone.push(&nav_page);
+                        let Some(option) = card_clone.selected_install_option() else {
+                            return;
+                        };
+
+                        match option {
+                            GameInstallOption::Detected(path) => {
+                                let game = Game {
+                                    kind: card_spec.kind,
+                                    path,
+                                };
+                                let setup_page = crate::ui::setup_page::AdventureModsSetupPage::new(
+                                    game.clone(),
+                                );
+                                let nav_page = adw::NavigationPage::builder()
+                                    .title(game.kind.name())
+                                    .child(&setup_page)
+                                    .build();
+                                nav_view_clone.push(&nav_page);
+                            }
+                            GameInstallOption::Inaccessible(path) => {
+                                obj.request_library_access(path);
+                            }
+                        }
                     });
                 }
                 GameCardState::Missing => {
                     card.set_missing(card_spec.kind);
-                }
-                GameCardState::Inaccessible(inaccessible) => {
-                    card.set_inaccessible(card_spec.kind, &inaccessible.library_path);
-                    let obj = self.clone();
-                    let expected_library = inaccessible.library_path.clone();
-                    card.connect_secondary_clicked(move || {
-                        obj.request_library_access(expected_library.clone());
-                    });
                 }
             }
 
@@ -153,6 +158,21 @@ impl AdventureModsWelcomePage {
             match dialog.select_folder_future(Some(&window)).await {
                 Ok(folder) => {
                     if let Some(path) = folder.path() {
+                        if !selected_library_matches(&expected_library, &path) {
+                            if let Some(window) = obj.root().and_then(|root| {
+                                root.downcast::<crate::window::AdventureModsWindow>().ok()
+                            }) {
+                                window.show_status_message(
+                                    &format!(
+                                        "Selected folder does not match the required Steam library: {}",
+                                        expected_library.display()
+                                    ),
+                                    true,
+                                );
+                            }
+                            return;
+                        }
+
                         let selected = path.to_string_lossy().to_string();
                         obj.emit_by_name::<()>("library-access-granted", &[&selected]);
                     }
@@ -165,19 +185,31 @@ impl AdventureModsWelcomePage {
     }
 }
 
+fn selected_library_matches(
+    expected_library: &std::path::Path,
+    selected_library: &std::path::Path,
+) -> bool {
+    let expected = expected_library
+        .canonicalize()
+        .unwrap_or_else(|_| expected_library.to_path_buf());
+    let selected = selected_library
+        .canonicalize()
+        .unwrap_or_else(|_| selected_library.to_path_buf());
+    expected == selected
+}
+
 #[derive(Clone, Debug)]
 struct GameCardSpec {
     kind: GameKind,
     state: GameCardState,
-    installation_index: usize,
-    installation_total: usize,
+    install_options: Vec<GameInstallOption>,
 }
 
 #[derive(Clone, Debug)]
 enum GameCardState {
-    Detected(Game),
+    Detected,
     Missing,
-    Inaccessible(InaccessibleGame),
+    Inaccessible,
 }
 
 fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
@@ -197,36 +229,38 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
             .collect();
 
         let detected_total = kind_games.len();
-        let inaccessible_total = kind_inaccessible.len();
-        let total = detected_total + inaccessible_total;
+        let total = detected_total + kind_inaccessible.len();
 
         if total == 0 {
             cards.push(GameCardSpec {
                 kind,
                 state: GameCardState::Missing,
-                installation_index: 0,
-                installation_total: 1,
+                install_options: Vec::new(),
             });
             continue;
         }
 
-        for (index, game) in kind_games.iter().enumerate() {
-            cards.push(GameCardSpec {
-                kind,
-                state: GameCardState::Detected((*game).clone()),
-                installation_index: index,
-                installation_total: detected_total,
-            });
-        }
+        let mut install_options: Vec<GameInstallOption> = kind_games
+            .iter()
+            .map(|game| GameInstallOption::detected(game.path.clone()))
+            .collect();
+        install_options.extend(
+            kind_inaccessible
+                .iter()
+                .map(|game| GameInstallOption::inaccessible(game.library_path.clone())),
+        );
 
-        for (index, inaccessible) in kind_inaccessible.iter().enumerate() {
-            cards.push(GameCardSpec {
-                kind,
-                state: GameCardState::Inaccessible((*inaccessible).clone()),
-                installation_index: index,
-                installation_total: inaccessible_total,
-            });
-        }
+        let state = if !kind_games.is_empty() {
+            GameCardState::Detected
+        } else {
+            GameCardState::Inaccessible
+        };
+
+        cards.push(GameCardSpec {
+            kind,
+            state,
+            install_options,
+        });
     }
 
     cards
@@ -256,6 +290,26 @@ mod tests {
     }
 
     #[test]
+    fn selected_library_matches_accepts_same_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("steam-library");
+        std::fs::create_dir_all(&path).unwrap();
+
+        assert!(selected_library_matches(&path, &path));
+    }
+
+    #[test]
+    fn selected_library_matches_rejects_different_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let expected = tmp.path().join("expected");
+        let selected = tmp.path().join("selected");
+        std::fs::create_dir_all(&expected).unwrap();
+        std::fs::create_dir_all(&selected).unwrap();
+
+        assert!(!selected_library_matches(&expected, &selected));
+    }
+
+    #[test]
     fn build_game_cards_always_includes_missing_games() {
         let result = DetectionResult {
             games: vec![Game {
@@ -269,7 +323,7 @@ mod tests {
 
         assert_eq!(cards.len(), 2);
         assert!(matches!(cards[0].state, GameCardState::Missing));
-        assert!(matches!(cards[1].state, GameCardState::Detected(_)));
+        assert!(matches!(cards[1].state, GameCardState::Detected));
     }
 
     #[test]
@@ -284,7 +338,7 @@ mod tests {
 
         let cards = build_game_cards(&result);
 
-        assert!(matches!(cards[0].state, GameCardState::Inaccessible(_)));
+        assert!(matches!(cards[0].state, GameCardState::Inaccessible));
         assert!(matches!(cards[1].state, GameCardState::Missing));
     }
 
@@ -315,12 +369,10 @@ mod tests {
 
         let cards = build_game_cards(&result);
 
-        assert_eq!(cards.len(), 5);
-        assert!(matches!(cards[0].state, GameCardState::Detected(_)));
-        assert!(matches!(cards[1].state, GameCardState::Detected(_)));
-        assert!(matches!(cards[2].state, GameCardState::Inaccessible(_)));
-        assert!(matches!(cards[3].state, GameCardState::Inaccessible(_)));
-        assert!(matches!(cards[4].state, GameCardState::Missing));
+        assert_eq!(cards.len(), 2);
+        assert_eq!(cards[0].install_options.len(), 4);
+        assert!(matches!(cards[0].state, GameCardState::Detected));
+        assert!(matches!(cards[1].state, GameCardState::Missing));
     }
 
     #[gtk::test]
@@ -353,5 +405,37 @@ mod tests {
             alert.label().as_str(),
             "Some Steam libraries still need access: Sonic Adventure DX."
         );
+    }
+
+    #[gtk::test]
+    fn detection_result_uses_horizontal_box_layout_for_cards() {
+        init_resource_overlay();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let nav_view = adw::NavigationView::new();
+        let result = DetectionResult {
+            games: vec![
+                Game {
+                    kind: GameKind::SADX,
+                    path: "/games/sadx-1".into(),
+                },
+                Game {
+                    kind: GameKind::SADX,
+                    path: "/games/sadx-2".into(),
+                },
+                Game {
+                    kind: GameKind::SA2,
+                    path: "/games/sa2".into(),
+                },
+            ],
+            inaccessible: vec![InaccessibleGame {
+                kind: GameKind::SADX,
+                library_path: "/mnt/steam".into(),
+            }],
+        };
+
+        page.set_detection_result(result, nav_view);
+
+        assert!(page.imp().games_row.first_child().is_some());
     }
 }

@@ -217,6 +217,26 @@ fn populate_mod_preview(
     }
 }
 
+fn populate_mod_preview_for_index(
+    title_label: &gtk::Label,
+    carousel: &adw::Carousel,
+    carousel_frame: &gtk::Frame,
+    description_label: &gtk::Label,
+    links_box: &gtk::Box,
+    game_kind: crate::steam::game::GameKind,
+    index: usize,
+) {
+    let mods = common::recommended_mods_for_game(game_kind);
+    populate_mod_preview(
+        title_label,
+        carousel,
+        carousel_frame,
+        description_label,
+        links_box,
+        mods.get(index),
+    );
+}
+
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
@@ -486,7 +506,7 @@ impl AdventureModsSetupPage {
                     .build();
 
                 let list_box = gtk::ListBox::builder()
-                    .selection_mode(gtk::SelectionMode::None)
+                    .selection_mode(gtk::SelectionMode::Single)
                     .css_classes(vec!["boxed-list".to_string()])
                     .build();
 
@@ -622,7 +642,28 @@ impl AdventureModsSetupPage {
                 let mods_list = game_kind
                     .map(common::recommended_mods_for_game)
                     .unwrap_or(&[]);
+                let preview_game_kind = game_kind.unwrap_or(crate::steam::game::GameKind::SADX);
                 let mut initial_selected = Vec::new();
+
+                {
+                    let preview_title_clone = preview_title_label.clone();
+                    let carousel_clone = carousel.clone();
+                    let carousel_frame_clone = carousel_frame.clone();
+                    let desc_lbl_clone = full_desc_label.clone();
+                    let links_box_clone = links_box.clone();
+                    list_box.connect_row_selected(move |_, row| {
+                        let Some(row) = row else { return };
+                        populate_mod_preview_for_index(
+                            &preview_title_clone,
+                            &carousel_clone,
+                            &carousel_frame_clone,
+                            &desc_lbl_clone,
+                            &links_box_clone,
+                            preview_game_kind,
+                            row.index() as usize,
+                        );
+                    });
+                }
 
                 let default_preset = presets.first();
 
@@ -685,6 +726,25 @@ impl AdventureModsSetupPage {
                         }
                     });
 
+                    let preview_title_clone = preview_title_label.clone();
+                    let carousel_clone = carousel.clone();
+                    let carousel_frame_clone = carousel_frame.clone();
+                    let desc_lbl_clone = full_desc_label.clone();
+                    let links_box_clone = links_box.clone();
+                    check.connect_has_focus_notify(move |btn| {
+                        if btn.has_focus() {
+                            populate_mod_preview_for_index(
+                                &preview_title_clone,
+                                &carousel_clone,
+                                &carousel_frame_clone,
+                                &desc_lbl_clone,
+                                &links_box_clone,
+                                preview_game_kind,
+                                idx,
+                            );
+                        }
+                    });
+
                     // Preview update on row focus/motion
                     let preview_title_clone = preview_title_label.clone();
                     let carousel_clone = carousel.clone();
@@ -724,6 +784,12 @@ impl AdventureModsSetupPage {
                     &links_box,
                     preview_entry,
                 );
+                if let Some(initial_index) =
+                    initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
+                    && let Some(row) = list_box.row_at_index(initial_index as i32)
+                {
+                    list_box.select_row(Some(&row));
+                }
 
                 scrolled.set_child(Some(&list_box));
                 left_box.append(&scrolled);
@@ -1128,8 +1194,31 @@ impl AdventureModsSetupPage {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Once;
+
+    use adw::prelude::*;
+    use adw::subclass::prelude::ObjectSubclassIsExt;
+    use gtk::glib;
+
+    use super::AdventureModsSetupPage;
     use super::{initial_preview_index, subtitle_language_labels, voice_language_labels};
+    use crate::steam::game::Game;
     use crate::steam::game::GameKind;
+
+    fn init_resource_overlay() {
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| unsafe {
+            std::env::set_var(
+                "G_RESOURCE_OVERLAYS",
+                concat!(
+                    "/io/github/astrovm/AdventureMods=",
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/data"
+                ),
+            );
+        });
+    }
 
     #[test]
     fn initial_preview_prefers_first_selected_mod() {
@@ -1188,5 +1277,73 @@ mod tests {
     #[test]
     fn voice_options_include_expected_values() {
         assert_eq!(voice_language_labels(), vec!["日本語", "English"]);
+    }
+
+    #[gtk::test]
+    fn selecting_mod_row_updates_preview_title() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let select_mods_index = page
+            .imp()
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == "select_mods")
+            .unwrap();
+
+        page.imp().current_step.set(select_mods_index);
+        page.show_current_step();
+
+        let main_box = page
+            .imp()
+            .content_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let left_box = main_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let scrolled = left_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::ScrolledWindow>()
+            .unwrap();
+        let viewport = scrolled
+            .child()
+            .unwrap()
+            .downcast::<gtk::Viewport>()
+            .unwrap();
+        let list_box = viewport
+            .child()
+            .unwrap()
+            .downcast::<gtk::ListBox>()
+            .unwrap();
+        let preview_box = main_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let preview_title = preview_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Label>()
+            .unwrap();
+
+        let row = list_box.row_at_index(1).unwrap();
+        list_box.select_row(Some(&row));
+        while glib::MainContext::default().iteration(false) {}
+
+        assert_eq!(
+            preview_title.label().as_str(),
+            "Retranslated Story -COMPLETE-"
+        );
     }
 }
