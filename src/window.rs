@@ -141,8 +141,10 @@ impl AdventureModsWindow {
         self.set_maximized(settings.boolean("window-maximized"));
 
         self.connect_close_request(move |window| {
-            let _ = settings.set_int("window-width", window.default_size().0);
-            let _ = settings.set_int("window-height", window.default_size().1);
+            if !window.is_maximized() {
+                let _ = settings.set_int("window-width", window.width());
+                let _ = settings.set_int("window-height", window.height());
+            }
             let _ = settings.set_boolean("window-maximized", window.is_maximized());
             glib::Propagation::Proceed
         });
