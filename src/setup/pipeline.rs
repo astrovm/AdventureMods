@@ -16,23 +16,6 @@ pub enum InstallProgress<'a> {
     GeneratingConfig,
 }
 
-pub fn install_selected_mods_and_generate_config(
-    game_path: &Path,
-    game_kind: GameKind,
-    selected_mods: &[&ModEntry],
-    width: u32,
-    height: u32,
-) -> Result<()> {
-    install_selected_mods_and_generate_config_with_progress(
-        game_path,
-        game_kind,
-        selected_mods,
-        width,
-        height,
-        |_| Ok(()),
-    )
-}
-
 pub fn install_selected_mods_and_generate_config_with_progress(
     game_path: &Path,
     game_kind: GameKind,

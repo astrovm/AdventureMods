@@ -113,12 +113,13 @@ fn sa2_setup_completes_against_fake_steam_install() {
 
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SA2,
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 
@@ -306,23 +307,25 @@ fn sa2_setup_can_rerun_on_existing_installation() {
 
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SA2,
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SA2,
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 

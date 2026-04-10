@@ -120,12 +120,13 @@ fn sadx_setup_completes_against_fake_steam_install() {
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SADX.app_id()).unwrap();
     sadx::convert_steam_to_2004(&fixture.game_path, None).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SADX, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SADX,
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 
@@ -244,24 +245,26 @@ fn sadx_setup_can_rerun_on_existing_installation() {
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SADX.app_id()).unwrap();
     sadx::convert_steam_to_2004(&fixture.game_path, None).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SADX, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SADX,
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SADX.app_id()).unwrap();
     sadx::convert_steam_to_2004(&fixture.game_path, None).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SADX, None).unwrap();
-    pipeline::install_selected_mods_and_generate_config(
+    pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
         GameKind::SADX,
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        |_| Ok(()),
     )
     .unwrap();
 
