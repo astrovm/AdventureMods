@@ -473,7 +473,15 @@ fn resolve_setup_languages(
         setup_config::load_language_selection(setup_config::app_settings().as_ref(), game_kind);
 
     if let Some(value) = &args.subtitle_language {
-        selection.subtitle = setup_config::SubtitleLanguage::parse(value)?;
+        let subtitle = setup_config::SubtitleLanguage::parse(value)?;
+        if !setup_config::SubtitleLanguage::supported_for(game_kind).contains(&subtitle) {
+            bail!(
+                "Subtitle language '{}' is not supported for {}.",
+                value,
+                game_kind.name()
+            );
+        }
+        selection.subtitle = subtitle;
     }
 
     if let Some(value) = &args.voice_language {

@@ -18,11 +18,11 @@
       <summary>Extra Steam library paths granted through portals</summary>
     </key>
     <key name="sadx-subtitle-language" type="s">
-      <default>'japanese'</default>
+      <default>'english'</default>
       <summary>SADX subtitle language</summary>
     </key>
     <key name="sadx-voice-language" type="s">
-      <default>'english'</default>
+      <default>'japanese'</default>
       <summary>SADX voice language</summary>
     </key>
     <key name="sa2-subtitle-language" type="s">
@@ -30,7 +30,7 @@
       <summary>SA2 subtitle language</summary>
     </key>
     <key name="sa2-voice-language" type="s">
-      <default>'english'</default>
+      <default>'japanese'</default>
       <summary>SA2 voice language</summary>
     </key>
   </schema>

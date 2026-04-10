@@ -97,8 +97,8 @@ fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<us
         .or_else(|| (mod_count > 0).then_some(0))
 }
 
-fn subtitle_language_labels() -> Vec<&'static str> {
-    config::SubtitleLanguage::all()
+fn subtitle_language_labels(game_kind: crate::steam::game::GameKind) -> Vec<&'static str> {
+    config::SubtitleLanguage::supported_for(game_kind)
         .iter()
         .map(|language| language.label())
         .collect()
@@ -111,8 +111,11 @@ fn voice_language_labels() -> Vec<&'static str> {
         .collect()
 }
 
-fn subtitle_language_index(language: config::SubtitleLanguage) -> u32 {
-    config::SubtitleLanguage::all()
+fn subtitle_language_index(
+    game_kind: crate::steam::game::GameKind,
+    language: config::SubtitleLanguage,
+) -> u32 {
+    config::SubtitleLanguage::supported_for(game_kind)
         .iter()
         .position(|candidate| *candidate == language)
         .unwrap_or(0) as u32
@@ -308,6 +311,12 @@ impl AdventureModsSetupPage {
 
                 if step.id == "language_options" {
                     let selection = self.current_language_selection();
+                    let game_kind = imp.game.borrow().as_ref().map(|game| game.kind);
+                    let subtitle_languages = game_kind
+                        .map(config::SubtitleLanguage::supported_for)
+                        .unwrap_or(config::SubtitleLanguage::supported_for(
+                            crate::steam::game::GameKind::SADX,
+                        ));
 
                     let form_box = gtk::Box::builder()
                         .orientation(gtk::Orientation::Vertical)
@@ -319,8 +328,13 @@ impl AdventureModsSetupPage {
                         .orientation(gtk::Orientation::Horizontal)
                         .spacing(12)
                         .build();
-                    let subtitle_dropdown = gtk::DropDown::from_strings(&subtitle_language_labels());
-                    subtitle_dropdown.set_selected(subtitle_language_index(selection.subtitle));
+                    let subtitle_dropdown = gtk::DropDown::from_strings(&subtitle_language_labels(
+                        game_kind.unwrap_or(crate::steam::game::GameKind::SADX),
+                    ));
+                    subtitle_dropdown.set_selected(subtitle_language_index(
+                        game_kind.unwrap_or(crate::steam::game::GameKind::SADX),
+                        selection.subtitle,
+                    ));
                     subtitle_box.append(
                         &gtk::Label::builder()
                             .label("Subtitles")
@@ -346,8 +360,9 @@ impl AdventureModsSetupPage {
                     voice_box.append(&voice_dropdown);
 
                     let obj = self.clone();
+                    let subtitle_languages = subtitle_languages.to_vec();
                     subtitle_dropdown.connect_selected_notify(move |dropdown| {
-                        let language = config::SubtitleLanguage::all()
+                        let language = subtitle_languages
                             .get(dropdown.selected() as usize)
                             .copied()
                             .unwrap_or(config::SubtitleLanguage::English);
@@ -1111,7 +1126,10 @@ impl AdventureModsSetupPage {
 
 #[cfg(test)]
 mod tests {
-    use super::{initial_preview_index, subtitle_language_labels, voice_language_labels};
+    use super::{
+        initial_preview_index, subtitle_language_labels, voice_language_labels,
+    };
+    use crate::steam::game::GameKind;
 
     #[test]
     fn initial_preview_prefers_first_selected_mod() {
@@ -1145,15 +1163,23 @@ mod tests {
     }
 
     #[test]
-    fn subtitle_options_include_expected_values() {
+    fn sadx_subtitle_options_include_expected_values() {
         assert_eq!(
-            subtitle_language_labels(),
-            vec!["English", "Japanese", "French", "German", "Spanish"]
+            subtitle_language_labels(GameKind::SADX),
+            vec!["日本語", "English", "Français", "Español", "Deutsch"]
+        );
+    }
+
+    #[test]
+    fn sa2_subtitle_options_include_expected_values() {
+        assert_eq!(
+            subtitle_language_labels(GameKind::SA2),
+            vec!["English", "Deutsch", "Español", "Français", "Italiano", "日本語"]
         );
     }
 
     #[test]
     fn voice_options_include_expected_values() {
-        assert_eq!(voice_language_labels(), vec!["English", "Japanese"]);
+        assert_eq!(voice_language_labels(), vec!["日本語", "English"]);
     }
 }

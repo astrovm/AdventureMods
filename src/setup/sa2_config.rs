@@ -157,17 +157,18 @@ fn build_default_profile(
 fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
     match language {
         config::SubtitleLanguage::English => 0,
-        config::SubtitleLanguage::Japanese => 1,
-        config::SubtitleLanguage::French => 2,
-        config::SubtitleLanguage::German => 3,
-        config::SubtitleLanguage::Spanish => 4,
+        config::SubtitleLanguage::German => 1,
+        config::SubtitleLanguage::Spanish => 2,
+        config::SubtitleLanguage::French => 3,
+        config::SubtitleLanguage::Italian => 4,
+        config::SubtitleLanguage::Japanese => 5,
     }
 }
 
 fn voice_code(language: config::VoiceLanguage) -> u32 {
     match language {
-        config::VoiceLanguage::English => 0,
-        config::VoiceLanguage::Japanese => 1,
+        config::VoiceLanguage::Japanese => 0,
+        config::VoiceLanguage::English => 1,
     }
 }
 

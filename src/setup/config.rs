@@ -26,6 +26,7 @@ pub enum SubtitleLanguage {
     French,
     German,
     Spanish,
+    Italian,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +49,7 @@ impl SubtitleLanguage {
             "french" => Ok(Self::French),
             "german" => Ok(Self::German),
             "spanish" => Ok(Self::Spanish),
+            "italian" => Ok(Self::Italian),
             _ => anyhow::bail!("Unknown subtitle language '{value}'"),
         }
     }
@@ -59,28 +61,39 @@ impl SubtitleLanguage {
             Self::French => "french",
             Self::German => "german",
             Self::Spanish => "spanish",
+            Self::Italian => "italian",
         }
     }
 
     pub fn label(self) -> &'static str {
         match self {
             Self::English => "English",
-            Self::Japanese => "Japanese",
-            Self::French => "French",
-            Self::German => "German",
-            Self::Spanish => "Spanish",
+            Self::Japanese => "日本語",
+            Self::French => "Français",
+            Self::German => "Deutsch",
+            Self::Spanish => "Español",
+            Self::Italian => "Italiano",
         }
     }
 
-    pub fn all() -> &'static [Self] {
-        const ALL: &[SubtitleLanguage] = &[
-            SubtitleLanguage::English,
-            SubtitleLanguage::Japanese,
-            SubtitleLanguage::French,
-            SubtitleLanguage::German,
-            SubtitleLanguage::Spanish,
-        ];
-        ALL
+    pub fn supported_for(game_kind: GameKind) -> &'static [Self] {
+        match game_kind {
+            GameKind::SADX => &[
+                SubtitleLanguage::Japanese,
+                SubtitleLanguage::English,
+                SubtitleLanguage::French,
+                SubtitleLanguage::Spanish,
+                SubtitleLanguage::German,
+            ],
+            GameKind::SA2 => &[
+                SubtitleLanguage::English,
+                SubtitleLanguage::German,
+                SubtitleLanguage::Spanish,
+                SubtitleLanguage::French,
+                SubtitleLanguage::Italian,
+                SubtitleLanguage::Japanese,
+            ],
+        }
     }
 }
 
@@ -103,12 +116,12 @@ impl VoiceLanguage {
     pub fn label(self) -> &'static str {
         match self {
             Self::English => "English",
-            Self::Japanese => "Japanese",
+            Self::Japanese => "日本語",
         }
     }
 
     pub fn all() -> &'static [Self] {
-        const ALL: &[VoiceLanguage] = &[VoiceLanguage::English, VoiceLanguage::Japanese];
+        const ALL: &[VoiceLanguage] = &[VoiceLanguage::Japanese, VoiceLanguage::English];
         ALL
     }
 }
@@ -117,12 +130,12 @@ impl LanguageSelection {
     pub fn defaults_for(game_kind: GameKind) -> Self {
         match game_kind {
             GameKind::SADX => Self {
-                subtitle: SubtitleLanguage::Japanese,
-                voice: VoiceLanguage::English,
+                subtitle: SubtitleLanguage::English,
+                voice: VoiceLanguage::Japanese,
             },
             GameKind::SA2 => Self {
                 subtitle: SubtitleLanguage::English,
-                voice: VoiceLanguage::English,
+                voice: VoiceLanguage::Japanese,
             },
         }
     }
@@ -158,8 +171,12 @@ pub fn load_language_selection(
     };
 
     let subtitle = SubtitleLanguage::parse(&settings.string(subtitle_settings_key(game_kind)))
+        .ok()
+        .filter(|language| SubtitleLanguage::supported_for(game_kind).contains(language))
         .unwrap_or(defaults.subtitle);
     let voice = VoiceLanguage::parse(&settings.string(voice_settings_key(game_kind)))
+        .ok()
+        .filter(|language| VoiceLanguage::all().contains(language))
         .unwrap_or(defaults.voice);
 
     LanguageSelection { subtitle, voice }
@@ -490,6 +507,10 @@ mod tests {
             SubtitleLanguage::parse("japanese").unwrap(),
             SubtitleLanguage::Japanese
         );
+        assert_eq!(
+            SubtitleLanguage::parse("italian").unwrap(),
+            SubtitleLanguage::Italian
+        );
     }
 
     #[test]
@@ -500,15 +521,15 @@ mod tests {
     #[test]
     fn sadx_defaults_match_existing_behavior() {
         let defaults = LanguageSelection::defaults_for(GameKind::SADX);
-        assert_eq!(defaults.subtitle, SubtitleLanguage::Japanese);
-        assert_eq!(defaults.voice, VoiceLanguage::English);
+        assert_eq!(defaults.subtitle, SubtitleLanguage::English);
+        assert_eq!(defaults.voice, VoiceLanguage::Japanese);
     }
 
     #[test]
     fn sa2_defaults_match_existing_behavior() {
         let defaults = LanguageSelection::defaults_for(GameKind::SA2);
         assert_eq!(defaults.subtitle, SubtitleLanguage::English);
-        assert_eq!(defaults.voice, VoiceLanguage::English);
+        assert_eq!(defaults.voice, VoiceLanguage::Japanese);
     }
 
     #[test]
