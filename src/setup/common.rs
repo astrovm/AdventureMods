@@ -7,7 +7,8 @@ use crate::blocking;
 use crate::external::{archive, download, proton, runtime_installer};
 use crate::steam::game::{Game, GameKind};
 
-use super::{config, sa2, sadx};
+use super::{config, sa2, sadx, types};
+pub use types::{ModEntry, ModLink, ModPreset, ModSource};
 
 /// GitHub release URL for SA Mod Manager (x64).
 const SA_MOD_MANAGER_URL: &str =
@@ -23,39 +24,6 @@ const SADX_MOD_LOADER_URL: &str =
 /// GitHub release URL for SA2 Mod Loader.
 const SA2_MOD_LOADER_URL: &str =
     "https://github.com/X-Hax/sa2-mod-loader/releases/latest/download/SA2ModLoader.7z";
-
-/// Source for downloading a mod.
-pub enum ModSource {
-    GameBanana { file_id: u64 },
-    DirectUrl { url: &'static str },
-}
-
-/// An external link for a mod (e.g. GitHub repo, GameBanana page).
-pub struct ModLink {
-    pub label: &'static str,
-    pub url: &'static str,
-}
-
-/// A recommended mod entry.
-pub struct ModEntry {
-    pub name: &'static str,
-    pub source: ModSource,
-    pub description: &'static str,
-    pub full_description: Option<&'static str>,
-    pub pictures: &'static [&'static str],
-    /// Expected directory name inside `mods/`. Used when a flat archive
-    /// (no top-level subdirectory) needs to be wrapped in the correct folder.
-    pub dir_name: Option<&'static str>,
-    /// External links for this mod (project pages, source repos, etc.).
-    pub links: &'static [ModLink],
-}
-
-/// A preset for selecting a group of mods.
-pub struct ModPreset {
-    pub name: &'static str,
-    pub description: &'static str,
-    pub mod_names: &'static [&'static str],
-}
 
 /// Resolve a `ModSource` to a download URL string.
 pub fn resolve_download_url(source: &ModSource) -> String {

@@ -6,3 +6,4 @@ pub mod sa2_config;
 pub mod sadx;
 pub mod sadx_config;
 pub mod steps;
+pub mod types;
