@@ -775,7 +775,7 @@ impl AdventureModsSetupPage {
                                             let status =
                                                 format!("{mod_name} ({index}/{total})");
                                             let _ = tx.send_blocking((
-                                                (index - 1) as u64,
+                                                index as u64,
                                                 Some(total as u64),
                                                 status,
                                             ));
