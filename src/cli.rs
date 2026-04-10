@@ -886,7 +886,11 @@ pub fn run_from_args_with_io(
                 write!(output, "{error}")?;
                 return Ok(true);
             }
-            _ => return Err(anyhow!(error.to_string().trim_end().to_string())),
+            _ => {
+                return Err(anyhow!(console::strip_ansi_codes(&error.to_string())
+                    .trim_end()
+                    .to_string()))
+            }
         },
     };
 
@@ -1629,5 +1633,24 @@ mod tests {
         let handled = result.unwrap();
         assert!(handled);
         assert!(!String::from_utf8(output).unwrap().contains("\x1b["));
+    }
+
+    #[test]
+    fn clap_parse_error_contains_no_ansi_codes() {
+        let previous = console::colors_enabled();
+        console::set_colors_enabled(true);
+        let mut output = Vec::new();
+        let result = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "--unknown-flag".to_string()],
+            || Ok(()),
+            &mut output,
+            false,
+        );
+        console::set_colors_enabled(previous);
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            !err_msg.contains('\x1b'),
+            "Error message contains ANSI codes: {err_msg:?}"
+        );
     }
 }
