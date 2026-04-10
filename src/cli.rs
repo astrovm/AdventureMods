@@ -360,22 +360,22 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     step_index += 1;
 
     if game_kind == GameKind::SADX {
-        run_setup_step(
+        run_download_step(
             out,
             step_index,
             total_steps,
             "Convert Steam to 2004",
-            || sadx::convert_steam_to_2004(&game_path, None),
+            |progress_fn| sadx::convert_steam_to_2004(&game_path, progress_fn),
         )?;
         step_index += 1;
     }
 
-    run_setup_step(
+    run_download_step(
         out,
         step_index,
         total_steps,
         "Install Mod Manager & Loader",
-        || common::install_mod_manager(&game_path, game_kind, None),
+        |progress_fn| common::install_mod_manager(&game_path, game_kind, progress_fn),
     )?;
     step_index += 1;
 
@@ -434,6 +434,56 @@ fn run_setup_step<T>(
     Ok(value)
 }
 
+fn run_download_step<T>(
+    out: &mut CliOutput,
+    index: usize,
+    total: usize,
+    label: &str,
+    action: impl FnOnce(Option<crate::external::download::ProgressFn>) -> Result<T>,
+) -> Result<T> {
+    let heading = step_heading(index, total, label);
+    out.heading(&heading)?;
+
+    // Track last printed MB to avoid flooding stdout
+    let last_mb = std::sync::Arc::new(std::sync::Mutex::new(-1i64));
+    let last_mb_clone = last_mb.clone();
+
+    let use_color = out.use_color;
+    let dim = out.dim.clone();
+
+    let progress_fn: Option<crate::external::download::ProgressFn> =
+        Some(Box::new(move |downloaded, total_bytes| {
+            let mb = (downloaded / 1_048_576) as i64;
+            let mut last = last_mb_clone.lock().unwrap();
+            if mb != *last {
+                *last = mb;
+                let text = if let Some(tb) = total_bytes {
+                    let total_mb = tb as f64 / 1_048_576.0;
+                    let pct = downloaded as f64 / tb as f64 * 100.0;
+                    format!(
+                        "  {:.1} / {:.1} MB ({:.0}%)",
+                        downloaded as f64 / 1_048_576.0,
+                        total_mb,
+                        pct,
+                    )
+                } else {
+                    format!("  {:.1} MB downloaded", downloaded as f64 / 1_048_576.0)
+                };
+                let _ = if use_color {
+                    eprint!("\r{}", dim.apply_to(&text))
+                } else {
+                    eprint!("\r{text}")
+                };
+            }
+        }));
+
+    let value = action(progress_fn)?;
+    eprintln!(); // newline after last progress line
+    out.writeln("Done")?;
+    out.writeln("")?;
+    Ok(value)
+}
+
 struct ModInstallStep<'a> {
     game_path: &'a std::path::Path,
     game_kind: GameKind,
@@ -463,6 +513,7 @@ fn run_mod_install_step(
         total,
         "Install Mods & Generate Config",
     ))?;
+    let mut last_dl_mb: i64 = -1;
     pipeline::install_selected_mods_and_generate_config_with_progress(
         step.game_path,
         step.game_kind,
@@ -477,10 +528,38 @@ fn run_mod_install_step(
                     total,
                     mod_name,
                 } => {
-                    let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
+                    last_dl_mb = -1;
+                    let _ = out.writeln(&format!("  [{index}/{total}] {mod_name}"));
+                }
+                pipeline::InstallProgress::DownloadingMod {
+                    downloaded,
+                    total_bytes,
+                    ..
+                } => {
+                    let mb = (downloaded / 1_048_576) as i64;
+                    if mb != last_dl_mb {
+                        last_dl_mb = mb;
+                        let text = if let Some(tb) = total_bytes {
+                            let pct = downloaded as f64 / tb as f64 * 100.0;
+                            format!(
+                                "    {:.1} / {:.1} MB ({:.0}%)",
+                                downloaded as f64 / 1_048_576.0,
+                                tb as f64 / 1_048_576.0,
+                                pct,
+                            )
+                        } else {
+                            format!("    {:.1} MB", downloaded as f64 / 1_048_576.0)
+                        };
+                        let _ = if out.use_color {
+                            eprint!("\r{}", out.dim.apply_to(&text))
+                        } else {
+                            eprint!("\r{text}")
+                        };
+                    }
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
-                    let _ = out.writeln("  - Generating mod config");
+                    eprintln!(); // newline after last download progress line
+                    let _ = out.writeln("  Generating mod config...");
                 }
             }
             Ok(())

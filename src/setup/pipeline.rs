@@ -13,6 +13,13 @@ pub enum InstallProgress<'a> {
         total: usize,
         mod_name: &'a str,
     },
+    DownloadingMod {
+        index: usize,
+        total: usize,
+        mod_name: &'a str,
+        downloaded: u64,
+        total_bytes: Option<u64>,
+    },
     GeneratingConfig,
 }
 
@@ -26,12 +33,27 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     mut progress: impl FnMut(InstallProgress<'_>) -> Result<()>,
 ) -> Result<()> {
     for (index, mod_entry) in selected_mods.iter().enumerate() {
+        let mod_index = index + 1;
+        let mod_total = selected_mods.len();
+        let mod_name = mod_entry.name;
+
         progress(InstallProgress::InstallingMod {
-            index: index + 1,
-            total: selected_mods.len(),
-            mod_name: mod_entry.name,
+            index: mod_index,
+            total: mod_total,
+            mod_name,
         })?;
-        common::install_mod(game_path, mod_entry, None)?;
+
+        let progress_ref = &mut progress;
+        let mut cb = |downloaded: u64, total_bytes: Option<u64>| {
+            let _ = progress_ref(InstallProgress::DownloadingMod {
+                index: mod_index,
+                total: mod_total,
+                mod_name,
+                downloaded,
+                total_bytes,
+            });
+        };
+        common::install_mod_with_progress(game_path, mod_entry, Some(&mut cb))?;
     }
 
     progress(InstallProgress::GeneratingConfig)?;

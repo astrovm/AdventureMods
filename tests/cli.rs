@@ -979,7 +979,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
     assert!(output.contains("Step 1/3: Install .NET Runtime\nDone\n"));
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
-    assert!(output.contains("Installing mod 1/2: SA2 Render Fix"));
+    assert!(output.contains("[1/2] SA2 Render Fix"));
     assert!(output.contains("Generating mod config"));
 }
 

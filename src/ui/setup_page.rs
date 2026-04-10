@@ -852,43 +852,103 @@ impl AdventureModsSetupPage {
         glib::spawn_future_local(async move {
             let Some(ref game) = game else { return };
 
-            // Channel now carries (downloaded, total, status_text)
-            let (tx, rx) = async_channel::bounded::<(u64, Option<u64>, String)>(32);
+            // Channel messages for progress bar updates
+            enum ProgressMsg {
+                // Byte-level download progress (for single-file steps)
+                Bytes {
+                    downloaded: u64,
+                    total: Option<u64>,
+                    status: String,
+                },
+                // Mod install: fraction by item index, label shows mod name
+                ModInstall {
+                    index: usize,
+                    total: usize,
+                    mod_name: String,
+                },
+                // Per-mod byte download progress (nested inside mod install)
+                ModBytes {
+                    index: usize,
+                    total: usize,
+                    mod_name: String,
+                    downloaded: u64,
+                    total_bytes: Option<u64>,
+                },
+                Configuring {
+                    total: usize,
+                },
+            }
+
+            let (tx, rx) = async_channel::bounded::<ProgressMsg>(32);
 
             // Progress update receiver
             let pb = progress_bar.clone();
             glib::spawn_future_local(async move {
-                while let Ok((downloaded, total, status)) = rx.recv().await {
-                    let mut text = if status.is_empty() {
-                        String::new()
-                    } else {
-                        format!("{} ", status)
-                    };
-
-                    if let Some(total) = total {
-                        if total > 0 {
-                            let frac = downloaded as f64 / total as f64;
-                            pb.set_fraction(frac);
+                while let Ok(msg) = rx.recv().await {
+                    match msg {
+                        ProgressMsg::Bytes {
+                            downloaded,
+                            total,
+                            status,
+                        } => {
+                            let bytes_text = if let Some(total) = total {
+                                if total > 0 {
+                                    pb.set_fraction(downloaded as f64 / total as f64);
+                                }
+                                format!(
+                                    "{:.1} / {:.1} MB",
+                                    downloaded as f64 / 1_048_576.0,
+                                    total as f64 / 1_048_576.0,
+                                )
+                            } else {
+                                pb.pulse();
+                                format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+                            };
+                            let text = if status.is_empty() {
+                                bytes_text
+                            } else {
+                                format!("{status} ({bytes_text})")
+                            };
+                            pb.set_text(Some(&text));
                         }
-
-                        // Large total means bytes, small means item count
-                        if total > 1000 {
-                            text.push_str(&format!(
-                                "({:.1} / {:.1} MB)",
-                                downloaded as f64 / 1_048_576.0,
-                                total as f64 / 1_048_576.0,
-                            ));
+                        ProgressMsg::ModInstall {
+                            index,
+                            total,
+                            mod_name,
+                        } => {
+                            pb.set_fraction(index as f64 / total as f64);
+                            pb.set_text(Some(&format!("{mod_name} ({index}/{total})")));
                         }
-                    } else {
-                        pb.pulse();
-                        text.push_str(&format!("({:.1} MB)", downloaded as f64 / 1_048_576.0,));
-                    }
-
-                    let display_text = text.trim();
-                    if display_text.is_empty() {
-                        pb.set_text(None);
-                    } else {
-                        pb.set_text(Some(display_text));
+                        ProgressMsg::ModBytes {
+                            index,
+                            total,
+                            mod_name,
+                            downloaded,
+                            total_bytes,
+                        } => {
+                            let bytes_text = if let Some(tb) = total_bytes {
+                                if tb > 0 {
+                                    // Blend item fraction with byte sub-fraction for smoother motion
+                                    let item_frac = (index - 1) as f64 / total as f64;
+                                    let byte_frac = downloaded as f64 / tb as f64 / total as f64;
+                                    pb.set_fraction(item_frac + byte_frac);
+                                }
+                                format!(
+                                    "{:.1} / {:.1} MB",
+                                    downloaded as f64 / 1_048_576.0,
+                                    tb as f64 / 1_048_576.0,
+                                )
+                            } else {
+                                format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+                            };
+                            pb.set_text(Some(&format!(
+                                "{mod_name} ({index}/{total}) - {bytes_text}"
+                            )));
+                        }
+                        ProgressMsg::Configuring { total } => {
+                            pb.set_fraction(1.0);
+                            pb.set_text(Some(&format!("Configuring... ({total}/{total})")));
+                        }
                     }
                 }
             });
@@ -901,7 +961,11 @@ impl AdventureModsSetupPage {
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, String::new()));
+                            let _ = tx_clone.send_blocking(ProgressMsg::Bytes {
+                                downloaded: dl,
+                                total,
+                                status: "Downloading...".to_string(),
+                            });
                         }));
                     blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
@@ -916,7 +980,11 @@ impl AdventureModsSetupPage {
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.send_blocking((dl, total, String::new()));
+                            let _ = tx_clone.send_blocking(ProgressMsg::Bytes {
+                                downloaded: dl,
+                                total,
+                                status: "Downloading...".to_string(),
+                            });
                         }));
                     blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
@@ -956,19 +1024,31 @@ impl AdventureModsSetupPage {
                                             total,
                                             mod_name,
                                         } => {
-                                            let status = format!("{mod_name} ({index}/{total})");
-                                            let _ = tx.send_blocking((
-                                                index as u64,
-                                                Some(total as u64),
-                                                status,
-                                            ));
+                                            let _ = tx.send_blocking(ProgressMsg::ModInstall {
+                                                index,
+                                                total,
+                                                mod_name: mod_name.to_string(),
+                                            });
+                                        }
+                                        pipeline::InstallProgress::DownloadingMod {
+                                            index,
+                                            total,
+                                            mod_name,
+                                            downloaded,
+                                            total_bytes,
+                                        } => {
+                                            let _ = tx.send_blocking(ProgressMsg::ModBytes {
+                                                index,
+                                                total,
+                                                mod_name: mod_name.to_string(),
+                                                downloaded,
+                                                total_bytes,
+                                            });
                                         }
                                         pipeline::InstallProgress::GeneratingConfig => {
-                                            let _ = tx.send_blocking((
-                                                total_count as u64,
-                                                Some(total_count as u64),
-                                                "Configuring...".to_string(),
-                                            ));
+                                            let _ = tx.send_blocking(ProgressMsg::Configuring {
+                                                total: total_count,
+                                            });
                                         }
                                     }
                                     Ok(())

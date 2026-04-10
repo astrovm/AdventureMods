@@ -18,10 +18,67 @@ pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Re
         .build()
         .context("Failed to create tokio runtime")?;
 
-    rt.block_on(download_file_async(url, dest, progress))
+    let progress_ref: Option<&dyn Fn(u64, Option<u64>)> =
+        progress.as_deref().map(|f| f as &dyn Fn(u64, Option<u64>));
+    rt.block_on(download_file_async(url, dest, progress_ref))
 }
 
-async fn download_file_async(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Result<()> {
+/// Like `download_file` but accepts any `FnMut` without `Send` or `'static` bounds.
+/// Use when the callback captures non-Send state on the current blocking thread.
+pub fn download_file_with(
+    url: &str,
+    dest: &Path,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+) -> Result<()> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("Failed to create tokio runtime")?;
+
+    rt.block_on(download_file_async_mut(url, dest, progress))
+}
+
+async fn download_file_async_mut(
+    url: &str,
+    dest: &Path,
+    mut progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+) -> Result<()> {
+    let client = Client::new();
+    let response = fetch_download_response(&client, url).await?;
+
+    let total = response.content_length();
+
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let mut file = std::fs::File::create(dest)
+        .with_context(|| format!("Failed to create {}", dest.display()))?;
+
+    let mut stream = response.bytes_stream();
+    let mut downloaded: u64 = 0;
+
+    use std::io::Write;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("Error reading response body")?;
+        file.write_all(&chunk)?;
+        downloaded += chunk.len() as u64;
+
+        if let Some(ref mut progress) = progress {
+            progress(downloaded, total);
+        }
+    }
+
+    file.flush()?;
+    Ok(())
+}
+
+async fn download_file_async(
+    url: &str,
+    dest: &Path,
+    progress: Option<&dyn Fn(u64, Option<u64>)>,
+) -> Result<()> {
     let client = Client::new();
     let response = fetch_download_response(&client, url).await?;
 

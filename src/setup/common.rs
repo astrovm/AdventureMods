@@ -412,6 +412,20 @@ pub fn install_mod(
     mod_entry: &ModEntry,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
+    let mut progress_opt = progress;
+    let cb: Option<&mut dyn FnMut(u64, Option<u64>)> = progress_opt
+        .as_mut()
+        .map(|f| f as &mut dyn FnMut(u64, Option<u64>));
+    install_mod_with_progress(game_path, mod_entry, cb)
+}
+
+/// Like `install_mod` but accepts any `Fn` without `Send` or `'static` bounds.
+/// Use from pipeline callbacks that capture non-Send state.
+pub fn install_mod_with_progress(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+) -> Result<()> {
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
@@ -431,7 +445,7 @@ pub fn install_mod(
     // Download: the mmdl endpoint redirects, and the filename comes from
     // the Content-Disposition header. We just save to a generic name.
     let archive_path = temp_dir.path().join("mod_download");
-    download::download_file(&url, &archive_path, progress)?;
+    download::download_file_with(&url, &archive_path, progress)?;
 
     // Extract to a staging directory first so we can determine the layout.
     let staging_dir = temp_dir.path().join("staging");
