@@ -1,6 +1,6 @@
 # Adventure Mods
 
-The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles all setup - mod managers, runtimes, resolution, load order - so you can play right away.
+The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles mod managers, runtimes, resolution, load order, and language settings so you can play right away.
 
 <p align="center">
   <img src="data/screenshots/welcome.png" alt="Welcome" width="400">
@@ -15,6 +15,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 - SADX presets: DX Enhanced and Dreamcast Restoration
 - Installs mod managers, mods, and dependencies in one step
 - Configures native resolution, window mode, and optimal settings
+- Lets you choose subtitle and voice language during setup
 - Installs .NET runtime if missing
 
 ## Requirements
@@ -39,6 +40,8 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 ./Adventure_Mods-x86_64.AppImage list-mods --game sadx
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
 ```
 
@@ -53,7 +56,7 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 | `list-mods --game <sadx\|sa2>` | List available presets and mods for a game |
 | `setup` | Install runtimes, mod manager, mods, and config files |
 
-**Flags**
+**Setup flags**
 
 | Flag | Description |
 |------|-------------|
@@ -62,9 +65,21 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 | `--preset "Name"` | Use a named preset (SADX only) |
 | `--all-mods` | Install all recommended mods |
 | `--mods id1,id2` | Select specific mods |
+| `--subtitle-language value` | Override generated subtitle language |
+| `--voice-language value` | Override generated voice language |
 | `--width`, `--height` | Override generated resolution |
 | `--libraryfolders-vdf /path` | Use a specific Steam library file |
 | `--steam-library /path` | Add an extra Steam library root (repeatable) |
+
+**Language values**
+
+Voice: `japanese`, `english`
+
+SADX subtitles: `japanese`, `english`, `french`, `spanish`, `german`
+
+SA2 subtitles: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
+
+Selections are saved per game and reused the next time you run setup.
 
 **Flatpak**
 

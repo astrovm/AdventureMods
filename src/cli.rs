@@ -135,9 +135,14 @@ impl Prompt for TerminalPrompt {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "adventure-mods", version = config::VERSION)]
+#[command(
+    name = "adventure-mods",
+    version = config::VERSION,
+    about = "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux",
+    long_about = "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles mod managers, runtimes, resolution, load order, and language settings so you can play right away. Run without a subcommand to launch the GUI."
+)]
 pub struct Cli {
-    #[arg(long)]
+    #[arg(long, help = "Disable colored CLI output")]
     no_color: bool,
 
     #[command(subcommand)]
@@ -146,41 +151,57 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    #[command(about = "Detect supported Steam installs and inaccessible Steam libraries")]
     Detect(DetectArgs),
+    #[command(about = "List presets and recommended mods for a game")]
     ListMods {
-        #[arg(long)]
+        #[arg(long, help = "Game to inspect: sadx or sa2")]
         game: String,
     },
+    #[command(about = "Run game setup in interactive or fully specified CLI mode")]
     Setup(SetupArgs),
 }
 
 #[derive(Debug, Args, Default)]
 pub struct DetectArgs {
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Read Steam library data from a specific libraryfolders.vdf file"
+    )]
     pub libraryfolders_vdf: Option<PathBuf>,
-    #[arg(long = "steam-library")]
+    #[arg(
+        long = "steam-library",
+        help = "Add an extra Steam library root to scan",
+        verbatim_doc_comment
+    )]
     pub steam_libraries: Vec<PathBuf>,
 }
 
 #[derive(Debug, Args)]
 pub struct SetupArgs {
-    #[arg(long)]
+    #[arg(long, help = "Game to set up: sadx or sa2")]
     pub game: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Comma-separated mod ids to install")]
     pub mods: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Named preset to install (SADX only)")]
     pub preset: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Install all recommended mods for the selected game")]
     pub all_mods: bool,
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Subtitle language. SADX: english, japanese, french, spanish, german. SA2: english, german, spanish, french, italian, japanese"
+    )]
     pub subtitle_language: Option<String>,
-    #[arg(long)]
+    #[arg(long, help = "Voice language: japanese or english")]
     pub voice_language: Option<String>,
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..), help = "Override generated render width")]
     pub width: Option<u32>,
-    #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+    #[arg(long, value_parser = clap::value_parser!(u32).range(1..), help = "Override generated render height")]
     pub height: Option<u32>,
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Override Steam detection with an explicit game install path"
+    )]
     pub game_path: Option<PathBuf>,
     #[command(flatten)]
     pub detect: DetectArgs,

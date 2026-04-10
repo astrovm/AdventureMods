@@ -8,16 +8,17 @@
   <description>
     <p>
       The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.
-      It finds your Steam games, downloads community mods, and handles all the setup
-      for you. Mod managers, runtimes, resolution, load order, everything is ready
-      to go so you can play the best versions of both games right away.
+      Finds your Steam installs, downloads community mods, and handles mod
+      managers, runtimes, resolution, load order, and language settings so you
+      can play right away.
     </p>
     <ul>
-      <li>Finds SADX and SA2 across all your Steam library folders</li>
-      <li>29 SADX mods and 12 SA2 mods to pick from</li>
-      <li>Quick presets: DX Enhanced and Dreamcast Restoration</li>
-      <li>Gets mod managers, mods, and dependencies all at once</li>
-      <li>Sets up native resolution, window mode, and optimal settings</li>
+      <li>Detects SADX and SA2 across all Steam library folders</li>
+      <li>29 SADX mods and 12 SA2 mods</li>
+      <li>SADX presets: DX Enhanced and Dreamcast Restoration</li>
+      <li>Installs mod managers, mods, and dependencies in one step</li>
+      <li>Configures native resolution, window mode, and optimal settings</li>
+      <li>Lets you choose subtitle and voice language during setup</li>
     </ul>
   </description>
   <url type="homepage">https://github.com/astrovm/AdventureMods</url>
