@@ -353,36 +353,22 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     )?;
     step_index += 1;
 
-    out.heading(&step_heading(
+    debug_assert_eq!(
+        step_index, total_steps,
+        "step_index must equal total_steps at the final step; update total_setup_steps if you add a step"
+    );
+
+    run_mod_install_step(
+        out,
         step_index,
         total_steps,
-        "Install Mods & Generate Config",
-    ))?;
-    pipeline::install_selected_mods_and_generate_config_with_progress(
         &game_path,
         game_kind,
         &selected_mods,
         width,
         height,
-        |progress| {
-            match progress {
-                pipeline::InstallProgress::InstallingMod {
-                    index,
-                    total,
-                    mod_name,
-                } => {
-                    let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
-                }
-                pipeline::InstallProgress::GeneratingConfig => {
-                    let _ = out.writeln("  - Generating mod config");
-                }
-            }
-            Ok(())
-        },
     )?;
-    out.writeln("Done")?;
 
-    out.writeln("")?;
     out.success("Setup complete!")?;
     Ok(())
 }
@@ -424,6 +410,48 @@ fn run_setup_step<T>(
     out.writeln("Done")?;
     out.writeln("")?;
     Ok(value)
+}
+
+fn run_mod_install_step(
+    out: &mut CliOutput,
+    index: usize,
+    total: usize,
+    game_path: &std::path::Path,
+    game_kind: GameKind,
+    selected_mods: &[&common::ModEntry],
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    out.heading(&step_heading(
+        index,
+        total,
+        "Install Mods & Generate Config",
+    ))?;
+    pipeline::install_selected_mods_and_generate_config_with_progress(
+        game_path,
+        game_kind,
+        selected_mods,
+        width,
+        height,
+        |progress| {
+            match progress {
+                pipeline::InstallProgress::InstallingMod {
+                    index,
+                    total,
+                    mod_name,
+                } => {
+                    let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
+                }
+                pipeline::InstallProgress::GeneratingConfig => {
+                    let _ = out.writeln("  - Generating mod config");
+                }
+            }
+            Ok(())
+        },
+    )?;
+    out.writeln("Done")?;
+    out.writeln("")?;
+    Ok(())
 }
 
 fn prompt_theme() -> ColorfulTheme {
