@@ -102,6 +102,10 @@ pub fn create_sa2_fixture() -> SteamFixture {
     );
     write_file(&extract_root.join("render-fix/Render Fix/data.bin"), b"rf");
     write_file(
+        &extract_root.join("hd-gui/HD GUI for SA2/mod.ini"),
+        b"Name=HD GUI for SA2",
+    );
+    write_file(
         &extract_root.join("test-flat/Test Flat/mod.ini"),
         b"Name=Test Flat",
     );

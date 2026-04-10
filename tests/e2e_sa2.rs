@@ -15,7 +15,10 @@ use support::{EnvGuard, env_lock};
 
 const RENDER_FIX: ModEntry = ModEntry {
     name: "Render Fix",
-    source: ModSource::GameBanana { file_id: 1 },
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 1,
+    },
     description: "test mod",
     full_description: None,
     pictures: &[],
@@ -25,7 +28,10 @@ const RENDER_FIX: ModEntry = ModEntry {
 
 const TEST_FLAT: ModEntry = ModEntry {
     name: "Test Flat",
-    source: ModSource::GameBanana { file_id: 2 },
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 2,
+    },
     description: "test mod",
     full_description: None,
     pictures: &[],
@@ -35,7 +41,10 @@ const TEST_FLAT: ModEntry = ModEntry {
 
 const BROKEN_MOD: ModEntry = ModEntry {
     name: "Broken Mod",
-    source: ModSource::GameBanana { file_id: 9999 },
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 9999,
+    },
     description: "broken mod",
     full_description: None,
     pictures: &[],
@@ -102,8 +111,12 @@ fn sa2_setup_completes_against_fake_steam_install() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -210,8 +223,12 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -309,8 +326,12 @@ fn sa2_setup_can_rerun_on_existing_installation() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -403,8 +424,12 @@ fn sa2_setup_does_not_emit_config_progress_after_mod_failure() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -491,8 +516,12 @@ fn sa2_setup_stops_when_download_progress_callback_errors() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);

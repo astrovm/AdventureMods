@@ -16,7 +16,10 @@ use support::{EnvGuard, env_lock};
 
 const DREAMCAST_TEST: ModEntry = ModEntry {
     name: "Dreamcast Test",
-    source: ModSource::GameBanana { file_id: 1 },
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 1,
+    },
     description: "test mod",
     full_description: None,
     pictures: &[],
@@ -26,7 +29,10 @@ const DREAMCAST_TEST: ModEntry = ModEntry {
 
 const TEST_FLAT: ModEntry = ModEntry {
     name: "Test Flat",
-    source: ModSource::GameBanana { file_id: 2 },
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 2,
+    },
     description: "test mod",
     full_description: None,
     pictures: &[],
@@ -104,8 +110,12 @@ fn sadx_setup_completes_against_fake_steam_install() {
             server.url("/steam_tools.7z"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
         (
@@ -246,8 +256,12 @@ fn sadx_setup_can_rerun_on_existing_installation() {
             server.url("/steam_tools.7z"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
         (

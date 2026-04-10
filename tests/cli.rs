@@ -39,24 +39,34 @@ fn seed_sa2_all_mod_routes(
         let key = format!("sa2-all-{index}");
         add_fake_mod_archive(extract_root, &key, mod_entry.dir_name, mod_entry.name);
 
-        let file_path = leak_str(format!("/files/{key}.7z"));
-        let body = leak_str(key.clone());
-        routes.insert(
-            file_path,
-            Response::Ok {
-                content_type: "application/octet-stream",
-                body,
-            },
-        );
-
-        let ModSource::GameBanana { file_id } = mod_entry.source else {
-            panic!(
-                "SA2 recommended mod '{}' is not GameBanana-backed",
-                mod_entry.name
-            );
-        };
-        let dl_path = leak_str(format!("/dl/{file_id}"));
-        routes.insert(dl_path, Response::Redirect(file_path));
+        match mod_entry.source {
+            ModSource::GameBananaItem { item_id, .. } => {
+                let file_path = leak_str(format!("/files/{key}.7z"));
+                let body = leak_str(key.clone());
+                routes.insert(
+                    file_path,
+                    Response::Ok {
+                        content_type: "application/octet-stream",
+                        body,
+                    },
+                );
+                // The fake API returns _idRow == item_id, so the download hits /dl/{item_id}.
+                let dl_path = leak_str(format!("/dl/{item_id}"));
+                routes.insert(dl_path, Response::Redirect(file_path));
+            }
+            ModSource::DirectUrl { url } => {
+                let filename = url.rsplit('/').next().unwrap_or("mod.7z");
+                let file_path = leak_str(format!("/dcmods/{filename}"));
+                let body = leak_str(key.clone());
+                routes.insert(
+                    file_path,
+                    Response::Ok {
+                        content_type: "application/octet-stream",
+                        body,
+                    },
+                );
+            }
+        }
     }
 }
 
@@ -79,7 +89,7 @@ fn seed_sadx_preset_routes(
         add_fake_mod_archive(extract_root, &key, mod_entry.dir_name, mod_entry.name);
 
         match mod_entry.source {
-            ModSource::GameBanana { file_id } => {
+            ModSource::GameBananaItem { item_id, .. } => {
                 let file_path = leak_str(format!("/files/{key}.7z"));
                 let body = leak_str(key.clone());
                 routes.insert(
@@ -89,7 +99,7 @@ fn seed_sadx_preset_routes(
                         body,
                     },
                 );
-                let dl_path = leak_str(format!("/dl/{file_id}"));
+                let dl_path = leak_str(format!("/dl/{item_id}"));
                 routes.insert(dl_path, Response::Redirect(file_path));
             }
             ModSource::DirectUrl { url } => {
@@ -248,21 +258,20 @@ fn setup_accepts_human_readable_mod_names_with_whitespace() {
             },
         ),
         (
-            "/files/render-fix.7z",
+            "/dcmods/sa2-render-fix.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
                 body: "render-fix",
             },
         ),
         (
-            "/files/test-flat.7z",
+            "/files/hd-gui.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "test-flat",
+                body: "hd-gui",
             },
         ),
-        ("/dl/1656654", Response::Redirect("/files/render-fix.7z")),
-        ("/dl/409120", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/33171", Response::Redirect("/files/hd-gui.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -279,8 +288,16 @@ fn setup_accepts_human_readable_mod_names_with_whitespace() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -359,8 +376,16 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -448,8 +473,12 @@ fn setup_installs_sadx_preset_from_cli_flag() {
             server.url("/steam_tools.7z"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
         ),
         ("ADVENTURE_MODS_DCMODS_BASE_URL", server.url("/dcmods/")),
         (
@@ -541,8 +570,16 @@ fn setup_surfaces_mod_download_failures() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -595,13 +632,12 @@ fn setup_surfaces_archive_extraction_failures() {
             },
         ),
         (
-            "/files/render-fix.7z",
+            "/dcmods/sa2-render-fix.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
                 body: "render-fix",
             },
         ),
-        ("/dl/1656654", Response::Redirect("/files/render-fix.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -618,8 +654,16 @@ fn setup_surfaces_archive_extraction_failures() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -673,13 +717,12 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
             },
         ),
         (
-            "/files/render-fix.7z",
+            "/dcmods/sa2-render-fix.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
                 body: "render-fix",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -696,8 +739,16 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -812,8 +863,16 @@ fn interactive_sa2_setup_completes_via_tty() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);
@@ -913,10 +972,13 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
             server.url("/steam_tools.7z"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
         ),
-        ("ADVENTURE_MODS_DCMODS_BASE_URL", server.url("/dcmods/")),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
         (
             "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
             server.url("/dcmods/"),
@@ -961,6 +1023,22 @@ fn setup_installs_selected_mods_from_cli_flags() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let _env_lock = env_lock();
     let fixture = create_sa2_fixture();
+
+    // SA2 Render Fix: DirectUrl -> /dcmods/sa2-render-fix.7z
+    add_fake_mod_archive(
+        &fixture.extract_root,
+        "render-fix",
+        Some("sa2-render-fix"),
+        "SA2 Render Fix",
+    );
+    // HD GUI for SA2: GameBananaItem { item_id: 33171 } -> fake API resolves to /dl/33171
+    add_fake_mod_archive(
+        &fixture.extract_root,
+        "hd-gui",
+        Some("HD GUI for SA2"),
+        "HD GUI: SA2 Edition",
+    );
+
     let server = TestServer::start(HashMap::from([
         (
             "/samodmanager.zip",
@@ -984,21 +1062,20 @@ fn setup_installs_selected_mods_from_cli_flags() {
             },
         ),
         (
-            "/files/render-fix.7z",
+            "/dcmods/sa2-render-fix.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
                 body: "render-fix",
             },
         ),
         (
-            "/files/test-flat.7z",
+            "/files/hd-gui.7z",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "test-flat",
+                body: "hd-gui",
             },
         ),
-        ("/dl/1656654", Response::Redirect("/files/render-fix.7z")),
-        ("/dl/409120", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/33171", Response::Redirect("/files/hd-gui.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -1015,8 +1092,16 @@ fn setup_installs_selected_mods_from_cli_flags() {
             server.url("/dotnet.exe"),
         ),
         (
-            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-            server.gamebanana_base(),
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
         ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
     ]);

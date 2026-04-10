@@ -72,7 +72,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Lantern Engine",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-dc-lighting.7z",
+            url: "https://github.com/sonicfreak94/sadx-dc-lighting/releases/latest/download/sadx-dc-lighting.7z",
         },
         description: "Dreamcast-accurate lighting engine",
         full_description: Some(
@@ -127,7 +127,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Frame Limit",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-frame-limit.7z",
+            url: "https://github.com/michael-fadely/sadx-frame-Limit/releases/latest/download/sadx-frame-limit.7z",
         },
         description: "Accurate frame rate limiter",
         full_description: Some(
@@ -188,7 +188,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Onion Blur",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-onion-blur.7z",
+            url: "https://github.com/sonicfreak94/sadx-onion-blur/releases/latest/download/sadx-onion-blur.7z",
         },
         description: "Dreamcast-style motion blur effect",
         full_description: Some(
@@ -242,7 +242,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "DX Characters Refined",
-        source: ModSource::GameBanana { file_id: 1498662 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 290728,
+        },
         description: "High-fidelity refinements for the default DX character models.",
         full_description: Some(
             "DX Characters Refined improves the default character models introduced in the DX port rather than replacing them. It features updated topology, UV mapping, and textures for the main cast, along with a massive animation update that fixes over 200 bugged animations inherited from the Dreamcast models.",
@@ -282,7 +285,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Idle Chatter",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/idle-chatter.7z",
+            url: "https://github.com/michael-fadely/sadx-idle-chatter/releases/latest/download/idle-chatter.7z",
         },
         description: "Press a button to hear character commentary about the current stage",
         full_description: Some(
@@ -329,7 +332,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic Adventure Retranslated",
-        source: ModSource::GameBanana { file_id: 384650 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/SKingBlue/Sonic-Adventure-Retranslated/releases/latest/download/SAR.zip",
+        },
         description: "Faithful translation of the Japanese script for SADX.",
         full_description: Some(
             "This mod replaces the English script with Windii's faithful translation of the original Japanese dialogue. It corrects numerous localization errors and 'Americanizations,' providing a more accurate narrative experience. It is recommended for use with Japanese voices.",
@@ -360,7 +365,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HUD Plus",
-        source: ModSource::GameBanana { file_id: 1309612 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sadx-hud-plus/releases/latest/download/sadx-hud-plus.7z",
+        },
         description: "Expanded limits and contextual improvements for the gameplay HUD.",
         full_description: Some(
             "HUD Plus enhances the UI by increasing the ring and life counter limits and displaying collected Chao animals in the pause menu. It also includes contextual changes like hiding the ring HUD in specific stages where it's not needed and adding a score counter to the main screen.",
@@ -395,7 +402,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Active Mouths",
-        source: ModSource::GameBanana { file_id: 622235 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 304634,
+        },
         description: "Enables character face and mouth animations during gameplay.",
         full_description: Some(
             "Active Mouths enables mouth and facial animations for characters when they speak idle lines or react to the environment in-game, features previously restricted to cutscenes. It includes synced mouth movements for voice clips and environmental reactions like drowning or clearing a stage.",
@@ -413,7 +423,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic: New Tricks",
-        source: ModSource::GameBanana { file_id: 1102800 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sadx-new-tricks/releases/latest/download/sadx-new-tricks.7z",
+        },
         description: "Modernizes Sonic and Shadow's movesets with new and restored abilities.",
         full_description: Some(
             "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
@@ -436,7 +448,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Better Tails AI",
-        source: ModSource::GameBanana { file_id: 1148657 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/Sora-yx/SADX-Better-Tails-AI/releases/latest/download/Better.Tails.AI.zip",
+        },
         description: "Major improvements to Tails' behavior as a follower.",
         full_description: Some(
             "Better Tails AI makes Tails much more useful and interactive. He can now follow you into Hub Worlds and Boss Fights, pet Chao alongside the player, and sit in vehicles. It also adds a fast travel system in Hub Worlds and improves his flight speed to better keep up with Sonic.",
@@ -468,7 +482,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Super Sonic",
         source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-super-sonic.7z",
+            url: "https://github.com/kellsnc/sadx-super-sonic/releases/latest/download/sadx-super-sonic.7z",
         },
         description: "Playable Super Sonic in action stages",
         full_description: Some(
@@ -500,7 +514,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Multiplayer",
-        source: ModSource::GameBanana { file_id: 1046512 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sadx-multiplayer/releases/latest/download/sadx-multiplayer.7z",
+        },
         description: "Adds local 4-player split-screen support to SADX.",
         full_description: Some(
             "The SADX Multiplayer mod adds local split-screen support for up to 4 players. It overhauls systems like fishing, hunting, and shooting to work in a multiplayer environment and supports both Co-op and Battle modes across various trial stages.",
@@ -532,7 +548,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Chao Gameplay",
-        source: ModSource::GameBanana { file_id: 781777 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sadx-chao-gameplay/releases/latest/download/sadx-chao-gameplay.7z",
+        },
         description: "Allows taking your Chao out of the gardens and into action stages.",
         full_description: Some(
             "Also known as Chao Partner, this mod allows you to take your Chao with you into levels and hub worlds. Your Chao will follow you, attack nearby enemies based on its stats, and can be petted or dropped at will. It includes a water fix to allow Chao to 'swim' in standard level water.",
@@ -557,7 +575,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Fixes, Adds, and Beta Restores",
-        source: ModSource::GameBanana { file_id: 429267 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/supercoolsonic/Fixes_Adds_BetaRestores/releases/latest/download/FABR.7z",
+        },
         description: "Restores cut content and fixes bugs in the PC version.",
         full_description: Some(
             "This mod restores various beta elements like unused voice clips and animations while fixing hundreds of small bugs in the PC port. It adds 'Extra' mode layouts with restored level objects and improves visual elements like the Nightopian Egg and environmental sound effects.",
@@ -582,7 +602,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Perfect Chaos Music Swap",
-        source: ModSource::GameBanana { file_id: 1217474 },
+        source: ModSource::GameBananaItem {
+            item_type: "Sound",
+            item_id: 40537,
+        },
         description: "Swaps the music tracks for the Perfect Chaos boss phases.",
         full_description: Some(
             "This mod swaps the music for Phase 1 and Phase 2 of the final boss fight. It is commonly used to ensure 'Open Your Heart' plays during the main gameplay segment of the fight, restoring the intended musical progression from the original Dreamcast release.",

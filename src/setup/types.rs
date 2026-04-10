@@ -1,7 +1,13 @@
 /// Source for downloading a mod.
 pub enum ModSource {
-    GameBanana { file_id: u64 },
-    DirectUrl { url: &'static str },
+    /// Look up the latest file for a GameBanana item via the Core API and download it.
+    GameBananaItem {
+        item_type: &'static str,
+        item_id: u32,
+    },
+    DirectUrl {
+        url: &'static str,
+    },
 }
 
 /// An external link for a mod (e.g. GitHub repo, GameBanana page).

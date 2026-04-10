@@ -3,7 +3,9 @@ use super::common::{ModEntry, ModLink, ModSource};
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "SA2 Render Fix",
-        source: ModSource::GameBanana { file_id: 1656654 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/shaddatic/sa2b-render-fix/releases/latest/download/sa2-render-fix.7z",
+        },
         description: "Comprehensive graphics restoration and enhancement for SA2 PC.",
         full_description: Some(
             "SA2 Render Fix is an essential mod for Sonic Adventure 2 on PC that repairs numerous graphical bugs and oversights. It fixes transparency sorting issues, back-face culling, and broken material properties while restoring features like Cart billboards and Dreamcast-style specular highlights. It also merges several specialized fixes like the Eggman Lighting Fix to achieve a visual style closer to the original 2001 Dreamcast release.",
@@ -34,7 +36,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Retranslated Story -COMPLETE-",
-        source: ModSource::GameBanana { file_id: 1601215 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 437858,
+        },
         description: "A more faithful English translation of the Japanese script.",
         full_description: Some(
             "This mod replaces the original English localization with a new script that is more faithful to the original Japanese dialogue. Based on Windii's translations, it corrects creative liberties and errors found in the official localization. It is intended to be played with Japanese voices for the most authentic experience and includes compatibility with various restoration mods.",
@@ -59,7 +64,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HD GUI: SA2 Edition",
-        source: ModSource::GameBanana { file_id: 409120 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 33171,
+        },
         description: "High-definition replacements for the game's 2D UI elements.",
         full_description: Some(
             "HD GUI: SA2 Edition replaces the game's low-resolution HUD, menu icons, and item boxes with high-definition versions that match the Dreamcast original's aesthetic. It covers gameplay HUDs, menu screens (Title, Stage Select, etc.), and includes a DLL for automatic configuration based on your active mods, such as NoBattle or Battle DLC.",
@@ -84,7 +92,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "IMPRESSive",
-        source: ModSource::GameBanana { file_id: 1213103 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 469542,
+        },
         description: "Restores the original 'Impress' font from the Dreamcast version.",
         full_description: Some(
             "IMPRESSive replaces the Comic Sans-like font in the PC version of SA2 with the 'Impress' font used in the original Japanese Dreamcast release. It includes custom character widths for natural spacing and supports all European languages. It is designed for compatibility with the SA2 Render Fix font API.",
@@ -105,7 +116,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SA2 Volume Controls",
-        source: ModSource::GameBanana { file_id: 835829 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 381193,
+        },
         description: "Adds independent volume sliders for Music, SFX, and Voices.",
         full_description: Some(
             "This mod addresses SA2's notorious sound mixing issues by adding separate volume controls for music, sound effects, and character voices. It also includes 3D audio fixes for positional sound and master volume settings, allowing players to create a balanced mix that prevents music from drowning out dialogue.",
@@ -122,7 +136,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Mech Sound Improvement",
-        source: ModSource::GameBanana { file_id: 893090 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 412706,
+        },
         description: "Overhauls mech footstep and targeting sounds for a less grating experience.",
         full_description: Some(
             "Mech Sound Improvement makes the mech-based levels for Tails and Eggman much more pleasant by lowering the volume of intrusive footsteps and replacing the high-pitched targeting whine with a softer sound. It also introduces snappier lock-on sound effects and adjusted pitch for various mech noises.",
@@ -138,7 +155,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SASDL",
-        source: ModSource::GameBanana { file_id: 1503809 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/shaddatic/sa2b-sdl-loader/releases/latest/download/sasdl.7z",
+        },
         description: "Dependency mod providing a common interface for SDL2 library.",
         full_description: Some(
             "SASDL (Simple Adventure SDL) is a background mod that allows other mods to use the SDL2 library for features like modern controller support without conflicting with each other. It is a mandatory dependency for mods like SA2 Input Controls.",
@@ -161,7 +180,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SA2 Input Controls",
-        source: ModSource::GameBanana { file_id: 1514050 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/shaddatic/sa2b-input-controls/releases/latest/download/sa2-input-controls.7z",
+        },
         description: "Complete overhaul of the input system for modern controllers and sensitivity.",
         full_description: Some(
             "SA2 Input Controls fixes long-standing issues with the game's sensitivity, particularly the rail grinding sensitivity. It implements proper circular deadzones, adds native support for PlayStation and Switch controllers via SDL2, and allows for full keyboard remapping. It also restores full 360-degree analog precision that was hindered by the original axial deadzones.",
@@ -186,7 +207,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Better Radar",
-        source: ModSource::GameBanana { file_id: 1580535 },
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/SA2BetterRadar/releases/latest/download/SA2BetterRadar.7z",
+        },
         description: "Restores SA1-style simultaneous tracking for treasure hunting.",
         full_description: Some(
             "Better Radar improves the treasure-hunting mechanics by allowing the radar to track all three items simultaneously, rather than forcing a specific order. It adds new color indicators (blue and pink) for distance tracking and increases the tempo of the radar sound/animation as you get closer to a shard.",
@@ -204,7 +227,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HedgePanel - Sonic + Shadow Tweaks",
-        source: ModSource::GameBanana { file_id: 454296 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 48950,
+        },
         description: "Fluidity and physics refinements for Sonic and Shadow.",
         full_description: Some(
             "HedgePanel refines the speed characters' mechanics by allowing them to maintain momentum during somersaults and adding an upward bounce after Light Attacks to prevent accidental falls. It also fixes the 'low bounce' physics bug and adds automatic prompts for Magic Hands when in range of an enemy.",
@@ -220,7 +246,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic: New Tricks",
-        source: ModSource::GameBanana { file_id: 915082 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 48941,
+        },
         description: "Modernizes Sonic and Shadow's movesets with new and restored abilities.",
         full_description: Some(
             "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack.",
@@ -245,7 +274,10 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Retranslated Hints",
-        source: ModSource::GameBanana { file_id: 1388468 },
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 350607,
+        },
         description: "Corrects localization errors and ambiguities in the hint system.",
         full_description: Some(
             "Retranslated Hints replaces the original English stage clues with accurate translations of the Japanese text. It famously fixes the reversed 'siht ekil' hints in Mad Space and improves Omochao's dialogue across almost every stage, making the treasure-hunting segments significantly less frustrating.",
@@ -298,15 +330,20 @@ mod tests {
     }
 
     #[test]
-    fn test_render_fix_is_locked_to_gamebanana_file_id() {
+    fn test_render_fix_uses_github_direct_url() {
         let mod_entry = RECOMMENDED_MODS
             .iter()
             .find(|m| m.name == "SA2 Render Fix")
             .expect("SA2 Render Fix entry missing");
 
         match mod_entry.source {
-            ModSource::GameBanana { file_id } => assert_eq!(file_id, 1656654),
-            ModSource::DirectUrl { .. } => panic!("SA2 Render Fix should use GameBanana"),
+            ModSource::DirectUrl { url } => assert!(
+                url.contains("github.com/shaddatic/sa2b-render-fix"),
+                "SA2 Render Fix should use GitHub releases URL, got: {url}"
+            ),
+            ModSource::GameBananaItem { .. } => {
+                panic!("SA2 Render Fix should use DirectUrl, not GameBananaItem")
+            }
         }
     }
 }

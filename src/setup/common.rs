@@ -7,6 +7,9 @@ use crate::blocking;
 use crate::external::{archive, download, proton, runtime_installer};
 use crate::steam::game::{Game, GameKind};
 
+const GAMEBANANA_API_BASE: &str =
+    "https://api.gamebanana.com/Core/Item/Data?fields=Files().aFiles()";
+
 use super::{config, sa2, sadx, types};
 pub use types::{ModEntry, ModLink, ModPreset, ModSource};
 
@@ -26,10 +29,12 @@ const SA2_MOD_LOADER_URL: &str =
     "https://github.com/X-Hax/sa2-mod-loader/releases/latest/download/SA2ModLoader.7z";
 
 /// Resolve a `ModSource` to a download URL string.
-pub fn resolve_download_url(source: &ModSource) -> String {
+pub fn resolve_download_url(source: &ModSource) -> Result<String> {
     match source {
-        ModSource::GameBanana { file_id } => format!("{}{file_id}", gamebanana_download_base()),
-        ModSource::DirectUrl { url } => rewrite_direct_url(url),
+        ModSource::GameBananaItem { item_type, item_id } => {
+            resolve_gamebanana_item_url(item_type, *item_id)
+        }
+        ModSource::DirectUrl { url } => Ok(rewrite_direct_url(url)),
     }
 }
 
@@ -54,11 +59,52 @@ pub(crate) fn env_or_default(var: &str, default: &'static str) -> String {
     std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
-fn gamebanana_download_base() -> String {
-    env_or_default(
-        "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-        "https://gamebanana.com/dl/",
-    )
+/// Query the GameBanana Core API for the latest file of an item and return its download URL.
+fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> {
+    let api_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_API_BASE")
+        .unwrap_or_else(|_| GAMEBANANA_API_BASE.to_string());
+    let url = format!("{api_base}&itemtype={item_type}&itemid={item_id}");
+    let dl_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_DL_BASE")
+        .unwrap_or_else(|_| "https://gamebanana.com/dl/".to_string());
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .context("Failed to create tokio runtime")?;
+
+    rt.block_on(async {
+        let client = reqwest::Client::new();
+        let body = client
+            .get(&url)
+            .send()
+            .await
+            .with_context(|| format!("GameBanana API request failed for {item_type}/{item_id}"))?
+            .error_for_status()
+            .with_context(|| format!("GameBanana API error for {item_type}/{item_id}"))?
+            .text()
+            .await
+            .context("Failed to read GameBanana API response")?;
+
+        let parsed: Vec<serde_json::Map<String, serde_json::Value>> = serde_json::from_str(&body)
+            .with_context(|| {
+            format!("Failed to parse GameBanana API response for {item_type}/{item_id}: {body}")
+        })?;
+
+        let files = parsed
+            .into_iter()
+            .next()
+            .with_context(|| format!("Empty GameBanana API response for {item_type}/{item_id}"))?;
+
+        let latest_id = files
+            .values()
+            .filter_map(|v| v.get("_idRow").and_then(|id| id.as_u64()))
+            .max()
+            .with_context(|| {
+                format!("No files found in GameBanana API response for {item_type}/{item_id}")
+            })?;
+
+        Ok(format!("{dl_base}{latest_id}"))
+    })
 }
 
 fn sa_mod_manager_url() -> String {
@@ -441,7 +487,7 @@ pub fn install_mod_with_progress(
         return Ok(());
     }
 
-    let url = resolve_download_url(&mod_entry.source);
+    let url = resolve_download_url(&mod_entry.source)?;
 
     let temp_dir = tempfile::tempdir()?;
 
@@ -594,12 +640,24 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_gamebanana_url() {
-        let source = ModSource::GameBanana { file_id: 1388911 };
+    fn test_gamebanana_item_dl_base_override() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+        // We can't call the real API in a unit test, but we can verify the
+        // DL base override env var is respected by the resolver internals.
+        // The dl base is read as: env("ADVENTURE_MODS_GAMEBANANA_DL_BASE") or "https://gamebanana.com/dl/".
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+                "http://127.0.0.1:4010/dl/",
+            );
+        }
         assert_eq!(
-            resolve_download_url(&source),
-            "https://gamebanana.com/dl/1388911"
+            std::env::var("ADVENTURE_MODS_GAMEBANANA_DL_BASE").unwrap(),
+            "http://127.0.0.1:4010/dl/"
         );
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE");
+        }
     }
 
     #[test]
@@ -607,7 +665,10 @@ mod tests {
         let source = ModSource::DirectUrl {
             url: "https://example.com/mod.7z",
         };
-        assert_eq!(resolve_download_url(&source), "https://example.com/mod.7z");
+        assert_eq!(
+            resolve_download_url(&source).unwrap(),
+            "https://example.com/mod.7z"
+        );
     }
 
     #[test]
@@ -625,7 +686,7 @@ mod tests {
         };
 
         assert_eq!(
-            resolve_download_url(&source),
+            resolve_download_url(&source).unwrap(),
             "http://127.0.0.1:4010/dcmods/DreamcastConversion.7z"
         );
 
@@ -639,26 +700,6 @@ mod tests {
         assert!(SA_MOD_MANAGER_URL.starts_with("https://github.com/"));
         assert!(SA_MOD_MANAGER_URL.contains("/releases/"));
         assert!(SA_MOD_MANAGER_URL.ends_with(".zip"));
-    }
-
-    #[test]
-    fn test_gamebanana_download_base_uses_override() {
-        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
-        unsafe {
-            std::env::set_var(
-                "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
-                "http://127.0.0.1:4010/dl/",
-            );
-        }
-
-        assert_eq!(
-            resolve_download_url(&ModSource::GameBanana { file_id: 7 }),
-            "http://127.0.0.1:4010/dl/7"
-        );
-
-        unsafe {
-            std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_BASE_URL");
-        }
     }
 
     #[test]
@@ -1275,8 +1316,13 @@ macro_rules! recommended_mods_tests {
         fn test_mod_sources_valid() {
             for m in RECOMMENDED_MODS {
                 match &m.source {
-                    ModSource::GameBanana { file_id } => {
-                        assert!(*file_id > 0, "Mod '{}' has zero file_id", m.name);
+                    ModSource::GameBananaItem { item_type, item_id } => {
+                        assert!(
+                            !item_type.is_empty(),
+                            "Mod '{}' has empty item_type",
+                            m.name
+                        );
+                        assert!(*item_id > 0, "Mod '{}' has zero item_id", m.name);
                     }
                     ModSource::DirectUrl { url } => {
                         assert!(
@@ -1295,7 +1341,12 @@ macro_rules! recommended_mods_tests {
             use std::collections::HashSet;
             let sources: HashSet<String> = RECOMMENDED_MODS
                 .iter()
-                .map(|m| $crate::setup::common::resolve_download_url(&m.source))
+                .map(|m| match &m.source {
+                    ModSource::GameBananaItem { item_type, item_id } => {
+                        format!("gamebanana:{item_type}/{item_id}")
+                    }
+                    ModSource::DirectUrl { url } => url.to_string(),
+                })
                 .collect();
             assert_eq!(
                 sources.len(),

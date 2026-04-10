@@ -219,7 +219,10 @@ mod tests {
         vec![
             ModEntry {
                 name: "SA2 Render Fix",
-                source: ModSource::GameBanana { file_id: 1656654 },
+                source: ModSource::GameBananaItem {
+                    item_type: "Mod",
+                    item_id: 1656654,
+                },
                 description: "Test",
                 full_description: None,
                 pictures: &[],
@@ -228,7 +231,10 @@ mod tests {
             },
             ModEntry {
                 name: "Better Radar",
-                source: ModSource::GameBanana { file_id: 1580535 },
+                source: ModSource::GameBananaItem {
+                    item_type: "Mod",
+                    item_id: 1580535,
+                },
                 description: "Test",
                 full_description: None,
                 pictures: &[],

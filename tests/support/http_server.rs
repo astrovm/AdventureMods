@@ -25,6 +25,24 @@ pub struct TestServer {
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+/// Parse `itemid=N` from a query string, returning N as a string.
+fn parse_itemid(query: &str) -> Option<String> {
+    query.split('&').find_map(|part| {
+        let (k, v) = part.split_once('=')?;
+        if k == "itemid" {
+            Some(v.to_string())
+        } else {
+            None
+        }
+    })
+}
+
+/// Build a fake GameBanana API response: `[{"<id>": {"_idRow": <id>}}]`
+fn fake_gamebanana_api_response(item_id: &str) -> String {
+    let id: u64 = item_id.parse().unwrap_or(0);
+    format!("[{{\"{}\":{{\"_idRow\":{}}}}}]", item_id, id)
+}
+
 impl TestServer {
     pub fn start(routes: HashMap<&'static str, Response>) -> Self {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
@@ -40,32 +58,54 @@ impl TestServer {
                         let mut buffer = [0u8; 4096];
                         let size = stream.read(&mut buffer).unwrap_or(0);
                         let request = String::from_utf8_lossy(&buffer[..size]);
-                        let path = request
+                        let full_path = request
                             .lines()
                             .next()
                             .and_then(|line| line.split_whitespace().nth(1))
                             .unwrap_or("/");
 
-                        let response = match routes.get(path) {
-                            Some(Response::Ok { content_type, body }) => format!(
-                                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                                body.len(),
-                                body
-                            ),
-                            Some(Response::Redirect(location)) => format!(
-                                "HTTP/1.1 302 Found\r\nLocation: http://{}{}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                                address, location
-                            ),
-                            Some(Response::Status {
-                                status_line,
-                                content_type,
-                                body,
-                            }) => format!(
-                                "HTTP/1.1 {status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                                body.len(),
-                                body
-                            ),
-                            None => "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
+                        // Split path and query string.
+                        let (path, query) = full_path
+                            .split_once('?')
+                            .map(|(p, q)| (p, q))
+                            .unwrap_or((full_path, ""));
+
+                        let response = if path == "/gbapi" {
+                            // Fake GameBanana Core API: return a single-file response
+                            // whose _idRow equals the itemid query parameter.
+                            match parse_itemid(query) {
+                                Some(id) => {
+                                    let body = fake_gamebanana_api_response(&id);
+                                    format!(
+                                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                        body.len(),
+                                        body
+                                    )
+                                }
+                                None => "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
+                            }
+                        } else {
+                            match routes.get(path) {
+                                Some(Response::Ok { content_type, body }) => format!(
+                                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                    body.len(),
+                                    body
+                                ),
+                                Some(Response::Redirect(location)) => format!(
+                                    "HTTP/1.1 302 Found\r\nLocation: http://{}{}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                                    address, location
+                                ),
+                                Some(Response::Status {
+                                    status_line,
+                                    content_type,
+                                    body,
+                                }) => format!(
+                                    "HTTP/1.1 {status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                    body.len(),
+                                    body
+                                ),
+                                None => "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
+                            }
                         };
 
                         let _ = stream.write_all(response.as_bytes());
@@ -89,6 +129,17 @@ impl TestServer {
         format!("http://{}{}", self.address, path)
     }
 
+    /// Base URL for the fake GameBanana API endpoint (sets ADVENTURE_MODS_GAMEBANANA_API_BASE).
+    pub fn gamebanana_api_base(&self) -> String {
+        self.url("/gbapi?fields=Files().aFiles()")
+    }
+
+    /// Base URL for GameBanana downloads (sets ADVENTURE_MODS_GAMEBANANA_DL_BASE).
+    pub fn gamebanana_dl_base(&self) -> String {
+        self.url("/dl/")
+    }
+
+    #[deprecated(note = "use gamebanana_api_base() + gamebanana_dl_base() instead")]
     pub fn gamebanana_base(&self) -> String {
         self.url("/dl/")
     }
