@@ -939,6 +939,11 @@ fn has_only_gui_flags(args: &[String]) -> bool {
 
     while index < args.len() {
         let arg = &args[index];
+        if arg == "--no-color" {
+            index += 1;
+            continue;
+        }
+
         if !arg.starts_with('-') || !is_known_gui_flag(arg) {
             return false;
         }
@@ -1639,6 +1644,53 @@ mod tests {
     }
 
     #[test]
+    fn run_from_args_does_not_handle_no_color_without_subcommand() {
+        let mut output = Vec::new();
+        let mut initialized = false;
+
+        let handled = run_from_args_with_io(
+            vec!["adventure-mods".to_string(), "--no-color".to_string()],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut output,
+            false,
+        )
+        .unwrap();
+
+        assert!(!handled);
+        assert!(!initialized);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn run_from_args_does_not_handle_gui_flags_with_no_color_only() {
+        let mut output = Vec::new();
+        let mut initialized = false;
+
+        let handled = run_from_args_with_io(
+            vec![
+                "adventure-mods".to_string(),
+                "--no-color".to_string(),
+                "--display".to_string(),
+                ":1".to_string(),
+            ],
+            || {
+                initialized = true;
+                Ok(())
+            },
+            &mut output,
+            false,
+        )
+        .unwrap();
+
+        assert!(!handled);
+        assert!(!initialized);
+        assert!(output.is_empty());
+    }
+
+    #[test]
     fn looks_like_cli_matches_known_subcommands() {
         assert!(super::looks_like_cli(&[
             "adventure-mods".to_string(),
@@ -1699,6 +1751,20 @@ mod tests {
             "adventure-mods".to_string(),
             "--no-color".to_string(),
             "detect".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn looks_like_cli_ignores_no_color_without_subcommand() {
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--no-color".to_string(),
+        ]));
+        assert!(!super::looks_like_cli(&[
+            "adventure-mods".to_string(),
+            "--no-color".to_string(),
+            "--display".to_string(),
+            ":1".to_string(),
         ]));
     }
 
