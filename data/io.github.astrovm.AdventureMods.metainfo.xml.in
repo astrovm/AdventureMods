@@ -46,17 +46,37 @@
   <releases>
     <release version="0.3.0" date="2026-04-08">
       <description>
-        <p>Added CLI commands for game detection, mod listing, and headless setup, plus startup fixes so CLI downloads initialize TLS correctly.</p>
+        <p>Added a full command-line workflow for setup and detection, plus manual language selection during setup.</p>
+        <ul>
+          <li>Added `detect` to show supported game installs and inaccessible Steam libraries</li>
+          <li>Added `list-mods` to show presets and recommended mods by game</li>
+          <li>Added `setup` for headless installation and config generation</li>
+          <li>Added subtitle and voice language selection for SADX and SA2 setup</li>
+          <li>Saved language selections per game so rerunning setup reuses the last choice</li>
+        </ul>
       </description>
     </release>
     <release version="0.2.4" date="2026-04-08">
       <description>
-        <p>Direct Proton integration replaced protontricks, Steam library detection was expanded, the welcome and setup flow were improved, and packaged archive extraction was corrected.</p>
+        <p>Improved setup reliability and Steam integration.</p>
+        <ul>
+          <li>Replaced protontricks-based setup with direct Proton integration</li>
+          <li>Expanded Steam library detection</li>
+          <li>Improved the welcome page and setup flow</li>
+          <li>Fixed packaged archive extraction</li>
+        </ul>
       </description>
     </release>
     <release version="0.1.0" date="2026-03-15">
       <description>
-        <p>First release. Full mod setup for Sonic Adventure DX and Sonic Adventure 2 with Steam detection, mod presets, mod manager installation, and .NET runtime setup through protontricks.</p>
+        <p>First release.</p>
+        <ul>
+          <li>Full mod setup for Sonic Adventure DX and Sonic Adventure 2</li>
+          <li>Steam install detection</li>
+          <li>Mod preset support</li>
+          <li>Mod manager installation</li>
+          <li>.NET runtime setup through protontricks</li>
+        </ul>
       </description>
     </release>
   </releases>
