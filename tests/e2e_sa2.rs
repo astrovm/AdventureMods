@@ -32,6 +32,16 @@ const TEST_FLAT: ModEntry = ModEntry {
     links: &[],
 };
 
+const BROKEN_MOD: ModEntry = ModEntry {
+    name: "Broken Mod",
+    source: ModSource::GameBanana { file_id: 9999 },
+    description: "broken mod",
+    full_description: None,
+    pictures: &[],
+    dir_name: Some("Broken Mod"),
+    links: &[],
+};
+
 #[test]
 fn sa2_setup_completes_against_fake_steam_install() {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -320,4 +330,87 @@ fn sa2_setup_can_rerun_on_existing_installation() {
         .is_file());
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
+}
+
+#[test]
+fn sa2_setup_does_not_emit_config_progress_after_mod_failure() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    let server = TestServer::start(HashMap::from([
+        (
+            "/samodmanager.zip",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "samodmanager",
+            },
+        ),
+        (
+            "/sa2-loader.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "sa2-loader",
+            },
+        ),
+        (
+            "/dotnet.exe",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "dotnet-installer",
+            },
+        ),
+        (
+            "/files/render-fix.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "render-fix",
+            },
+        ),
+        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+    ]));
+
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+            server.gamebanana_base(),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ]);
+
+    runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
+    common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
+
+    let mut progress_events = Vec::new();
+    let result = pipeline::install_selected_mods_and_generate_config_with_progress(
+        &fixture.game_path,
+        GameKind::SA2,
+        &[&RENDER_FIX, &BROKEN_MOD],
+        1920,
+        1080,
+        |event| match event {
+            pipeline::InstallProgress::InstallingMod {
+                index,
+                total,
+                mod_name,
+            } => progress_events.push(format!("{index}/{total}:{mod_name}")),
+            pipeline::InstallProgress::GeneratingConfig => {
+                progress_events.push("config".to_string())
+            }
+        },
+    );
+
+    assert!(result.is_err());
+    assert_eq!(progress_events, vec!["1/2:Render Fix", "2/2:Broken Mod"]);
 }

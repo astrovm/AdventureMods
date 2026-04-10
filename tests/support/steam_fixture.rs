@@ -11,6 +11,7 @@ pub struct SteamFixture {
     pub wine_log: PathBuf,
     pub fake_7zz: PathBuf,
     pub fake_hpatchz: PathBuf,
+    pub extract_root: PathBuf,
 }
 
 #[allow(dead_code)]
@@ -122,6 +123,7 @@ pub fn create_sa2_fixture() -> SteamFixture {
         wine_log,
         fake_7zz,
         fake_hpatchz,
+        extract_root,
     }
 }
 
@@ -244,6 +246,7 @@ pub fn create_sadx_fixture() -> SteamFixture {
         wine_log,
         fake_7zz,
         fake_hpatchz,
+        extract_root,
     }
 }
 

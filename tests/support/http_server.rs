@@ -10,6 +10,11 @@ pub enum Response {
         body: &'static str,
     },
     Redirect(&'static str),
+    Status {
+        status_line: &'static str,
+        content_type: &'static str,
+        body: &'static str,
+    },
 }
 
 pub struct TestServer {
@@ -48,6 +53,15 @@ impl TestServer {
                             Some(Response::Redirect(location)) => format!(
                                 "HTTP/1.1 302 Found\r\nLocation: http://{}{}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                                 address, location
+                            ),
+                            Some(Response::Status {
+                                status_line,
+                                content_type,
+                                body,
+                            }) => format!(
+                                "HTTP/1.1 {status_line}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                                body.len(),
+                                body
                             ),
                             None => "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
                         };

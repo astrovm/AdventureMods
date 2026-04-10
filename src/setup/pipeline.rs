@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use crate::steam::game::GameKind;
 
@@ -122,16 +122,12 @@ mod tests {
         let selected =
             resolve_selected_mods(GameKind::SADX, Some("Dreamcast Restoration"), &[]).unwrap();
 
-        assert!(
-            selected
-                .iter()
-                .any(|entry| entry.name == "Dreamcast Characters Pack")
-        );
-        assert!(
-            !selected
-                .iter()
-                .any(|entry| entry.name == "DX Characters Refined")
-        );
+        assert!(selected
+            .iter()
+            .any(|entry| entry.name == "Dreamcast Characters Pack"));
+        assert!(!selected
+            .iter()
+            .any(|entry| entry.name == "DX Characters Refined"));
     }
 
     #[test]
@@ -142,5 +138,15 @@ mod tests {
         };
 
         assert!(error.to_string().contains("Unknown mod"));
+    }
+
+    #[test]
+    fn preserves_duplicate_named_mods() {
+        let selected =
+            resolve_selected_mods(GameKind::SA2, None, &["SA2 Render Fix", "SA2 Render Fix"])
+                .unwrap();
+
+        let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
+        assert_eq!(names, vec!["SA2 Render Fix", "SA2 Render Fix"]);
     }
 }

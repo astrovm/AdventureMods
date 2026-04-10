@@ -878,6 +878,7 @@ pub fn run_from_args_with_io(
 mod tests {
     use std::io::Write;
     use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
 
     use clap::Parser;
 
@@ -887,6 +888,11 @@ mod tests {
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     struct MockPrompt {
         select_result: usize,
@@ -1516,5 +1522,76 @@ mod tests {
         assert!(s.contains("Test Success"));
         assert!(s.contains("name: desc"));
         assert!(!s.contains("\x1b["));
+    }
+
+    #[test]
+    fn cli_output_with_color_emits_ansi_sequences() {
+        let previous = console::colors_enabled();
+        console::set_colors_enabled(true);
+
+        let mut buf = Vec::new();
+        let mut out = CliOutput::new(&mut buf as &mut dyn Write, true);
+
+        out.heading("Test Heading").unwrap();
+        out.success("Test Success").unwrap();
+        out.bold_item("name", "desc").unwrap();
+
+        let s = String::from_utf8(buf).unwrap();
+        console::set_colors_enabled(previous);
+        assert!(s.contains("\x1b["));
+    }
+
+    #[test]
+    fn run_from_args_uses_color_for_terminal_output_by_default() {
+        let previous = console::colors_enabled();
+        console::set_colors_enabled(true);
+
+        let mut output = Vec::new();
+
+        let handled = run_from_args_with_io(
+            vec![
+                "adventure-mods".to_string(),
+                "list-mods".to_string(),
+                "--game".to_string(),
+                "sa2".to_string(),
+            ],
+            || Ok(()),
+            &mut output,
+            true,
+        )
+        .unwrap();
+
+        console::set_colors_enabled(previous);
+        assert!(handled);
+        assert!(String::from_utf8(output).unwrap().contains("\x1b["));
+    }
+
+    #[test]
+    fn run_from_args_disables_color_with_no_color_env() {
+        let _guard = env_lock().lock().unwrap();
+        unsafe {
+            std::env::set_var("NO_COLOR", "1");
+        }
+
+        let mut output = Vec::new();
+        let result = run_from_args_with_io(
+            vec![
+                "adventure-mods".to_string(),
+                "list-mods".to_string(),
+                "--game".to_string(),
+                "sa2".to_string(),
+            ],
+            || Ok(()),
+            &mut output,
+            true,
+        );
+
+        unsafe {
+            std::env::remove_var("NO_COLOR");
+        }
+
+        let handled = result.unwrap();
+        assert!(handled);
+        assert!(!String::from_utf8(output).unwrap().contains("\x1b["));
     }
 }

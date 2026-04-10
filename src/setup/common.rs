@@ -13,6 +13,9 @@ use super::{config, sa2, sadx};
 const SA_MOD_MANAGER_URL: &str =
     "https://github.com/X-Hax/SA-Mod-Manager/releases/latest/download/release_x64.zip";
 
+const SADX_DCMODS_BASE_URL: &str =
+    "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/";
+
 /// GitHub release URL for SADX Mod Loader.
 const SADX_MOD_LOADER_URL: &str =
     "https://github.com/X-Hax/sadx-mod-loader/releases/latest/download/SADXModLoader.7z";
@@ -58,8 +61,20 @@ pub struct ModPreset {
 pub fn resolve_download_url(source: &ModSource) -> String {
     match source {
         ModSource::GameBanana { file_id } => format!("{}{file_id}", gamebanana_download_base()),
-        ModSource::DirectUrl { url } => (*url).to_string(),
+        ModSource::DirectUrl { url } => rewrite_direct_url(url),
     }
+}
+
+fn rewrite_direct_url(url: &str) -> String {
+    let Ok(base_override) = std::env::var("ADVENTURE_MODS_DCMODS_BASE_URL") else {
+        return url.to_string();
+    };
+
+    if let Some(suffix) = url.strip_prefix(SADX_DCMODS_BASE_URL) {
+        return format!("{base_override}{suffix}");
+    }
+
+    url.to_string()
 }
 
 fn env_or_default(var: &str, default: &'static str) -> String {
@@ -609,6 +624,26 @@ mod tests {
             url: "https://example.com/mod.7z",
         };
         assert_eq!(resolve_download_url(&source), "https://example.com/mod.7z");
+    }
+
+    #[test]
+    fn test_resolve_direct_url_rewrites_sadx_base_when_overridden() {
+        unsafe {
+            std::env::set_var("ADVENTURE_MODS_DCMODS_BASE_URL", "http://127.0.0.1:4010/dcmods/");
+        }
+
+        let source = ModSource::DirectUrl {
+            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
+        };
+
+        assert_eq!(
+            resolve_download_url(&source),
+            "http://127.0.0.1:4010/dcmods/DreamcastConversion.7z"
+        );
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_DCMODS_BASE_URL");
+        }
     }
 
     #[test]
