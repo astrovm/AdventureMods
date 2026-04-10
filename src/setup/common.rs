@@ -549,33 +549,34 @@ fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<()> {
 }
 
 /// Recursively move all entries from `src` into `dest`, creating `dest` if needed.
-fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
+pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
     std::fs::create_dir_all(dest)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
-        let target = dest.join(entry.file_name());
-        if target.exists() {
-            remove_path(&target)?;
-        }
-        if std::fs::rename(entry.path(), &target).is_err() {
-            // rename fails across filesystems; fall back to copy + remove
-            if entry.path().is_dir() {
-                copy_dir_all(&entry.path(), &target)?;
-                std::fs::remove_dir_all(entry.path())?;
-            } else {
-                std::fs::copy(entry.path(), &target)?;
-                std::fs::remove_file(entry.path())?;
-            }
-        }
-    }
-    Ok(())
-}
+        let path = entry.path();
+        let name = entry.file_name();
+        let target = dest.join(name);
 
-fn remove_path(path: &Path) -> Result<()> {
-    if path.is_dir() {
-        std::fs::remove_dir_all(path)?;
-    } else {
-        std::fs::remove_file(path)?;
+        if path.is_dir() {
+            if target.exists() && !target.is_dir() {
+                std::fs::remove_file(&target)?;
+            }
+            if !target.exists() {
+                std::fs::create_dir_all(&target)?;
+            }
+            move_dir_contents(&path, &target)?;
+        } else {
+            if target.exists() && target.is_dir() {
+                std::fs::remove_dir_all(&target)?;
+            }
+            // Overwrite existing files
+            std::fs::rename(&path, &target).or_else(|_| {
+                // Fallback to copy+remove if rename fails (e.g. across filesystems)
+                std::fs::copy(&path, &target)?;
+                std::fs::remove_file(&path)?;
+                Ok::<(), std::io::Error>(())
+            })?;
+        }
     }
     Ok(())
 }
@@ -595,20 +596,6 @@ fn find_file_icase(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-/// Recursively copy a directory.
-fn copy_dir_all(src: &Path, dest: &Path) -> Result<()> {
-    std::fs::create_dir_all(dest)?;
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let target = dest.join(entry.file_name());
-        if entry.path().is_dir() {
-            copy_dir_all(&entry.path(), &target)?;
-        } else {
-            std::fs::copy(entry.path(), &target)?;
-        }
-    }
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {

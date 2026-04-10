@@ -839,7 +839,7 @@ pub fn convert_steam_to_2004(
     tracing::info!("Patch applied successfully to temp dir, moving files back...");
 
     // Move files from out_dir to game_path
-    move_dir_contents(&out_dir, game_path)?;
+    super::common::move_dir_contents(&out_dir, game_path)?;
 
     tracing::info!("Steam-to-2004 conversion complete");
     Ok(())
@@ -877,37 +877,6 @@ fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
         }
     }
 
-    Ok(())
-}
-
-fn move_dir_contents(from: &Path, to: &Path) -> Result<()> {
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        let path = entry.path();
-        let name = entry.file_name();
-        let dest = to.join(name);
-
-        if path.is_dir() {
-            if dest.exists() && !dest.is_dir() {
-                std::fs::remove_file(&dest)?;
-            }
-            if !dest.exists() {
-                std::fs::create_dir_all(&dest)?;
-            }
-            move_dir_contents(&path, &dest)?;
-        } else {
-            if dest.exists() && dest.is_dir() {
-                std::fs::remove_dir_all(&dest)?;
-            }
-            // Overwrite existing files
-            std::fs::rename(&path, &dest).or_else(|_| {
-                // Fallback to copy+remove if rename fails (e.g. across filesystems)
-                std::fs::copy(&path, &dest)?;
-                std::fs::remove_file(&path)?;
-                Ok::<(), std::io::Error>(())
-            })?;
-        }
-    }
     Ok(())
 }
 
@@ -1046,7 +1015,7 @@ mod tests {
         std::fs::write(src.join("a.txt"), "hello").unwrap();
         std::fs::write(src.join("b.txt"), "world").unwrap();
 
-        move_dir_contents(&src, &dst).unwrap();
+        crate::setup::common::move_dir_contents(&src, &dst).unwrap();
 
         assert_eq!(std::fs::read_to_string(dst.join("a.txt")).unwrap(), "hello");
         assert_eq!(std::fs::read_to_string(dst.join("b.txt")).unwrap(), "world");
@@ -1063,7 +1032,7 @@ mod tests {
         std::fs::write(src.join("sub/new.txt"), "new").unwrap();
         std::fs::write(dst.join("sub/existing.txt"), "existing").unwrap();
 
-        move_dir_contents(&src, &dst).unwrap();
+        crate::setup::common::move_dir_contents(&src, &dst).unwrap();
 
         // Both files should exist in destination
         assert_eq!(
@@ -1087,7 +1056,7 @@ mod tests {
         std::fs::write(src.join("file.txt"), "new content").unwrap();
         std::fs::write(dst.join("file.txt"), "old content").unwrap();
 
-        move_dir_contents(&src, &dst).unwrap();
+        crate::setup::common::move_dir_contents(&src, &dst).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(dst.join("file.txt")).unwrap(),
@@ -1108,7 +1077,7 @@ mod tests {
         // src has a file named "item"
         std::fs::write(src.join("item"), "I am a file").unwrap();
 
-        move_dir_contents(&src, &dst).unwrap();
+        crate::setup::common::move_dir_contents(&src, &dst).unwrap();
 
         // "item" should now be a file, not a directory
         assert!(dst.join("item").is_file());
