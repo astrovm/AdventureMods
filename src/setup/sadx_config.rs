@@ -14,8 +14,10 @@ pub fn generate_sadx_config(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: config::LanguageSelection,
 ) -> Result<()> {
-    let profile = build_default_profile(game_path, selected_mods, width, height);
+    let profile =
+        build_default_profile(game_path, selected_mods, width, height, language_selection);
 
     config::write_manager_json(game_path, GameKind::SADX)?;
     config::write_profiles_json(game_path, "SAManager/SADX/profiles")?;
@@ -144,6 +146,7 @@ fn build_default_profile(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: config::LanguageSelection,
 ) -> DefaultProfile {
     let enabled_mods = config::mod_dir_names(selected_mods);
     let all_recommended: Vec<&ModEntry> = sadx::RECOMMENDED_MODS.iter().collect();
@@ -212,8 +215,8 @@ fn build_default_profile(
             event_index: -1,
             game_mode_index: -1,
             save_index: -1,
-            game_text_language: 1,
-            game_voice_language: 0,
+            game_text_language: subtitle_code(language_selection.subtitle),
+            game_voice_language: voice_code(language_selection.voice),
             use_manual: false,
             use_position: false,
             x_position: 0,
@@ -227,6 +230,23 @@ fn build_default_profile(
         enabled_mods,
         enabled_codes: Vec::new(),
         mods_list,
+    }
+}
+
+fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
+    match language {
+        config::SubtitleLanguage::English => 0,
+        config::SubtitleLanguage::Japanese => 1,
+        config::SubtitleLanguage::French => 2,
+        config::SubtitleLanguage::German => 3,
+        config::SubtitleLanguage::Spanish => 4,
+    }
+}
+
+fn voice_code(language: config::VoiceLanguage) -> u32 {
+    match language {
+        config::VoiceLanguage::English => 0,
+        config::VoiceLanguage::Japanese => 1,
     }
 }
 
@@ -314,29 +334,28 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(game_path, &mod_refs, 1920, 1080).unwrap();
+        generate_sadx_config(
+            game_path,
+            &mod_refs,
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
-        assert!(
-            game_path
-                .join("SAManager/SADX/profiles/Profiles.json")
-                .is_file()
-        );
-        assert!(
-            game_path
-                .join("SAManager/SADX/profiles/Default.json")
-                .is_file()
-        );
-        assert!(
-            game_path
-                .join("mods/.modloader/profiles/Profiles.json")
-                .is_file()
-        );
-        assert!(
-            game_path
-                .join("mods/.modloader/profiles/Default.json")
-                .is_file()
-        );
+        assert!(game_path
+            .join("SAManager/SADX/profiles/Profiles.json")
+            .is_file());
+        assert!(game_path
+            .join("SAManager/SADX/profiles/Default.json")
+            .is_file());
+        assert!(game_path
+            .join("mods/.modloader/profiles/Profiles.json")
+            .is_file());
+        assert!(game_path
+            .join("mods/.modloader/profiles/Default.json")
+            .is_file());
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("system/sonicDX.ini").is_file());
     }
@@ -348,7 +367,14 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
+        generate_sadx_config(
+            tmp.path(),
+            &mod_refs,
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
@@ -379,7 +405,14 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sadx_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
+        generate_sadx_config(
+            tmp.path(),
+            &mod_refs,
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         let sam_default =
             std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
@@ -416,7 +449,14 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
-        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
+        generate_sadx_config(
+            tmp.path(),
+            &[],
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
@@ -434,7 +474,14 @@ mod tests {
     fn test_json_field_names_match_sa_mod_manager() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
-        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
+        generate_sadx_config(
+            tmp.path(),
+            &[],
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         let profile =
             std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
@@ -464,7 +511,14 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
-        generate_sadx_config(tmp.path(), &[], 1920, 1080).unwrap();
+        generate_sadx_config(
+            tmp.path(),
+            &[],
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SADX),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
@@ -473,5 +527,31 @@ mod tests {
 
         let game_path = parsed["GamePath"].as_str().unwrap();
         assert!(game_path.starts_with("Z:\\"));
+    }
+
+    #[test]
+    fn test_selected_languages_are_written_to_profile() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        let selection = config::LanguageSelection {
+            subtitle: config::SubtitleLanguage::French,
+            voice: config::VoiceLanguage::Japanese,
+        };
+
+        generate_sadx_config(tmp.path(), &[], 1920, 1080, selection).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+        assert_eq!(
+            parsed["TestSpawn"]["GameTextLanguage"],
+            subtitle_code(selection.subtitle)
+        );
+        assert_eq!(
+            parsed["TestSpawn"]["GameVoiceLanguage"],
+            voice_code(selection.voice)
+        );
     }
 }

@@ -4,13 +4,14 @@ use std::collections::HashMap;
 
 use adventure_mods::external::runtime_installer;
 use adventure_mods::setup::common::{self, ModEntry, ModSource};
+use adventure_mods::setup::config::LanguageSelection;
 use adventure_mods::setup::pipeline;
 use adventure_mods::steam::game::GameKind;
 use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sa2_fixture;
-use support::{EnvGuard, env_lock};
+use support::{env_lock, EnvGuard};
 
 const RENDER_FIX: ModEntry = ModEntry {
     name: "Render Fix",
@@ -119,30 +120,25 @@ fn sa2_setup_completes_against_fake_steam_install() {
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
         |_| Ok(()),
     )
     .unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("mods/.modloader/SA2ModLoader.dll")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("mods/.modloader/SA2ModLoader.dll")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
+        .is_file());
     assert!(fixture.game_path.join("SAManager/Manager.json").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("mods/.modloader/profiles/Default.json")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("mods/.modloader/profiles/Default.json")
+        .is_file());
     assert!(fixture.game_path.join("Config/UserConfig.cfg").is_file());
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
@@ -224,6 +220,7 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
         |event| {
             match event {
                 pipeline::InstallProgress::InstallingMod {
@@ -319,6 +316,7 @@ fn sa2_setup_can_rerun_on_existing_installation() {
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
         |_| Ok(()),
     )
     .unwrap();
@@ -331,17 +329,16 @@ fn sa2_setup_can_rerun_on_existing_installation() {
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
         |_| Ok(()),
     )
     .unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
+        .is_file());
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
 }
@@ -413,6 +410,7 @@ fn sa2_setup_does_not_emit_config_progress_after_mod_failure() {
         &[&RENDER_FIX, &BROKEN_MOD],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
         |event| {
             match event {
                 pipeline::InstallProgress::InstallingMod {

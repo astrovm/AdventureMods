@@ -72,6 +72,12 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             kind: StepKind::ModSelection,
         },
         SetupStep {
+            id: "language_options",
+            title: "Language Options",
+            description: "Choose subtitle and voice languages for the generated mod manager profile.",
+            kind: StepKind::Info,
+        },
+        SetupStep {
             id: "download_mods",
             title: "Download Mods",
             description: "Downloading and installing selected mods...",
@@ -99,12 +105,12 @@ mod tests {
 
     #[test]
     fn test_sadx_step_count() {
-        assert_eq!(steps_for_game(GameKind::SADX).len(), 7);
+        assert_eq!(steps_for_game(GameKind::SADX).len(), 8);
     }
 
     #[test]
     fn test_sa2_step_count() {
-        assert_eq!(steps_for_game(GameKind::SA2).len(), 6);
+        assert_eq!(steps_for_game(GameKind::SA2).len(), 7);
     }
 
     #[test]
@@ -234,6 +240,24 @@ mod tests {
 
             let complete_step = steps.iter().find(|s| s.id == "complete").unwrap();
             assert!(complete_step.description.contains(kind.name()));
+        }
+    }
+
+    #[test]
+    fn language_options_step_comes_before_download_mods() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let steps = steps_for_game(kind);
+            let language_pos = steps.iter().position(|s| s.id == "language_options");
+            let download_pos = steps.iter().position(|s| s.id == "download_mods");
+            assert!(
+                language_pos.is_some(),
+                "language_options step missing for {kind:?}"
+            );
+            assert!(
+                download_pos.is_some(),
+                "download_mods step missing for {kind:?}"
+            );
+            assert!(language_pos.unwrap() < download_pos.unwrap());
         }
     }
 }

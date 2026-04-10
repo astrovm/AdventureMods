@@ -1,16 +1,16 @@
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
-use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
+use dialoguer::{theme::ColorfulTheme, Confirm, MultiSelect, Select};
 
 use crate::banner;
 use crate::config;
 use crate::external::runtime_installer;
-use crate::setup::{common, pipeline, sadx};
+use crate::setup::{common, config as setup_config, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
 
@@ -80,7 +80,7 @@ impl<'a> CliOutput<'a> {
 trait Prompt {
     fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize>;
     fn multi_select(&self, prompt: &str, items: &[String], defaults: &[bool])
-    -> Result<Vec<usize>>;
+        -> Result<Vec<usize>>;
     fn confirm(&self, prompt: &str, default: bool) -> Result<bool>;
 }
 
@@ -172,6 +172,10 @@ pub struct SetupArgs {
     pub preset: Option<String>,
     #[arg(long)]
     pub all_mods: bool,
+    #[arg(long)]
+    pub subtitle_language: Option<String>,
+    #[arg(long)]
+    pub voice_language: Option<String>,
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
     pub width: Option<u32>,
     #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
@@ -305,6 +309,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
             (w.unwrap_or(dw), h.unwrap_or(dh))
         }
     };
+    let language_selection = resolve_setup_languages(&args, game_kind)?;
 
     if rich_prompts {
         confirm_setup_summary(
@@ -314,6 +319,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
             &selected_mods,
             width,
             height,
+            language_selection,
             &prompt,
         )?;
     }
@@ -364,6 +370,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         selected_mods: &selected_mods,
         width,
         height,
+        language_selection,
     };
     run_mod_install_step(out, step_index, total_steps, &mod_install)?;
 
@@ -384,7 +391,11 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
 }
 
 fn total_setup_steps(game_kind: GameKind) -> usize {
-    if game_kind == GameKind::SADX { 4 } else { 3 }
+    if game_kind == GameKind::SADX {
+        4
+    } else {
+        3
+    }
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
@@ -412,6 +423,7 @@ struct ModInstallStep<'a> {
     selected_mods: &'a [&'a common::ModEntry],
     width: u32,
     height: u32,
+    language_selection: setup_config::LanguageSelection,
 }
 
 fn run_mod_install_step(
@@ -431,6 +443,7 @@ fn run_mod_install_step(
         step.selected_mods,
         step.width,
         step.height,
+        step.language_selection,
         |progress| {
             match progress {
                 pipeline::InstallProgress::InstallingMod {
@@ -450,6 +463,24 @@ fn run_mod_install_step(
     out.writeln("Done")?;
     out.writeln("")?;
     Ok(())
+}
+
+fn resolve_setup_languages(
+    args: &SetupArgs,
+    game_kind: GameKind,
+) -> Result<setup_config::LanguageSelection> {
+    let mut selection =
+        setup_config::load_language_selection(setup_config::app_settings().as_ref(), game_kind);
+
+    if let Some(value) = &args.subtitle_language {
+        selection.subtitle = setup_config::SubtitleLanguage::parse(value)?;
+    }
+
+    if let Some(value) = &args.voice_language {
+        selection.voice = setup_config::VoiceLanguage::parse(value)?;
+    }
+
+    Ok(selection)
 }
 
 fn prompt_theme() -> ColorfulTheme {
@@ -699,6 +730,7 @@ fn confirm_setup_summary(
     selected_mods: &[&common::ModEntry],
     width: u32,
     height: u32,
+    language_selection: setup_config::LanguageSelection,
     prompt: &dyn Prompt,
 ) -> Result<()> {
     out.heading("Summary")?;
@@ -708,6 +740,14 @@ fn confirm_setup_summary(
         out.path(&game_path.display().to_string())
     ))?;
     out.writeln(&format!("Resolution: {}x{}", width, height))?;
+    out.writeln(&format!(
+        "Subtitle language: {}",
+        language_selection.subtitle.label()
+    ))?;
+    out.writeln(&format!(
+        "Voice language: {}",
+        language_selection.voice.label()
+    ))?;
     out.writeln(&format!("Mods selected: {}", selected_mods.len()))?;
     for mod_entry in selected_mods {
         out.writeln(&format!("- {}", mod_entry.name))?;
@@ -920,11 +960,9 @@ pub fn run_from_args_with_io(
                 return Ok(true);
             }
             _ => {
-                return Err(anyhow!(
-                    console::strip_ansi_codes(&error.to_string())
-                        .trim_end()
-                        .to_string()
-                ));
+                return Err(anyhow!(console::strip_ansi_codes(&error.to_string())
+                    .trim_end()
+                    .to_string()));
             }
         },
     };
@@ -1015,9 +1053,9 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
-        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
-        setup_is_fully_specified,
+        parse_xrandr_resolution, resolve_game_kind_rich, resolve_setup_mods,
+        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
+        Command, Prompt, SetupArgs, TerminalPrompt,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1064,6 +1102,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1086,6 +1126,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: true,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1111,6 +1153,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1138,6 +1182,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1203,6 +1249,31 @@ mod tests {
     }
 
     #[test]
+    fn setup_args_accept_language_flags() {
+        let cli = Cli::parse_from([
+            "adventure-mods",
+            "setup",
+            "--game",
+            "sa2",
+            "--game-path",
+            "/tmp/game",
+            "--all-mods",
+            "--subtitle-language",
+            "japanese",
+            "--voice-language",
+            "japanese",
+        ]);
+
+        match cli.command {
+            Some(Command::Setup(args)) => {
+                assert_eq!(args.subtitle_language.as_deref(), Some("japanese"));
+                assert_eq!(args.voice_language.as_deref(), Some("japanese"));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
     fn rejects_removed_non_interactive_flag() {
         let error =
             Cli::try_parse_from(["adventure-mods", "setup", "--non-interactive"]).unwrap_err();
@@ -1251,6 +1322,8 @@ mod tests {
             mods: Some("sa2-render-fix".to_string()),
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: Some(PathBuf::from("/tmp/sa2")),
@@ -1267,6 +1340,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: Some(PathBuf::from("/tmp/sa2")),
@@ -1309,6 +1384,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1330,6 +1407,8 @@ mod tests {
             mods: None,
             preset: None,
             all_mods: true,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1351,6 +1430,8 @@ mod tests {
             mods: None,
             preset: Some("DX Enhanced".to_string()),
             all_mods: true,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1371,6 +1452,8 @@ mod tests {
             mods: Some("sa2-render-fix,hd-gui-sa2-edition".to_string()),
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1390,6 +1473,8 @@ mod tests {
             mods: None,
             preset: Some("DX Enhanced".to_string()),
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: None,
@@ -1409,6 +1494,8 @@ mod tests {
             mods: Some("sa2-render-fix".to_string()),
             preset: None,
             all_mods: false,
+            subtitle_language: None,
+            voice_language: None,
             width: None,
             height: None,
             game_path: Some(PathBuf::from("/tmp/sa2")),
@@ -1514,11 +1601,9 @@ mod tests {
 
         assert!(handled);
         assert!(!initialized);
-        assert!(
-            String::from_utf8(output)
-                .unwrap()
-                .contains(env!("CARGO_PKG_VERSION"))
-        );
+        assert!(String::from_utf8(output)
+            .unwrap()
+            .contains(env!("CARGO_PKG_VERSION")));
     }
 
     #[test]
@@ -1612,12 +1697,10 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sa2_path);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("does not appear to be")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
     }
 
     #[test]
@@ -1639,12 +1722,10 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("does not appear to be")
-        );
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not appear to be"));
     }
 
     #[test]

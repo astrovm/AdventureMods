@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 
 use crate::steam::game::GameKind;
 
@@ -22,6 +22,7 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: config::LanguageSelection,
     mut progress: impl FnMut(InstallProgress<'_>) -> Result<()>,
 ) -> Result<()> {
     for (index, mod_entry) in selected_mods.iter().enumerate() {
@@ -34,7 +35,14 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     }
 
     progress(InstallProgress::GeneratingConfig)?;
-    config::generate_config(game_path, game_kind, selected_mods, width, height)
+    config::generate_config(
+        game_path,
+        game_kind,
+        selected_mods,
+        width,
+        height,
+        language_selection,
+    )
 }
 
 pub fn resolve_selected_mods(
@@ -105,16 +113,12 @@ mod tests {
         let selected =
             resolve_selected_mods(GameKind::SADX, Some("Dreamcast Restoration"), &[]).unwrap();
 
-        assert!(
-            selected
-                .iter()
-                .any(|entry| entry.name == "Dreamcast Characters Pack")
-        );
-        assert!(
-            !selected
-                .iter()
-                .any(|entry| entry.name == "DX Characters Refined")
-        );
+        assert!(selected
+            .iter()
+            .any(|entry| entry.name == "Dreamcast Characters Pack"));
+        assert!(!selected
+            .iter()
+            .any(|entry| entry.name == "DX Characters Refined"));
     }
 
     #[test]

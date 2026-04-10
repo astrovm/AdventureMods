@@ -14,14 +14,16 @@ pub fn generate_sa2_config(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: config::LanguageSelection,
 ) -> Result<()> {
-    let profile = build_default_profile(game_path, selected_mods, width, height);
+    let profile =
+        build_default_profile(game_path, selected_mods, width, height, language_selection);
 
     config::write_manager_json(game_path, GameKind::SA2)?;
     config::write_profiles_json(game_path, "mods/.modloader/profiles")?;
     config::write_default_json(game_path, &profile, "mods/.modloader/profiles")?;
     config::write_samanager_txt(game_path)?;
-    write_user_config(game_path, width, height)?;
+    write_user_config(game_path, width, height, language_selection)?;
 
     tracing::info!("SA2 configuration files generated");
     Ok(())
@@ -97,6 +99,7 @@ fn build_default_profile(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: config::LanguageSelection,
 ) -> DefaultProfile {
     let enabled_mods = config::mod_dir_names(selected_mods);
     let all_recommended: Vec<&ModEntry> = sa2::RECOMMENDED_MODS.iter().collect();
@@ -115,7 +118,7 @@ fn build_default_profile(
             enable_resizable_window: false,
             screen_mode: 1,
             stretch_to_window: false,
-            game_text_language: 0,
+            game_text_language: subtitle_code(language_selection.subtitle),
             skip_intro: false,
             refresh_rate: 60,
             disable_border_image: false,
@@ -132,8 +135,8 @@ fn build_default_profile(
             player2_index: -1,
             event_index: -1,
             save_index: -1,
-            game_text_language: 0,
-            game_voice_language: 0,
+            game_text_language: subtitle_code(language_selection.subtitle),
+            game_voice_language: voice_code(language_selection.voice),
             use_manual: false,
             use_event_manual: false,
             use_position: false,
@@ -151,6 +154,23 @@ fn build_default_profile(
     }
 }
 
+fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
+    match language {
+        config::SubtitleLanguage::English => 0,
+        config::SubtitleLanguage::Japanese => 1,
+        config::SubtitleLanguage::French => 2,
+        config::SubtitleLanguage::German => 3,
+        config::SubtitleLanguage::Spanish => 4,
+    }
+}
+
+fn voice_code(language: config::VoiceLanguage) -> u32 {
+    match language {
+        config::VoiceLanguage::English => 0,
+        config::VoiceLanguage::Japanese => 1,
+    }
+}
+
 /// Recommended SA2 patches: (name, enabled by default).
 const RECOMMENDED_PATCHES: &[(&str, bool)] = &[
     ("FramerateLimiter", false),
@@ -165,7 +185,12 @@ const RECOMMENDED_PATCHES: &[(&str, bool)] = &[
 
 // --- SA2-specific file writers ---
 
-fn write_user_config(game_path: &Path, width: u32, height: u32) -> Result<()> {
+fn write_user_config(
+    game_path: &Path,
+    width: u32,
+    height: u32,
+    language_selection: config::LanguageSelection,
+) -> Result<()> {
     let dir = game_path.join("Config");
     std::fs::create_dir_all(&dir)?;
 
@@ -175,8 +200,10 @@ fn write_user_config(game_path: &Path, width: u32, height: u32) -> Result<()> {
          xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" \
          FullScreen=\"0\" Display=\"0\" Res=\"0\" \
          Width=\"{}\" Height=\"{}\" RefreshRate=\"60\" \
-         Language=\"0\" Analytics=\"0\" />\n",
-        width, height
+         Language=\"{}\" Analytics=\"0\" />\n",
+        width,
+        height,
+        subtitle_code(language_selection.subtitle)
     );
 
     std::fs::write(dir.join("UserConfig.cfg"), xml).context("Failed to write UserConfig.cfg")
@@ -217,19 +244,22 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sa2_config(game_path, &mod_refs, 1920, 1080).unwrap();
+        generate_sa2_config(
+            game_path,
+            &mod_refs,
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SA2),
+        )
+        .unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
-        assert!(
-            game_path
-                .join("mods/.modloader/profiles/Profiles.json")
-                .is_file()
-        );
-        assert!(
-            game_path
-                .join("mods/.modloader/profiles/Default.json")
-                .is_file()
-        );
+        assert!(game_path
+            .join("mods/.modloader/profiles/Profiles.json")
+            .is_file());
+        assert!(game_path
+            .join("mods/.modloader/profiles/Default.json")
+            .is_file());
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("Config/UserConfig.cfg").is_file());
     }
@@ -240,7 +270,14 @@ mod tests {
 
         let mods = test_mods();
         let mod_refs: Vec<&ModEntry> = mods.iter().collect();
-        generate_sa2_config(tmp.path(), &mod_refs, 1920, 1080).unwrap();
+        generate_sa2_config(
+            tmp.path(),
+            &mod_refs,
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SA2),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
@@ -266,7 +303,14 @@ mod tests {
     #[test]
     fn test_no_sadx_specific_fields() {
         let tmp = tempfile::tempdir().unwrap();
-        generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
+        generate_sa2_config(
+            tmp.path(),
+            &[],
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SA2),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
@@ -283,7 +327,13 @@ mod tests {
     #[test]
     fn test_user_config_xml() {
         let tmp = tempfile::tempdir().unwrap();
-        write_user_config(tmp.path(), 1920, 1080).unwrap();
+        write_user_config(
+            tmp.path(),
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SA2),
+        )
+        .unwrap();
 
         let content = std::fs::read_to_string(tmp.path().join("Config/UserConfig.cfg")).unwrap();
         assert!(content.contains("<?xml version"));
@@ -296,7 +346,14 @@ mod tests {
     #[test]
     fn test_empty_mod_selection() {
         let tmp = tempfile::tempdir().unwrap();
-        generate_sa2_config(tmp.path(), &[], 1920, 1080).unwrap();
+        generate_sa2_config(
+            tmp.path(),
+            &[],
+            1920,
+            1080,
+            config::LanguageSelection::defaults_for(GameKind::SA2),
+        )
+        .unwrap();
 
         let content =
             std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
@@ -304,5 +361,40 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert!(parsed["EnabledMods"].as_array().unwrap().is_empty());
         assert!(!parsed["Patches"].as_object().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_selected_languages_are_written_to_profile_and_user_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let selection = config::LanguageSelection {
+            subtitle: config::SubtitleLanguage::German,
+            voice: config::VoiceLanguage::Japanese,
+        };
+
+        generate_sa2_config(tmp.path(), &[], 1920, 1080, selection).unwrap();
+
+        let profile =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&profile).unwrap();
+        assert_eq!(
+            parsed["Graphics"]["GameTextLanguage"],
+            subtitle_code(selection.subtitle)
+        );
+        assert_eq!(
+            parsed["TestSpawn"]["GameTextLanguage"],
+            subtitle_code(selection.subtitle)
+        );
+        assert_eq!(
+            parsed["TestSpawn"]["GameVoiceLanguage"],
+            voice_code(selection.voice)
+        );
+
+        let user_config =
+            std::fs::read_to_string(tmp.path().join("Config/UserConfig.cfg")).unwrap();
+        assert!(user_config.contains(&format!(
+            "Language=\"{}\"",
+            subtitle_code(selection.subtitle)
+        )));
     }
 }

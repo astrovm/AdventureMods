@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use gtk::gio;
+use gtk::prelude::SettingsExt;
 use serde::Serialize;
 
 use super::common::ModEntry;
@@ -15,6 +17,168 @@ pub fn linux_to_wine_path(path: &Path) -> String {
 /// Return the game's canonical `system` directory path.
 pub fn system_dir(game_path: &Path) -> std::path::PathBuf {
     game_path.join("system")
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SubtitleLanguage {
+    English,
+    Japanese,
+    French,
+    German,
+    Spanish,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VoiceLanguage {
+    English,
+    Japanese,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LanguageSelection {
+    pub subtitle: SubtitleLanguage,
+    pub voice: VoiceLanguage,
+}
+
+impl SubtitleLanguage {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "english" => Ok(Self::English),
+            "japanese" => Ok(Self::Japanese),
+            "french" => Ok(Self::French),
+            "german" => Ok(Self::German),
+            "spanish" => Ok(Self::Spanish),
+            _ => anyhow::bail!("Unknown subtitle language '{value}'"),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::English => "english",
+            Self::Japanese => "japanese",
+            Self::French => "french",
+            Self::German => "german",
+            Self::Spanish => "spanish",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::English => "English",
+            Self::Japanese => "Japanese",
+            Self::French => "French",
+            Self::German => "German",
+            Self::Spanish => "Spanish",
+        }
+    }
+
+    pub fn all() -> &'static [Self] {
+        const ALL: &[SubtitleLanguage] = &[
+            SubtitleLanguage::English,
+            SubtitleLanguage::Japanese,
+            SubtitleLanguage::French,
+            SubtitleLanguage::German,
+            SubtitleLanguage::Spanish,
+        ];
+        ALL
+    }
+}
+
+impl VoiceLanguage {
+    pub fn parse(value: &str) -> Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "english" => Ok(Self::English),
+            "japanese" => Ok(Self::Japanese),
+            _ => anyhow::bail!("Unknown voice language '{value}'"),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::English => "english",
+            Self::Japanese => "japanese",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::English => "English",
+            Self::Japanese => "Japanese",
+        }
+    }
+
+    pub fn all() -> &'static [Self] {
+        const ALL: &[VoiceLanguage] = &[VoiceLanguage::English, VoiceLanguage::Japanese];
+        ALL
+    }
+}
+
+impl LanguageSelection {
+    pub fn defaults_for(game_kind: GameKind) -> Self {
+        match game_kind {
+            GameKind::SADX => Self {
+                subtitle: SubtitleLanguage::Japanese,
+                voice: VoiceLanguage::English,
+            },
+            GameKind::SA2 => Self {
+                subtitle: SubtitleLanguage::English,
+                voice: VoiceLanguage::English,
+            },
+        }
+    }
+}
+
+pub fn subtitle_settings_key(game_kind: GameKind) -> &'static str {
+    match game_kind {
+        GameKind::SADX => "sadx-subtitle-language",
+        GameKind::SA2 => "sa2-subtitle-language",
+    }
+}
+
+pub fn voice_settings_key(game_kind: GameKind) -> &'static str {
+    match game_kind {
+        GameKind::SADX => "sadx-voice-language",
+        GameKind::SA2 => "sa2-voice-language",
+    }
+}
+
+pub fn app_settings() -> Option<gio::Settings> {
+    let schema_source = gio::SettingsSchemaSource::default();
+    let has_schema = schema_source.is_some_and(|s| s.lookup(crate::config::APP_ID, true).is_some());
+    has_schema.then(|| gio::Settings::new(crate::config::APP_ID))
+}
+
+pub fn load_language_selection(
+    settings: Option<&gio::Settings>,
+    game_kind: GameKind,
+) -> LanguageSelection {
+    let defaults = LanguageSelection::defaults_for(game_kind);
+    let Some(settings) = settings else {
+        return defaults;
+    };
+
+    let subtitle = SubtitleLanguage::parse(&settings.string(subtitle_settings_key(game_kind)))
+        .unwrap_or(defaults.subtitle);
+    let voice = VoiceLanguage::parse(&settings.string(voice_settings_key(game_kind)))
+        .unwrap_or(defaults.voice);
+
+    LanguageSelection { subtitle, voice }
+}
+
+pub fn save_language_selection(
+    settings: Option<&gio::Settings>,
+    game_kind: GameKind,
+    selection: LanguageSelection,
+) {
+    let Some(settings) = settings else {
+        return;
+    };
+
+    let _ = settings.set_string(
+        subtitle_settings_key(game_kind),
+        selection.subtitle.as_str(),
+    );
+    let _ = settings.set_string(voice_settings_key(game_kind), selection.voice.as_str());
 }
 
 // --- Shared JSON structures for SA Mod Manager config files ---
@@ -189,14 +353,23 @@ pub fn generate_config(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
+    language_selection: LanguageSelection,
 ) -> Result<()> {
     match game_kind {
-        GameKind::SADX => {
-            super::sadx_config::generate_sadx_config(game_path, selected_mods, width, height)
-        }
-        GameKind::SA2 => {
-            super::sa2_config::generate_sa2_config(game_path, selected_mods, width, height)
-        }
+        GameKind::SADX => super::sadx_config::generate_sadx_config(
+            game_path,
+            selected_mods,
+            width,
+            height,
+            language_selection,
+        ),
+        GameKind::SA2 => super::sa2_config::generate_sa2_config(
+            game_path,
+            selected_mods,
+            width,
+            height,
+            language_selection,
+        ),
     }
 }
 
@@ -305,5 +478,50 @@ mod tests {
             content.contains("\"UpdateTimeOutCD\""),
             "Should be UpdateTimeOutCD"
         );
+    }
+
+    #[test]
+    fn subtitle_language_parses_known_values() {
+        assert_eq!(
+            SubtitleLanguage::parse("english").unwrap(),
+            SubtitleLanguage::English
+        );
+        assert_eq!(
+            SubtitleLanguage::parse("japanese").unwrap(),
+            SubtitleLanguage::Japanese
+        );
+    }
+
+    #[test]
+    fn voice_language_rejects_unknown_value() {
+        assert!(VoiceLanguage::parse("klingon").is_err());
+    }
+
+    #[test]
+    fn sadx_defaults_match_existing_behavior() {
+        let defaults = LanguageSelection::defaults_for(GameKind::SADX);
+        assert_eq!(defaults.subtitle, SubtitleLanguage::Japanese);
+        assert_eq!(defaults.voice, VoiceLanguage::English);
+    }
+
+    #[test]
+    fn sa2_defaults_match_existing_behavior() {
+        let defaults = LanguageSelection::defaults_for(GameKind::SA2);
+        assert_eq!(defaults.subtitle, SubtitleLanguage::English);
+        assert_eq!(defaults.voice, VoiceLanguage::English);
+    }
+
+    #[test]
+    fn settings_keys_match_game_language_preferences() {
+        assert_eq!(
+            subtitle_settings_key(GameKind::SADX),
+            "sadx-subtitle-language"
+        );
+        assert_eq!(voice_settings_key(GameKind::SADX), "sadx-voice-language");
+        assert_eq!(
+            subtitle_settings_key(GameKind::SA2),
+            "sa2-subtitle-language"
+        );
+        assert_eq!(voice_settings_key(GameKind::SA2), "sa2-voice-language");
     }
 }

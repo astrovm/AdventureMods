@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use adventure_mods::external::runtime_installer;
 use adventure_mods::setup::common::{self, ModEntry, ModSource};
+use adventure_mods::setup::config::LanguageSelection;
 use adventure_mods::setup::pipeline;
 use adventure_mods::setup::sadx;
 use adventure_mods::steam::game::GameKind;
@@ -11,7 +12,7 @@ use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sadx_fixture;
-use support::{EnvGuard, env_lock};
+use support::{env_lock, EnvGuard};
 
 const DREAMCAST_TEST: ModEntry = ModEntry {
     name: "Dreamcast Test",
@@ -126,49 +127,38 @@ fn sadx_setup_completes_against_fake_steam_install() {
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SADX),
         |_| Ok(()),
     )
     .unwrap();
 
-    assert!(
-        fixture
-            .prefix_path
-            .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
-            .is_dir()
-    );
+    assert!(fixture
+        .prefix_path
+        .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
+        .is_dir());
     assert!(fixture.game_path.join("sonic.exe").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("Sonic Adventure DX.exe.bak")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("mods/.modloader/SADXModLoader.dll")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("system/CHRMODELS_orig.dll")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("Sonic Adventure DX.exe.bak")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("mods/.modloader/SADXModLoader.dll")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("system/CHRMODELS_orig.dll")
+        .is_file());
     assert!(fixture.game_path.join("SAManager/Manager.json").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("mods/.modloader/profiles/Default.json")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("mods/.modloader/profiles/Default.json")
+        .is_file());
     assert!(fixture.game_path.join("system/sonicDX.ini").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("mods/Dreamcast Test/mod.ini")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("mods/Dreamcast Test/mod.ini")
+        .is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
     assert!(fixture.game_path.join("SoundData/voice_jp/wma").is_dir());
     assert!(fixture.wine_log.is_file());
@@ -263,6 +253,7 @@ fn sadx_setup_can_rerun_on_existing_installation() {
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SADX),
         |_| Ok(()),
     )
     .unwrap();
@@ -276,28 +267,23 @@ fn sadx_setup_can_rerun_on_existing_installation() {
         &[&DREAMCAST_TEST, &TEST_FLAT],
         1920,
         1080,
+        LanguageSelection::defaults_for(GameKind::SADX),
         |_| Ok(()),
     )
     .unwrap();
 
     assert!(fixture.game_path.join("sonic.exe").is_file());
-    assert!(
-        fixture
-            .game_path
-            .join("Sonic Adventure DX.exe.bak")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("system/CHRMODELS_orig.dll")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("mods/Dreamcast Test/mod.ini")
-            .is_file()
-    );
+    assert!(fixture
+        .game_path
+        .join("Sonic Adventure DX.exe.bak")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("system/CHRMODELS_orig.dll")
+        .is_file());
+    assert!(fixture
+        .game_path
+        .join("mods/Dreamcast Test/mod.ini")
+        .is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
 }

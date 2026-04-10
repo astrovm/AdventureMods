@@ -7,7 +7,7 @@ use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
 use crate::blocking;
-use crate::setup::{common, pipeline, sadx, steps};
+use crate::setup::{common, config, pipeline, sadx, steps};
 use crate::steam::game::Game;
 
 const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
@@ -37,6 +37,7 @@ mod imp {
         pub current_step: Cell<usize>,
         pub all_steps: RefCell<Vec<steps::SetupStep>>,
         pub selected_mods: RefCell<Vec<usize>>,
+        pub language_selection: RefCell<Option<config::LanguageSelection>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
     }
@@ -94,6 +95,34 @@ fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<us
         .copied()
         .find(|&idx| idx < mod_count)
         .or_else(|| (mod_count > 0).then_some(0))
+}
+
+fn subtitle_language_labels() -> Vec<&'static str> {
+    config::SubtitleLanguage::all()
+        .iter()
+        .map(|language| language.label())
+        .collect()
+}
+
+fn voice_language_labels() -> Vec<&'static str> {
+    config::VoiceLanguage::all()
+        .iter()
+        .map(|language| language.label())
+        .collect()
+}
+
+fn subtitle_language_index(language: config::SubtitleLanguage) -> u32 {
+    config::SubtitleLanguage::all()
+        .iter()
+        .position(|candidate| *candidate == language)
+        .unwrap_or(0) as u32
+}
+
+fn voice_language_index(language: config::VoiceLanguage) -> u32 {
+    config::VoiceLanguage::all()
+        .iter()
+        .position(|candidate| *candidate == language)
+        .unwrap_or(0) as u32
 }
 
 fn populate_mod_preview(
@@ -188,9 +217,14 @@ fn populate_mod_preview(
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
+        let game_kind = game.kind;
         let all_steps = steps::steps_for_game(game.kind);
         obj.imp().all_steps.replace(all_steps);
         obj.imp().game.replace(Some(game));
+        obj.imp().language_selection.replace(Some(config::load_language_selection(
+            config::app_settings().as_ref(),
+            game_kind,
+        )));
 
         let initial_step = obj.skip_completed_steps(0);
         obj.imp().current_step.set(initial_step);
@@ -271,6 +305,72 @@ impl AdventureModsSetupPage {
                 imp.next_button
                     .set_label(if is_last_step { "Finish" } else { "Continue" });
                 imp.next_button.set_sensitive(true);
+
+                if step.id == "language_options" {
+                    let selection = self.current_language_selection();
+
+                    let form_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Vertical)
+                        .spacing(12)
+                        .hexpand(true)
+                        .build();
+
+                    let subtitle_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .spacing(12)
+                        .build();
+                    let subtitle_dropdown = gtk::DropDown::from_strings(&subtitle_language_labels());
+                    subtitle_dropdown.set_selected(subtitle_language_index(selection.subtitle));
+                    subtitle_box.append(
+                        &gtk::Label::builder()
+                            .label("Subtitles")
+                            .halign(gtk::Align::Start)
+                            .hexpand(true)
+                            .build(),
+                    );
+                    subtitle_box.append(&subtitle_dropdown);
+
+                    let voice_box = gtk::Box::builder()
+                        .orientation(gtk::Orientation::Horizontal)
+                        .spacing(12)
+                        .build();
+                    let voice_dropdown = gtk::DropDown::from_strings(&voice_language_labels());
+                    voice_dropdown.set_selected(voice_language_index(selection.voice));
+                    voice_box.append(
+                        &gtk::Label::builder()
+                            .label("Voice Language")
+                            .halign(gtk::Align::Start)
+                            .hexpand(true)
+                            .build(),
+                    );
+                    voice_box.append(&voice_dropdown);
+
+                    let obj = self.clone();
+                    subtitle_dropdown.connect_selected_notify(move |dropdown| {
+                        let language = config::SubtitleLanguage::all()
+                            .get(dropdown.selected() as usize)
+                            .copied()
+                            .unwrap_or(config::SubtitleLanguage::English);
+                        let mut selection = obj.current_language_selection();
+                        selection.subtitle = language;
+                        obj.imp().language_selection.replace(Some(selection));
+                    });
+
+                    let obj = self.clone();
+                    voice_dropdown.connect_selected_notify(move |dropdown| {
+                        let language = config::VoiceLanguage::all()
+                            .get(dropdown.selected() as usize)
+                            .copied()
+                            .unwrap_or(config::VoiceLanguage::English);
+                        let mut selection = obj.current_language_selection();
+                        selection.voice = language;
+                        obj.imp().language_selection.replace(Some(selection));
+                    });
+
+                    form_box.append(&subtitle_box);
+                    form_box.append(&voice_box);
+                    content_box.append(&form_box);
+                }
             }
             steps::StepKind::ExternalAction { button_label } => {
                 imp.next_button.set_label("Continue");
@@ -746,6 +846,7 @@ impl AdventureModsSetupPage {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total_count = selected.len();
                     let game_path = game.path.clone();
+                    let language_selection = obj.current_language_selection();
                     let was_cancelled = cancel_flag.clone();
                     let cancel_during_install = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
@@ -761,6 +862,7 @@ impl AdventureModsSetupPage {
                                 &selected_entries,
                                 width,
                                 height,
+                                language_selection,
                                 |progress| {
                                     if cancel_during_install.load(Ordering::Relaxed) {
                                         return Err(anyhow::anyhow!("cancelled"));
@@ -904,15 +1006,44 @@ impl AdventureModsSetupPage {
             self.show_current_step();
         } else {
             let imp = self.imp();
+            let current_step_id = imp.all_steps.borrow()[imp.current_step.get()].id;
             let next = imp.current_step.get() + 1;
             let total = imp.all_steps.borrow().len();
             if next >= total {
                 // Last step: navigate back to the welcome page
                 self.go_back_to_welcome();
             } else {
+                if current_step_id == "language_options" {
+                    self.persist_language_selection();
+                }
                 self.advance_step();
             }
         }
+    }
+
+    fn current_language_selection(&self) -> config::LanguageSelection {
+        self.imp().language_selection.borrow().unwrap_or_else(|| {
+            self.imp()
+                .game
+                .borrow()
+                .as_ref()
+                .map(|game| config::LanguageSelection::defaults_for(game.kind))
+                .unwrap_or(config::LanguageSelection::defaults_for(
+                    crate::steam::game::GameKind::SADX,
+                ))
+        })
+    }
+
+    fn persist_language_selection(&self) {
+        let Some(game) = self.imp().game.borrow().clone() else {
+            return;
+        };
+
+        config::save_language_selection(
+            config::app_settings().as_ref(),
+            game.kind,
+            self.current_language_selection(),
+        );
     }
 
     fn on_back_clicked(&self) {
@@ -980,7 +1111,7 @@ impl AdventureModsSetupPage {
 
 #[cfg(test)]
 mod tests {
-    use super::initial_preview_index;
+    use super::{initial_preview_index, subtitle_language_labels, voice_language_labels};
 
     #[test]
     fn initial_preview_prefers_first_selected_mod() {
@@ -1011,5 +1142,18 @@ mod tests {
     fn initial_preview_falls_back_to_zero_when_all_selections_out_of_range() {
         // All selected indices are out of range, but mods exist
         assert_eq!(initial_preview_index(3, &[5, 10, 99]), Some(0));
+    }
+
+    #[test]
+    fn subtitle_options_include_expected_values() {
+        assert_eq!(
+            subtitle_language_labels(),
+            vec!["English", "Japanese", "French", "German", "Spanish"]
+        );
+    }
+
+    #[test]
+    fn voice_options_include_expected_values() {
+        assert_eq!(voice_language_labels(), vec!["English", "Japanese"]);
     }
 }
