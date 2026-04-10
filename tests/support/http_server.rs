@@ -65,10 +65,7 @@ impl TestServer {
                             .unwrap_or("/");
 
                         // Split path and query string.
-                        let (path, query) = full_path
-                            .split_once('?')
-                            .map(|(p, q)| (p, q))
-                            .unwrap_or((full_path, ""));
+                        let (path, query) = full_path.split_once('?').unwrap_or((full_path, ""));
 
                         let response = if path == "/gbapi" {
                             // Fake GameBanana Core API: return a single-file response
@@ -136,11 +133,6 @@ impl TestServer {
 
     /// Base URL for GameBanana downloads (sets ADVENTURE_MODS_GAMEBANANA_DL_BASE).
     pub fn gamebanana_dl_base(&self) -> String {
-        self.url("/dl/")
-    }
-
-    #[deprecated(note = "use gamebanana_api_base() + gamebanana_dl_base() instead")]
-    pub fn gamebanana_base(&self) -> String {
         self.url("/dl/")
     }
 }
