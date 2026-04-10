@@ -44,6 +44,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.3" date="2026-04-10">
+      <description>
+        <p>Mods are now always downloaded at their latest version during initial setup.</p>
+        <ul>
+          <li>Replaced static GameBanana file IDs with live API lookups at install time</li>
+          <li>SA2 Render Fix now downloads from its GitHub releases page directly</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.2" date="2026-04-10">
       <description>
         <p>Improved progress reporting in both the GUI and CLI.</p>
