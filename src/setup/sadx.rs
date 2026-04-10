@@ -30,6 +30,7 @@ const DCMODS_BASE: &str =
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "Dreamcast Conversion",
+        slug: "dreamcast-conversion",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DreamcastConversion.7z",
         },
@@ -49,6 +50,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SADX: Fixed Edition",
+        slug: "sadx-fixed-edition",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SADXFE.7z",
         },
@@ -71,6 +73,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Lantern Engine",
+        slug: "lantern-engine",
         source: ModSource::DirectUrl {
             url: "https://github.com/sonicfreak94/sadx-dc-lighting/releases/latest/download/sadx-dc-lighting.7z",
         },
@@ -94,6 +97,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Steam Achievements",
+        slug: "steam-achievements",
         source: ModSource::DirectUrl {
             url: "https://mm.reimuhakurei.net/sadxmods/SteamAchievements.7z",
         },
@@ -110,6 +114,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Smooth Camera",
+        slug: "smooth-camera",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/smooth-cam.7z",
         },
@@ -126,6 +131,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Frame Limit",
+        slug: "frame-limit",
         source: ModSource::DirectUrl {
             url: "https://github.com/michael-fadely/sadx-frame-Limit/releases/latest/download/sadx-frame-limit.7z",
         },
@@ -142,6 +148,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sound Overhaul",
+        slug: "sound-overhaul",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SoundOverhaul.7z",
         },
@@ -155,6 +162,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "ADX Audio",
+        slug: "adx-audio",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
         },
@@ -168,6 +176,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SADX Style Water",
+        slug: "sadx-style-water",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/sadx-style-water.7z",
         },
@@ -187,6 +196,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Onion Blur",
+        slug: "onion-blur",
         source: ModSource::DirectUrl {
             url: "https://github.com/sonicfreak94/sadx-onion-blur/releases/latest/download/sadx-onion-blur.7z",
         },
@@ -206,6 +216,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Dreamcast Characters Pack",
+        slug: "dreamcast-characters-pack",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/SA1_Chars.7z",
         },
@@ -242,6 +253,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "DX Characters Refined",
+        slug: "dx-characters-refined",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 290728,
@@ -268,6 +280,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Dreamcast DLC",
+        slug: "dreamcast-dlc",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/DLCs.7z",
         },
@@ -284,6 +297,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Idle Chatter",
+        slug: "idle-chatter",
         source: ModSource::DirectUrl {
             url: "https://github.com/michael-fadely/sadx-idle-chatter/releases/latest/download/idle-chatter.7z",
         },
@@ -300,6 +314,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Pause Hide",
+        slug: "pause-hide",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/pause-hide.7z",
         },
@@ -316,6 +331,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Time of Day",
+        slug: "time-of-day",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/TrainDaytime.7z",
         },
@@ -332,6 +348,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic Adventure Retranslated",
+        slug: "sonic-adventure-retranslated",
         source: ModSource::DirectUrl {
             url: "https://github.com/SKingBlue/Sonic-Adventure-Retranslated/releases/latest/download/SAR.zip",
         },
@@ -365,6 +382,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HUD Plus",
+        slug: "hud-plus",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/sadx-hud-plus/releases/latest/download/sadx-hud-plus.7z",
         },
@@ -386,6 +404,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HD GUI 2",
+        slug: "hd-gui-2",
         source: ModSource::DirectUrl {
             url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/HD_DCStyle.7z",
         },
@@ -402,6 +421,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Active Mouths",
+        slug: "active-mouths",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 304634,
@@ -423,6 +443,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic: New Tricks",
+        slug: "sonic-new-tricks",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/sadx-new-tricks/releases/latest/download/sadx-new-tricks.7z",
         },
@@ -448,6 +469,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Better Tails AI",
+        slug: "better-tails-ai",
         source: ModSource::DirectUrl {
             url: "https://github.com/Sora-yx/SADX-Better-Tails-AI/releases/latest/download/Better.Tails.AI.zip",
         },
@@ -481,6 +503,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Super Sonic",
+        slug: "super-sonic",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/sadx-super-sonic/releases/latest/download/sadx-super-sonic.7z",
         },
@@ -514,6 +537,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Multiplayer",
+        slug: "multiplayer",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/sadx-multiplayer/releases/latest/download/sadx-multiplayer.7z",
         },
@@ -548,6 +572,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Chao Gameplay",
+        slug: "chao-gameplay",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/sadx-chao-gameplay/releases/latest/download/sadx-chao-gameplay.7z",
         },
@@ -575,6 +600,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Fixes, Adds, and Beta Restores",
+        slug: "fixes-adds-and-beta-restores",
         source: ModSource::DirectUrl {
             url: "https://github.com/supercoolsonic/Fixes_Adds_BetaRestores/releases/latest/download/FABR.7z",
         },
@@ -602,6 +628,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Perfect Chaos Music Swap",
+        slug: "perfect-chaos-music-swap",
         source: ModSource::GameBananaItem {
             item_type: "Sound",
             item_id: 40537,
@@ -619,6 +646,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "AI HD FMVs",
+        slug: "ai-hd-fmvs",
         source: ModSource::DirectUrl {
             url: "https://github.com/kawaiikaorichan/sadx-hd-videos/releases/latest/download/AI_HD_FMVs.7z",
         },
@@ -651,6 +679,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "AI HD Textures",
+        slug: "ai-hd-textures",
         source: ModSource::DirectUrl {
             url: "https://github.com/kawaiikaorichan/AI_textures/releases/latest/download/AI_HD_Textures.7z",
         },

@@ -1298,6 +1298,7 @@ mod tests {
         // When dir_name is None, the name field is used as the directory name
         let mod_entry = ModEntry {
             name: "MyMod",
+            slug: "my-mod",
             source: ModSource::DirectUrl {
                 url: "https://example.com/mod.7z",
             },
@@ -1315,6 +1316,7 @@ mod tests {
     fn test_mod_entry_explicit_dir_name() {
         let mod_entry = ModEntry {
             name: "Display Name",
+            slug: "display-name",
             source: ModSource::DirectUrl {
                 url: "https://example.com/mod.7z",
             },
@@ -1399,6 +1401,7 @@ macro_rules! recommended_mods_tests {
         #[test]
         fn test_mod_entries_have_names_and_descriptions() {
             for m in RECOMMENDED_MODS {
+                assert!(!m.slug.is_empty(), "Mod '{}' has empty slug", m.name);
                 assert!(!m.name.is_empty(), "Mod has empty name");
                 assert!(
                     !m.description.is_empty(),
@@ -1406,6 +1409,17 @@ macro_rules! recommended_mods_tests {
                     m.name
                 );
             }
+        }
+
+        #[test]
+        fn test_mod_slugs_unique() {
+            use std::collections::HashSet;
+            let slugs: HashSet<&str> = RECOMMENDED_MODS.iter().map(|m| m.slug).collect();
+            assert_eq!(
+                slugs.len(),
+                RECOMMENDED_MODS.len(),
+                "Duplicate mod slugs in RECOMMENDED_MODS"
+            );
         }
 
         #[test]

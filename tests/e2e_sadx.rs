@@ -16,6 +16,7 @@ use support::{EnvGuard, env_lock};
 
 const DREAMCAST_TEST: ModEntry = ModEntry {
     name: "Dreamcast Test",
+    slug: "dreamcast-test",
     source: ModSource::GameBananaItem {
         item_type: "Mod",
         item_id: 1,
@@ -29,6 +30,7 @@ const DREAMCAST_TEST: ModEntry = ModEntry {
 
 const TEST_FLAT: ModEntry = ModEntry {
     name: "Test Flat",
+    slug: "test-flat",
     source: ModSource::GameBananaItem {
         item_type: "Mod",
         item_id: 2,

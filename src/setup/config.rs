@@ -463,6 +463,7 @@ mod tests {
         let mods = [
             ModEntry {
                 name: "A",
+                slug: "a",
                 source: ModSource::DirectUrl { url: "https://a" },
                 description: "",
                 full_description: None,
@@ -472,6 +473,7 @@ mod tests {
             },
             ModEntry {
                 name: "B",
+                slug: "b",
                 source: ModSource::DirectUrl { url: "https://b" },
                 description: "",
                 full_description: None,

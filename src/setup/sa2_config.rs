@@ -219,6 +219,7 @@ mod tests {
         vec![
             ModEntry {
                 name: "SA2 Render Fix",
+                slug: "sa2-render-fix",
                 source: ModSource::DirectUrl {
                     url: "https://github.com/shaddatic/sa2b-render-fix/releases/latest/download/sa2-render-fix.7z",
                 },
@@ -230,6 +231,7 @@ mod tests {
             },
             ModEntry {
                 name: "Better Radar",
+                slug: "better-radar",
                 source: ModSource::DirectUrl {
                     url: "https://github.com/kellsnc/SA2BetterRadar/releases/latest/download/SA2BetterRadar.7z",
                 },

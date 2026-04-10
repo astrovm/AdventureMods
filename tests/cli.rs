@@ -231,7 +231,7 @@ fn setup_rejects_unknown_preset() {
 }
 
 #[test]
-fn setup_accepts_human_readable_mod_names_with_whitespace() {
+fn setup_rejects_human_readable_mod_names_with_whitespace() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let _env_lock = env_lock();
     let fixture = create_sa2_fixture();
@@ -314,20 +314,10 @@ fn setup_accepts_human_readable_mod_names_with_whitespace() {
     ]);
     let mut output = Vec::new();
 
-    run_with_io(cli, false, &mut output).unwrap();
+    let result = run_with_io(cli, false, &mut output);
 
-    assert!(
-        fixture
-            .game_path
-            .join("mods/sa2-render-fix/mod.ini")
-            .is_file()
-    );
-    assert!(
-        fixture
-            .game_path
-            .join("mods/HD GUI for SA2/mod.ini")
-            .is_file()
-    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("Unknown mod id"));
 }
 
 #[test]

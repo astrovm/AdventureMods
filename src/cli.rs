@@ -181,7 +181,7 @@ pub struct DetectArgs {
 pub struct SetupArgs {
     #[arg(long, help = "Game to set up: sadx or sa2")]
     pub game: Option<String>,
-    #[arg(long, help = "Comma-separated mod ids to install")]
+    #[arg(long, help = "Comma-separated mod slugs to install")]
     pub mods: Option<String>,
     #[arg(long, help = "Named preset to install (SADX only)")]
     pub preset: Option<String>,
@@ -276,7 +276,7 @@ fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
     out.heading("Mods:")?;
     for mod_entry in common::recommended_mods_for_game(game_kind) {
         out.bold_item(
-            &format!("{} [{}]", mod_entry.name, mod_cli_id(mod_entry.name)),
+            &format!("{} [{}]", mod_entry.name, mod_entry.slug),
             mod_entry.description,
         )?;
     }
@@ -763,10 +763,7 @@ fn resolve_mod_identifier(
 ) -> Result<&'static common::ModEntry> {
     common::recommended_mods_for_game(game_kind)
         .iter()
-        .find(|mod_entry| {
-            mod_entry.name.eq_ignore_ascii_case(identifier)
-                || mod_cli_id(mod_entry.name).eq_ignore_ascii_case(identifier)
-        })
+        .find(|mod_entry| mod_entry.slug.eq_ignore_ascii_case(identifier))
         .ok_or_else(|| {
             anyhow!(
                 "Unknown mod id '{}'. Use 'list-mods --game {}' to see valid ids.",
@@ -774,23 +771,6 @@ fn resolve_mod_identifier(
                 game_kind_arg(game_kind)
             )
         })
-}
-
-fn mod_cli_id(name: &str) -> String {
-    let mut slug = String::new();
-    let mut previous_was_dash = false;
-
-    for ch in name.chars() {
-        if ch.is_ascii_alphanumeric() {
-            slug.push(ch.to_ascii_lowercase());
-            previous_was_dash = false;
-        } else if !previous_was_dash {
-            slug.push('-');
-            previous_was_dash = true;
-        }
-    }
-
-    slug.trim_matches('-').to_string()
 }
 
 fn game_kind_arg(game_kind: GameKind) -> &'static str {
@@ -977,8 +957,8 @@ fn resolve_setup_mods(
     }
 
     bail!(
-        "No mod selection specified. Pass --all-mods, --preset <name>, or --mods <id1,id2>.\n\
-         Use 'list-mods --game {}' to see available mods and presets.",
+        "No mod selection specified. Pass --all-mods, --preset <name>, or --mods <slug1,slug2>.\n\
+          Use 'list-mods --game {}' to see available mods and presets.",
         game_kind_arg(game_kind)
     )
 }
@@ -1195,8 +1175,9 @@ mod tests {
 
     use super::{
         Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
-        persist_cli_language_selection, resolve_game_kind_rich, resolve_setup_mods,
-        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified,
+        persist_cli_language_selection, resolve_game_kind_rich, resolve_mods_flag,
+        resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
+        setup_is_fully_specified,
     };
     use crate::config::APP_ID;
     use crate::setup::common;
@@ -1464,6 +1445,25 @@ mod tests {
             }
             other => panic!("unexpected command: {other:?}"),
         }
+    }
+
+    #[test]
+    fn resolve_mods_flag_accepts_slug_ids() {
+        let selected =
+            resolve_mods_flag(GameKind::SA2, "sa2-render-fix,hd-gui-sa2-edition").unwrap();
+
+        let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
+        assert_eq!(names, vec!["SA2 Render Fix", "HD GUI: SA2 Edition"]);
+    }
+
+    #[test]
+    fn resolve_mods_flag_rejects_display_names() {
+        let error = match resolve_mods_flag(GameKind::SADX, "Fixes, Adds, and Beta Restores") {
+            Ok(_) => panic!("expected display name to be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("Unknown mod id"));
     }
 
     #[test]

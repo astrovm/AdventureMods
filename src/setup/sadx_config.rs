@@ -304,6 +304,7 @@ mod tests {
         vec![
             ModEntry {
                 name: "Test Mod A",
+                slug: "test-mod-a",
                 source: ModSource::DirectUrl {
                     url: "https://example.com/a.7z",
                 },
@@ -315,6 +316,7 @@ mod tests {
             },
             ModEntry {
                 name: "Test Mod B",
+                slug: "test-mod-b",
                 source: ModSource::DirectUrl {
                     url: "https://example.com/b.7z",
                 },

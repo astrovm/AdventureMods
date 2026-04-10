@@ -3,6 +3,7 @@ use super::common::{ModEntry, ModLink, ModSource};
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
         name: "SA2 Render Fix",
+        slug: "sa2-render-fix",
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-render-fix/releases/latest/download/sa2-render-fix.7z",
         },
@@ -36,6 +37,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Retranslated Story -COMPLETE-",
+        slug: "retranslated-story-complete",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 437858,
@@ -64,6 +66,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HD GUI: SA2 Edition",
+        slug: "hd-gui-sa2-edition",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 33171,
@@ -92,6 +95,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "IMPRESSive",
+        slug: "impressive",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 469542,
@@ -116,6 +120,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SA2 Volume Controls",
+        slug: "sa2-volume-controls",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 381193,
@@ -136,6 +141,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Mech Sound Improvement",
+        slug: "mech-sound-improvement",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 412706,
@@ -155,6 +161,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SASDL",
+        slug: "sasdl",
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-sdl-loader/releases/latest/download/sasdl.7z",
         },
@@ -180,6 +187,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "SA2 Input Controls",
+        slug: "sa2-input-controls",
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-input-controls/releases/latest/download/sa2-input-controls.7z",
         },
@@ -207,6 +215,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Better Radar",
+        slug: "better-radar",
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/SA2BetterRadar/releases/latest/download/SA2BetterRadar.7z",
         },
@@ -227,6 +236,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "HedgePanel - Sonic + Shadow Tweaks",
+        slug: "hedgepanel-sonic-shadow-tweaks",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 48950,
@@ -246,6 +256,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Sonic: New Tricks",
+        slug: "sonic-new-tricks",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 48941,
@@ -274,6 +285,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
     },
     ModEntry {
         name: "Retranslated Hints",
+        slug: "retranslated-hints",
         source: ModSource::GameBananaItem {
             item_type: "Mod",
             item_id: 350607,

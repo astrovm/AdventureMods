@@ -15,6 +15,7 @@ use support::{EnvGuard, env_lock};
 
 const RENDER_FIX: ModEntry = ModEntry {
     name: "Render Fix",
+    slug: "render-fix",
     source: ModSource::GameBananaItem {
         item_type: "Mod",
         item_id: 1,
@@ -28,6 +29,7 @@ const RENDER_FIX: ModEntry = ModEntry {
 
 const TEST_FLAT: ModEntry = ModEntry {
     name: "Test Flat",
+    slug: "test-flat",
     source: ModSource::GameBananaItem {
         item_type: "Mod",
         item_id: 2,
@@ -41,6 +43,7 @@ const TEST_FLAT: ModEntry = ModEntry {
 
 const BROKEN_MOD: ModEntry = ModEntry {
     name: "Broken Mod",
+    slug: "broken-mod",
     source: ModSource::GameBananaItem {
         item_type: "Mod",
         item_id: 9999,

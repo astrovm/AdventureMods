@@ -19,6 +19,7 @@ pub struct ModLink {
 /// A recommended mod entry.
 pub struct ModEntry {
     pub name: &'static str,
+    pub slug: &'static str,
     pub source: ModSource,
     pub description: &'static str,
     pub full_description: Option<&'static str>,
