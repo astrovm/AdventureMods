@@ -224,10 +224,12 @@ impl AdventureModsSetupPage {
         let all_steps = steps::steps_for_game(game.kind);
         obj.imp().all_steps.replace(all_steps);
         obj.imp().game.replace(Some(game));
-        obj.imp().language_selection.replace(Some(config::load_language_selection(
-            config::app_settings().as_ref(),
-            game_kind,
-        )));
+        obj.imp()
+            .language_selection
+            .replace(Some(config::load_language_selection(
+                config::app_settings().as_ref(),
+                game_kind,
+            )));
 
         let initial_step = obj.skip_completed_steps(0);
         obj.imp().current_step.set(initial_step);
@@ -1126,9 +1128,7 @@ impl AdventureModsSetupPage {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        initial_preview_index, subtitle_language_labels, voice_language_labels,
-    };
+    use super::{initial_preview_index, subtitle_language_labels, voice_language_labels};
     use crate::steam::game::GameKind;
 
     #[test]
@@ -1174,7 +1174,14 @@ mod tests {
     fn sa2_subtitle_options_include_expected_values() {
         assert_eq!(
             subtitle_language_labels(GameKind::SA2),
-            vec!["English", "Deutsch", "Español", "Français", "Italiano", "日本語"]
+            vec![
+                "English",
+                "Deutsch",
+                "Español",
+                "Français",
+                "Italiano",
+                "日本語"
+            ]
         );
     }
 

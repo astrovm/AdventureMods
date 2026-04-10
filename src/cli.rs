@@ -1,11 +1,11 @@
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
-use dialoguer::{theme::ColorfulTheme, Confirm, MultiSelect, Select};
+use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
 
 use crate::banner;
 use crate::config;
@@ -80,7 +80,7 @@ impl<'a> CliOutput<'a> {
 trait Prompt {
     fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize>;
     fn multi_select(&self, prompt: &str, items: &[String], defaults: &[bool])
-        -> Result<Vec<usize>>;
+    -> Result<Vec<usize>>;
     fn confirm(&self, prompt: &str, default: bool) -> Result<bool>;
 }
 
@@ -312,16 +312,15 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let language_selection = resolve_setup_languages(&args, game_kind)?;
 
     if rich_prompts {
-        confirm_setup_summary(
-            out,
+        let summary = SetupSummary {
             game_kind,
-            &game_path,
-            &selected_mods,
+            game_path: &game_path,
+            selected_mods: &selected_mods,
             width,
             height,
             language_selection,
-            &prompt,
-        )?;
+        };
+        confirm_setup_summary(out, &summary, &prompt)?;
     }
 
     out.writeln(&format!(
@@ -391,11 +390,7 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
 }
 
 fn total_setup_steps(game_kind: GameKind) -> usize {
-    if game_kind == GameKind::SADX {
-        4
-    } else {
-        3
-    }
+    if game_kind == GameKind::SADX { 4 } else { 3 }
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
@@ -420,6 +415,15 @@ fn run_setup_step<T>(
 struct ModInstallStep<'a> {
     game_path: &'a std::path::Path,
     game_kind: GameKind,
+    selected_mods: &'a [&'a common::ModEntry],
+    width: u32,
+    height: u32,
+    language_selection: setup_config::LanguageSelection,
+}
+
+struct SetupSummary<'a> {
+    game_kind: GameKind,
+    game_path: &'a std::path::Path,
     selected_mods: &'a [&'a common::ModEntry],
     width: u32,
     height: u32,
@@ -733,31 +737,26 @@ fn resolve_setup_mods_rich(
 
 fn confirm_setup_summary(
     out: &mut CliOutput,
-    game_kind: GameKind,
-    game_path: &std::path::Path,
-    selected_mods: &[&common::ModEntry],
-    width: u32,
-    height: u32,
-    language_selection: setup_config::LanguageSelection,
+    summary: &SetupSummary<'_>,
     prompt: &dyn Prompt,
 ) -> Result<()> {
     out.heading("Summary")?;
-    out.writeln(&format!("Game: {}", game_kind.name()))?;
+    out.writeln(&format!("Game: {}", summary.game_kind.name()))?;
     out.writeln(&format!(
         "Path: {}",
-        out.path(&game_path.display().to_string())
+        out.path(&summary.game_path.display().to_string())
     ))?;
-    out.writeln(&format!("Resolution: {}x{}", width, height))?;
+    out.writeln(&format!("Resolution: {}x{}", summary.width, summary.height))?;
     out.writeln(&format!(
         "Subtitle language: {}",
-        language_selection.subtitle.label()
+        summary.language_selection.subtitle.label()
     ))?;
     out.writeln(&format!(
         "Voice language: {}",
-        language_selection.voice.label()
+        summary.language_selection.voice.label()
     ))?;
-    out.writeln(&format!("Mods selected: {}", selected_mods.len()))?;
-    for mod_entry in selected_mods {
+    out.writeln(&format!("Mods selected: {}", summary.selected_mods.len()))?;
+    for mod_entry in summary.selected_mods {
         out.writeln(&format!("- {}", mod_entry.name))?;
     }
     out.writeln("")?;
@@ -968,9 +967,11 @@ pub fn run_from_args_with_io(
                 return Ok(true);
             }
             _ => {
-                return Err(anyhow!(console::strip_ansi_codes(&error.to_string())
-                    .trim_end()
-                    .to_string()));
+                return Err(anyhow!(
+                    console::strip_ansi_codes(&error.to_string())
+                        .trim_end()
+                        .to_string()
+                ));
             }
         },
     };
@@ -1061,9 +1062,9 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        parse_xrandr_resolution, resolve_game_kind_rich, resolve_setup_mods,
-        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
-        Command, Prompt, SetupArgs, TerminalPrompt,
+        Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
+        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
+        setup_is_fully_specified,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1609,9 +1610,11 @@ mod tests {
 
         assert!(handled);
         assert!(!initialized);
-        assert!(String::from_utf8(output)
-            .unwrap()
-            .contains(env!("CARGO_PKG_VERSION")));
+        assert!(
+            String::from_utf8(output)
+                .unwrap()
+                .contains(env!("CARGO_PKG_VERSION"))
+        );
     }
 
     #[test]
@@ -1705,10 +1708,12 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sa2_path);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not appear to be"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("does not appear to be")
+        );
     }
 
     #[test]
@@ -1730,10 +1735,12 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not appear to be"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("does not appear to be")
+        );
     }
 
     #[test]

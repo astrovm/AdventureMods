@@ -255,12 +255,16 @@ mod tests {
         .unwrap();
 
         assert!(game_path.join("SAManager/Manager.json").is_file());
-        assert!(game_path
-            .join("mods/.modloader/profiles/Profiles.json")
-            .is_file());
-        assert!(game_path
-            .join("mods/.modloader/profiles/Default.json")
-            .is_file());
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Profiles.json")
+                .is_file()
+        );
+        assert!(
+            game_path
+                .join("mods/.modloader/profiles/Default.json")
+                .is_file()
+        );
         assert!(game_path.join("mods/.modloader/samanager.txt").is_file());
         assert!(game_path.join("Config/UserConfig.cfg").is_file());
     }
