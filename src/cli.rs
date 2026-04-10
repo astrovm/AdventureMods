@@ -393,6 +393,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         language_selection,
     };
     run_mod_install_step(out, step_index, total_steps, &mod_install)?;
+    persist_cli_language_selection(game_kind, language_selection);
 
     out.success("Setup complete!")?;
     Ok(())
@@ -514,6 +515,17 @@ fn resolve_setup_languages(
     }
 
     Ok(selection)
+}
+
+fn persist_cli_language_selection(
+    game_kind: GameKind,
+    language_selection: setup_config::LanguageSelection,
+) {
+    setup_config::save_language_selection(
+        setup_config::app_settings().as_ref(),
+        game_kind,
+        language_selection,
+    );
 }
 
 fn prompt_theme() -> ColorfulTheme {
@@ -1083,21 +1095,78 @@ fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {
 mod tests {
     use std::io::Write;
     use std::path::PathBuf;
+    use std::process::Command as ProcessCommand;
     use std::sync::{Mutex, OnceLock};
 
     use clap::Parser;
+    use gio::Settings;
+    use gio::prelude::SettingsExt;
 
     use super::{
         Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
-        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
-        setup_is_fully_specified,
+        persist_cli_language_selection, resolve_game_kind_rich, resolve_setup_mods,
+        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified,
     };
+    use crate::config::APP_ID;
     use crate::setup::common;
+    use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
     use crate::steam::game::GameKind;
 
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
+        let _guard = env_lock().lock().unwrap();
+        let schema_dir = tempfile::tempdir().unwrap();
+        let schema_path = schema_dir.path().join(format!("{APP_ID}.gschema.xml"));
+        let schema = include_str!("../data/io.github.astrovm.AdventureMods.gschema.xml")
+            .replace("@APP_ID_RAW@", APP_ID)
+            .replace("@APP_PATH_RAW@", "/io/github/astrovm/AdventureMods/");
+        std::fs::write(&schema_path, schema).unwrap();
+
+        let status = ProcessCommand::new("glib-compile-schemas")
+            .arg(schema_dir.path())
+            .status()
+            .unwrap();
+        assert!(status.success(), "glib-compile-schemas failed");
+
+        let previous_schema_dir = std::env::var("GSETTINGS_SCHEMA_DIR").ok();
+        let previous_backend = std::env::var("GSETTINGS_BACKEND").ok();
+        let previous_xdg_config = std::env::var("XDG_CONFIG_HOME").ok();
+        let previous_xdg_data = std::env::var("XDG_DATA_HOME").ok();
+        let config_home = tempfile::tempdir().unwrap();
+        let data_home = tempfile::tempdir().unwrap();
+
+        unsafe {
+            std::env::set_var("GSETTINGS_SCHEMA_DIR", schema_dir.path());
+            std::env::set_var("GSETTINGS_BACKEND", "memory");
+            std::env::set_var("XDG_CONFIG_HOME", config_home.path());
+            std::env::set_var("XDG_DATA_HOME", data_home.path());
+        }
+
+        let settings = Settings::new(APP_ID);
+        let result = test(&settings);
+
+        match previous_schema_dir {
+            Some(value) => unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", value) },
+            None => unsafe { std::env::remove_var("GSETTINGS_SCHEMA_DIR") },
+        }
+        match previous_backend {
+            Some(value) => unsafe { std::env::set_var("GSETTINGS_BACKEND", value) },
+            None => unsafe { std::env::remove_var("GSETTINGS_BACKEND") },
+        }
+        match previous_xdg_config {
+            Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
+            None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
+        }
+        match previous_xdg_data {
+            Some(value) => unsafe { std::env::set_var("XDG_DATA_HOME", value) },
+            None => unsafe { std::env::remove_var("XDG_DATA_HOME") },
+        }
+
+        result
     }
 
     struct MockPrompt {
@@ -1235,6 +1304,29 @@ mod tests {
         };
 
         assert!(error.to_string().contains("at least one mod"));
+    }
+
+    #[test]
+    fn cli_persists_selected_languages() {
+        with_test_settings(|settings| {
+            settings
+                .set_string("sa2-subtitle-language", "english")
+                .unwrap();
+            settings
+                .set_string("sa2-voice-language", "japanese")
+                .unwrap();
+
+            persist_cli_language_selection(
+                GameKind::SA2,
+                LanguageSelection {
+                    subtitle: SubtitleLanguage::Italian,
+                    voice: VoiceLanguage::English,
+                },
+            );
+
+            assert_eq!(settings.string("sa2-subtitle-language"), "italian");
+            assert_eq!(settings.string("sa2-voice-language"), "english");
+        });
     }
 
     #[test]
