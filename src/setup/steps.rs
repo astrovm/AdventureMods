@@ -74,7 +74,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: "language_options",
             title: "Language Options",
-            description: "Choose subtitle and voice languages for the generated mod manager profile.",
+            description: "Choose subtitle and voice languages for the generated mod manager profile:",
             kind: StepKind::Info,
         },
         SetupStep {
