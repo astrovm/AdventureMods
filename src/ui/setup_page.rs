@@ -111,6 +111,31 @@ fn voice_language_labels() -> Vec<&'static str> {
         .collect()
 }
 
+fn completed_mod_fraction(index: usize, total: usize) -> f64 {
+    if total == 0 {
+        return 0.0;
+    }
+
+    index.saturating_sub(1) as f64 / total as f64
+}
+
+fn mod_download_fraction(
+    index: usize,
+    total: usize,
+    downloaded: u64,
+    total_bytes: Option<u64>,
+) -> f64 {
+    let completed = completed_mod_fraction(index, total);
+    let Some(total_bytes) = total_bytes else {
+        return completed;
+    };
+    if total == 0 || total_bytes == 0 {
+        return completed;
+    }
+
+    (completed + (downloaded as f64 / total_bytes as f64 / total as f64)).min(1.0)
+}
+
 fn subtitle_language_index(
     game_kind: crate::steam::game::GameKind,
     language: config::SubtitleLanguage,
@@ -916,7 +941,7 @@ impl AdventureModsSetupPage {
                             total,
                             mod_name,
                         } => {
-                            pb.set_fraction(index as f64 / total as f64);
+                            pb.set_fraction(completed_mod_fraction(index, total));
                             pb.set_text(Some(&format!("{mod_name} ({index}/{total})")));
                         }
                         ProgressMsg::ModBytes {
@@ -927,12 +952,12 @@ impl AdventureModsSetupPage {
                             total_bytes,
                         } => {
                             let bytes_text = if let Some(tb) = total_bytes {
-                                if tb > 0 {
-                                    // Blend item fraction with byte sub-fraction for smoother motion
-                                    let item_frac = (index - 1) as f64 / total as f64;
-                                    let byte_frac = downloaded as f64 / tb as f64 / total as f64;
-                                    pb.set_fraction(item_frac + byte_frac);
-                                }
+                                pb.set_fraction(mod_download_fraction(
+                                    index,
+                                    total,
+                                    downloaded,
+                                    total_bytes,
+                                ));
                                 format!(
                                     "{:.1} / {:.1} MB",
                                     downloaded as f64 / 1_048_576.0,
@@ -1281,7 +1306,10 @@ mod tests {
     use gtk::glib;
 
     use super::AdventureModsSetupPage;
-    use super::{initial_preview_index, subtitle_language_labels, voice_language_labels};
+    use super::{
+        initial_preview_index, mod_download_fraction, subtitle_language_labels,
+        voice_language_labels,
+    };
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
 
@@ -1357,6 +1385,17 @@ mod tests {
     #[test]
     fn voice_options_include_expected_values() {
         assert_eq!(voice_language_labels(), vec!["日本語", "English"]);
+    }
+
+    #[test]
+    fn mod_download_fraction_starts_at_prior_completed_items() {
+        assert_eq!(mod_download_fraction(1, 2, 0, Some(100)), 0.0);
+        assert_eq!(mod_download_fraction(2, 2, 0, Some(100)), 0.5);
+    }
+
+    #[test]
+    fn mod_download_fraction_reaches_completion_at_end_of_last_item() {
+        assert_eq!(mod_download_fraction(2, 2, 100, Some(100)), 1.0);
     }
 
     #[gtk::test]

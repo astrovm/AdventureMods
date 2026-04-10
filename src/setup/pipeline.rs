@@ -45,13 +45,13 @@ pub fn install_selected_mods_and_generate_config_with_progress(
 
         let progress_ref = &mut progress;
         let mut cb = |downloaded: u64, total_bytes: Option<u64>| {
-            let _ = progress_ref(InstallProgress::DownloadingMod {
+            progress_ref(InstallProgress::DownloadingMod {
                 index: mod_index,
                 total: mod_total,
                 mod_name,
                 downloaded,
                 total_bytes,
-            });
+            })
         };
         common::install_mod_with_progress(game_path, mod_entry, Some(&mut cb))?;
     }

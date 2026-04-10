@@ -28,7 +28,7 @@ pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Re
 pub fn download_file_with(
     url: &str,
     dest: &Path,
-    progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -41,7 +41,7 @@ pub fn download_file_with(
 async fn download_file_async_mut(
     url: &str,
     dest: &Path,
-    mut progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+    mut progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
     let client = Client::new();
     let response = fetch_download_response(&client, url).await?;
@@ -66,7 +66,7 @@ async fn download_file_async_mut(
         downloaded += chunk.len() as u64;
 
         if let Some(ref mut progress) = progress {
-            progress(downloaded, total);
+            progress(downloaded, total)?;
         }
     }
 

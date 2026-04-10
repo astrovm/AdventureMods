@@ -439,3 +439,80 @@ fn sa2_setup_does_not_emit_config_progress_after_mod_failure() {
     assert!(result.is_err());
     assert_eq!(progress_events, vec!["1/2:Render Fix", "2/2:Broken Mod"]);
 }
+
+#[test]
+fn sa2_setup_stops_when_download_progress_callback_errors() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    let server = TestServer::start(HashMap::from([
+        (
+            "/samodmanager.zip",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "samodmanager",
+            },
+        ),
+        (
+            "/sa2-loader.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "sa2-loader",
+            },
+        ),
+        (
+            "/dotnet.exe",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "dotnet-installer",
+            },
+        ),
+        (
+            "/files/render-fix.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "render-fix",
+            },
+        ),
+        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+    ]));
+
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+            server.gamebanana_base(),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ]);
+
+    runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
+    common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
+
+    let result = pipeline::install_selected_mods_and_generate_config_with_progress(
+        &fixture.game_path,
+        GameKind::SA2,
+        &[&RENDER_FIX],
+        1920,
+        1080,
+        LanguageSelection::defaults_for(GameKind::SA2),
+        |event| match event {
+            pipeline::InstallProgress::DownloadingMod { .. } => Err(anyhow::anyhow!("cancelled")),
+            _ => Ok(()),
+        },
+    );
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("cancelled"));
+}

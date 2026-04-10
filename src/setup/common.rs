@@ -412,19 +412,22 @@ pub fn install_mod(
     mod_entry: &ModEntry,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    let mut progress_opt = progress;
-    let cb: Option<&mut dyn FnMut(u64, Option<u64>)> = progress_opt
-        .as_mut()
-        .map(|f| f as &mut dyn FnMut(u64, Option<u64>));
-    install_mod_with_progress(game_path, mod_entry, cb)
+    let progress_opt = progress;
+    let mut cb = |downloaded: u64, total_bytes: Option<u64>| {
+        if let Some(ref progress) = progress_opt {
+            progress(downloaded, total_bytes);
+        }
+        Ok(())
+    };
+    install_mod_with_progress(game_path, mod_entry, Some(&mut cb))
 }
 
-/// Like `install_mod` but accepts any `Fn` without `Send` or `'static` bounds.
+/// Like `install_mod` but accepts any `FnMut` without `Send` or `'static` bounds.
 /// Use from pipeline callbacks that capture non-Send state.
 pub fn install_mod_with_progress(
     game_path: &Path,
     mod_entry: &ModEntry,
-    progress: Option<&mut dyn FnMut(u64, Option<u64>)>,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
