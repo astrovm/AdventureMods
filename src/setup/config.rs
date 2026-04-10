@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn test_mod_dir_names() {
         use crate::setup::common::{ModEntry, ModSource};
-        let mods = vec![
+        let mods = [
             ModEntry {
                 name: "A",
                 source: ModSource::DirectUrl { url: "https://a" },

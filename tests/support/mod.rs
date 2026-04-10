@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod http_server;
 pub mod scripts;
 pub mod steam_fixture;

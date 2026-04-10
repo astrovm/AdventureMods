@@ -134,11 +134,9 @@ mod tests {
         {
             use std::os::unix::fs::PermissionsExt;
 
-            for path in [&seven_zz] {
-                let mut permissions = std::fs::metadata(path).unwrap().permissions();
-                permissions.set_mode(0o755);
-                std::fs::set_permissions(path, permissions).unwrap();
-            }
+            let mut permissions = std::fs::metadata(&seven_zz).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&seven_zz, permissions).unwrap();
         }
 
         let search_path = std::env::join_paths([&bin_dir]).unwrap();

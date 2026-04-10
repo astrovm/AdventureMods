@@ -1,11 +1,11 @@
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
-use dialoguer::{theme::ColorfulTheme, Confirm, MultiSelect, Select};
+use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
 
 use crate::banner;
 use crate::config;
@@ -80,7 +80,7 @@ impl<'a> CliOutput<'a> {
 trait Prompt {
     fn select(&self, prompt: &str, items: &[String], default: usize) -> Result<usize>;
     fn multi_select(&self, prompt: &str, items: &[String], defaults: &[bool])
-        -> Result<Vec<usize>>;
+    -> Result<Vec<usize>>;
     fn confirm(&self, prompt: &str, default: bool) -> Result<bool>;
 }
 
@@ -358,16 +358,14 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         "step_index must equal total_steps at the final step; update total_setup_steps if you add a step"
     );
 
-    run_mod_install_step(
-        out,
-        step_index,
-        total_steps,
-        &game_path,
+    let mod_install = ModInstallStep {
+        game_path: &game_path,
         game_kind,
-        &selected_mods,
+        selected_mods: &selected_mods,
         width,
         height,
-    )?;
+    };
+    run_mod_install_step(out, step_index, total_steps, &mod_install)?;
 
     out.success("Setup complete!")?;
     Ok(())
@@ -386,11 +384,7 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
 }
 
 fn total_setup_steps(game_kind: GameKind) -> usize {
-    if game_kind == GameKind::SADX {
-        4
-    } else {
-        3
-    }
+    if game_kind == GameKind::SADX { 4 } else { 3 }
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
@@ -412,15 +406,19 @@ fn run_setup_step<T>(
     Ok(value)
 }
 
+struct ModInstallStep<'a> {
+    game_path: &'a std::path::Path,
+    game_kind: GameKind,
+    selected_mods: &'a [&'a common::ModEntry],
+    width: u32,
+    height: u32,
+}
+
 fn run_mod_install_step(
     out: &mut CliOutput,
     index: usize,
     total: usize,
-    game_path: &std::path::Path,
-    game_kind: GameKind,
-    selected_mods: &[&common::ModEntry],
-    width: u32,
-    height: u32,
+    step: &ModInstallStep<'_>,
 ) -> Result<()> {
     out.heading(&step_heading(
         index,
@@ -428,11 +426,11 @@ fn run_mod_install_step(
         "Install Mods & Generate Config",
     ))?;
     pipeline::install_selected_mods_and_generate_config_with_progress(
-        game_path,
-        game_kind,
-        selected_mods,
-        width,
-        height,
+        step.game_path,
+        step.game_kind,
+        step.selected_mods,
+        step.width,
+        step.height,
         |progress| {
             match progress {
                 pipeline::InstallProgress::InstallingMod {
@@ -922,9 +920,11 @@ pub fn run_from_args_with_io(
                 return Ok(true);
             }
             _ => {
-                return Err(anyhow!(console::strip_ansi_codes(&error.to_string())
-                    .trim_end()
-                    .to_string()))
+                return Err(anyhow!(
+                    console::strip_ansi_codes(&error.to_string())
+                        .trim_end()
+                        .to_string()
+                ));
             }
         },
     };
@@ -1015,9 +1015,9 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        parse_xrandr_resolution, resolve_game_kind_rich, resolve_setup_mods,
-        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
-        Command, Prompt, SetupArgs, TerminalPrompt,
+        Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
+        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
+        setup_is_fully_specified,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1514,9 +1514,11 @@ mod tests {
 
         assert!(handled);
         assert!(!initialized);
-        assert!(String::from_utf8(output)
-            .unwrap()
-            .contains(env!("CARGO_PKG_VERSION")));
+        assert!(
+            String::from_utf8(output)
+                .unwrap()
+                .contains(env!("CARGO_PKG_VERSION"))
+        );
     }
 
     #[test]
@@ -1588,7 +1590,7 @@ mod tests {
         console::set_colors_enabled_stderr(true);
 
         let prompt = TerminalPrompt { use_color: false };
-        let during = prompt.with_stderr_colors(|| console::colors_enabled_stderr());
+        let during = prompt.with_stderr_colors(console::colors_enabled_stderr);
 
         assert!(!during);
         assert!(console::colors_enabled_stderr());
@@ -1610,10 +1612,12 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sa2_path);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not appear to be"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("does not appear to be")
+        );
     }
 
     #[test]
@@ -1635,10 +1639,12 @@ mod tests {
 
         let result = super::validate_game_path(GameKind::SADX, &sadx_path);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not appear to be"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("does not appear to be")
+        );
     }
 
     #[test]

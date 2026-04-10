@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use crate::steam::game::GameKind;
 
@@ -105,12 +105,16 @@ mod tests {
         let selected =
             resolve_selected_mods(GameKind::SADX, Some("Dreamcast Restoration"), &[]).unwrap();
 
-        assert!(selected
-            .iter()
-            .any(|entry| entry.name == "Dreamcast Characters Pack"));
-        assert!(!selected
-            .iter()
-            .any(|entry| entry.name == "DX Characters Refined"));
+        assert!(
+            selected
+                .iter()
+                .any(|entry| entry.name == "Dreamcast Characters Pack")
+        );
+        assert!(
+            !selected
+                .iter()
+                .any(|entry| entry.name == "DX Characters Refined")
+        );
     }
 
     #[test]

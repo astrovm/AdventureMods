@@ -320,10 +320,12 @@ mod tests {
         let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&extra_lib));
 
         assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
-        assert!(result
-            .inaccessible
-            .iter()
-            .any(|game| game.kind == GameKind::SADX));
+        assert!(
+            result
+                .inaccessible
+                .iter()
+                .any(|game| game.kind == GameKind::SADX)
+        );
     }
 
     #[test]

@@ -894,15 +894,15 @@ mod tests {
     #[test]
     fn test_dcmods_urls_use_correct_base() {
         for m in RECOMMENDED_MODS {
-            if let ModSource::DirectUrl { url } = &m.source {
-                if url.contains("dcmods.unreliable.network") {
-                    assert!(
-                        url.starts_with(DCMODS_BASE),
-                        "Mod '{}' dcmods URL doesn't start with DCMODS_BASE: {}",
-                        m.name,
-                        url
-                    );
-                }
+            if let ModSource::DirectUrl { url } = &m.source
+                && url.contains("dcmods.unreliable.network")
+            {
+                assert!(
+                    url.starts_with(DCMODS_BASE),
+                    "Mod '{}' dcmods URL doesn't start with DCMODS_BASE: {}",
+                    m.name,
+                    url
+                );
             }
         }
     }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use adventure_mods::cli::{run_with_io, Cli};
+use adventure_mods::cli::{Cli, run_with_io};
 use adventure_mods::setup::common::ModSource;
 use adventure_mods::setup::{sa2, sadx};
 use clap::Parser;
@@ -12,7 +12,7 @@ use clap::Parser;
 use support::http_server::{Response, TestServer};
 use support::scripts;
 use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
-use support::{env_lock, EnvGuard};
+use support::{EnvGuard, env_lock};
 
 fn leak_str(value: String) -> &'static str {
     Box::leak(value.into_boxed_str())
@@ -299,14 +299,18 @@ fn setup_accepts_human_readable_mod_names_with_whitespace() {
 
     run_with_io(cli, false, &mut output).unwrap();
 
-    assert!(fixture
-        .game_path
-        .join("mods/sa2-render-fix/mod.ini")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/HD GUI for SA2/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/sa2-render-fix/mod.ini")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/HD GUI for SA2/mod.ini")
+            .is_file()
+    );
 }
 
 #[test]
@@ -376,12 +380,14 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
 
     for mod_entry in sa2::RECOMMENDED_MODS {
         let dir = mod_entry.dir_name.unwrap_or(mod_entry.name);
-        assert!(fixture
-            .game_path
-            .join("mods")
-            .join(dir)
-            .join("mod.ini")
-            .is_file());
+        assert!(
+            fixture
+                .game_path
+                .join("mods")
+                .join(dir)
+                .join("mod.ini")
+                .is_file()
+        );
     }
 }
 
@@ -481,12 +487,14 @@ fn setup_installs_sadx_preset_from_cli_flag() {
             .find(|entry| entry.name == *mod_name)
             .unwrap();
         let dir = mod_entry.dir_name.unwrap_or(mod_entry.name);
-        assert!(fixture
-            .game_path
-            .join("mods")
-            .join(dir)
-            .join("mod.ini")
-            .is_file());
+        assert!(
+            fixture
+                .game_path
+                .join("mods")
+                .join(dir)
+                .join("mod.ini")
+                .is_file()
+        );
     }
 }
 
@@ -745,14 +753,18 @@ fn interactive_sa2_setup_completes_via_tty() {
     let output = child.wait_with_output().unwrap();
 
     assert!(output.status.success());
-    assert!(fixture
-        .game_path
-        .join("mods/sa2-render-fix/mod.ini")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/HD GUI for SA2/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/sa2-render-fix/mod.ini")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/HD GUI for SA2/mod.ini")
+            .is_file()
+    );
 }
 
 #[test]
@@ -851,10 +863,12 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
     let output = child.wait_with_output().unwrap();
 
     assert!(output.status.success());
-    assert!(fixture
-        .game_path
-        .join("mods/DreamcastConversion/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/DreamcastConversion/mod.ini")
+            .is_file()
+    );
     assert!(fixture.game_path.join("mods/SADXFE/mod.ini").is_file());
 }
 
@@ -944,18 +958,24 @@ fn setup_installs_selected_mods_from_cli_flags() {
     let output = String::from_utf8(output).unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/SA2ModLoader.dll")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/sa2-render-fix/mod.ini")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/HD GUI for SA2/mod.ini")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/SA2ModLoader.dll")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/sa2-render-fix/mod.ini")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("mods/HD GUI for SA2/mod.ini")
+            .is_file()
+    );
     assert!(output.contains("Step 1/3: Install .NET Runtime\nDone\n"));
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));

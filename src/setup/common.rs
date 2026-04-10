@@ -564,8 +564,8 @@ fn find_file_icase(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
     None
 }
 
-
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use std::sync::{Mutex, OnceLock};
 
@@ -1236,7 +1236,7 @@ mod tests {
             dir_name: Some("FolderName"),
             links: &[],
         };
-            let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
+        let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
         assert_eq!(dir_name, "FolderName");
     }
 }

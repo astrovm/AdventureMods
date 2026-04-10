@@ -19,9 +19,11 @@ fn download_rejects_html_responses() {
 
     let error = download::download_file(&server.url("/download"), &dest, None).unwrap_err();
 
-    assert!(error
-        .to_string()
-        .contains("Server returned HTML instead of a file"));
+    assert!(
+        error
+            .to_string()
+            .contains("Server returned HTML instead of a file")
+    );
 }
 
 #[test]

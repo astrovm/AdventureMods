@@ -185,7 +185,6 @@ fn populate_mod_preview(
     }
 }
 
-
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
@@ -772,8 +771,7 @@ impl AdventureModsSetupPage {
                                             total,
                                             mod_name,
                                         } => {
-                                            let status =
-                                                format!("{mod_name} ({index}/{total})");
+                                            let status = format!("{mod_name} ({index}/{total})");
                                             let _ = tx.send_blocking((
                                                 index as u64,
                                                 Some(total as u64),
