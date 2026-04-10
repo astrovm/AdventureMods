@@ -644,6 +644,90 @@ fn setup_surfaces_archive_extraction_failures() {
 }
 
 #[test]
+fn cli_setup_errors_start_on_new_line_after_progress_output() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    scripts::write_script(&fixture.fake_7zz, "#!/bin/sh\nexit 1\n");
+
+    let server = TestServer::start(HashMap::from([
+        (
+            "/samodmanager.zip",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "samodmanager",
+            },
+        ),
+        (
+            "/sa2-loader.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "sa2-loader",
+            },
+        ),
+        (
+            "/dotnet.exe",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "dotnet-installer",
+            },
+        ),
+        (
+            "/files/render-fix.7z",
+            Response::Ok {
+                content_type: "application/octet-stream",
+                body: "render-fix",
+            },
+        ),
+        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+    ]));
+
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
+            server.gamebanana_base(),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ]);
+
+    let binary = env!("CARGO_BIN_EXE_adventure-mods");
+    let output = Command::new(binary)
+        .args([
+            "setup",
+            "--game",
+            "sa2",
+            "--game-path",
+            fixture.game_path.to_str().unwrap(),
+            "--mods",
+            "sa2-render-fix",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("\r  0.0 / 0.0 MB (100%)\nArchive extraction failed"),
+        "stderr was: {stderr:?}"
+    );
+}
+
+#[test]
 fn interactive_setup_can_be_cancelled_via_tty() {
     let script = match Command::new("script").arg("--version").output() {
         Ok(_) => "script",

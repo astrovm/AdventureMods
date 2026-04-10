@@ -136,6 +136,36 @@ fn mod_download_fraction(
     (completed + (downloaded as f64 / total_bytes as f64 / total as f64)).min(1.0)
 }
 
+struct ModDownloadProgressUpdate {
+    fraction: f64,
+    pulse: bool,
+    text: String,
+}
+
+fn mod_download_progress_update(
+    index: usize,
+    total: usize,
+    mod_name: &str,
+    downloaded: u64,
+    total_bytes: Option<u64>,
+) -> ModDownloadProgressUpdate {
+    let bytes_text = if let Some(tb) = total_bytes {
+        format!(
+            "{:.1} / {:.1} MB",
+            downloaded as f64 / 1_048_576.0,
+            tb as f64 / 1_048_576.0,
+        )
+    } else {
+        format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+    };
+
+    ModDownloadProgressUpdate {
+        fraction: mod_download_fraction(index, total, downloaded, total_bytes),
+        pulse: total_bytes.is_none(),
+        text: format!("{mod_name} ({index}/{total}) - {bytes_text}"),
+    }
+}
+
 fn subtitle_language_index(
     game_kind: crate::steam::game::GameKind,
     language: config::SubtitleLanguage,
@@ -951,24 +981,19 @@ impl AdventureModsSetupPage {
                             downloaded,
                             total_bytes,
                         } => {
-                            let bytes_text = if let Some(tb) = total_bytes {
-                                pb.set_fraction(mod_download_fraction(
-                                    index,
-                                    total,
-                                    downloaded,
-                                    total_bytes,
-                                ));
-                                format!(
-                                    "{:.1} / {:.1} MB",
-                                    downloaded as f64 / 1_048_576.0,
-                                    tb as f64 / 1_048_576.0,
-                                )
+                            let update = mod_download_progress_update(
+                                index,
+                                total,
+                                &mod_name,
+                                downloaded,
+                                total_bytes,
+                            );
+                            if update.pulse {
+                                pb.pulse();
                             } else {
-                                format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
-                            };
-                            pb.set_text(Some(&format!(
-                                "{mod_name} ({index}/{total}) - {bytes_text}"
-                            )));
+                                pb.set_fraction(update.fraction);
+                            }
+                            pb.set_text(Some(&update.text));
                         }
                         ProgressMsg::Configuring { total } => {
                             pb.set_fraction(1.0);
@@ -1307,8 +1332,8 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        initial_preview_index, mod_download_fraction, subtitle_language_labels,
-        voice_language_labels,
+        completed_mod_fraction, initial_preview_index, mod_download_fraction,
+        mod_download_progress_update, subtitle_language_labels, voice_language_labels,
     };
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
@@ -1396,6 +1421,15 @@ mod tests {
     #[test]
     fn mod_download_fraction_reaches_completion_at_end_of_last_item() {
         assert_eq!(mod_download_fraction(2, 2, 100, Some(100)), 1.0);
+    }
+
+    #[test]
+    fn mod_download_progress_pulses_when_total_size_is_unknown() {
+        let update = mod_download_progress_update(2, 4, "Render Fix", 1_048_576, None);
+
+        assert_eq!(update.fraction, completed_mod_fraction(2, 4));
+        assert!(update.pulse);
+        assert_eq!(update.text, "Render Fix (2/4) - 1.0 MB");
     }
 
     #[gtk::test]

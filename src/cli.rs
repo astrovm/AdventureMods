@@ -447,6 +447,8 @@ fn run_download_step<T>(
     // Track last printed MB to avoid flooding stdout
     let last_mb = std::sync::Arc::new(std::sync::Mutex::new(-1i64));
     let last_mb_clone = last_mb.clone();
+    let wrote_progress = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let wrote_progress_clone = wrote_progress.clone();
 
     let use_color = out.use_color;
     let dim = out.dim.clone();
@@ -457,6 +459,7 @@ fn run_download_step<T>(
             let mut last = last_mb_clone.lock().unwrap();
             if mb != *last {
                 *last = mb;
+                wrote_progress_clone.store(true, std::sync::atomic::Ordering::Relaxed);
                 let text = if let Some(tb) = total_bytes {
                     let total_mb = tb as f64 / 1_048_576.0;
                     let pct = downloaded as f64 / tb as f64 * 100.0;
@@ -477,8 +480,11 @@ fn run_download_step<T>(
             }
         }));
 
-    let value = action(progress_fn)?;
-    eprintln!(); // newline after last progress line
+    let value = action(progress_fn);
+    if wrote_progress.load(std::sync::atomic::Ordering::Relaxed) {
+        eprintln!();
+    }
+    let value = value?;
     out.writeln("Done")?;
     out.writeln("")?;
     Ok(value)
@@ -514,7 +520,8 @@ fn run_mod_install_step(
         "Install Mods & Generate Config",
     ))?;
     let mut last_dl_mb: i64 = -1;
-    pipeline::install_selected_mods_and_generate_config_with_progress(
+    let mut wrote_progress = false;
+    let result = pipeline::install_selected_mods_and_generate_config_with_progress(
         step.game_path,
         step.game_kind,
         step.selected_mods,
@@ -539,6 +546,7 @@ fn run_mod_install_step(
                     let mb = (downloaded / 1_048_576) as i64;
                     if mb != last_dl_mb {
                         last_dl_mb = mb;
+                        wrote_progress = true;
                         let text = if let Some(tb) = total_bytes {
                             let pct = downloaded as f64 / tb as f64 * 100.0;
                             format!(
@@ -564,7 +572,11 @@ fn run_mod_install_step(
             }
             Ok(())
         },
-    )?;
+    );
+    if wrote_progress {
+        eprintln!();
+    }
+    result?;
     out.writeln("Done")?;
     out.writeln("")?;
     Ok(())
