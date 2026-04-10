@@ -469,11 +469,11 @@ fn run_download_step<T>(
                 } else {
                     format!("  {:.1} MB downloaded", downloaded as f64 / 1_048_576.0)
                 };
-                let _ = if use_color {
+                if use_color {
                     eprint!("\r{}", dim.apply_to(&text))
                 } else {
                     eprint!("\r{text}")
-                };
+                }
             }
         }));
 
@@ -550,11 +550,11 @@ fn run_mod_install_step(
                         } else {
                             format!("    {:.1} MB", downloaded as f64 / 1_048_576.0)
                         };
-                        let _ = if out.use_color {
+                        if out.use_color {
                             eprint!("\r{}", out.dim.apply_to(&text))
                         } else {
                             eprint!("\r{text}")
-                        };
+                        }
                     }
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
