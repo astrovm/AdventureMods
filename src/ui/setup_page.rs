@@ -649,15 +649,17 @@ impl AdventureModsSetupPage {
         });
     }
 
-    fn run_external_action(step_id: &'static str, _game: Game, button: gtk::Button) {
-        glib::spawn_future_local(async move {
-            let result: anyhow::Result<()> = Ok(());
-
-            button.set_sensitive(true);
-            if let Err(e) = result {
-                tracing::error!("External action '{step_id}' failed: {e}");
+    fn run_external_action(step_id: &'static str, game: Game, button: gtk::Button) {
+        if step_id == "steam_config" {
+            if let Some(setup_page) = button
+                .ancestor(AdventureModsSetupPage::static_type())
+                .and_then(|w| w.downcast::<AdventureModsSetupPage>().ok())
+            {
+                let msg = common::steam_config_message(&game);
+                setup_page.imp().step_description.set_label(&msg);
             }
-        });
+        }
+        button.set_sensitive(true);
     }
 
     fn run_download_step(
