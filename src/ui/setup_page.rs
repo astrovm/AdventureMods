@@ -7,7 +7,7 @@ use adw::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 
 use crate::blocking;
-use crate::setup::{common, config, sadx, steps};
+use crate::setup::{common, pipeline, sadx, steps};
 use crate::steam::game::Game;
 
 const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
@@ -753,42 +753,41 @@ impl AdventureModsSetupPage {
                     let mods_list = common::recommended_mods_for_game(game_kind);
                     match blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
-                            for (i, idx) in selected.iter().enumerate() {
-                                if cancel_flag.load(Ordering::Relaxed) {
-                                    return Err(anyhow::anyhow!("cancelled"));
-                                }
-                                if let Some(mod_entry) = mods_list.get(*idx) {
-                                    let status =
-                                        format!("{} ({}/{})", mod_entry.name, i + 1, total_count);
-                                    let _ = tx.send_blocking((
-                                        i as u64,
-                                        Some(total_count as u64),
-                                        status,
-                                    ));
-
-                                    common::install_mod(&game_path, mod_entry, None)?;
-                                }
-                            }
-
-                            // Generate SA Mod Manager config files
-                            let _ = tx.send_blocking((
-                                total_count as u64,
-                                Some(total_count as u64),
-                                "Configuring...".to_string(),
-                            ));
                             let selected_entries: Vec<&common::ModEntry> = selected
                                 .iter()
                                 .filter_map(|idx| mods_list.get(*idx))
                                 .collect();
-                            config::generate_config(
+                            pipeline::install_selected_mods_and_generate_config_with_progress(
                                 &game_path,
                                 game_kind,
                                 &selected_entries,
                                 width,
                                 height,
-                            )?;
-
-                            Ok(())
+                                |progress| {
+                                    match progress {
+                                        pipeline::InstallProgress::InstallingMod {
+                                            index,
+                                            total,
+                                            mod_name,
+                                        } => {
+                                            let status =
+                                                format!("{mod_name} ({index}/{total})");
+                                            let _ = tx.send_blocking((
+                                                (index - 1) as u64,
+                                                Some(total as u64),
+                                                status,
+                                            ));
+                                        }
+                                        pipeline::InstallProgress::GeneratingConfig => {
+                                            let _ = tx.send_blocking((
+                                                total_count as u64,
+                                                Some(total_count as u64),
+                                                "Configuring...".to_string(),
+                                            ));
+                                        }
+                                    }
+                                },
+                            )
                         })
                         .await,
                     ) {

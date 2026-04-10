@@ -274,13 +274,21 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let prompt = TerminalPrompt {
         use_color: out.use_color,
     };
+
+    // Detect once so both kind and path resolution share the same result.
+    let detected = if rich_prompts && args.game.is_none() && args.game_path.is_none() {
+        Some(detect_games_strict(&args.detect)?)
+    } else {
+        None
+    };
+
     let game_kind = if rich_prompts {
-        resolve_game_kind_rich(&args, &prompt)?
+        resolve_game_kind_rich(&args, detected.as_ref(), &prompt)?
     } else {
         resolve_game_kind(&args)?
     };
     let game_path = if rich_prompts {
-        resolve_game_path_rich(&args, game_kind, &prompt)?
+        resolve_game_path_rich(&args, game_kind, detected.as_ref(), &prompt)?
     } else {
         resolve_game_path(&args, game_kind)?
     };
@@ -418,7 +426,11 @@ fn prompt_theme() -> ColorfulTheme {
     ColorfulTheme::default()
 }
 
-fn resolve_game_kind_rich(args: &SetupArgs, prompt: &dyn Prompt) -> Result<GameKind> {
+fn resolve_game_kind_rich(
+    args: &SetupArgs,
+    detected: Option<&DetectionResult>,
+    prompt: &dyn Prompt,
+) -> Result<GameKind> {
     if let Some(game) = &args.game {
         return parse_game_kind(game);
     }
@@ -430,7 +442,10 @@ fn resolve_game_kind_rich(args: &SetupArgs, prompt: &dyn Prompt) -> Result<GameK
         return Ok(options[selection]);
     }
 
-    let result = detect_games_strict(&args.detect)?;
+    let result = match detected {
+        Some(r) => r,
+        None => &detect_games_strict(&args.detect)?,
+    };
     if result.games.len() == 1 {
         return Ok(result.games[0].kind);
     }
@@ -450,6 +465,7 @@ fn resolve_game_kind_rich(args: &SetupArgs, prompt: &dyn Prompt) -> Result<GameK
 fn resolve_game_path_rich(
     args: &SetupArgs,
     game_kind: GameKind,
+    detected: Option<&DetectionResult>,
     prompt: &dyn Prompt,
 ) -> Result<PathBuf> {
     if let Some(path) = &args.game_path {
@@ -457,11 +473,19 @@ fn resolve_game_path_rich(
         return Ok(path.clone());
     }
 
-    let mut games: Vec<Game> = detect_games_strict(&args.detect)?
-        .games
-        .into_iter()
-        .filter(|game| game.kind == game_kind)
-        .collect();
+    let mut games: Vec<Game> = match detected {
+        Some(r) => r
+            .games
+            .iter()
+            .filter(|g| g.kind == game_kind)
+            .cloned()
+            .collect(),
+        None => detect_games_strict(&args.detect)?
+            .games
+            .into_iter()
+            .filter(|game| game.kind == game_kind)
+            .collect(),
+    };
 
     match games.len() {
         0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
@@ -942,7 +966,7 @@ mod tests {
             confirm_result: true,
         };
 
-        let kind = resolve_game_kind_rich(&args, &prompt).unwrap();
+        let kind = resolve_game_kind_rich(&args, None, &prompt).unwrap();
         assert_eq!(kind, GameKind::SA2);
     }
 

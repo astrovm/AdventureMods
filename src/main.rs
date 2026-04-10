@@ -14,9 +14,9 @@ fn main() -> ExitCode {
         }
     }
 
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
+    // Install the ring TLS provider. If the CLI path already installed it,
+    // install_default returns an error which we can safely ignore.
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     tracing_subscriber::fmt::init();
 

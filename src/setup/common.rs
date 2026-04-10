@@ -613,7 +613,14 @@ fn copy_dir_all(src: &Path, dest: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, OnceLock};
+
     use super::*;
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_resolve_gamebanana_url() {
@@ -634,6 +641,7 @@ mod tests {
 
     #[test]
     fn test_resolve_direct_url_rewrites_sadx_base_when_overridden() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         unsafe {
             std::env::set_var("ADVENTURE_MODS_DCMODS_BASE_URL", "http://127.0.0.1:4010/dcmods/");
         }
@@ -661,6 +669,7 @@ mod tests {
 
     #[test]
     fn test_gamebanana_download_base_uses_override() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_GAMEBANANA_BASE_URL",
@@ -680,6 +689,7 @@ mod tests {
 
     #[test]
     fn test_sa_mod_manager_url_uses_override() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
@@ -699,6 +709,7 @@ mod tests {
 
     #[test]
     fn test_mod_loader_url_uses_override() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
