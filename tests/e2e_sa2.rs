@@ -217,15 +217,18 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
         &[&RENDER_FIX, &TEST_FLAT],
         1920,
         1080,
-        |event| match event {
-            pipeline::InstallProgress::InstallingMod {
-                index,
-                total,
-                mod_name,
-            } => progress_events.push(format!("{index}/{total}:{mod_name}")),
-            pipeline::InstallProgress::GeneratingConfig => {
-                progress_events.push("config".to_string())
+        |event| {
+            match event {
+                pipeline::InstallProgress::InstallingMod {
+                    index,
+                    total,
+                    mod_name,
+                } => progress_events.push(format!("{index}/{total}:{mod_name}")),
+                pipeline::InstallProgress::GeneratingConfig => {
+                    progress_events.push("config".to_string())
+                }
             }
+            Ok(())
         },
     )
     .unwrap();
@@ -399,15 +402,18 @@ fn sa2_setup_does_not_emit_config_progress_after_mod_failure() {
         &[&RENDER_FIX, &BROKEN_MOD],
         1920,
         1080,
-        |event| match event {
-            pipeline::InstallProgress::InstallingMod {
-                index,
-                total,
-                mod_name,
-            } => progress_events.push(format!("{index}/{total}:{mod_name}")),
-            pipeline::InstallProgress::GeneratingConfig => {
-                progress_events.push("config".to_string())
+        |event| {
+            match event {
+                pipeline::InstallProgress::InstallingMod {
+                    index,
+                    total,
+                    mod_name,
+                } => progress_events.push(format!("{index}/{total}:{mod_name}")),
+                pipeline::InstallProgress::GeneratingConfig => {
+                    progress_events.push("config".to_string())
+                }
             }
+            Ok(())
         },
     );
 

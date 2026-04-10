@@ -29,7 +29,7 @@ pub fn install_selected_mods_and_generate_config(
         selected_mods,
         width,
         height,
-        |_| {},
+        |_| Ok(()),
     )
 }
 
@@ -39,18 +39,18 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     selected_mods: &[&ModEntry],
     width: u32,
     height: u32,
-    mut progress: impl FnMut(InstallProgress<'_>),
+    mut progress: impl FnMut(InstallProgress<'_>) -> Result<()>,
 ) -> Result<()> {
     for (index, mod_entry) in selected_mods.iter().enumerate() {
         progress(InstallProgress::InstallingMod {
             index: index + 1,
             total: selected_mods.len(),
             mod_name: mod_entry.name,
-        });
+        })?;
         common::install_mod(game_path, mod_entry, None)?;
     }
 
-    progress(InstallProgress::GeneratingConfig);
+    progress(InstallProgress::GeneratingConfig)?;
     config::generate_config(game_path, game_kind, selected_mods, width, height)
 }
 
@@ -66,7 +66,7 @@ pub fn resolve_selected_mods(
             .iter()
             .map(|name| {
                 mods.iter()
-                    .find(|entry| entry.name == *name)
+                    .find(|entry| entry.name.eq_ignore_ascii_case(name))
                     .ok_or_else(|| anyhow!("Unknown mod '{}' for {}", name, game_kind.name()))
             })
             .collect();
@@ -75,7 +75,7 @@ pub fn resolve_selected_mods(
     if let Some(preset_name) = preset_name {
         let preset = common::presets_for_game(game_kind)
             .iter()
-            .find(|preset| preset.name == preset_name)
+            .find(|preset| preset.name.eq_ignore_ascii_case(preset_name))
             .ok_or_else(|| anyhow!("Unknown preset '{}' for {}", preset_name, game_kind.name()))?;
 
         return preset
@@ -83,7 +83,7 @@ pub fn resolve_selected_mods(
             .iter()
             .map(|name| {
                 mods.iter()
-                    .find(|entry| entry.name == *name)
+                    .find(|entry| entry.name.eq_ignore_ascii_case(name))
                     .ok_or_else(|| {
                         anyhow!(
                             "Preset '{}' references unknown mod '{}' for {}",

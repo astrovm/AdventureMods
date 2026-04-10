@@ -751,6 +751,7 @@ impl AdventureModsSetupPage {
                     let total_count = selected.len();
                     let game_path = game.path.clone();
                     let was_cancelled = cancel_flag.clone();
+                    let cancel_during_install = cancel_flag.clone();
                     let mods_list = common::recommended_mods_for_game(game_kind);
                     match blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
@@ -765,6 +766,9 @@ impl AdventureModsSetupPage {
                                 width,
                                 height,
                                 |progress| {
+                                    if cancel_during_install.load(Ordering::Relaxed) {
+                                        return Err(anyhow::anyhow!("cancelled"));
+                                    }
                                     match progress {
                                         pipeline::InstallProgress::InstallingMod {
                                             index,
@@ -787,6 +791,7 @@ impl AdventureModsSetupPage {
                                             ));
                                         }
                                     }
+                                    Ok(())
                                 },
                             )
                         })

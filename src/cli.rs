@@ -6,10 +6,10 @@ use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
 use dialoguer::{theme::ColorfulTheme, Confirm, MultiSelect, Select};
-use tokio::runtime::Builder;
 
 use crate::banner;
 use crate::config;
+use crate::external::runtime_installer;
 use crate::setup::{common, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
@@ -260,7 +260,11 @@ fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
 }
 
 fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
-    let term_width = console::Term::stdout().size().1 as usize;
+    let term_width = if out.use_color {
+        console::Term::stdout().size().1 as usize
+    } else {
+        0
+    };
     if term_width >= 30 {
         banner::print_banner(&mut out.writer, out.use_color)?;
     }
@@ -325,12 +329,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let mut step_index = 1;
 
     run_setup_step(out, step_index, total_steps, "Install .NET Runtime", || {
-        Builder::new_current_thread()
-            .build()?
-            .block_on(common::install_runtimes(
-                game_path.clone(),
-                game_kind.app_id(),
-            ))
+        runtime_installer::install_runtimes(&game_path, game_kind.app_id())
     })?;
     step_index += 1;
 
@@ -365,17 +364,20 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         &selected_mods,
         width,
         height,
-        |progress| match progress {
-            pipeline::InstallProgress::InstallingMod {
-                index,
-                total,
-                mod_name,
-            } => {
-                let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
+        |progress| {
+            match progress {
+                pipeline::InstallProgress::InstallingMod {
+                    index,
+                    total,
+                    mod_name,
+                } => {
+                    let _ = out.writeln(&format!("  - Installing mod {index}/{total}: {mod_name}"));
+                }
+                pipeline::InstallProgress::GeneratingConfig => {
+                    let _ = out.writeln("  - Generating mod config");
+                }
             }
-            pipeline::InstallProgress::GeneratingConfig => {
-                let _ = out.writeln("  - Generating mod config");
-            }
+            Ok(())
         },
     )?;
     out.writeln("Done")?;
@@ -619,10 +621,13 @@ fn resolve_setup_mods_rich(
     for preset in presets {
         options.push(format!("{} - {}", preset.name, preset.description));
     }
-    let has_all_recommended_option = presets.is_empty();
-    if has_all_recommended_option {
+    let all_recommended_index = if presets.is_empty() {
+        let idx = options.len();
         options.push("Install all recommended mods".to_string());
-    }
+        Some(idx)
+    } else {
+        None
+    };
     options.push("Choose mods manually".to_string());
 
     let selection = prompt.select("Choose setup mode", &options, 0)?;
@@ -630,7 +635,7 @@ fn resolve_setup_mods_rich(
     if selection < presets.len() {
         return pipeline::resolve_selected_mods(game_kind, Some(presets[selection].name), &[]);
     }
-    if has_all_recommended_option && selection == presets.len() {
+    if Some(selection) == all_recommended_index {
         return Ok(common::recommended_mods_for_game(game_kind)
             .iter()
             .collect());
