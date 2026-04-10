@@ -1268,7 +1268,95 @@ mod tests {
             dir_name: Some("FolderName"),
             links: &[],
         };
-        let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
+            let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
         assert_eq!(dir_name, "FolderName");
     }
+}
+
+/// Generate the 6 standard data-integrity tests for a `RECOMMENDED_MODS` constant.
+///
+/// Usage: `crate::recommended_mods_tests!(EXPECTED_COUNT);`
+/// The invoking module must have `RECOMMENDED_MODS` and `ModSource` in scope.
+#[cfg(test)]
+#[macro_export]
+macro_rules! recommended_mods_tests {
+    ($count:expr) => {
+        #[test]
+        fn test_recommended_mods_count() {
+            assert_eq!(RECOMMENDED_MODS.len(), $count);
+        }
+
+        #[test]
+        fn test_mod_sources_valid() {
+            for m in RECOMMENDED_MODS {
+                match &m.source {
+                    ModSource::GameBanana { file_id } => {
+                        assert!(*file_id > 0, "Mod '{}' has zero file_id", m.name);
+                    }
+                    ModSource::DirectUrl { url } => {
+                        assert!(
+                            url.starts_with("https://"),
+                            "Mod '{}' has invalid URL: {}",
+                            m.name,
+                            url
+                        );
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn test_mod_sources_unique() {
+            use std::collections::HashSet;
+            let sources: HashSet<String> = RECOMMENDED_MODS
+                .iter()
+                .map(|m| $crate::setup::common::resolve_download_url(&m.source))
+                .collect();
+            assert_eq!(
+                sources.len(),
+                RECOMMENDED_MODS.len(),
+                "Duplicate sources in RECOMMENDED_MODS"
+            );
+        }
+
+        #[test]
+        fn test_mod_names_unique() {
+            use std::collections::HashSet;
+            let names: HashSet<&str> = RECOMMENDED_MODS.iter().map(|m| m.name).collect();
+            assert_eq!(
+                names.len(),
+                RECOMMENDED_MODS.len(),
+                "Duplicate mod names in RECOMMENDED_MODS"
+            );
+        }
+
+        #[test]
+        fn test_mod_entries_have_names_and_descriptions() {
+            for m in RECOMMENDED_MODS {
+                assert!(!m.name.is_empty(), "Mod has empty name");
+                assert!(
+                    !m.description.is_empty(),
+                    "Mod '{}' has empty description",
+                    m.name
+                );
+            }
+        }
+
+        #[test]
+        fn test_mod_names_safe_for_filesystem() {
+            for m in RECOMMENDED_MODS {
+                assert!(!m.name.contains('/'), "Mod name '{}' contains '/'", m.name);
+                assert!(
+                    !m.name.contains('\\'),
+                    "Mod name '{}' contains '\\'",
+                    m.name
+                );
+                assert!(
+                    !m.name.contains('\0'),
+                    "Mod name '{}' contains null byte",
+                    m.name
+                );
+            }
+        }
+    };
 }
