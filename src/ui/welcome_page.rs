@@ -76,8 +76,13 @@ impl AdventureModsWelcomePage {
         }
 
         if !result.inaccessible.is_empty() {
-            let inaccessible_names: Vec<&str> =
-                result.inaccessible.iter().map(|g| g.kind.name()).collect();
+            let mut inaccessible_names = Vec::new();
+            for game in &result.inaccessible {
+                let name = game.kind.name();
+                if !inaccessible_names.contains(&name) {
+                    inaccessible_names.push(name);
+                }
+            }
             let alert = gtk::Label::builder()
                 .label(format!(
                     "Some Steam libraries still need access: {}.",
@@ -404,6 +409,45 @@ mod tests {
         assert_eq!(
             alert.label().as_str(),
             "Some Steam libraries still need access: Sonic Adventure DX."
+        );
+    }
+
+    #[gtk::test]
+    fn detection_result_alert_deduplicates_game_names() {
+        init_resource_overlay();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let nav_view = adw::NavigationView::new();
+        let result = DetectionResult {
+            games: vec![],
+            inaccessible: vec![
+                InaccessibleGame {
+                    kind: GameKind::SADX,
+                    library_path: "/mnt/steam-1".into(),
+                },
+                InaccessibleGame {
+                    kind: GameKind::SADX,
+                    library_path: "/mnt/steam-2".into(),
+                },
+                InaccessibleGame {
+                    kind: GameKind::SA2,
+                    library_path: "/mnt/steam-3".into(),
+                },
+            ],
+        };
+
+        page.set_detection_result(result, nav_view);
+
+        let alert = page
+            .imp()
+            .alerts_box
+            .first_child()
+            .and_downcast::<gtk::Label>()
+            .unwrap();
+
+        assert_eq!(
+            alert.label().as_str(),
+            "Some Steam libraries still need access: Sonic Adventure DX, Sonic Adventure 2."
         );
     }
 

@@ -268,8 +268,6 @@ impl AdventureModsGameCard {
         imp.install_selector.set_selected(default_index);
         imp.setup_button.set_visible(true);
         imp.secondary_button.set_visible(false);
-        self.add_css_class("game-card-clickable");
-        self.set_cursor_from_name(Some("pointer"));
 
         imp.setup_callback.replace(None);
         imp.secondary_callback.replace(None);
@@ -296,8 +294,14 @@ impl AdventureModsGameCard {
         imp.details_label
             .set_label(&option.path().display().to_string());
         imp.secondary_button.set_visible(false);
-        self.add_css_class("game-card-clickable");
-        self.set_cursor_from_name(Some("pointer"));
+
+        if install_count > 1 {
+            self.remove_css_class("game-card-clickable");
+            self.set_cursor_from_name(None);
+        } else {
+            self.add_css_class("game-card-clickable");
+            self.set_cursor_from_name(Some("pointer"));
+        }
 
         if option.is_accessible() {
             imp.badge_label.set_label("Ready");
@@ -475,5 +479,22 @@ mod tests {
         );
 
         assert!(card.imp().install_selector.is_visible());
+    }
+
+    #[gtk::test]
+    fn cards_with_install_selector_are_not_marked_clickable() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+
+        card.set_install_options(
+            GameKind::SA2,
+            &[
+                GameInstallOption::detected(PathBuf::from("/games/sa2-a")),
+                GameInstallOption::inaccessible(PathBuf::from("/mnt/steam")),
+            ],
+        );
+
+        assert!(!card.has_css_class("game-card-clickable"));
     }
 }
