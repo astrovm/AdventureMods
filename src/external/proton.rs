@@ -176,11 +176,10 @@ pub fn run_in_prefix(
 
     let wine = wine_binary(&proton_dir);
 
-    let exe_str = exe.to_string_lossy().to_string();
-    let mut args: Vec<String> = vec![exe_str.clone()];
-    args.extend(extra_args.iter().map(|s| s.to_string()));
-
-    let arg_refs: Vec<&str> = args.iter().map(|s| &**s).collect();
+    let exe_str = exe.to_string_lossy();
+    let args: Vec<&str> = std::iter::once(exe_str.as_ref())
+        .chain(extra_args.iter().copied())
+        .collect();
     let wine_str = wine.to_string_lossy().to_string();
 
     tracing::info!(
@@ -190,7 +189,7 @@ pub fn run_in_prefix(
         proton_dir.display()
     );
 
-    flatpak::host_command_with_env_sync(&wine_str, &arg_refs, &env)
+    flatpak::host_command_with_env_sync(&wine_str, &args, &env)
 }
 
 fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {

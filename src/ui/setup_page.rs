@@ -185,9 +185,6 @@ fn populate_mod_preview(
     }
 }
 
-fn uses_centered_layout(step_kind: &steps::StepKind) -> bool {
-    !matches!(step_kind, steps::StepKind::ModSelection)
-}
 
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
@@ -218,7 +215,7 @@ impl AdventureModsSetupPage {
             return;
         };
 
-        let centered_layout = uses_centered_layout(&step.kind);
+        let centered_layout = !matches!(step.kind, steps::StepKind::ModSelection);
         imp.body_box.set_valign(if centered_layout {
             gtk::Align::Center
         } else {
@@ -913,10 +910,7 @@ impl AdventureModsSetupPage {
             let total = imp.all_steps.borrow().len();
             if next >= total {
                 // Last step: navigate back to the welcome page
-                if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
-                    let nav_view: adw::NavigationView = nav_view.downcast().unwrap();
-                    nav_view.pop();
-                }
+                self.go_back_to_welcome();
             } else {
                 self.advance_step();
             }
