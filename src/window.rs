@@ -104,10 +104,7 @@ impl AdventureModsWindow {
                     obj.save_extra_library_paths();
                 }
 
-                obj.detect_games_with_feedback(
-                    Some("Refreshing detected Steam libraries..."),
-                    Some("Library access granted. Detection updated."),
-                );
+                obj.detect_games();
                 None
             }
         });
@@ -117,10 +114,7 @@ impl AdventureModsWindow {
         let refresh_button = self.imp().refresh_button.clone();
         let obj = self.clone();
         refresh_button.connect_clicked(move |_| {
-            obj.detect_games_with_feedback(
-                Some("Refreshing detected Steam libraries..."),
-                Some("Detection updated."),
-            );
+            obj.detect_games();
         });
 
         // Show/hide refresh button based on current navigation page
@@ -191,23 +185,12 @@ impl AdventureModsWindow {
     }
 
     fn detect_games(&self) {
-        self.detect_games_with_feedback(None, None);
-    }
-
-    fn detect_games_with_feedback(
-        &self,
-        start_message: Option<&'static str>,
-        success_message: Option<&'static str>,
-    ) {
         let imp = self.imp();
         let welcome_page = imp.welcome_page.clone();
         let nav_view = imp.navigation_view.clone();
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
         let obj = self.clone();
 
-        if let Some(message) = start_message {
-            self.show_status_message(message, false);
-        }
         self.set_refresh_busy(true);
 
         glib::spawn_future_local(async move {
@@ -231,11 +214,7 @@ impl AdventureModsWindow {
 
             welcome_page.set_detection_result(result, nav_view);
             obj.set_refresh_busy(false);
-            if let Some(message) = success_message {
-                obj.show_status_message(message, false);
-            } else {
-                obj.clear_status_message();
-            }
+            obj.clear_status_message();
         });
     }
 
