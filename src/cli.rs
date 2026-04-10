@@ -14,9 +14,6 @@ use crate::setup::{common, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
 
-const DEFAULT_WIDTH: u32 = 1920;
-const DEFAULT_HEIGHT: u32 = 1080;
-
 struct CliOutput<'a> {
     writer: &'a mut dyn Write,
     use_color: bool,
@@ -297,8 +294,13 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     } else {
         resolve_setup_mods(&args, game_kind)?
     };
-    let width = args.width.unwrap_or(DEFAULT_WIDTH);
-    let height = args.height.unwrap_or(DEFAULT_HEIGHT);
+    let (width, height) = match (args.width, args.height) {
+        (Some(w), Some(h)) => (w, h),
+        (w, h) => {
+            let (dw, dh) = detect_resolution();
+            (w.unwrap_or(dw), h.unwrap_or(dh))
+        }
+    };
 
     if rich_prompts {
         confirm_setup_summary(
@@ -900,6 +902,43 @@ pub fn run_from_args_with_io(
 
     run_with_io(cli, use_color, output)?;
     Ok(true)
+}
+
+fn detect_resolution() -> (u32, u32) {
+    let fallback = (1920u32, 1080u32);
+
+    let output = std::process::Command::new("xrandr")
+        .arg("--current")
+        .output();
+
+    let output = match output {
+        Ok(o) if o.status.success() => o,
+        Ok(o) => {
+            tracing::warn!("xrandr exited with status {}", o.status);
+            return fallback;
+        }
+        Err(e) => {
+            tracing::warn!("Could not run xrandr: {e}");
+            return fallback;
+        }
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    match parse_xrandr_resolution(&stdout) {
+        Some((w, h)) => {
+            tracing::info!("Detected resolution via xrandr: {w}x{h}");
+            (w, h)
+        }
+        None => {
+            tracing::warn!(
+                "Could not detect monitor resolution via xrandr, using fallback {}x{}",
+                fallback.0,
+                fallback.1
+            );
+            fallback
+        }
+    }
 }
 
 fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {
