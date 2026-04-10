@@ -1543,12 +1543,18 @@ mod tests {
 
     #[test]
     fn run_from_args_uses_color_for_terminal_output_by_default() {
+        let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+        let had_no_color = std::env::var("NO_COLOR").ok();
+        unsafe {
+            std::env::remove_var("NO_COLOR");
+        }
+
         let previous = console::colors_enabled();
         console::set_colors_enabled(true);
 
         let mut output = Vec::new();
 
-        let handled = run_from_args_with_io(
+        let result = run_from_args_with_io(
             vec![
                 "adventure-mods".to_string(),
                 "list-mods".to_string(),
@@ -1558,10 +1564,16 @@ mod tests {
             || Ok(()),
             &mut output,
             true,
-        )
-        .unwrap();
+        );
 
         console::set_colors_enabled(previous);
+        unsafe {
+            if let Some(val) = had_no_color {
+                std::env::set_var("NO_COLOR", val);
+            }
+        }
+
+        let handled = result.unwrap();
         assert!(handled);
         assert!(String::from_utf8(output).unwrap().contains("\x1b["));
     }
