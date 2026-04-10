@@ -452,6 +452,7 @@ fn run_download_step<T>(
 
     let use_color = out.use_color;
     let dim = out.dim.clone();
+    let interactive_stderr = std::io::stderr().is_terminal();
 
     let progress_fn: Option<crate::external::download::ProgressFn> =
         Some(Box::new(move |downloaded, total_bytes| {
@@ -472,16 +473,24 @@ fn run_download_step<T>(
                 } else {
                     format!("  {:.1} MB downloaded", downloaded as f64 / 1_048_576.0)
                 };
-                if use_color {
-                    eprint!("\r{}", dim.apply_to(&text))
+                if interactive_stderr {
+                    if use_color {
+                        eprint!("\r{}", dim.apply_to(&text))
+                    } else {
+                        eprint!("\r{text}")
+                    }
                 } else {
-                    eprint!("\r{text}")
+                    if use_color {
+                        eprintln!("{}", dim.apply_to(&text))
+                    } else {
+                        eprintln!("{text}")
+                    }
                 }
             }
         }));
 
     let value = action(progress_fn);
-    if wrote_progress.load(std::sync::atomic::Ordering::Relaxed) {
+    if interactive_stderr && wrote_progress.load(std::sync::atomic::Ordering::Relaxed) {
         eprintln!();
     }
     let value = value?;
@@ -520,7 +529,8 @@ fn run_mod_install_step(
         "Install Mods & Generate Config",
     ))?;
     let mut last_dl_mb: i64 = -1;
-    let mut wrote_progress = false;
+    let mut has_active_progress_line = false;
+    let interactive_stderr = std::io::stderr().is_terminal();
     let result = pipeline::install_selected_mods_and_generate_config_with_progress(
         step.game_path,
         step.game_kind,
@@ -535,6 +545,10 @@ fn run_mod_install_step(
                     total,
                     mod_name,
                 } => {
+                    if interactive_stderr && has_active_progress_line {
+                        eprintln!();
+                        has_active_progress_line = false;
+                    }
                     last_dl_mb = -1;
                     let _ = out.writeln(&format!("  [{index}/{total}] {mod_name}"));
                 }
@@ -546,7 +560,6 @@ fn run_mod_install_step(
                     let mb = (downloaded / 1_048_576) as i64;
                     if mb != last_dl_mb {
                         last_dl_mb = mb;
-                        wrote_progress = true;
                         let text = if let Some(tb) = total_bytes {
                             let pct = downloaded as f64 / tb as f64 * 100.0;
                             format!(
@@ -558,22 +571,34 @@ fn run_mod_install_step(
                         } else {
                             format!("    {:.1} MB", downloaded as f64 / 1_048_576.0)
                         };
-                        if out.use_color {
-                            eprint!("\r{}", out.dim.apply_to(&text))
+                        if interactive_stderr {
+                            has_active_progress_line = true;
+                            if out.use_color {
+                                eprint!("\r{}", out.dim.apply_to(&text))
+                            } else {
+                                eprint!("\r{text}")
+                            }
                         } else {
-                            eprint!("\r{text}")
+                            if out.use_color {
+                                eprintln!("{}", out.dim.apply_to(&text))
+                            } else {
+                                eprintln!("{text}")
+                            }
                         }
                     }
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
-                    eprintln!(); // newline after last download progress line
+                    if interactive_stderr && has_active_progress_line {
+                        eprintln!();
+                        has_active_progress_line = false;
+                    }
                     let _ = out.writeln("  Generating mod config...");
                 }
             }
             Ok(())
         },
     );
-    if wrote_progress {
+    if interactive_stderr && has_active_progress_line {
         eprintln!();
     }
     result?;

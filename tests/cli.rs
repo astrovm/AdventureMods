@@ -763,9 +763,10 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("\r  0.0 / 0.0 MB (100%)\nArchive extraction failed"),
+        stderr.contains("\nArchive extraction failed"),
         "stderr was: {stderr:?}"
     );
+    assert!(!stderr.contains('\r'), "stderr was: {stderr:?}");
 }
 
 #[test]
