@@ -44,6 +44,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.2" date="2026-04-10">
+      <description>
+        <p>Improved progress reporting in both the GUI and CLI.</p>
+        <ul>
+          <li>GUI progress bars now show meaningful status labels during all download steps</li>
+          <li>Per-mod byte-level download progress shown in both GUI and CLI</li>
+          <li>CLI displays live MB counter for convert and mod manager download steps</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.1" date="2026-04-10">
       <description>
         <p>Removed status messages shown after game detection.</p>
