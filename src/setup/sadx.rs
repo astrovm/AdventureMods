@@ -12,8 +12,7 @@ const STEAM_TOOLS_URL: &str =
     "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/steam_tools.7z";
 
 fn steam_tools_url() -> String {
-    std::env::var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS")
-        .unwrap_or_else(|_| STEAM_TOOLS_URL.to_string())
+    super::common::env_or_default("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS", STEAM_TOOLS_URL)
 }
 
 fn hpatchz_program() -> std::path::PathBuf {

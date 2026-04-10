@@ -82,7 +82,7 @@ fn rewrite_direct_url(url: &str) -> String {
     url.to_string()
 }
 
-fn env_or_default(var: &str, default: &'static str) -> String {
+pub(crate) fn env_or_default(var: &str, default: &'static str) -> String {
     std::env::var(var).unwrap_or_else(|_| default.to_string())
 }
 
