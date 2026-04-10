@@ -16,7 +16,6 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 - Installs mod managers, mods, and dependencies in one step
 - Configures native resolution, window mode, and optimal settings
 - Lets you choose subtitle and voice language during setup
-- Installs .NET runtime if missing
 
 ## Requirements
 

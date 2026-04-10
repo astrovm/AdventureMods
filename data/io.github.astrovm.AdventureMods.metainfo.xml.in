@@ -46,16 +46,16 @@
   <releases>
     <release version="0.3.1" date="2026-04-10">
       <description>
-        <p>Minor polish: removed redundant status messages shown after game detection.</p>
+        <p>Removed status messages shown after game detection.</p>
       </description>
     </release>
     <release version="0.3.0" date="2026-04-08">
       <description>
         <p>Added a full command-line workflow for setup and detection, plus manual language selection during setup.</p>
         <ul>
-          <li>Added `detect` to show supported game installs and inaccessible Steam libraries</li>
-          <li>Added `list-mods` to show presets and recommended mods by game</li>
-          <li>Added `setup` for headless installation and config generation</li>
+          <li>Added detect command to show supported game installs and inaccessible Steam libraries</li>
+          <li>Added list-mods command to show presets and recommended mods by game</li>
+          <li>Added setup command for headless installation and config generation</li>
           <li>Added subtitle and voice language selection for SADX and SA2 setup</li>
           <li>Saved language selections per game so rerunning setup reuses the last choice</li>
         </ul>
