@@ -902,6 +902,38 @@ pub fn run_from_args_with_io(
     Ok(true)
 }
 
+fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {
+    let mut first_connected: Option<(u32, u32)> = None;
+
+    for line in output.lines() {
+        let is_connected = line.contains(" connected ") || line.ends_with(" connected");
+        if !is_connected {
+            continue;
+        }
+
+        // Scan tokens for WxH+X+Y geometry pattern
+        let res = line.split_whitespace().find_map(|token| {
+            // token must contain 'x' and '+' to be a geometry spec
+            let (dims, _offsets) = token.split_once('+')?;
+            let (w_str, h_str) = dims.split_once('x')?;
+            let w = w_str.parse::<u32>().ok()?;
+            let h = h_str.parse::<u32>().ok()?;
+            Some((w, h))
+        });
+
+        if let Some(res) = res {
+            if line.contains(" primary ") {
+                return Some(res);
+            }
+            if first_connected.is_none() {
+                first_connected = Some(res);
+            }
+        }
+    }
+
+    first_connected
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write;
@@ -911,8 +943,9 @@ mod tests {
     use clap::Parser;
 
     use super::{
-        resolve_game_kind_rich, resolve_setup_mods, resolve_setup_mods_rich, run_from_args_with_io,
-        setup_is_fully_specified, Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt,
+        parse_xrandr_resolution, resolve_game_kind_rich, resolve_setup_mods,
+        resolve_setup_mods_rich, run_from_args_with_io, setup_is_fully_specified, Cli, CliOutput,
+        Command, Prompt, SetupArgs, TerminalPrompt,
     };
     use crate::setup::common;
     use crate::steam::game::GameKind;
@@ -1652,5 +1685,53 @@ mod tests {
             !err_msg.contains('\x1b'),
             "Error message contains ANSI codes: {err_msg:?}"
         );
+    }
+
+    #[test]
+    fn parse_xrandr_resolution_returns_primary_monitor() {
+        let output = "\
+Screen 0: minimum 16 x 16, current 4152 x 1920, maximum 32767 x 32767
+DP-1 connected primary 3072x1728+1080+0 (normal left inverted right x axis y axis) 597mm x 336mm
+   3072x1728    164.80*+
+DP-2 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080    60.00*+
+";
+        assert_eq!(parse_xrandr_resolution(output), Some((3072, 1728)));
+    }
+
+    #[test]
+    fn parse_xrandr_resolution_falls_back_to_first_connected_when_no_primary() {
+        let output = "\
+Screen 0: minimum 16 x 16, current 1920 x 1080, maximum 32767 x 32767
+DP-1 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 527mm x 296mm
+   1920x1080    60.00*+
+DP-2 connected 2560x1440+1920+0 (normal left inverted right x axis y axis) 597mm x 336mm
+   2560x1440    144.00*+
+";
+        assert_eq!(parse_xrandr_resolution(output), Some((1920, 1080)));
+    }
+
+    #[test]
+    fn parse_xrandr_resolution_returns_none_on_empty_output() {
+        assert_eq!(parse_xrandr_resolution(""), None);
+    }
+
+    #[test]
+    fn parse_xrandr_resolution_returns_none_when_no_connected_monitors() {
+        let output = "\
+Screen 0: minimum 16 x 16, current 0 x 0, maximum 32767 x 32767
+HDMI-1 disconnected (normal left inverted right x axis y axis)
+VGA-1 disconnected (normal left inverted right x axis y axis)
+";
+        assert_eq!(parse_xrandr_resolution(output), None);
+    }
+
+    #[test]
+    fn parse_xrandr_resolution_returns_none_on_malformed_geometry() {
+        let output = "\
+Screen 0: minimum 16 x 16, current 0 x 0, maximum 32767 x 32767
+DP-1 connected primary (normal left inverted right x axis y axis) 597mm x 336mm
+";
+        assert_eq!(parse_xrandr_resolution(output), None);
     }
 }
