@@ -219,9 +219,8 @@ mod tests {
         vec![
             ModEntry {
                 name: "SA2 Render Fix",
-                source: ModSource::GameBananaItem {
-                    item_type: "Mod",
-                    item_id: 1656654,
+                source: ModSource::DirectUrl {
+                    url: "https://github.com/shaddatic/sa2b-render-fix/releases/latest/download/sa2-render-fix.7z",
                 },
                 description: "Test",
                 full_description: None,
@@ -231,9 +230,8 @@ mod tests {
             },
             ModEntry {
                 name: "Better Radar",
-                source: ModSource::GameBananaItem {
-                    item_type: "Mod",
-                    item_id: 1580535,
+                source: ModSource::DirectUrl {
+                    url: "https://github.com/kellsnc/SA2BetterRadar/releases/latest/download/SA2BetterRadar.7z",
                 },
                 description: "Test",
                 full_description: None,

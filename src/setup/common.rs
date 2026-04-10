@@ -641,23 +641,53 @@ mod tests {
 
     #[test]
     fn test_gamebanana_item_dl_base_override() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let _ = rustls::crypto::ring::default_provider().install_default();
         let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
-        // We can't call the real API in a unit test, but we can verify the
-        // DL base override env var is respected by the resolver internals.
-        // The dl base is read as: env("ADVENTURE_MODS_GAMEBANANA_DL_BASE") or "https://gamebanana.com/dl/".
-        unsafe {
-            std::env::set_var(
-                "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
-                "http://127.0.0.1:4010/dl/",
-            );
-        }
-        assert_eq!(
-            std::env::var("ADVENTURE_MODS_GAMEBANANA_DL_BASE").unwrap(),
-            "http://127.0.0.1:4010/dl/"
+
+        // Bind to a random port, then serve one fake GameBanana API response.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let body = r#"[{"999":{"_idRow":999}}]"#;
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            body.len(),
+            body
         );
+
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf);
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let api_base = format!(
+            "http://127.0.0.1:{port}/gbapi?fields=Files().aFiles()",
+            port = port
+        );
+        let dl_base = "http://127.0.0.1:9999/custom-dl/";
+
         unsafe {
+            std::env::set_var("ADVENTURE_MODS_GAMEBANANA_API_BASE", &api_base);
+            std::env::set_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE", dl_base);
+        }
+
+        let source = ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 12345,
+        };
+        let result = resolve_download_url(&source).unwrap();
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
             std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE");
         }
+
+        assert_eq!(result, "http://127.0.0.1:9999/custom-dl/999");
     }
 
     #[test]
