@@ -66,12 +66,18 @@ pub fn resolve_download_url(source: &ModSource) -> String {
 }
 
 fn rewrite_direct_url(url: &str) -> String {
-    let Ok(base_override) = std::env::var("ADVENTURE_MODS_DCMODS_BASE_URL") else {
-        return url.to_string();
-    };
+    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DCMODS_BASE_URL") {
+        if let Some(suffix) = url.strip_prefix(SADX_DCMODS_BASE_URL) {
+            return format!("{base_override}{suffix}");
+        }
+    }
 
-    if let Some(suffix) = url.strip_prefix(SADX_DCMODS_BASE_URL) {
-        return format!("{base_override}{suffix}");
+    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE") {
+        if let Some(filename) = url.rsplit('/').next() {
+            if !filename.is_empty() {
+                return format!("{base_override}{filename}");
+            }
+        }
     }
 
     url.to_string()

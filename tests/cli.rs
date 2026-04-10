@@ -446,6 +446,10 @@ fn setup_installs_sadx_preset_from_cli_flag() {
             server.gamebanana_base(),
         ),
         ("ADVENTURE_MODS_DCMODS_BASE_URL", server.url("/dcmods/")),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
+        ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
         (
             "ADVENTURE_MODS_HPATCHZ",
@@ -817,6 +821,10 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
             server.gamebanana_base(),
         ),
         ("ADVENTURE_MODS_DCMODS_BASE_URL", server.url("/dcmods/")),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
+        ),
         ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
         (
             "ADVENTURE_MODS_HPATCHZ",
