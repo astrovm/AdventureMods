@@ -66,18 +66,17 @@ pub fn resolve_download_url(source: &ModSource) -> String {
 }
 
 fn rewrite_direct_url(url: &str) -> String {
-    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DCMODS_BASE_URL") {
-        if let Some(suffix) = url.strip_prefix(SADX_DCMODS_BASE_URL) {
-            return format!("{base_override}{suffix}");
-        }
+    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DCMODS_BASE_URL")
+        && let Some(suffix) = url.strip_prefix(SADX_DCMODS_BASE_URL)
+    {
+        return format!("{base_override}{suffix}");
     }
 
-    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE") {
-        if let Some(filename) = url.rsplit('/').next() {
-            if !filename.is_empty() {
-                return format!("{base_override}{filename}");
-            }
-        }
+    if let Ok(base_override) = std::env::var("ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE")
+        && let Some(filename) = url.rsplit('/').next()
+        && !filename.is_empty()
+    {
+        return format!("{base_override}{filename}");
     }
 
     url.to_string()
@@ -643,7 +642,10 @@ mod tests {
     fn test_resolve_direct_url_rewrites_sadx_base_when_overridden() {
         let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         unsafe {
-            std::env::set_var("ADVENTURE_MODS_DCMODS_BASE_URL", "http://127.0.0.1:4010/dcmods/");
+            std::env::set_var(
+                "ADVENTURE_MODS_DCMODS_BASE_URL",
+                "http://127.0.0.1:4010/dcmods/",
+            );
         }
 
         let source = ModSource::DirectUrl {
