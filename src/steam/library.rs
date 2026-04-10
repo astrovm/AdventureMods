@@ -188,11 +188,6 @@ pub struct DetectionResult {
     pub inaccessible: Vec<InaccessibleGame>,
 }
 
-/// Detect games from a specific VDF file path.
-pub fn detect_games_from_vdf(vdf_path: &Path) -> DetectionResult {
-    detect_games_from_vdf_with_extra_libraries(vdf_path, &[])
-}
-
 pub fn detect_games_from_vdf_with_extra_libraries(
     vdf_path: &Path,
     extra_libraries: &[PathBuf],
@@ -325,12 +320,10 @@ mod tests {
         let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&extra_lib));
 
         assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
-        assert!(
-            result
-                .inaccessible
-                .iter()
-                .any(|game| game.kind == GameKind::SADX)
-        );
+        assert!(result
+            .inaccessible
+            .iter()
+            .any(|game| game.kind == GameKind::SADX));
     }
 
     #[test]
@@ -549,7 +542,7 @@ mod tests {
         );
         std::fs::write(&vdf_path, &vdf_content).unwrap();
 
-        let result = detect_games_from_vdf(&vdf_path);
+        let result = detect_games_from_vdf_with_extra_libraries(&vdf_path, &[]);
         assert_eq!(result.games.len(), 2);
         assert!(result.games.iter().any(|g| g.kind == GameKind::SADX));
         assert!(result.games.iter().any(|g| g.kind == GameKind::SA2));
@@ -578,7 +571,7 @@ mod tests {
         );
         std::fs::write(&vdf_path, &vdf_content).unwrap();
 
-        let result = detect_games_from_vdf(&vdf_path);
+        let result = detect_games_from_vdf_with_extra_libraries(&vdf_path, &[]);
         assert!(result.games.is_empty());
         assert!(result.inaccessible.is_empty());
     }
@@ -589,7 +582,7 @@ mod tests {
         let vdf_path = tmp.path().join("libraryfolders.vdf");
         std::fs::write(&vdf_path, "this is not valid VDF content {{{").unwrap();
 
-        let result = detect_games_from_vdf(&vdf_path);
+        let result = detect_games_from_vdf_with_extra_libraries(&vdf_path, &[]);
         assert!(result.games.is_empty());
         assert!(result.inaccessible.is_empty());
     }
