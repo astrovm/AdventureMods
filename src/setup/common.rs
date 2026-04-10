@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use gtk::gio;
 
 use crate::blocking;
@@ -506,8 +506,10 @@ pub fn install_mod_with_progress(
         let dest = mods_dir.join(dir_name);
         let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
         move_dir_contents(&content_root, &dest)?;
+        normalize_mod_version(&dest)?;
     } else {
-        install_passthrough_mod(&staging_dir, &mods_dir)?;
+        let installed_dir = install_passthrough_mod(&staging_dir, &mods_dir)?;
+        normalize_mod_version(&installed_dir)?;
     }
 
     tracing::info!("Installed mod: {}", mod_entry.name);
@@ -550,7 +552,7 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
     None
 }
 
-fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<()> {
+fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<std::path::PathBuf> {
     let mut entries = std::fs::read_dir(staging)?.collect::<std::io::Result<Vec<_>>>()?;
     entries.sort_by_key(|entry| entry.file_name());
 
@@ -573,10 +575,61 @@ fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<()> {
             "Mod directory '{}' already exists, skipping install",
             dest.display()
         );
+        return Ok(dest);
+    }
+
+    move_dir_contents(&extracted_dir, &dest)?;
+    Ok(dest)
+}
+
+fn normalize_mod_version(mod_dir: &Path) -> Result<()> {
+    let Some(mod_ini_path) = find_file_icase(mod_dir, "mod.ini") else {
+        return Ok(());
+    };
+
+    let mod_ini = std::fs::read_to_string(&mod_ini_path)
+        .with_context(|| format!("Failed to read {}", mod_ini_path.display()))?;
+
+    if !has_update_metadata(&mod_ini) {
         return Ok(());
     }
 
-    move_dir_contents(&extracted_dir, &dest)
+    let now = glib::DateTime::now_utc().map_err(|err| anyhow!(err.to_string()))?;
+    let stamp = now
+        .format_iso8601()
+        .map_err(|err| anyhow!(err.to_string()))?;
+
+    std::fs::write(mod_dir.join("mod.version"), format!("{stamp}\n"))?;
+    Ok(())
+}
+
+fn has_update_metadata(mod_ini: &str) -> bool {
+    let mut has_gamebanana_type = false;
+    let mut has_gamebanana_id = false;
+
+    for line in mod_ini.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+
+        let key = key.trim();
+        let value = value.trim();
+
+        if key.eq_ignore_ascii_case("GitHubRepo") && !value.is_empty() {
+            return true;
+        }
+        if key.eq_ignore_ascii_case("UpdateUrl") && !value.is_empty() {
+            return true;
+        }
+        if key.eq_ignore_ascii_case("GameBananaItemType") && !value.is_empty() {
+            has_gamebanana_type = true;
+        }
+        if key.eq_ignore_ascii_case("GameBananaItemId") && !value.is_empty() {
+            has_gamebanana_id = true;
+        }
+    }
+
+    has_gamebanana_type && has_gamebanana_id
 }
 
 /// Recursively move all entries from `src` into `dest`, creating `dest` if needed.
@@ -963,6 +1016,52 @@ mod tests {
 
         assert_eq!(std::fs::read(existing.join("mod.ini")).unwrap(), b"[old]");
         assert!(extracted.join("mod.ini").is_file());
+    }
+
+    #[test]
+    fn test_normalize_mod_version_rewrites_stale_packaged_value() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mod_dir = tmp.path().join("Better Tails AI");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(
+            mod_dir.join("mod.ini"),
+            b"Name=Better Tails AI\nGitHubRepo=Sora-yx/SADX-Better-Tails-AI\nGitHubAsset=Better.Tails.AI.zip\n",
+        )
+        .unwrap();
+        std::fs::write(mod_dir.join("mod.version"), b"04/26/2021 22:44:24\n").unwrap();
+
+        normalize_mod_version(&mod_dir).unwrap();
+
+        let rewritten = std::fs::read_to_string(mod_dir.join("mod.version")).unwrap();
+        assert_ne!(rewritten.trim(), "04/26/2021 22:44:24");
+    }
+
+    #[test]
+    fn test_normalize_mod_version_creates_file_for_update_tracked_mod() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mod_dir = tmp.path().join("Fancy Mod");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(
+            mod_dir.join("mod.ini"),
+            b"Name=Fancy Mod\nGameBananaItemType=Mod\nGameBananaItemId=12345\n",
+        )
+        .unwrap();
+
+        normalize_mod_version(&mod_dir).unwrap();
+
+        assert!(mod_dir.join("mod.version").is_file());
+    }
+
+    #[test]
+    fn test_normalize_mod_version_ignores_plain_mods() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mod_dir = tmp.path().join("Plain Mod");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(mod_dir.join("mod.ini"), b"Name=Plain Mod\nVersion=1.0\n").unwrap();
+
+        normalize_mod_version(&mod_dir).unwrap();
+
+        assert!(!mod_dir.join("mod.version").exists());
     }
 
     #[test]

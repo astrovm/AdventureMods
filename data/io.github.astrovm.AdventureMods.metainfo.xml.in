@@ -46,10 +46,11 @@
   <releases>
     <release version="0.3.3" date="2026-04-10">
       <description>
-        <p>Mods are now always downloaded at their latest version during initial setup.</p>
+        <p>Faster, more reliable mod setup.</p>
         <ul>
-          <li>Replaced static GameBanana file IDs with live API lookups at install time</li>
-          <li>SA2 Render Fix now downloads from its GitHub releases page directly</li>
+          <li>Downloads and installs selected mods concurrently during setup</li>
+          <li>Resolves the latest GameBanana downloads at install time</li>
+          <li>Downloads SA2 Render Fix directly from its GitHub releases page</li>
         </ul>
       </description>
     </release>
