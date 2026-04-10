@@ -11,7 +11,7 @@ use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sa2_fixture;
-use support::{env_lock, EnvGuard};
+use support::{EnvGuard, env_lock};
 
 fn leak_str(value: String) -> &'static str {
     Box::leak(value.into_boxed_str())
@@ -253,19 +253,25 @@ fn sa2_setup_completes_against_fake_steam_install() {
     .unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/SA2ModLoader.dll")
-        .is_file());
-    assert!(fixture
-        .game_path
-        .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/SA2ModLoader.dll")
+            .is_file()
+    );
+    assert!(
+        fixture
+            .game_path
+            .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
+            .is_file()
+    );
     assert!(fixture.game_path.join("SAManager/Manager.json").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/profiles/Default.json")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/profiles/Default.json")
+            .is_file()
+    );
     assert!(fixture.game_path.join("Config/UserConfig.cfg").is_file());
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
@@ -471,10 +477,12 @@ fn sa2_setup_can_rerun_on_existing_installation() {
     .unwrap();
 
     assert!(fixture.game_path.join("Launcher.exe.bak").is_file());
-    assert!(fixture
-        .game_path
-        .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll")
+            .is_file()
+    );
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
 }
@@ -562,10 +570,12 @@ fn sa2_setup_generates_config_for_successful_mods_even_when_another_mod_fails() 
     assert!(result.is_err());
     assert!(saw_config);
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
-    assert!(fixture
-        .game_path
-        .join("mods/.modloader/profiles/Default.json")
-        .is_file());
+    assert!(
+        fixture
+            .game_path
+            .join("mods/.modloader/profiles/Default.json")
+            .is_file()
+    );
 }
 
 #[test]
@@ -643,10 +653,12 @@ fn sa2_setup_rejects_duplicate_install_targets_before_running() {
     );
 
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Duplicate mod install target"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate mod install target")
+    );
 }
 
 #[test]

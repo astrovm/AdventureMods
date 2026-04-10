@@ -213,7 +213,10 @@ pub fn install_selected_mods_and_generate_config_with_progress(
         .collect();
 
     if !failed_mods.is_empty() {
-        return Err(anyhow!("Failed to install mods: {}", failed_mods.join("; ")));
+        return Err(anyhow!(
+            "Failed to install mods: {}",
+            failed_mods.join("; ")
+        ));
     }
 
     Ok(())
@@ -225,9 +228,7 @@ fn reject_duplicate_install_targets(selected_mods: &[&ModEntry]) -> Result<()> {
     for mod_entry in selected_mods {
         let target = mod_entry.dir_name.unwrap_or(mod_entry.name);
         if !seen.insert(target) {
-            return Err(anyhow!(
-                "Duplicate mod install target '{target}' requested"
-            ));
+            return Err(anyhow!("Duplicate mod install target '{target}' requested"));
         }
     }
 
