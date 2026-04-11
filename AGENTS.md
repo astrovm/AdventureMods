@@ -4,6 +4,8 @@
 - Read files before editing them. Do not edit blind.
 - Prefer small edits over rewrites.
 - Do not re-read files unless they may have changed.
+- Probe before fixing when the issue depends on runtime behavior, live data, downloaded assets, or external services.
+- Treat unproven concerns as risks, not bugs. If you have not reproduced it or probed it, say so plainly.
 - Test before declaring work done.
 - Keep solutions and responses simple, direct, and concise.
 - User instructions always override this file.
@@ -34,8 +36,21 @@
 ## Debugging Rules
 
 - Read the relevant code before explaining the bug.
+- Prove the bug with direct evidence first: a failing test, a reproduced run, a live archive listing, API metadata, or another concrete probe.
+- If a claim depends on external content, inspect the actual content when feasible. Do not infer from names, descriptions, or assumptions.
 - State what you found, where, and the fix.
 - If the cause is unclear, say so. Do not guess.
+
+## Verification Rules
+
+- Use the project's actual tools for verification, not generic statements.
+- Run the smallest command that proves the specific issue first, then run the broader repo checks needed for the touched area.
+- For Rust code changes, default to these checks unless the change clearly does not require one of them:
+- `cargo fmt --check`
+- `cargo clippy --all-targets -- -D warnings`
+- `cargo test`
+- If you skip a check, state which one and why.
+- Do not claim a bug is fixed, a refactor is safe, or a release is ready without fresh command output.
 
 ## Git Rules
 
