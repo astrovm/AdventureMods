@@ -482,6 +482,7 @@ pub fn install_mod_with_progress(
         let dest = mods_dir.join(dir_name);
         if dest.is_dir() {
             if mod_install_is_complete(&dest) {
+                normalize_mod_version(&dest)?;
                 tracing::info!(
                     "Mod '{}' already installed, skipping download",
                     mod_entry.name
@@ -1088,6 +1089,38 @@ mod tests {
     }
 
     #[test]
+    fn test_install_mod_normalizes_existing_update_tracked_mod_on_rerun() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path();
+        let mod_dir = game_path.join("mods/BetterTailsAI");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(
+            mod_dir.join("mod.ini"),
+            b"Name=Better Tails AI\nGitHubRepo=Sora-yx/SADX-Better-Tails-AI\nGitHubAsset=Better.Tails.AI.zip\n",
+        )
+        .unwrap();
+        std::fs::write(mod_dir.join("mod.version"), b"04/26/2021 22:44:24\n").unwrap();
+
+        let mod_entry = ModEntry {
+            name: "Better Tails AI",
+            slug: "better-tails-ai",
+            source: ModSource::DirectUrl {
+                url: "https://example.com/better-tails-ai.zip",
+            },
+            description: "A test mod",
+            full_description: None,
+            pictures: &[],
+            dir_name: Some("BetterTailsAI"),
+            links: &[],
+        };
+
+        install_mod_with_progress(game_path, &mod_entry, None).unwrap();
+
+        let rewritten = std::fs::read_to_string(mod_dir.join("mod.version")).unwrap();
+        assert_ne!(rewritten.trim(), "04/26/2021 22:44:24");
+    }
+
+    #[test]
     fn test_find_mod_root_prefers_deterministic_order() {
         let tmp = tempfile::tempdir().unwrap();
         let staging = tmp.path().join("staging");
@@ -1528,6 +1561,17 @@ macro_rules! recommended_mods_tests {
                 assert!(
                     !m.description.is_empty(),
                     "Mod '{}' has empty description",
+                    m.name
+                );
+            }
+        }
+
+        #[test]
+        fn test_mod_entries_define_install_directories() {
+            for m in RECOMMENDED_MODS {
+                assert!(
+                    m.dir_name.is_some(),
+                    "Mod '{}' is missing dir_name, which makes install targets ambiguous",
                     m.name
                 );
             }

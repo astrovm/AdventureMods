@@ -954,6 +954,7 @@ impl AdventureModsSetupPage {
     ) {
         let obj = self.clone();
         let game = self.imp().game.borrow().clone();
+        self.imp().task_running.set(true);
 
         glib::spawn_future_local(async move {
             let Some(ref game) = game else {
@@ -961,7 +962,6 @@ impl AdventureModsSetupPage {
                 obj.imp().task_running.set(false);
                 return;
             };
-            obj.imp().task_running.set(true);
 
             // Channel messages for progress bar updates
             enum ProgressMsg {
@@ -1651,5 +1651,22 @@ mod tests {
         while glib::MainContext::default().iteration(false) {}
 
         assert!(!page.imp().task_running.get());
+    }
+
+    #[gtk::test]
+    fn run_download_step_marks_task_running_before_main_loop_spins() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let progress_bar = gtk::ProgressBar::new();
+        let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+        page.run_download_step("__test_noop__", progress_bar, cancel_flag);
+
+        assert!(page.imp().task_running.get());
     }
 }
