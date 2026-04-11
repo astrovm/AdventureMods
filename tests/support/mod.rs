@@ -6,6 +6,8 @@ pub mod steam_fixture;
 
 use std::sync::{Mutex, MutexGuard};
 
+use adventure_mods::setup::common::{ModEntry, ModSource};
+
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 pub fn env_lock() -> MutexGuard<'static, ()> {
@@ -43,3 +45,21 @@ impl Drop for EnvGuard {
         }
     }
 }
+
+pub fn leak_str(value: String) -> &'static str {
+    Box::leak(value.into_boxed_str())
+}
+
+pub const TEST_FLAT: ModEntry = ModEntry {
+    name: "Test Flat",
+    slug: "test-flat",
+    source: ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 2,
+    },
+    description: "test mod",
+    full_description: None,
+    pictures: &[],
+    dir_name: Some("Test Flat"),
+    links: &[],
+};

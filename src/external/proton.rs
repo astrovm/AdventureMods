@@ -7,6 +7,10 @@ use anyhow::{Context, Result};
 use super::flatpak;
 use crate::steam::{library, vdf};
 
+fn try_canonicalize(p: &Path) -> PathBuf {
+    p.canonicalize().unwrap_or_else(|_| p.to_path_buf())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrefixState {
     Ready,
@@ -55,14 +59,8 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
 
     match configured_tool_from_config(game_path, app_id)? {
         ConfiguredToolLookup::Tool(configured_tool) => {
-            let prefix_canonical = prefix_metadata
-                .proton_dir
-                .canonicalize()
-                .unwrap_or_else(|_| prefix_metadata.proton_dir.clone());
-            let configured_canonical = configured_tool
-                .proton_dir
-                .canonicalize()
-                .unwrap_or_else(|_| configured_tool.proton_dir.clone());
+            let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
+            let configured_canonical = try_canonicalize(&configured_tool.proton_dir);
 
             if configured_canonical != prefix_canonical {
                 return Ok(PrefixState::ConfigMismatch {
@@ -306,7 +304,7 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
 
     let mut unique = Vec::new();
     for root in roots {
-        let canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
+        let canonical = try_canonicalize(&root);
         if !unique.iter().any(|existing| existing == &canonical) {
             unique.push(canonical);
         }

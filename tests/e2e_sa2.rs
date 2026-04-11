@@ -11,11 +11,7 @@ use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sa2_fixture;
-use support::{EnvGuard, env_lock};
-
-fn leak_str(value: String) -> &'static str {
-    Box::leak(value.into_boxed_str())
-}
+use support::{EnvGuard, TEST_FLAT, env_lock, leak_str};
 
 const RENDER_FIX: ModEntry = ModEntry {
     name: "Render Fix",
@@ -28,20 +24,6 @@ const RENDER_FIX: ModEntry = ModEntry {
     full_description: None,
     pictures: &[],
     dir_name: None,
-    links: &[],
-};
-
-const TEST_FLAT: ModEntry = ModEntry {
-    name: "Test Flat",
-    slug: "test-flat",
-    source: ModSource::GameBananaItem {
-        item_type: "Mod",
-        item_id: 2,
-    },
-    description: "test mod",
-    full_description: None,
-    pictures: &[],
-    dir_name: Some("Test Flat"),
     links: &[],
 };
 

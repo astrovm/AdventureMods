@@ -136,7 +136,7 @@ fn build_default_profile(
             event_index: -1,
             save_index: -1,
             game_text_language: subtitle_code(language_selection.subtitle),
-            game_voice_language: voice_code(language_selection.voice),
+            game_voice_language: config::voice_code(language_selection.voice),
             use_manual: false,
             use_event_manual: false,
             use_position: false,
@@ -162,13 +162,6 @@ fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
         config::SubtitleLanguage::French => 3,
         config::SubtitleLanguage::Italian => 4,
         config::SubtitleLanguage::Japanese => 5,
-    }
-}
-
-fn voice_code(language: config::VoiceLanguage) -> u32 {
-    match language {
-        config::VoiceLanguage::Japanese => 0,
-        config::VoiceLanguage::English => 1,
     }
 }
 
@@ -398,7 +391,7 @@ mod tests {
         );
         assert_eq!(
             parsed["TestSpawn"]["GameVoiceLanguage"],
-            voice_code(selection.voice)
+            config::voice_code(selection.voice)
         );
 
         let user_config =

@@ -12,7 +12,7 @@ use adventure_mods::steam::library::detect_games_from_vdf_with_extra_libraries;
 
 use support::http_server::{Response, TestServer};
 use support::steam_fixture::create_sadx_fixture;
-use support::{EnvGuard, env_lock};
+use support::{EnvGuard, TEST_FLAT, env_lock};
 
 const DREAMCAST_TEST: ModEntry = ModEntry {
     name: "Dreamcast Test",
@@ -25,20 +25,6 @@ const DREAMCAST_TEST: ModEntry = ModEntry {
     full_description: None,
     pictures: &[],
     dir_name: None,
-    links: &[],
-};
-
-const TEST_FLAT: ModEntry = ModEntry {
-    name: "Test Flat",
-    slug: "test-flat",
-    source: ModSource::GameBananaItem {
-        item_type: "Mod",
-        item_id: 2,
-    },
-    description: "test mod",
-    full_description: None,
-    pictures: &[],
-    dir_name: Some("Test Flat"),
     links: &[],
 };
 

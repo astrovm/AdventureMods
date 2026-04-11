@@ -127,6 +127,14 @@ fn completed_mod_fraction(completed: usize, total: usize) -> f64 {
     completed as f64 / total as f64
 }
 
+fn format_mb_value(bytes: u64) -> String {
+    format!("{:.1}", bytes as f64 / 1_048_576.0)
+}
+
+fn format_mb(bytes: u64) -> String {
+    format!("{} MB", format_mb_value(bytes))
+}
+
 fn mod_download_fraction(
     completed: usize,
     total: usize,
@@ -147,12 +155,12 @@ fn mod_download_fraction(
 fn format_step_download_text(status: &str, downloaded: u64, total: Option<u64>) -> String {
     let bytes_text = if let Some(total) = total {
         format!(
-            "{:.1} / {:.1} MB",
-            downloaded as f64 / 1_048_576.0,
-            total as f64 / 1_048_576.0,
+            "{} / {} MB",
+            format_mb_value(downloaded),
+            format_mb_value(total)
         )
     } else {
-        format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+        format_mb(downloaded)
     };
 
     if status.is_empty() {
@@ -185,12 +193,12 @@ fn mod_download_progress_update(
 ) -> ModDownloadProgressUpdate {
     let bytes_text = if let Some(tb) = total_bytes {
         format!(
-            "{:.1} / {:.1} MB",
-            downloaded as f64 / 1_048_576.0,
-            tb as f64 / 1_048_576.0,
+            "{} / {} MB",
+            format_mb_value(downloaded),
+            format_mb_value(tb)
         )
     } else {
-        format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+        format_mb(downloaded)
     };
 
     ModDownloadProgressUpdate {
@@ -1423,8 +1431,6 @@ impl AdventureModsSetupPage {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Once;
-
     use adw::prelude::*;
     use adw::subclass::prelude::ObjectSubclassIsExt;
     use gtk::glib;
@@ -1437,21 +1443,7 @@ mod tests {
     };
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
-
-    fn init_resource_overlay() {
-        static INIT: Once = Once::new();
-
-        INIT.call_once(|| unsafe {
-            std::env::set_var(
-                "G_RESOURCE_OVERLAYS",
-                concat!(
-                    "/io/github/astrovm/AdventureMods=",
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/data"
-                ),
-            );
-        });
-    }
+    use crate::ui::test_util::init_resource_overlay;
 
     #[test]
     fn initial_preview_prefers_first_selected_mod() {

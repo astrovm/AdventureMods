@@ -231,7 +231,7 @@ fn build_default_profile(
             game_mode_index: -1,
             save_index: -1,
             game_text_language: subtitle_code(language_selection.subtitle),
-            game_voice_language: voice_code(language_selection.voice),
+            game_voice_language: config::voice_code(language_selection.voice),
             use_manual: false,
             use_position: false,
             x_position: 0,
@@ -256,13 +256,6 @@ fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
         config::SubtitleLanguage::Spanish => 3,
         config::SubtitleLanguage::German => 4,
         config::SubtitleLanguage::Italian => 1,
-    }
-}
-
-fn voice_code(language: config::VoiceLanguage) -> u32 {
-    match language {
-        config::VoiceLanguage::Japanese => 0,
-        config::VoiceLanguage::English => 1,
     }
 }
 
@@ -577,7 +570,7 @@ mod tests {
         );
         assert_eq!(
             parsed["TestSpawn"]["GameVoiceLanguage"],
-            voice_code(selection.voice)
+            config::voice_code(selection.voice)
         );
     }
 

@@ -12,11 +12,7 @@ use clap::Parser;
 use support::http_server::{Response, TestServer};
 use support::scripts;
 use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
-use support::{EnvGuard, env_lock};
-
-fn leak_str(value: String) -> &'static str {
-    Box::leak(value.into_boxed_str())
-}
+use support::{EnvGuard, env_lock, leak_str};
 
 fn add_fake_mod_archive(
     extract_root: &std::path::Path,

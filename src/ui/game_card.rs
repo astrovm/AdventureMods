@@ -2,7 +2,9 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
-use crate::steam::game::{Game, GameKind};
+#[cfg(test)]
+use crate::steam::game::Game;
+use crate::steam::game::GameKind;
 
 mod imp {
     use std::cell::RefCell;
@@ -152,6 +154,7 @@ impl AdventureModsGameCard {
         glib::Object::builder().build()
     }
 
+    #[cfg(test)]
     pub fn set_detected(&self, game: &Game, installation_index: usize, installation_total: usize) {
         let imp = self.imp();
         let status_text = if installation_total > 1 {
@@ -208,32 +211,6 @@ impl AdventureModsGameCard {
 
         self.set_cover(kind);
         self.set_state_classes("missing", Some("game-card-missing"));
-
-        imp.install_options.replace(Vec::new());
-        imp.setup_callback.replace(None);
-        imp.secondary_callback.replace(None);
-    }
-
-    pub fn set_inaccessible(&self, kind: GameKind, library_path: &std::path::Path) {
-        let imp = self.imp();
-
-        imp.title_label.set_label(kind.name());
-        imp.badge_label.set_label("Needs access");
-        imp.status_label.set_visible(true);
-        imp.status_label
-            .set_label("Grant access to this Steam library to continue.");
-        imp.details_label.set_visible(true);
-        imp.install_selector.set_visible(false);
-        imp.details_label
-            .set_label(&format!("Steam library path: {}", library_path.display()));
-        imp.setup_button.set_visible(false);
-        imp.secondary_button.set_visible(true);
-        imp.secondary_button.set_label("Grant Access");
-        self.remove_css_class("game-card-clickable");
-        self.set_cursor_from_name(None);
-
-        self.set_cover(kind);
-        self.set_state_classes("inaccessible", Some("game-card-inaccessible"));
 
         imp.install_options.replace(Vec::new());
         imp.setup_callback.replace(None);
@@ -385,24 +362,10 @@ impl AdventureModsGameCard {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::Once;
 
     use super::*;
-
-    fn init_resource_overlay() {
-        static INIT: Once = Once::new();
-
-        INIT.call_once(|| unsafe {
-            std::env::set_var(
-                "G_RESOURCE_OVERLAYS",
-                concat!(
-                    "/io/github/astrovm/AdventureMods=",
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/data"
-                ),
-            );
-        });
-    }
+    use crate::steam::game::Game;
+    use crate::ui::test_util::init_resource_overlay;
 
     #[gtk::test]
     fn detected_cards_keep_setup_button_visible() {

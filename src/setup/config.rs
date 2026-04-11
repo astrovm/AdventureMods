@@ -127,17 +127,18 @@ impl VoiceLanguage {
 }
 
 impl LanguageSelection {
-    pub fn defaults_for(game_kind: GameKind) -> Self {
-        match game_kind {
-            GameKind::SADX => Self {
-                subtitle: SubtitleLanguage::English,
-                voice: VoiceLanguage::Japanese,
-            },
-            GameKind::SA2 => Self {
-                subtitle: SubtitleLanguage::English,
-                voice: VoiceLanguage::Japanese,
-            },
+    pub fn defaults_for(_game_kind: GameKind) -> Self {
+        Self {
+            subtitle: SubtitleLanguage::English,
+            voice: VoiceLanguage::Japanese,
         }
+    }
+}
+
+pub fn voice_code(language: VoiceLanguage) -> u32 {
+    match language {
+        VoiceLanguage::Japanese => 0,
+        VoiceLanguage::English => 1,
     }
 }
 
