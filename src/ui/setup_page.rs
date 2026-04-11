@@ -153,15 +153,7 @@ fn mod_download_fraction(
 }
 
 fn format_step_download_text(status: &str, downloaded: u64, total: Option<u64>) -> String {
-    let bytes_text = if let Some(total) = total {
-        format!(
-            "{} / {} MB",
-            format_mb_value(downloaded),
-            format_mb_value(total)
-        )
-    } else {
-        format_mb(downloaded)
-    };
+    let bytes_text = format_download_bytes_text(downloaded, total);
 
     if status.is_empty() {
         bytes_text
@@ -178,6 +170,18 @@ fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) ->
     format!("Installed {mod_name} ({completed}/{total})")
 }
 
+fn format_download_bytes_text(downloaded: u64, total: Option<u64>) -> String {
+    if let Some(total) = total {
+        format!(
+            "{} / {} MB",
+            format_mb_value(downloaded),
+            format_mb_value(total)
+        )
+    } else {
+        format_mb(downloaded)
+    }
+}
+
 struct ModDownloadProgressUpdate {
     fraction: f64,
     pulse: bool,
@@ -187,24 +191,15 @@ struct ModDownloadProgressUpdate {
 fn mod_download_progress_update(
     completed: usize,
     total: usize,
-    mod_name: &str,
     downloaded: u64,
     total_bytes: Option<u64>,
 ) -> ModDownloadProgressUpdate {
-    let bytes_text = if let Some(tb) = total_bytes {
-        format!(
-            "{} / {} MB",
-            format_mb_value(downloaded),
-            format_mb_value(tb)
-        )
-    } else {
-        format_mb(downloaded)
-    };
+    let bytes_text = format_download_bytes_text(downloaded, total_bytes);
 
     ModDownloadProgressUpdate {
         fraction: mod_download_fraction(completed, total, downloaded, total_bytes),
         pulse: total_bytes.is_none(),
-        text: format!("{mod_name} - {bytes_text}"),
+        text: format!("Downloading mods - {bytes_text}"),
     }
 }
 
@@ -1049,7 +1044,6 @@ impl AdventureModsSetupPage {
                             let update = mod_download_progress_update(
                                 completed_mods,
                                 total,
-                                &mod_name,
                                 agg_downloaded,
                                 agg_total,
                             );
@@ -1517,11 +1511,18 @@ mod tests {
 
     #[test]
     fn mod_download_progress_pulses_when_total_size_is_unknown() {
-        let update = mod_download_progress_update(1, 4, "Render Fix", 1_048_576, None);
+        let update = mod_download_progress_update(1, 4, 1_048_576, None);
 
         assert_eq!(update.fraction, completed_mod_fraction(1, 4));
         assert!(update.pulse);
-        assert_eq!(update.text, "Render Fix - 1.0 MB");
+        assert_eq!(update.text, "Downloading mods - 1.0 MB");
+    }
+
+    #[test]
+    fn mod_download_progress_uses_generic_label_for_aggregate_bytes() {
+        let update = mod_download_progress_update(1, 4, 1_048_576, Some(2_097_152));
+
+        assert_eq!(update.text, "Downloading mods - 1.0 / 2.0 MB");
     }
 
     #[test]
