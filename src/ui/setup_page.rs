@@ -1123,11 +1123,11 @@ impl AdventureModsSetupPage {
                                 height,
                                 language_selection,
                                 |progress| {
-                                    if cancel_during_install.load(Ordering::Relaxed) {
-                                        return Err(anyhow::anyhow!("cancelled"));
-                                    }
                                     match progress {
                                         pipeline::InstallProgress::Started { mod_name } => {
+                                            if cancel_during_install.load(Ordering::Relaxed) {
+                                                return Err(anyhow::anyhow!("cancelled"));
+                                            }
                                             let _ = tx.send_blocking(ProgressMsg::ModInstall {
                                                 mod_name: mod_name.to_string(),
                                                 total: total_count,
@@ -1138,6 +1138,9 @@ impl AdventureModsSetupPage {
                                             downloaded,
                                             total_bytes,
                                         } => {
+                                            if cancel_during_install.load(Ordering::Relaxed) {
+                                                return Err(anyhow::anyhow!("cancelled"));
+                                            }
                                             let _ = tx.send_blocking(ProgressMsg::ModBytes {
                                                 mod_name: mod_name.to_string(),
                                                 total: total_count,
@@ -1150,6 +1153,9 @@ impl AdventureModsSetupPage {
                                             completed,
                                             total,
                                         } => {
+                                            if cancel_during_install.load(Ordering::Relaxed) {
+                                                return Err(anyhow::anyhow!("cancelled"));
+                                            }
                                             let _ = tx.send_blocking(ProgressMsg::ModFinished {
                                                 mod_name: mod_name.to_string(),
                                                 completed,
@@ -1157,6 +1163,9 @@ impl AdventureModsSetupPage {
                                             });
                                         }
                                         pipeline::InstallProgress::GeneratingConfig => {
+                                            // Do not honour cancel here: all mods are already
+                                            // installed. Aborting now would leave mods installed
+                                            // but no config written.
                                             let _ = tx.send_blocking(ProgressMsg::Configuring {
                                                 total: total_count,
                                             });

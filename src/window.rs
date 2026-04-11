@@ -98,10 +98,12 @@ impl AdventureModsWindow {
                 };
 
                 let path_buf = std::path::PathBuf::from(path);
-                let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
-                if !extra_paths.iter().any(|existing| existing == &path_buf) {
-                    extra_paths.push(path_buf);
-                    obj.save_extra_library_paths();
+                {
+                    let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
+                    if !extra_paths.iter().any(|existing| existing == &path_buf) {
+                        extra_paths.push(path_buf);
+                        obj.save_extra_library_paths();
+                    }
                 }
 
                 obj.detect_games();

@@ -5,6 +5,35 @@ use crate::steam::game::{Game, GameKind};
 use crate::steam::vdf;
 use anyhow::Context;
 
+// Canonicalize as much of `path` as possible by walking up to the nearest
+// existing ancestor, canonicalizing that, and re-attaching the remaining
+// non-existent suffix. This handles symlinked parent directories for paths
+// that do not exist themselves (e.g. inaccessible Steam library paths).
+fn canonicalize_with_suffix(path: &Path) -> PathBuf {
+    let mut ancestor = path;
+    let mut suffix = PathBuf::new();
+    loop {
+        if ancestor.exists() {
+            let base = ancestor
+                .canonicalize()
+                .unwrap_or_else(|_| ancestor.to_path_buf());
+            return base.join(suffix);
+        }
+        match ancestor.parent() {
+            Some(parent) => {
+                if let Some(component) = ancestor.file_name() {
+                    // prepend component to suffix
+                    let mut new_suffix = PathBuf::from(component);
+                    new_suffix.push(&suffix);
+                    suffix = new_suffix;
+                }
+                ancestor = parent;
+            }
+            None => return path.to_path_buf(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InaccessibleGame {
     pub kind: GameKind,
@@ -166,13 +195,14 @@ fn detect_games_from_parsed_vdfs(
             tracing::info!("{} not found", kind.name());
         }
 
-        // Deduplicate inaccessible entries by canonical library path.
+        // Deduplicate inaccessible entries. The library path itself does not
+        // exist (that is why the game is inaccessible), so canonicalize() will
+        // always fail. Instead, canonicalize the nearest existing ancestor and
+        // re-attach the remaining suffix so symlinked parent directories are
+        // resolved correctly.
         let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
         for inc in kind_inaccessible {
-            let canonical = inc
-                .library_path
-                .canonicalize()
-                .unwrap_or_else(|_| inc.library_path.clone());
+            let canonical = canonicalize_with_suffix(&inc.library_path);
             if seen_inacc.insert(canonical) {
                 result.inaccessible.push(inc);
             }
