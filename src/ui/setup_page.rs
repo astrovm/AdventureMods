@@ -41,6 +41,7 @@ mod imp {
         pub language_selection: RefCell<Option<config::LanguageSelection>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
+        pub step_busy: Cell<bool>,
         // True while a blocking download task is running; cleared on completion.
         // The cancel handler polls this before re-showing the step.
         pub task_running: Cell<bool>,
@@ -350,6 +351,7 @@ impl AdventureModsSetupPage {
         let step_idx = imp.current_step.get();
         let all_steps = imp.all_steps.borrow();
         imp.is_error.set(false);
+        imp.step_busy.set(false);
 
         // Cancel any in-flight operation
         if let Some(flag) = imp.cancel_flag.borrow().as_ref() {
@@ -393,7 +395,8 @@ impl AdventureModsSetupPage {
 
         let is_last_step = step_idx + 1 >= all_steps.len();
         imp.back_button.set_visible(!is_last_step);
-        imp.back_button.set_sensitive(true);
+        imp.back_button
+            .set_sensitive(!is_last_step && !imp.step_busy.get());
 
         // Clear content box
         let content_box = &imp.content_box;
@@ -412,6 +415,7 @@ impl AdventureModsSetupPage {
                     .build();
                 content_box.append(&spinner);
 
+                self.set_step_busy(true);
                 self.run_auto_step(step.id);
             }
             steps::StepKind::Info => {
@@ -566,6 +570,7 @@ impl AdventureModsSetupPage {
                     content_box.append(&cancel_button);
                 }
 
+                self.set_step_busy(true);
                 self.run_download_step(step.id, progress_bar, cancel_flag);
             }
             steps::StepKind::ModSelection => {
@@ -914,10 +919,12 @@ impl AdventureModsSetupPage {
 
             match result {
                 Ok(()) => {
+                    obj.set_step_busy(false);
                     obj.imp().next_button.set_sensitive(true);
                     obj.advance_step();
                 }
                 Err(e) => {
+                    obj.set_step_busy(false);
                     obj.show_error(&format!("{e}"));
                 }
             }
@@ -947,6 +954,7 @@ impl AdventureModsSetupPage {
 
         glib::spawn_future_local(async move {
             let Some(ref game) = game else {
+                obj.set_step_busy(false);
                 obj.imp().task_running.set(false);
                 return;
             };
@@ -1183,6 +1191,7 @@ impl AdventureModsSetupPage {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             if was_cancelled.load(Ordering::Relaxed) {
+                                obj.set_step_busy(false);
                                 obj.imp().task_running.set(false);
                                 return; // Was cancelled
                             }
@@ -1193,6 +1202,7 @@ impl AdventureModsSetupPage {
                 _ => Ok(()),
             };
 
+            obj.set_step_busy(false);
             obj.imp().task_running.set(false);
             // If the task finished without cancellation, stop the cancel poll so
             // it doesn't re-run the current step after advance_step() has already
@@ -1210,6 +1220,14 @@ impl AdventureModsSetupPage {
                 }
             }
         });
+    }
+
+    fn set_step_busy(&self, busy: bool) {
+        let imp = self.imp();
+        imp.step_busy.set(busy);
+        if imp.back_button.is_visible() {
+            imp.back_button.set_sensitive(!busy);
+        }
     }
 
     fn get_resolution(&self) -> (u32, u32) {
@@ -1536,6 +1554,23 @@ mod tests {
             format_step_download_text("Downloading...", 1_048_576, Some(2_097_152)),
             "Downloading... - 1.0 / 2.0 MB"
         );
+    }
+
+    #[gtk::test]
+    fn set_step_busy_disables_back_button() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+
+        assert!(page.imp().back_button.is_sensitive());
+        page.set_step_busy(true);
+        assert!(!page.imp().back_button.is_sensitive());
+        page.set_step_busy(false);
+        assert!(page.imp().back_button.is_sensitive());
     }
 
     #[gtk::test]

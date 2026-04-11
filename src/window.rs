@@ -10,6 +10,7 @@ use crate::ui::{WIZARD_DEFAULT_HEIGHT, WIZARD_DEFAULT_WIDTH};
 
 mod imp {
     use super::*;
+    use std::cell::Cell;
     use std::cell::RefCell;
 
     #[derive(Debug, Default, gtk::CompositeTemplate)]
@@ -34,6 +35,7 @@ mod imp {
         #[template_child]
         pub welcome_page: TemplateChild<AdventureModsWelcomePage>,
         pub extra_library_paths: RefCell<Vec<std::path::PathBuf>>,
+        pub latest_detection_request_id: Cell<u64>,
         pub settings: RefCell<Option<gio::Settings>>,
     }
 
@@ -191,6 +193,8 @@ impl AdventureModsWindow {
         let welcome_page = imp.welcome_page.clone();
         let nav_view = imp.navigation_view.clone();
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
+        let request_id = next_detection_request_id(imp.latest_detection_request_id.get());
+        imp.latest_detection_request_id.set(request_id);
         let obj = self.clone();
 
         self.set_refresh_busy(true);
@@ -204,6 +208,12 @@ impl AdventureModsWindow {
             ) {
                 Ok(result) => result,
                 Err(err) => {
+                    if !should_apply_detection_result(
+                        obj.imp().latest_detection_request_id.get(),
+                        request_id,
+                    ) {
+                        return;
+                    }
                     tracing::error!("Failed to detect games: {err}");
                     obj.set_refresh_busy(false);
                     obj.show_status_message(
@@ -213,6 +223,13 @@ impl AdventureModsWindow {
                     return;
                 }
             };
+
+            if !should_apply_detection_result(
+                obj.imp().latest_detection_request_id.get(),
+                request_id,
+            ) {
+                return;
+            }
 
             welcome_page.set_detection_result(result, nav_view);
             obj.set_refresh_busy(false);
@@ -256,5 +273,32 @@ impl AdventureModsWindow {
             .child(&setup_page)
             .build();
         self.imp().navigation_view.push(&nav_page);
+    }
+}
+
+fn next_detection_request_id(current: u64) -> u64 {
+    current.wrapping_add(1)
+}
+
+fn should_apply_detection_result(latest_request_id: u64, request_id: u64) -> bool {
+    latest_request_id == request_id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{next_detection_request_id, should_apply_detection_result};
+
+    #[test]
+    fn newer_detection_request_replaces_older_one() {
+        let first = next_detection_request_id(0);
+        let second = next_detection_request_id(first);
+
+        assert!(!should_apply_detection_result(second, first));
+        assert!(should_apply_detection_result(second, second));
+    }
+
+    #[test]
+    fn detection_request_ids_wrap_safely() {
+        assert_eq!(next_detection_request_id(u64::MAX), 0);
     }
 }
