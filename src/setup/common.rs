@@ -478,14 +478,25 @@ pub fn install_mod_with_progress(
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    if let Some(dir_name) = mod_entry.dir_name
-        && mods_dir.join(dir_name).is_dir()
-    {
-        tracing::info!(
-            "Mod '{}' already installed, skipping download",
-            mod_entry.name
-        );
-        return Ok(());
+    if let Some(dir_name) = mod_entry.dir_name {
+        let dest = mods_dir.join(dir_name);
+        if dest.is_dir() {
+            if mod_install_is_complete(&dest) {
+                tracing::info!(
+                    "Mod '{}' already installed, skipping download",
+                    mod_entry.name
+                );
+                return Ok(());
+            }
+
+            tracing::warn!(
+                "Mod '{}' exists but is incomplete, reinstalling",
+                mod_entry.name
+            );
+            std::fs::remove_dir_all(&dest).with_context(|| {
+                format!("Failed to remove incomplete mod at {}", dest.display())
+            })?;
+        }
     }
 
     let url = resolve_download_url(&mod_entry.source)?;
@@ -572,15 +583,28 @@ fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<std::path:
     );
 
     if dest.is_dir() {
-        tracing::info!(
-            "Mod directory '{}' already exists, skipping install",
+        if mod_install_is_complete(&dest) {
+            tracing::info!(
+                "Mod directory '{}' already exists, skipping install",
+                dest.display()
+            );
+            return Ok(dest);
+        }
+
+        tracing::warn!(
+            "Mod directory '{}' exists but is incomplete, reinstalling",
             dest.display()
         );
-        return Ok(dest);
+        std::fs::remove_dir_all(&dest)
+            .with_context(|| format!("Failed to remove incomplete mod at {}", dest.display()))?;
     }
 
     move_dir_contents(&extracted_dir, &dest)?;
     Ok(dest)
+}
+
+fn mod_install_is_complete(mod_dir: &Path) -> bool {
+    find_file_icase(mod_dir, "mod.ini").is_some()
 }
 
 fn normalize_mod_version(mod_dir: &Path) -> Result<()> {

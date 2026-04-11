@@ -460,6 +460,8 @@ fn sa2_setup_can_rerun_on_existing_installation() {
     )
     .unwrap();
 
+    std::fs::remove_file(fixture.game_path.join("mods/Test Flat/mod.ini")).unwrap();
+
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SA2.app_id()).unwrap();
     common::install_mod_manager(&fixture.game_path, GameKind::SA2, None).unwrap();
     pipeline::install_selected_mods_and_generate_config_with_progress(
