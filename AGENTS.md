@@ -1,67 +1,48 @@
 ## Approach
 
-- Think before acting.
-- Read files before editing them. Do not edit blind.
+- Read before editing. Test before declaring done.
 - Prefer small edits over rewrites.
-- Do not re-read files unless they may have changed.
-- Probe before fixing when the issue depends on runtime behavior, live data, downloaded assets, or external services.
-- Treat unproven concerns as risks, not bugs. If you have not reproduced it or probed it, say so plainly.
-- Test before declaring work done.
-- Keep solutions and responses simple, direct, and concise.
-- User instructions always override this file.
+- Probe before fixing issues that depend on runtime behavior or external services.
+- Unproven concerns are risks, not bugs. Say so if you haven't reproduced it.
+- Simple, direct solutions. User instructions override this file.
 
 ## Output
 
-- Return code first. Explanation after, only if non-obvious.
-- No inline prose. Use comments only when the logic is not obvious.
-- No boilerplate unless explicitly requested.
+- Code first. Explanation only if non-obvious.
+- Comments only when logic is not obvious. No boilerplate.
 
-## Code Rules
+## Code
 
-- Simplest working solution. No over-engineering.
-- No abstractions for single-use operations.
-- No speculative features or "you might also want..."
-- When touching code, clean up the immediate area: remove unused variables, parameters, imports, helper functions, and dead branches.
-- Do not leave duplication behind when a small local simplification removes it cleanly.
-- Simplify changed code until the remaining logic is the smallest clear version that preserves behavior.
-- No docstrings or type annotations on code not being changed.
-- No error handling for scenarios that cannot happen.
-- Three similar lines is better than a premature abstraction.
-- Add new imports at the top of the file, not inside functions.
-- Remove dead code and unused imports, variables, constants, and functions immediately.
+- Simplest working solution. No over-engineering, no speculative features.
+- No abstractions for single-use operations. Three similar lines beats a premature abstraction.
+- When touching code: remove unused imports, variables, parameters, dead branches, and dead functions.
+- Simplify changed code to the smallest clear version that preserves behavior.
+- No error handling for impossible scenarios.
+- New imports go at the top of the file.
 
-## Review Rules
+## Review
 
 - State the bug. Show the fix. Stop.
-- No suggestions beyond the scope of the review.
-- No compliments or filler.
+- No suggestions outside scope. No filler.
 
-## Debugging Rules
+## Debugging
 
-- Read the relevant code before explaining the bug.
-- Prove the bug with direct evidence first: a failing test, a reproduced run, a live archive listing, API metadata, or another concrete probe.
-- If a claim depends on external content, inspect the actual content when feasible. Do not infer from names, descriptions, or assumptions.
-- State what you found, where, and the fix.
-- If the cause is unclear, say so. Do not guess.
+- Read the code before explaining the bug.
+- Prove with direct evidence: failing test, reproduced run, or concrete probe.
+- State what you found, where, and the fix. If unclear, say so.
 
-## Verification Rules
+## Verification
 
-- Use the project's actual tools for verification, not generic statements.
-- Run the smallest command that proves the specific issue first, then run the broader repo checks needed for the touched area.
-- For Rust code changes, default to these checks unless the change clearly does not require one of them:
-- `cargo fmt --check`
-- `cargo clippy --all-targets -- -D warnings`
-- `cargo test`
-- If you skip a check, state which one and why.
-- Do not claim a bug is fixed, a refactor is safe, or a release is ready without fresh command output.
+- Use the project's actual tools.
+- Run the smallest proof first, then broader checks for the touched area.
+- Default checks: format, lint (warnings as errors), tests. Skip only with stated reason.
+- No "fixed/safe/ready" claims without fresh command output.
 
-## Git Rules
+## Git
 
-- Merge to `main` with a single squashed commit only.
+- Merge to `main` with a single squashed commit.
 
-## Simple Formatting
+## Formatting
 
-- No em dashes, smart quotes, or decorative Unicode symbols.
-- Plain hyphens and straight quotes only.
-- Natural language characters (accented letters, CJK, etc.) are fine when the content requires them.
+- Plain hyphens and straight quotes only. No decorative Unicode.
 - Code output must be copy-paste safe.
