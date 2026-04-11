@@ -16,6 +16,8 @@ pub fn generate_sadx_config(
     height: u32,
     language_selection: config::LanguageSelection,
 ) -> Result<()> {
+    validate_language_selection(language_selection)?;
+
     let profile =
         build_default_profile(game_path, selected_mods, width, height, language_selection);
 
@@ -28,6 +30,19 @@ pub fn generate_sadx_config(
     write_sonic_dx_ini(game_path)?;
 
     tracing::info!("SADX configuration files generated");
+    Ok(())
+}
+
+fn validate_language_selection(language_selection: config::LanguageSelection) -> Result<()> {
+    if !config::SubtitleLanguage::supported_for(GameKind::SADX)
+        .contains(&language_selection.subtitle)
+    {
+        anyhow::bail!(
+            "Subtitle language '{}' is not supported for SADX",
+            language_selection.subtitle.as_str()
+        );
+    }
+
     Ok(())
 }
 
@@ -240,9 +255,7 @@ fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
         config::SubtitleLanguage::French => 2,
         config::SubtitleLanguage::Spanish => 3,
         config::SubtitleLanguage::German => 4,
-        config::SubtitleLanguage::Italian => {
-            unreachable!("Italian subtitle language is not supported for SADX")
-        }
+        config::SubtitleLanguage::Italian => 1,
     }
 }
 
@@ -565,6 +578,23 @@ mod tests {
         assert_eq!(
             parsed["TestSpawn"]["GameVoiceLanguage"],
             voice_code(selection.voice)
+        );
+    }
+
+    #[test]
+    fn test_unsupported_sadx_subtitle_language_returns_error() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        let selection = config::LanguageSelection {
+            subtitle: config::SubtitleLanguage::Italian,
+            voice: config::VoiceLanguage::Japanese,
+        };
+
+        let error = generate_sadx_config(tmp.path(), &[], 1920, 1080, selection).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Subtitle language 'italian' is not supported for SADX")
         );
     }
 }

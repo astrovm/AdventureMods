@@ -942,12 +942,15 @@ impl AdventureModsSetupPage {
         progress_bar: gtk::ProgressBar,
         cancel_flag: Arc<AtomicBool>,
     ) {
-        self.imp().task_running.set(true);
         let obj = self.clone();
         let game = self.imp().game.borrow().clone();
 
         glib::spawn_future_local(async move {
-            let Some(ref game) = game else { return };
+            let Some(ref game) = game else {
+                obj.imp().task_running.set(false);
+                return;
+            };
+            obj.imp().task_running.set(true);
 
             // Channel messages for progress bar updates
             enum ProgressMsg {
@@ -1601,5 +1604,24 @@ mod tests {
             preview_title.label().as_str(),
             "Retranslated Story -COMPLETE-"
         );
+    }
+
+    #[gtk::test]
+    fn run_download_step_clears_task_running_when_game_is_missing() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let progress_bar = gtk::ProgressBar::new();
+        let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+        page.imp().game.replace(None);
+        page.run_download_step("download_mods", progress_bar, cancel_flag);
+        while glib::MainContext::default().iteration(false) {}
+
+        assert!(!page.imp().task_running.get());
     }
 }
