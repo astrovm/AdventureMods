@@ -528,7 +528,9 @@ fn run_mod_install_step(
         total,
         "Install Mods & Generate Config",
     ))?;
-    let mut last_dl_mb: i64 = -1;
+    // Track last printed MB per mod name to avoid flooding stderr under concurrent downloads.
+    let mut last_dl_mb_per_mod: std::collections::HashMap<String, i64> =
+        std::collections::HashMap::new();
     let mut has_active_progress_line = false;
     let interactive_stderr = std::io::stderr().is_terminal();
     let result = pipeline::install_selected_mods_and_generate_config_with_progress(
@@ -545,27 +547,28 @@ fn run_mod_install_step(
                         eprintln!();
                         has_active_progress_line = false;
                     }
-                    last_dl_mb = -1;
+                    last_dl_mb_per_mod.insert(mod_name.to_string(), -1);
                     let _ = out.writeln(&format!("  Starting: {mod_name}"));
                 }
                 pipeline::InstallProgress::DownloadingMod {
+                    mod_name,
                     downloaded,
                     total_bytes,
-                    ..
                 } => {
                     let mb = (downloaded / 1_048_576) as i64;
-                    if mb != last_dl_mb {
-                        last_dl_mb = mb;
+                    let last = last_dl_mb_per_mod.entry(mod_name.to_string()).or_insert(-1);
+                    if mb != *last {
+                        *last = mb;
                         let text = if let Some(tb) = total_bytes {
                             let pct = downloaded as f64 / tb as f64 * 100.0;
                             format!(
-                                "    {:.1} / {:.1} MB ({:.0}%)",
+                                "    {mod_name}: {:.1} / {:.1} MB ({:.0}%)",
                                 downloaded as f64 / 1_048_576.0,
                                 tb as f64 / 1_048_576.0,
                                 pct,
                             )
                         } else {
-                            format!("    {:.1} MB", downloaded as f64 / 1_048_576.0)
+                            format!("    {mod_name}: {:.1} MB", downloaded as f64 / 1_048_576.0)
                         };
                         if interactive_stderr {
                             has_active_progress_line = true;
@@ -592,6 +595,7 @@ fn run_mod_install_step(
                         eprintln!();
                         has_active_progress_line = false;
                     }
+                    last_dl_mb_per_mod.remove(mod_name);
                     let _ = out.writeln(&format!("  [{completed}/{total}] Installed: {mod_name}"));
                 }
                 pipeline::InstallProgress::GeneratingConfig => {

@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -968,6 +969,8 @@ impl AdventureModsSetupPage {
             let pb = progress_bar.clone();
             glib::spawn_future_local(async move {
                 let mut completed_mods = 0;
+                // Map from mod_name -> (downloaded, total_bytes) for active downloads
+                let mut active_downloads: HashMap<String, (u64, Option<u64>)> = HashMap::new();
                 while let Ok(msg) = rx.recv().await {
                     match msg {
                         ProgressMsg::Bytes {
@@ -995,12 +998,26 @@ impl AdventureModsSetupPage {
                             downloaded,
                             total_bytes,
                         } => {
+                            active_downloads.insert(mod_name.clone(), (downloaded, total_bytes));
+
+                            // Aggregate bytes across all active downloads for a monotonic fraction.
+                            let (agg_downloaded, agg_total) = active_downloads.values().fold(
+                                (0u64, Some(0u64)),
+                                |(ad, at), (d, t)| {
+                                    let new_at = match (at, t) {
+                                        (Some(a), Some(b)) => Some(a + b),
+                                        _ => None,
+                                    };
+                                    (ad + d, new_at)
+                                },
+                            );
+
                             let update = mod_download_progress_update(
                                 completed_mods,
                                 total,
                                 &mod_name,
-                                downloaded,
-                                total_bytes,
+                                agg_downloaded,
+                                agg_total,
                             );
                             if update.pulse {
                                 pb.pulse();
@@ -1015,6 +1032,7 @@ impl AdventureModsSetupPage {
                             total,
                         } => {
                             completed_mods = completed;
+                            active_downloads.remove(&mod_name);
                             pb.set_fraction(completed_mod_fraction(completed, total));
                             pb.set_text(Some(&mod_download_finished_text(
                                 &mod_name, completed, total,

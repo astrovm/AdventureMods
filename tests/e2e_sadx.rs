@@ -90,8 +90,8 @@ fn sadx_setup_completes_against_fake_steam_install() {
                 body: "test-flat",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/dreamcast-test.7z")),
-        ("/dl/2", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/11", Response::Redirect("/files/dreamcast-test.7z")),
+        ("/dl/21", Response::Redirect("/files/test-flat.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -236,8 +236,8 @@ fn sadx_setup_can_rerun_on_existing_installation() {
                 body: "test-flat",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/dreamcast-test.7z")),
-        ("/dl/2", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/11", Response::Redirect("/files/dreamcast-test.7z")),
+        ("/dl/21", Response::Redirect("/files/test-flat.7z")),
     ]));
 
     let _env = EnvGuard::set(&[

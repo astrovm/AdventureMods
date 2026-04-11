@@ -29,6 +29,7 @@ pub enum InstallProgress<'a> {
 }
 
 const MAX_CONCURRENT_MOD_INSTALLS: usize = 4;
+const MAX_MOD_INSTALL_RETRIES: usize = 3;
 
 enum WorkerMessage {
     InstallingMod {
@@ -78,7 +79,6 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     let (tx, rx) = mpsc::channel::<WorkerMessage>();
     let mut callback_error = None;
     let mut completed = 0;
-    let mut successes = vec![false; mod_total];
     let mut failures = vec![None; mod_total];
 
     thread::scope(|scope| {
@@ -100,30 +100,46 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                     let mod_entry = selected_mods[job_index];
                     let _ = tx.send(WorkerMessage::InstallingMod { job_index });
 
-                    let mut download_progress = |downloaded: u64, total_bytes: Option<u64>| {
-                        if cancelled.load(Ordering::Relaxed) {
-                            anyhow::bail!("cancelled")
+                    let mut attempt = 0;
+                    let result = loop {
+                        let mut download_progress = |downloaded: u64, total_bytes: Option<u64>| {
+                            if cancelled.load(Ordering::Relaxed) {
+                                anyhow::bail!("cancelled")
+                            }
+
+                            tx.send(WorkerMessage::DownloadingMod {
+                                job_index,
+                                downloaded,
+                                total_bytes,
+                            })
+                            .map_err(|_| anyhow!("cancelled"))?;
+
+                            if cancelled.load(Ordering::Relaxed) {
+                                anyhow::bail!("cancelled")
+                            }
+
+                            Ok(())
+                        };
+
+                        let result = common::install_mod_with_progress(
+                            game_path,
+                            mod_entry,
+                            Some(&mut download_progress),
+                        );
+
+                        attempt += 1;
+                        match result {
+                            Ok(()) => break Ok(()),
+                            Err(e) if attempt < MAX_MOD_INSTALL_RETRIES => {
+                                if cancelled.load(Ordering::Relaxed) {
+                                    break Err(e);
+                                }
+                                // brief pause before retry
+                                std::thread::sleep(std::time::Duration::from_millis(500));
+                            }
+                            Err(e) => break Err(e),
                         }
-
-                        tx.send(WorkerMessage::DownloadingMod {
-                            job_index,
-                            downloaded,
-                            total_bytes,
-                        })
-                        .map_err(|_| anyhow!("cancelled"))?;
-
-                        if cancelled.load(Ordering::Relaxed) {
-                            anyhow::bail!("cancelled")
-                        }
-
-                        Ok(())
                     };
-
-                    let result = common::install_mod_with_progress(
-                        game_path,
-                        mod_entry,
-                        Some(&mut download_progress),
-                    );
 
                     match result {
                         Ok(()) => {
@@ -172,7 +188,6 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                 }
                 WorkerMessage::Completed { job_index } => {
                     completed += 1;
-                    successes[job_index] = true;
                     if callback_error.is_none()
                         && let Err(error) = progress(InstallProgress::Finished {
                             mod_name: selected_mods[job_index].name,
@@ -195,24 +210,6 @@ pub fn install_selected_mods_and_generate_config_with_progress(
         return Err(error);
     }
 
-    let successful_mods: Vec<&ModEntry> = selected_mods
-        .iter()
-        .enumerate()
-        .filter_map(|(index, mod_entry)| successes[index].then_some(*mod_entry))
-        .collect();
-
-    if !successful_mods.is_empty() {
-        progress(InstallProgress::GeneratingConfig)?;
-        config::generate_config(
-            game_path,
-            game_kind,
-            &successful_mods,
-            width,
-            height,
-            language_selection,
-        )?;
-    }
-
     let failed_mods: Vec<String> = failures
         .into_iter()
         .enumerate()
@@ -227,6 +224,16 @@ pub fn install_selected_mods_and_generate_config_with_progress(
             failed_mods.join("; ")
         ));
     }
+
+    progress(InstallProgress::GeneratingConfig)?;
+    config::generate_config(
+        game_path,
+        game_kind,
+        selected_mods,
+        width,
+        height,
+        language_selection,
+    )?;
 
     Ok(())
 }

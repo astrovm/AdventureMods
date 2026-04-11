@@ -207,8 +207,8 @@ fn sa2_setup_completes_against_fake_steam_install() {
                 body: "test-flat",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
-        ("/dl/2", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/21", Response::Redirect("/files/test-flat.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -319,8 +319,8 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
                 body: "test-flat",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
-        ("/dl/2", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/21", Response::Redirect("/files/test-flat.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -437,8 +437,8 @@ fn sa2_setup_can_rerun_on_existing_installation() {
                 body: "test-flat",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
-        ("/dl/2", Response::Redirect("/files/test-flat.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/21", Response::Redirect("/files/test-flat.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -536,7 +536,7 @@ fn sa2_setup_generates_config_for_successful_mods_even_when_another_mod_fails() 
                 body: "render-fix",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -582,11 +582,12 @@ fn sa2_setup_generates_config_for_successful_mods_even_when_another_mod_fails() 
         },
     );
 
+    // All-or-nothing: one mod fails after retries, so no config is written.
     assert!(result.is_err());
-    assert!(saw_config);
+    assert!(!saw_config);
     assert!(fixture.game_path.join("mods/Render Fix/mod.ini").is_file());
     assert!(
-        fixture
+        !fixture
             .game_path
             .join("mods/.modloader/profiles/Default.json")
             .is_file()
@@ -627,7 +628,7 @@ fn sa2_setup_rejects_duplicate_install_targets_before_running() {
                 body: "render-fix",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -710,7 +711,7 @@ fn sa2_setup_stops_when_download_progress_callback_errors() {
                 body: "render-fix",
             },
         ),
-        ("/dl/1", Response::Redirect("/files/render-fix.7z")),
+        ("/dl/11", Response::Redirect("/files/render-fix.7z")),
     ]));
 
     let _env = EnvGuard::set(&[

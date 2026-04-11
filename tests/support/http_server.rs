@@ -32,6 +32,17 @@ pub struct TestServer {
     thread: Option<std::thread::JoinHandle<()>>,
 }
 
+/// Maps (item_type, item_id) -> file_id for the fake GameBanana API.
+///
+/// In production, item_id and file_id are distinct: an item (e.g. a mod page) has
+/// one or more file entries whose IDs differ from the item ID. Using the same value
+/// for both in tests would hide bugs in the resolution path.
+///
+/// The file_id is item_id * 10 + 1 so the difference is always detectable.
+fn fake_file_id(item_id: u64) -> u64 {
+    item_id * 10 + 1
+}
+
 /// Parse `itemid=N` from a query string, returning N as a string.
 fn parse_itemid(query: &str) -> Option<String> {
     query.split('&').find_map(|part| {
@@ -44,10 +55,27 @@ fn parse_itemid(query: &str) -> Option<String> {
     })
 }
 
-/// Build a fake GameBanana API response: `[{"<id>": {"_idRow": <id>}}]`
+/// Parse `itemtype=X` from a query string.
+fn parse_itemtype(query: &str) -> Option<String> {
+    query.split('&').find_map(|part| {
+        let (k, v) = part.split_once('=')?;
+        if k == "itemtype" {
+            Some(v.to_string())
+        } else {
+            None
+        }
+    })
+}
+
+/// Build a fake GameBanana API response where the file key differs from item_id.
+///
+/// Format: `[{"<file_id>": {"_idRow": <file_id>}}]`
+/// The `file_id` is deliberately distinct from `item_id` so tests exercise the
+/// item->file resolution logic rather than passing trivially with item_id==file_id.
 fn fake_gamebanana_api_response(item_id: &str) -> String {
     let id: u64 = item_id.parse().unwrap_or(0);
-    format!("[{{\"{}\":{{\"_idRow\":{}}}}}]", item_id, id)
+    let file_id = fake_file_id(id);
+    format!("[{{\"{}\":{{\"_idRow\":{}}}}}]", file_id, file_id)
 }
 
 impl TestServer {
@@ -87,8 +115,8 @@ impl TestServer {
                                 full_path.split_once('?').unwrap_or((full_path, ""));
 
                             let response = if path == "/gbapi" {
-                                match parse_itemid(query) {
-                                    Some(id) => {
+                                match (parse_itemtype(query), parse_itemid(query)) {
+                                    (Some(_item_type), Some(id)) => {
                                         let body = fake_gamebanana_api_response(&id);
                                         format!(
                                             "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -96,7 +124,7 @@ impl TestServer {
                                             body
                                         )
                                     }
-                                    None => "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
+                                    _ => "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
                                 }
                             } else {
                                 match routes.get(path) {
@@ -166,6 +194,14 @@ impl TestServer {
     /// Base URL for GameBanana downloads (sets ADVENTURE_MODS_GAMEBANANA_DL_BASE).
     pub fn gamebanana_dl_base(&self) -> String {
         self.url("/dl/")
+    }
+
+    /// Returns the fake file_id the test server resolves for a given item_id.
+    ///
+    /// Use this in tests to register the correct `/dl/<file_id>` route instead of
+    /// accidentally using the item_id as the download path.
+    pub fn fake_file_id_for(item_id: u32) -> u32 {
+        fake_file_id(item_id as u64) as u32
     }
 
     pub fn max_active_requests(&self) -> usize {

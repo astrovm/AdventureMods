@@ -50,8 +50,8 @@ fn seed_sa2_all_mod_routes(
                         body,
                     },
                 );
-                // The fake API returns _idRow == item_id, so the download hits /dl/{item_id}.
-                let dl_path = leak_str(format!("/dl/{item_id}"));
+                // The fake API resolves item_id to a distinct file_id via TestServer::fake_file_id_for.
+                let dl_path = leak_str(format!("/dl/{}", TestServer::fake_file_id_for(item_id)));
                 routes.insert(dl_path, Response::Redirect(file_path));
             }
             ModSource::DirectUrl { url } => {
@@ -99,7 +99,7 @@ fn seed_sadx_preset_routes(
                         body,
                     },
                 );
-                let dl_path = leak_str(format!("/dl/{item_id}"));
+                let dl_path = leak_str(format!("/dl/{}", TestServer::fake_file_id_for(item_id)));
                 routes.insert(dl_path, Response::Redirect(file_path));
             }
             ModSource::DirectUrl { url } => {
@@ -271,7 +271,7 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
                 body: "hd-gui",
             },
         ),
-        ("/dl/33171", Response::Redirect("/files/hd-gui.7z")),
+        ("/dl/331711", Response::Redirect("/files/hd-gui.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
@@ -1022,7 +1022,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
         Some("sa2-render-fix"),
         "SA2 Render Fix",
     );
-    // HD GUI for SA2: GameBananaItem { item_id: 33171 } -> fake API resolves to /dl/33171
+    // HD GUI for SA2: GameBananaItem { item_id: 33171 } -> fake API resolves to /dl/331711
     add_fake_mod_archive(
         &fixture.extract_root,
         "hd-gui",
@@ -1066,7 +1066,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
                 body: "hd-gui",
             },
         ),
-        ("/dl/33171", Response::Redirect("/files/hd-gui.7z")),
+        ("/dl/331711", Response::Redirect("/files/hd-gui.7z")),
     ]));
 
     let _env = EnvGuard::set(&[
