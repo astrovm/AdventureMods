@@ -5,7 +5,6 @@ use anyhow::{Context, Result};
 use crate::external::{archive, download};
 
 use super::common::{ModEntry, ModLink, ModSource};
-use super::config;
 
 /// Direct URL for the Steam-to-2004 conversion tools archive.
 const STEAM_TOOLS_URL: &str =
@@ -794,12 +793,14 @@ pub fn convert_steam_to_2004(
     game_path: &Path,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    let system_dir = config::system_dir(game_path);
-
     // Skip if already converted. Check multiple markers since previous setups
     // (including the official Windows installer) leave different traces.
-    let chrmodels_orig = system_dir.join("CHRMODELS_orig.dll");
-    if chrmodels_orig.exists() {
+    // Use case-insensitive lookup so this works whether Steam extracted to
+    // system/ or System/ on a case-sensitive Linux filesystem.
+    if super::common::sadx_data_dir(game_path)
+        .and_then(|dir| super::common::find_file_icase(&dir, "CHRMODELS_orig.dll"))
+        .is_some()
+    {
         tracing::info!("Game appears already converted (CHRMODELS_orig.dll exists), skipping");
         return Ok(());
     }

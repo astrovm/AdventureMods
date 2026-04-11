@@ -299,7 +299,7 @@ pub fn resolve_selected_mods(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_selected_mods;
+    use super::{reject_duplicate_install_targets, resolve_selected_mods};
     use crate::steam::game::GameKind;
 
     #[test]
@@ -343,12 +343,38 @@ mod tests {
     }
 
     #[test]
-    fn preserves_duplicate_named_mods() {
+    fn resolve_selected_mods_preserves_duplicate_entries() {
         let selected =
             resolve_selected_mods(GameKind::SA2, None, &["SA2 Render Fix", "SA2 Render Fix"])
                 .unwrap();
 
         let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
         assert_eq!(names, vec!["SA2 Render Fix", "SA2 Render Fix"]);
+    }
+
+    #[test]
+    fn reject_duplicate_install_targets_errors_on_duplicates() {
+        use crate::setup::common::{ModEntry, ModSource};
+        let entry = ModEntry {
+            name: "SA2 Render Fix",
+            slug: "sa2-render-fix",
+            dir_name: Some("sa2-render-fix"),
+            source: ModSource::DirectUrl {
+                url: "https://example.com/mod.zip",
+            },
+            description: "test",
+            full_description: None,
+            pictures: &[],
+            links: &[],
+        };
+        let selected = vec![&entry, &entry];
+        let result = reject_duplicate_install_targets(&selected);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Duplicate mod install target")
+        );
     }
 }

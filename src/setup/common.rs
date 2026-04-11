@@ -427,7 +427,7 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     Ok(())
 }
 
-fn sadx_data_dir(game_path: &Path) -> Option<std::path::PathBuf> {
+pub(super) fn sadx_data_dir(game_path: &Path) -> Option<std::path::PathBuf> {
     for dir in [game_path.join("system"), game_path.join("System")] {
         if dir.is_dir()
             && (find_file_icase(&dir, "CHRMODELS.dll").is_some()
@@ -667,7 +667,7 @@ pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
 /// Find a file in a directory by case-insensitive name match.
 ///
 /// Returns `Some(path)` with the actual on-disk casing, or `None` if no match.
-fn find_file_icase(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
+pub(super) fn find_file_icase(dir: &Path, name: &str) -> Option<std::path::PathBuf> {
     let name_lower = name.to_lowercase();
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {

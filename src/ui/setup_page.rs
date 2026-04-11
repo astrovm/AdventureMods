@@ -41,6 +41,9 @@ mod imp {
         pub language_selection: RefCell<Option<config::LanguageSelection>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
+        // True while a blocking download task is running; cleared on completion.
+        // The cancel handler polls this before re-showing the step.
+        pub task_running: Cell<bool>,
     }
 
     impl std::fmt::Debug for AdventureModsSetupPage {
@@ -539,14 +542,17 @@ impl AdventureModsSetupPage {
                         flag.store(true, Ordering::Relaxed);
                         btn.set_sensitive(false);
                         btn.set_label("Cancelling...");
-                        // Re-show the step so user can retry
+                        // Poll until the blocking task has finished before re-showing
+                        // the step, so we don't start a new task while the old one is
+                        // still writing to disk.
                         let obj2 = obj.clone();
-                        glib::timeout_add_local_once(
-                            std::time::Duration::from_millis(500),
-                            move || {
-                                obj2.show_current_step();
-                            },
-                        );
+                        glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
+                            if obj2.imp().task_running.get() {
+                                return glib::ControlFlow::Continue;
+                            }
+                            obj2.show_current_step();
+                            glib::ControlFlow::Break
+                        });
                     });
 
                     content_box.append(&cancel_button);
@@ -928,6 +934,7 @@ impl AdventureModsSetupPage {
         progress_bar: gtk::ProgressBar,
         cancel_flag: Arc<AtomicBool>,
     ) {
+        self.imp().task_running.set(true);
         let obj = self.clone();
         let game = self.imp().game.borrow().clone();
 
@@ -1156,6 +1163,7 @@ impl AdventureModsSetupPage {
                         Ok(()) => Ok(()),
                         Err(e) => {
                             if was_cancelled.load(Ordering::Relaxed) {
+                                obj.imp().task_running.set(false);
                                 return; // Was cancelled
                             }
                             Err(e)
@@ -1165,6 +1173,7 @@ impl AdventureModsSetupPage {
                 _ => Ok(()),
             };
 
+            obj.imp().task_running.set(false);
             match result {
                 Ok(()) => {
                     obj.imp().next_button.set_sensitive(true);
