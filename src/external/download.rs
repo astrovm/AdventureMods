@@ -13,14 +13,18 @@ pub type ProgressFn = Box<dyn Fn(u64, Option<u64>) + Send>;
 /// so it must be called from a blocking thread (e.g. `gio::spawn_blocking`),
 /// NOT from an async context.
 pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Result<()> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("Failed to create tokio runtime")?;
-
-    let progress_ref: Option<&dyn Fn(u64, Option<u64>)> =
-        progress.as_deref().map(|f| f as &dyn Fn(u64, Option<u64>));
-    rt.block_on(download_file_async(url, dest, progress_ref))
+    let mut cb = progress.map(|f| {
+        move |downloaded: u64, total: Option<u64>| -> Result<()> {
+            f(downloaded, total);
+            Ok(())
+        }
+    });
+    download_file_with(
+        url,
+        dest,
+        cb.as_mut()
+            .map(|f| f as &mut dyn FnMut(u64, Option<u64>) -> Result<()>),
+    )
 }
 
 /// Like `download_file` but accepts any `FnMut` without `Send` or `'static` bounds.
@@ -35,10 +39,10 @@ pub fn download_file_with(
         .build()
         .context("Failed to create tokio runtime")?;
 
-    rt.block_on(download_file_async_mut(url, dest, progress))
+    rt.block_on(download_file_async(url, dest, progress))
 }
 
-async fn download_file_async_mut(
+async fn download_file_async(
     url: &str,
     dest: &Path,
     mut progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
@@ -67,42 +71,6 @@ async fn download_file_async_mut(
 
         if let Some(ref mut progress) = progress {
             progress(downloaded, total)?;
-        }
-    }
-
-    file.flush()?;
-    Ok(())
-}
-
-async fn download_file_async(
-    url: &str,
-    dest: &Path,
-    progress: Option<&dyn Fn(u64, Option<u64>)>,
-) -> Result<()> {
-    let client = Client::new();
-    let response = fetch_download_response(&client, url).await?;
-
-    let total = response.content_length();
-
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    let mut file = std::fs::File::create(dest)
-        .with_context(|| format!("Failed to create {}", dest.display()))?;
-
-    let mut stream = response.bytes_stream();
-    let mut downloaded: u64 = 0;
-
-    use std::io::Write;
-
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.context("Error reading response body")?;
-        file.write_all(&chunk)?;
-        downloaded += chunk.len() as u64;
-
-        if let Some(ref progress) = progress {
-            progress(downloaded, total);
         }
     }
 

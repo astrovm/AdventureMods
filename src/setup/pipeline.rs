@@ -29,7 +29,7 @@ pub enum InstallProgress<'a> {
 }
 
 const MAX_CONCURRENT_MOD_INSTALLS: usize = 4;
-const MAX_MOD_INSTALL_RETRIES: usize = 3;
+const MAX_MOD_INSTALL_ATTEMPTS: usize = 3;
 
 enum WorkerMessage {
     InstallingMod {
@@ -130,7 +130,7 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                         attempt += 1;
                         match result {
                             Ok(()) => break Ok(()),
-                            Err(e) if attempt < MAX_MOD_INSTALL_RETRIES => {
+                            Err(e) if attempt < MAX_MOD_INSTALL_ATTEMPTS => {
                                 if cancelled.load(Ordering::Relaxed) {
                                     break Err(e);
                                 }
@@ -201,6 +201,7 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                 }
                 WorkerMessage::Failed { job_index, error } => {
                     failures[job_index] = Some(error);
+                    cancelled.store(true, Ordering::Relaxed);
                 }
             }
         }

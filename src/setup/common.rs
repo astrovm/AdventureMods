@@ -478,8 +478,9 @@ pub fn install_mod_with_progress(
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
-    if mods_dir.join(dir_name).is_dir() {
+    if let Some(dir_name) = mod_entry.dir_name
+        && mods_dir.join(dir_name).is_dir()
+    {
         tracing::info!(
             "Mod '{}' already installed, skipping download",
             mod_entry.name
@@ -594,10 +595,8 @@ fn normalize_mod_version(mod_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let now = glib::DateTime::now_utc().map_err(|err| anyhow!(err.to_string()))?;
-    let stamp = now
-        .format_iso8601()
-        .map_err(|err| anyhow!(err.to_string()))?;
+    let now = glib::DateTime::now_utc().map_err(|err| anyhow!("{err}"))?;
+    let stamp = now.format_iso8601().map_err(|err| anyhow!("{err}"))?;
 
     std::fs::write(mod_dir.join("mod.version"), format!("{stamp}\n"))?;
     Ok(())
