@@ -12,17 +12,18 @@ use super::common::{self, ModEntry};
 use super::config;
 
 pub enum InstallProgress<'a> {
-    InstallingMod {
-        index: usize,
-        total: usize,
+    Started {
         mod_name: &'a str,
     },
     DownloadingMod {
-        index: usize,
-        total: usize,
         mod_name: &'a str,
         downloaded: u64,
         total_bytes: Option<u64>,
+    },
+    Finished {
+        mod_name: &'a str,
+        completed: usize,
+        total: usize,
     },
     GeneratingConfig,
 }
@@ -76,6 +77,7 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     let cancelled = Arc::new(AtomicBool::new(false));
     let (tx, rx) = mpsc::channel::<WorkerMessage>();
     let mut callback_error = None;
+    let mut completed = 0;
     let mut successes = vec![false; mod_total];
     let mut failures = vec![None; mod_total];
 
@@ -144,9 +146,7 @@ pub fn install_selected_mods_and_generate_config_with_progress(
             match message {
                 WorkerMessage::InstallingMod { job_index } => {
                     if callback_error.is_none()
-                        && let Err(error) = progress(InstallProgress::InstallingMod {
-                            index: job_index + 1,
-                            total: mod_total,
+                        && let Err(error) = progress(InstallProgress::Started {
                             mod_name: selected_mods[job_index].name,
                         })
                     {
@@ -161,8 +161,6 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                 } => {
                     if callback_error.is_none()
                         && let Err(error) = progress(InstallProgress::DownloadingMod {
-                            index: job_index + 1,
-                            total: mod_total,
                             mod_name: selected_mods[job_index].name,
                             downloaded,
                             total_bytes,
@@ -173,7 +171,18 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                     }
                 }
                 WorkerMessage::Completed { job_index } => {
+                    completed += 1;
                     successes[job_index] = true;
+                    if callback_error.is_none()
+                        && let Err(error) = progress(InstallProgress::Finished {
+                            mod_name: selected_mods[job_index].name,
+                            completed,
+                            total: mod_total,
+                        })
+                    {
+                        cancelled.store(true, Ordering::Relaxed);
+                        callback_error = Some(error);
+                    }
                 }
                 WorkerMessage::Failed { job_index, error } => {
                     failures[job_index] = Some(error);

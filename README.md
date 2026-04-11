@@ -63,7 +63,7 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 | `--game-path /path` | Override Steam detection for setup |
 | `--preset "Name"` | Use a named preset (SADX only) |
 | `--all-mods` | Install all recommended mods |
-| `--mods id1,id2` | Select specific mods |
+| `--mods slug1,slug2` | Select specific mods |
 | `--subtitle-language value` | Override generated subtitle language |
 | `--voice-language value` | Override generated voice language |
 | `--width`, `--height` | Override generated resolution |

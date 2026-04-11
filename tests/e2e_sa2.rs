@@ -360,12 +360,15 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
         LanguageSelection::defaults_for(GameKind::SA2),
         |event| {
             match event {
-                pipeline::InstallProgress::InstallingMod {
-                    index,
-                    total,
-                    mod_name,
-                } => progress_events.push(format!("{index}/{total}:{mod_name}")),
+                pipeline::InstallProgress::Started { mod_name } => {
+                    progress_events.push(format!("start:{mod_name}"))
+                }
                 pipeline::InstallProgress::DownloadingMod { .. } => {}
+                pipeline::InstallProgress::Finished {
+                    mod_name,
+                    completed,
+                    total,
+                } => progress_events.push(format!("finish:{completed}/{total}:{mod_name}")),
                 pipeline::InstallProgress::GeneratingConfig => {
                     progress_events.push("config".to_string())
                 }
@@ -375,10 +378,22 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
     )
     .unwrap();
 
-    assert_eq!(
-        progress_events,
-        vec!["1/2:Render Fix", "2/2:Test Flat", "config"]
-    );
+    let start_events: Vec<&str> = progress_events
+        .iter()
+        .filter_map(|event| event.strip_prefix("start:"))
+        .collect();
+    let finish_events: Vec<&String> = progress_events
+        .iter()
+        .filter(|event| event.starts_with("finish:"))
+        .collect();
+
+    assert_eq!(start_events.len(), 2);
+    assert!(start_events.contains(&"Render Fix"));
+    assert!(start_events.contains(&"Test Flat"));
+    assert_eq!(finish_events.len(), 2);
+    assert!(finish_events[0].starts_with("finish:1/2:"));
+    assert!(finish_events[1].starts_with("finish:2/2:"));
+    assert_eq!(progress_events.last().map(String::as_str), Some("config"));
 }
 
 #[test]

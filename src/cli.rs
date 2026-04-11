@@ -540,17 +540,13 @@ fn run_mod_install_step(
         step.language_selection,
         |progress| {
             match progress {
-                pipeline::InstallProgress::InstallingMod {
-                    index,
-                    total,
-                    mod_name,
-                } => {
+                pipeline::InstallProgress::Started { mod_name } => {
                     if interactive_stderr && has_active_progress_line {
                         eprintln!();
                         has_active_progress_line = false;
                     }
                     last_dl_mb = -1;
-                    let _ = out.writeln(&format!("  [{index}/{total}] {mod_name}"));
+                    let _ = out.writeln(&format!("  Starting: {mod_name}"));
                 }
                 pipeline::InstallProgress::DownloadingMod {
                     downloaded,
@@ -586,6 +582,17 @@ fn run_mod_install_step(
                             }
                         }
                     }
+                }
+                pipeline::InstallProgress::Finished {
+                    mod_name,
+                    completed,
+                    total,
+                } => {
+                    if interactive_stderr && has_active_progress_line {
+                        eprintln!();
+                        has_active_progress_line = false;
+                    }
+                    let _ = out.writeln(&format!("  [{completed}/{total}] Installed: {mod_name}"));
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
                     if interactive_stderr && has_active_progress_line {
@@ -776,7 +783,7 @@ fn parse_mods_flag(mods: &str) -> Result<Vec<&str>> {
         .collect();
 
     if parsed.is_empty() {
-        bail!("--mods requires at least one mod id");
+        bail!("--mods requires at least one mod slug");
     }
 
     Ok(parsed)
@@ -791,7 +798,7 @@ fn resolve_mod_identifier(
         .find(|mod_entry| mod_entry.slug.eq_ignore_ascii_case(identifier))
         .ok_or_else(|| {
             anyhow!(
-                "Unknown mod id '{}'. Use 'list-mods --game {}' to see valid ids.",
+                "Unknown mod slug '{}'. Use 'list-mods --game {}' to see valid slugs.",
                 identifier,
                 game_kind_arg(game_kind)
             )
@@ -1488,7 +1495,7 @@ mod tests {
             Err(error) => error,
         };
 
-        assert!(error.to_string().contains("Unknown mod id"));
+        assert!(error.to_string().contains("Unknown mod slug"));
     }
 
     #[test]

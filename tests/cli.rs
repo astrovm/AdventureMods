@@ -317,7 +317,7 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
     let result = run_with_io(cli, false, &mut output);
 
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Unknown mod id"));
+    assert!(result.unwrap_err().to_string().contains("Unknown mod slug"));
 }
 
 #[test]
@@ -1139,7 +1139,8 @@ fn setup_installs_selected_mods_from_cli_flags() {
     assert!(output.contains("Step 1/3: Install .NET Runtime\nDone\n"));
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
-    assert!(output.contains("[1/2] SA2 Render Fix"));
+    assert!(output.contains("Starting: SA2 Render Fix"));
+    assert!(output.contains("[1/2] Installed: SA2 Render Fix"));
     assert!(output.contains("Generating mod config"));
 }
 

@@ -111,21 +111,21 @@ fn voice_language_labels() -> Vec<&'static str> {
         .collect()
 }
 
-fn completed_mod_fraction(index: usize, total: usize) -> f64 {
+fn completed_mod_fraction(completed: usize, total: usize) -> f64 {
     if total == 0 {
         return 0.0;
     }
 
-    index.saturating_sub(1) as f64 / total as f64
+    completed as f64 / total as f64
 }
 
 fn mod_download_fraction(
-    index: usize,
+    completed: usize,
     total: usize,
     downloaded: u64,
     total_bytes: Option<u64>,
 ) -> f64 {
-    let completed = completed_mod_fraction(index, total);
+    let completed = completed_mod_fraction(completed, total);
     let Some(total_bytes) = total_bytes else {
         return completed;
     };
@@ -136,6 +136,32 @@ fn mod_download_fraction(
     (completed + (downloaded as f64 / total_bytes as f64 / total as f64)).min(1.0)
 }
 
+fn format_step_download_text(status: &str, downloaded: u64, total: Option<u64>) -> String {
+    let bytes_text = if let Some(total) = total {
+        format!(
+            "{:.1} / {:.1} MB",
+            downloaded as f64 / 1_048_576.0,
+            total as f64 / 1_048_576.0,
+        )
+    } else {
+        format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
+    };
+
+    if status.is_empty() {
+        bytes_text
+    } else {
+        format!("{status} - {bytes_text}")
+    }
+}
+
+fn mod_download_start_text(mod_name: &str) -> String {
+    format!("Starting {mod_name}...")
+}
+
+fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) -> String {
+    format!("Installed {mod_name} ({completed}/{total})")
+}
+
 struct ModDownloadProgressUpdate {
     fraction: f64,
     pulse: bool,
@@ -143,7 +169,7 @@ struct ModDownloadProgressUpdate {
 }
 
 fn mod_download_progress_update(
-    index: usize,
+    completed: usize,
     total: usize,
     mod_name: &str,
     downloaded: u64,
@@ -160,9 +186,9 @@ fn mod_download_progress_update(
     };
 
     ModDownloadProgressUpdate {
-        fraction: mod_download_fraction(index, total, downloaded, total_bytes),
+        fraction: mod_download_fraction(completed, total, downloaded, total_bytes),
         pulse: total_bytes.is_none(),
-        text: format!("{mod_name} ({index}/{total}) - {bytes_text}"),
+        text: format!("{mod_name} - {bytes_text}"),
     }
 }
 
@@ -915,19 +941,21 @@ impl AdventureModsSetupPage {
                     total: Option<u64>,
                     status: String,
                 },
-                // Mod install: fraction by item index, label shows mod name
                 ModInstall {
-                    index: usize,
-                    total: usize,
                     mod_name: String,
+                    total: usize,
                 },
                 // Per-mod byte download progress (nested inside mod install)
                 ModBytes {
-                    index: usize,
-                    total: usize,
                     mod_name: String,
+                    total: usize,
                     downloaded: u64,
                     total_bytes: Option<u64>,
+                },
+                ModFinished {
+                    mod_name: String,
+                    completed: usize,
+                    total: usize,
                 },
                 Configuring {
                     total: usize,
@@ -939,6 +967,7 @@ impl AdventureModsSetupPage {
             // Progress update receiver
             let pb = progress_bar.clone();
             glib::spawn_future_local(async move {
+                let mut completed_mods = 0;
                 while let Ok(msg) = rx.recv().await {
                     match msg {
                         ProgressMsg::Bytes {
@@ -946,43 +975,28 @@ impl AdventureModsSetupPage {
                             total,
                             status,
                         } => {
-                            let bytes_text = if let Some(total) = total {
+                            if let Some(total) = total {
                                 if total > 0 {
                                     pb.set_fraction(downloaded as f64 / total as f64);
                                 }
-                                format!(
-                                    "{:.1} / {:.1} MB",
-                                    downloaded as f64 / 1_048_576.0,
-                                    total as f64 / 1_048_576.0,
-                                )
                             } else {
                                 pb.pulse();
-                                format!("{:.1} MB", downloaded as f64 / 1_048_576.0)
-                            };
-                            let text = if status.is_empty() {
-                                bytes_text
-                            } else {
-                                format!("{status} ({bytes_text})")
-                            };
+                            }
+                            let text = format_step_download_text(&status, downloaded, total);
                             pb.set_text(Some(&text));
                         }
-                        ProgressMsg::ModInstall {
-                            index,
-                            total,
-                            mod_name,
-                        } => {
-                            pb.set_fraction(completed_mod_fraction(index, total));
-                            pb.set_text(Some(&format!("{mod_name} ({index}/{total})")));
+                        ProgressMsg::ModInstall { mod_name, total } => {
+                            pb.set_fraction(completed_mod_fraction(completed_mods, total));
+                            pb.set_text(Some(&mod_download_start_text(&mod_name)));
                         }
                         ProgressMsg::ModBytes {
-                            index,
-                            total,
                             mod_name,
+                            total,
                             downloaded,
                             total_bytes,
                         } => {
                             let update = mod_download_progress_update(
-                                index,
+                                completed_mods,
                                 total,
                                 &mod_name,
                                 downloaded,
@@ -995,9 +1009,20 @@ impl AdventureModsSetupPage {
                             }
                             pb.set_text(Some(&update.text));
                         }
+                        ProgressMsg::ModFinished {
+                            mod_name,
+                            completed,
+                            total,
+                        } => {
+                            completed_mods = completed;
+                            pb.set_fraction(completed_mod_fraction(completed, total));
+                            pb.set_text(Some(&mod_download_finished_text(
+                                &mod_name, completed, total,
+                            )));
+                        }
                         ProgressMsg::Configuring { total } => {
                             pb.set_fraction(1.0);
-                            pb.set_text(Some(&format!("Configuring... ({total}/{total})")));
+                            pb.set_text(Some(&format!("Generating config... ({total}/{total})")));
                         }
                     }
                 }
@@ -1069,30 +1094,33 @@ impl AdventureModsSetupPage {
                                         return Err(anyhow::anyhow!("cancelled"));
                                     }
                                     match progress {
-                                        pipeline::InstallProgress::InstallingMod {
-                                            index,
-                                            total,
-                                            mod_name,
-                                        } => {
+                                        pipeline::InstallProgress::Started { mod_name } => {
                                             let _ = tx.send_blocking(ProgressMsg::ModInstall {
-                                                index,
-                                                total,
                                                 mod_name: mod_name.to_string(),
+                                                total: total_count,
                                             });
                                         }
                                         pipeline::InstallProgress::DownloadingMod {
-                                            index,
-                                            total,
                                             mod_name,
                                             downloaded,
                                             total_bytes,
                                         } => {
                                             let _ = tx.send_blocking(ProgressMsg::ModBytes {
-                                                index,
-                                                total,
                                                 mod_name: mod_name.to_string(),
+                                                total: total_count,
                                                 downloaded,
                                                 total_bytes,
+                                            });
+                                        }
+                                        pipeline::InstallProgress::Finished {
+                                            mod_name,
+                                            completed,
+                                            total,
+                                        } => {
+                                            let _ = tx.send_blocking(ProgressMsg::ModFinished {
+                                                mod_name: mod_name.to_string(),
+                                                completed,
+                                                total,
                                             });
                                         }
                                         pipeline::InstallProgress::GeneratingConfig => {
@@ -1332,8 +1360,9 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        completed_mod_fraction, initial_preview_index, mod_download_fraction,
-        mod_download_progress_update, subtitle_language_labels, voice_language_labels,
+        completed_mod_fraction, format_step_download_text, initial_preview_index,
+        mod_download_finished_text, mod_download_fraction, mod_download_progress_update,
+        mod_download_start_text, subtitle_language_labels, voice_language_labels,
     };
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
@@ -1413,23 +1442,47 @@ mod tests {
     }
 
     #[test]
-    fn mod_download_fraction_starts_at_prior_completed_items() {
-        assert_eq!(mod_download_fraction(1, 2, 0, Some(100)), 0.0);
-        assert_eq!(mod_download_fraction(2, 2, 0, Some(100)), 0.5);
+    fn mod_download_fraction_starts_at_completed_items() {
+        assert_eq!(mod_download_fraction(0, 2, 0, Some(100)), 0.0);
+        assert_eq!(mod_download_fraction(1, 2, 0, Some(100)), 0.5);
     }
 
     #[test]
-    fn mod_download_fraction_reaches_completion_at_end_of_last_item() {
-        assert_eq!(mod_download_fraction(2, 2, 100, Some(100)), 1.0);
+    fn mod_download_fraction_reaches_completion_at_end_of_current_item() {
+        assert_eq!(mod_download_fraction(1, 2, 100, Some(100)), 1.0);
     }
 
     #[test]
     fn mod_download_progress_pulses_when_total_size_is_unknown() {
-        let update = mod_download_progress_update(2, 4, "Render Fix", 1_048_576, None);
+        let update = mod_download_progress_update(1, 4, "Render Fix", 1_048_576, None);
 
-        assert_eq!(update.fraction, completed_mod_fraction(2, 4));
+        assert_eq!(update.fraction, completed_mod_fraction(1, 4));
         assert!(update.pulse);
-        assert_eq!(update.text, "Render Fix (2/4) - 1.0 MB");
+        assert_eq!(update.text, "Render Fix - 1.0 MB");
+    }
+
+    #[test]
+    fn mod_download_start_text_is_uniform() {
+        assert_eq!(
+            mod_download_start_text("Render Fix"),
+            "Starting Render Fix..."
+        );
+    }
+
+    #[test]
+    fn mod_download_finished_text_is_uniform() {
+        assert_eq!(
+            mod_download_finished_text("Render Fix", 1, 4),
+            "Installed Render Fix (1/4)"
+        );
+    }
+
+    #[test]
+    fn step_download_text_uses_dash_separator() {
+        assert_eq!(
+            format_step_download_text("Downloading...", 1_048_576, Some(2_097_152)),
+            "Downloading... - 1.0 / 2.0 MB"
+        );
     }
 
     #[gtk::test]
