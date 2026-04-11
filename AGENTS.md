@@ -21,6 +21,9 @@
 - Simplest working solution. No over-engineering.
 - No abstractions for single-use operations.
 - No speculative features or "you might also want..."
+- When touching code, clean up the immediate area: remove unused variables, parameters, imports, helper functions, and dead branches.
+- Do not leave duplication behind when a small local simplification removes it cleanly.
+- Simplify changed code until the remaining logic is the smallest clear version that preserves behavior.
 - No docstrings or type annotations on code not being changed.
 - No error handling for scenarios that cannot happen.
 - Three similar lines is better than a premature abstraction.
