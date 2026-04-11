@@ -44,6 +44,9 @@ mod imp {
         // True while a blocking download task is running; cleared on completion.
         // The cancel handler polls this before re-showing the step.
         pub task_running: Cell<bool>,
+        // SourceId of the cancel poll timer; removed by the task completion path
+        // to prevent the poll from firing after a normal (non-cancelled) finish.
+        pub poll_source: RefCell<Option<glib::SourceId>>,
     }
 
     impl std::fmt::Debug for AdventureModsSetupPage {
@@ -546,13 +549,18 @@ impl AdventureModsSetupPage {
                         // the step, so we don't start a new task while the old one is
                         // still writing to disk.
                         let obj2 = obj.clone();
-                        glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
-                            if obj2.imp().task_running.get() {
-                                return glib::ControlFlow::Continue;
-                            }
-                            obj2.show_current_step();
-                            glib::ControlFlow::Break
-                        });
+                        let source_id = glib::timeout_add_local(
+                            std::time::Duration::from_millis(50),
+                            move || {
+                                if obj2.imp().task_running.get() {
+                                    return glib::ControlFlow::Continue;
+                                }
+                                obj2.imp().poll_source.borrow_mut().take();
+                                obj2.show_current_step();
+                                glib::ControlFlow::Break
+                            },
+                        );
+                        obj.imp().poll_source.replace(Some(source_id));
                     });
 
                     content_box.append(&cancel_button);
@@ -1174,6 +1182,12 @@ impl AdventureModsSetupPage {
             };
 
             obj.imp().task_running.set(false);
+            // If the task finished without cancellation, stop the cancel poll so
+            // it doesn't re-run the current step after advance_step() has already
+            // moved on.
+            if let Some(source_id) = obj.imp().poll_source.borrow_mut().take() {
+                source_id.remove();
+            }
             match result {
                 Ok(()) => {
                     obj.imp().next_button.set_sensitive(true);

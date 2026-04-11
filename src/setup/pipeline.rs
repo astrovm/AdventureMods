@@ -207,10 +207,6 @@ pub fn install_selected_mods_and_generate_config_with_progress(
         }
     });
 
-    if let Some(error) = callback_error {
-        return Err(error);
-    }
-
     let failed_mods: Vec<String> = failures
         .into_iter()
         .enumerate()
@@ -224,6 +220,10 @@ pub fn install_selected_mods_and_generate_config_with_progress(
             "Failed to install mods: {}",
             failed_mods.join("; ")
         ));
+    }
+
+    if let Some(error) = callback_error {
+        return Err(error);
     }
 
     progress(InstallProgress::GeneratingConfig)?;

@@ -240,7 +240,9 @@ fn subtitle_code(language: config::SubtitleLanguage) -> u32 {
         config::SubtitleLanguage::French => 2,
         config::SubtitleLanguage::Spanish => 3,
         config::SubtitleLanguage::German => 4,
-        config::SubtitleLanguage::Italian => 1,
+        config::SubtitleLanguage::Italian => {
+            unreachable!("Italian subtitle language is not supported for SADX")
+        }
     }
 }
 
