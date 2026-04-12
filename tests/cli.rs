@@ -788,7 +788,8 @@ fn interactive_setup_can_be_cancelled_via_tty() {
         .spawn()
         .unwrap();
 
-    child.stdin.take().unwrap().write_all(b"\nn\n").unwrap();
+    // setup mode, subtitle language, voice language, then cancel confirm
+    child.stdin.take().unwrap().write_all(b"\n\n\nn\n").unwrap();
     let output = child.wait_with_output().unwrap();
 
     assert!(!output.status.success());
@@ -879,7 +880,8 @@ fn interactive_sa2_setup_completes_via_tty() {
         .spawn()
         .unwrap();
 
-    child.stdin.take().unwrap().write_all(b"\ny\n").unwrap();
+    // setup mode, subtitle language, voice language, then proceed confirm
+    child.stdin.take().unwrap().write_all(b"\n\n\ny\n").unwrap();
     let output = child.wait_with_output().unwrap();
 
     assert!(output.status.success());
@@ -992,7 +994,8 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
         .spawn()
         .unwrap();
 
-    child.stdin.take().unwrap().write_all(b"\ny\n").unwrap();
+    // setup mode (preset), subtitle language, voice language, then proceed confirm
+    child.stdin.take().unwrap().write_all(b"\n\n\ny\n").unwrap();
     let output = child.wait_with_output().unwrap();
 
     assert!(output.status.success());
