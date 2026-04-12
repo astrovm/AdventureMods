@@ -1232,9 +1232,20 @@ fn detect_resolution_via_gdk() -> Option<(u32, u32)> {
     }
     let display = gdk::Display::default()?;
     let monitors = display.monitors();
-    let monitor = monitors
-        .item(0)
-        .and_then(|m| m.downcast::<gdk::Monitor>().ok())?;
+    // Prefer landscape monitors (width >= height) over portrait, then largest area.
+    // monitors.item(0) is not necessarily the primary display; a portrait secondary
+    // monitor may appear first and produce nonsensical results.
+    let monitor = (0..monitors.n_items())
+        .filter_map(|i| {
+            monitors
+                .item(i)
+                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
+        })
+        .max_by_key(|m| {
+            let g = m.geometry();
+            let (w, h) = (g.width() as i64, g.height() as i64);
+            (if w >= h { 1i64 } else { 0i64 }, w * h)
+        })?;
     let geometry = monitor.geometry();
     // scale() returns f64 and supports fractional scaling (GDK 4.14+).
     let scale = monitor.scale();
