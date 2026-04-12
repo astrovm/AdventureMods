@@ -54,7 +54,7 @@ mod imp {
                         .application_name(config::APP_NAME)
                         .application_icon(config::APP_ID)
                         .developer_name("astrovm")
-                        .version(config::VERSION)
+                        .version(env!("CARGO_PKG_VERSION"))
                         .developers(vec!["astrovm"])
                         .copyright("2026 astrovm")
                         .license_type(gtk::License::MitX11)

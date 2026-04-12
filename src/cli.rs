@@ -10,7 +10,6 @@ use gtk::gdk;
 use gtk::prelude::{Cast, DisplayExt, ListModelExt, MonitorExt};
 
 use crate::banner;
-use crate::config;
 use crate::external::runtime_installer;
 use crate::setup::{common, config as setup_config, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
@@ -139,7 +138,7 @@ impl Prompt for TerminalPrompt {
 #[derive(Debug, Parser)]
 #[command(
     name = "adventure-mods",
-    version = config::VERSION,
+    version = env!("CARGO_PKG_VERSION"),
     about = "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux",
     long_about = "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles mod managers, runtimes, resolution, load order, and language settings so you can play right away. Run without a subcommand to launch the GUI."
 )]
@@ -228,7 +227,7 @@ pub fn initialize_crypto_provider() -> Result<()> {
 }
 
 fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
-    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+    banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
 
     let result = detect_games_strict(&args)?;
 
@@ -264,7 +263,7 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
 
 fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
     let game_kind = parse_game_kind(game)?;
-    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+    banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
     out.writeln(&format!("Game: {}", game_kind.name()))?;
 
     let presets = common::presets_for_game(game_kind);
@@ -295,7 +294,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     if term_width >= 30 {
         banner::print_banner(&mut out.writer, out.use_color)?;
     }
-    banner::print_header(&mut out.writer, config::VERSION, out.use_color)?;
+    banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
     out.writeln("")?;
 
     let rich_prompts = use_rich_prompts(&args);

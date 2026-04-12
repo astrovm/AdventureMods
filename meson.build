@@ -1,7 +1,12 @@
 project(
   'adventure-mods',
   'rust',
-  version: '0.3.4',
+  version: run_command(
+    'python3', '-c',
+    'import re, sys; m = re.search(r\'version = "([^"]+)"\', open(sys.argv[1]).read()); print(m.group(1))',
+    'Cargo.toml',
+    check: true,
+  ).stdout().strip(),
   meson_version: '>= 1.2.0',
   license: 'MIT',
 )
@@ -46,7 +51,6 @@ conf.set('APP_NAME_RAW', app_name)
 conf.set_quoted('APP_ID', app_id)
 conf.set_quoted('APP_PATH', '/@0@/'.format(app_id.replace('.', '/')))
 conf.set_quoted('APP_NAME', app_name)
-conf.set_quoted('VERSION', meson.project_version() + version_suffix)
 conf.set_quoted('GETTEXT_PACKAGE', 'adventure-mods')
 conf.set_quoted('LOCALEDIR', localedir)
 conf.set_quoted('PKGDATADIR', pkgdatadir)
