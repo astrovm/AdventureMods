@@ -75,6 +75,14 @@ impl<'a> CliOutput<'a> {
     fn writeln(&mut self, s: &str) -> std::io::Result<()> {
         writeln!(self.writer, "{s}")
     }
+
+    fn dim_writeln(&mut self, s: &str) -> std::io::Result<()> {
+        if self.use_color {
+            writeln!(self.writer, "{}", self.dim.apply_to(s))
+        } else {
+            writeln!(self.writer, "{s}")
+        }
+    }
 }
 
 trait Prompt {
@@ -552,7 +560,7 @@ fn run_mod_install_step(
                         has_active_progress_line = false;
                     }
                     last_dl_mb_per_mod.insert(mod_name.to_string(), -1);
-                    let _ = out.writeln(&format!("  Starting: {mod_name}"));
+                    let _ = out.dim_writeln(&format!("  Starting: {mod_name}"));
                 }
                 pipeline::InstallProgress::DownloadingMod {
                     mod_name,
@@ -680,6 +688,19 @@ fn persist_cli_language_selection(
 
 fn prompt_theme() -> ColorfulTheme {
     ColorfulTheme::default()
+}
+
+/// Truncate `s` to at most `max` display columns, appending `…` if cut.
+fn truncate_to_width(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    let cut = max.saturating_sub(1);
+    let mut end = cut.min(s.len());
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &s[..end])
 }
 
 fn resolve_game_kind_rich(
@@ -850,8 +871,15 @@ fn resolve_setup_mods_rich(
 
     let presets = common::presets_for_game(game_kind);
     let mut options = Vec::new();
+    let opt_width = console::Term::stderr()
+        .size_checked()
+        .map_or(80, |(_, w)| w as usize)
+        .saturating_sub(6);
     for preset in presets {
-        options.push(format!("{} - {}", preset.name, preset.description));
+        options.push(truncate_to_width(
+            &format!("{} - {}", preset.name, preset.description),
+            opt_width,
+        ));
     }
     let all_recommended_index = if presets.is_empty() {
         let idx = options.len();
@@ -876,7 +904,12 @@ fn resolve_setup_mods_rich(
     let mods = common::recommended_mods_for_game(game_kind);
     let items: Vec<String> = mods
         .iter()
-        .map(|mod_entry| format!("{} - {}", mod_entry.name, mod_entry.description))
+        .map(|mod_entry| {
+            truncate_to_width(
+                &format!("{} - {}", mod_entry.name, mod_entry.description),
+                opt_width,
+            )
+        })
         .collect();
     let defaults = vec![true; items.len()];
     let selections = prompt.multi_select(
