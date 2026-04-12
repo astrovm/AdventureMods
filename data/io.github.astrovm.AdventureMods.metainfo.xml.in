@@ -44,6 +44,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.4" date="2026-04-11">
+      <description>
+        <p>CLI setup now prompts for language and detects physical resolution.</p>
+        <ul>
+          <li>Interactive CLI setup prompts for subtitle and voice language like the GUI does</li>
+          <li>Resolution detection uses physical pixel dimensions accounting for fractional scaling</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.3" date="2026-04-10">
       <description>
         <p>Faster, more reliable mod setup.</p>
