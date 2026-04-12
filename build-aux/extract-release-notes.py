@@ -18,4 +18,7 @@ for release in root.findall(".//release"):
             for li in child.findall("li"):
                 lines.append(f"- {li.text.strip()}")
     print("\n".join(lines))
-    break
+    sys.exit(0)
+
+sys.stderr.write(f"error: no release entry found for version {version}\n")
+sys.exit(1)

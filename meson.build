@@ -25,16 +25,9 @@ profile = get_option('profile')
 if profile == 'development'
   app_id = '@0@.Devel'.format(base_id)
   app_name = 'Adventure Mods Devel'
-  vcs_tag = run_command('git', 'rev-parse', '--short', 'HEAD', check: false).stdout().strip()
-  if vcs_tag == ''
-    version_suffix = '-devel'
-  else
-    version_suffix = '-@0@'.format(vcs_tag)
-  endif
 else
   app_id = base_id
   app_name = 'Adventure Mods'
-  version_suffix = ''
 endif
 
 prefix = get_option('prefix')
