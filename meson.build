@@ -3,7 +3,7 @@ project(
   'rust',
   version: run_command(
     'python3', '-c',
-    'import re, sys; m = re.search(r\'version = "([^"]+)"\', open(sys.argv[1]).read()); print(m.group(1))',
+    'import re, sys; t = open(sys.argv[1]).read(); pkg = re.search(r\'\\[package\\](.*?)(?=\\[|$)\', t, re.S).group(1); print(re.search(r\'version = "([^"]+)"\', pkg).group(1))',
     'Cargo.toml',
     check: true,
   ).stdout().strip(),

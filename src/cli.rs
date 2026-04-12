@@ -338,11 +338,11 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
             (w.unwrap_or(dw), h.unwrap_or(dh))
         }
     };
-    let language_selection = if rich_prompts {
-        resolve_setup_languages(&args, game_kind, Some(&prompt))?
-    } else {
-        resolve_setup_languages(&args, game_kind, None)?
-    };
+    let language_selection = resolve_setup_languages(
+        &args,
+        game_kind,
+        rich_prompts.then_some(&prompt as &dyn Prompt),
+    )?;
 
     if rich_prompts {
         let summary = SetupSummary {
