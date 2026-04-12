@@ -49,10 +49,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          version="${{ github.ref_name }}"
+          version="${version#v}"
+          notes=$(python3 build-aux/extract-release-notes.py "$version")
           gh release create "${{ github.ref_name }}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --generate-notes \
+            --notes "$notes" \
             --draft || true
           gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage \
             --repo "$GITHUB_REPOSITORY"
