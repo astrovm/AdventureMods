@@ -690,19 +690,6 @@ fn prompt_theme() -> ColorfulTheme {
     ColorfulTheme::default()
 }
 
-/// Truncate `s` to at most `max` display columns, appending `…` if cut.
-fn truncate_to_width(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    let cut = max.saturating_sub(1);
-    let mut end = cut.min(s.len());
-    while !s.is_char_boundary(end) {
-        end -= 1;
-    }
-    format!("{}…", &s[..end])
-}
-
 fn resolve_game_kind_rich(
     args: &SetupArgs,
     detected: Option<&DetectionResult>,
@@ -871,15 +858,8 @@ fn resolve_setup_mods_rich(
 
     let presets = common::presets_for_game(game_kind);
     let mut options = Vec::new();
-    let opt_width = console::Term::stderr()
-        .size_checked()
-        .map_or(80, |(_, w)| w as usize)
-        .saturating_sub(6);
     for preset in presets {
-        options.push(truncate_to_width(
-            &format!("{} - {}", preset.name, preset.description),
-            opt_width,
-        ));
+        options.push(format!("{} - {}", preset.name, preset.description));
     }
     let all_recommended_index = if presets.is_empty() {
         let idx = options.len();
@@ -904,12 +884,7 @@ fn resolve_setup_mods_rich(
     let mods = common::recommended_mods_for_game(game_kind);
     let items: Vec<String> = mods
         .iter()
-        .map(|mod_entry| {
-            truncate_to_width(
-                &format!("{} - {}", mod_entry.name, mod_entry.description),
-                opt_width,
-            )
-        })
+        .map(|mod_entry| format!("{} - {}", mod_entry.name, mod_entry.description))
         .collect();
     let defaults = vec![true; items.len()];
     let selections = prompt.multi_select(
