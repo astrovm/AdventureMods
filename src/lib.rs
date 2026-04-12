@@ -3,6 +3,7 @@ pub mod banner;
 pub mod blocking;
 pub mod cli;
 pub mod config;
+pub mod display;
 pub mod external;
 pub mod setup;
 pub mod steam;

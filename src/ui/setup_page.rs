@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{gdk, gio, glib};
+use gtk::{gio, glib};
 
 use crate::blocking;
 use crate::setup::{common, config, pipeline, sadx, steps};
@@ -1233,54 +1233,12 @@ impl AdventureModsSetupPage {
     }
 
     fn get_resolution(&self) -> (u32, u32) {
-        // Fallback to 1080p if we can't detect it
-        let default_res = (1920, 1080);
-
-        let display = self.display();
-        let monitors = display.monitors();
-
-        // Try to get the monitor where the window is
         let surface = self.native().and_then(|n| n.surface());
-        let monitor = if let Some(ref s) = surface {
-            display.monitor_at_surface(s)
-        } else {
-            monitors
-                .item(0)
-                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
-        };
-
-        if let Some(monitor) = monitor {
-            let geometry = monitor.geometry();
-
-            // Try to get fractional scale from surface, fall back to monitor's integer scale.
-            // gdk::Surface::scale() returns f64 and supports fractional scaling (GTK 4.12+).
-            let scale = if let Some(s) = surface {
-                s.scale()
-            } else {
-                monitor.scale_factor() as f64
-            };
-
-            let (width, height) = (
-                (geometry.width() as f64 * scale).round() as u32,
-                (geometry.height() as f64 * scale).round() as u32,
-            );
-            tracing::info!(
-                "Detected resolution: {}x{} (Logical: {}x{}, Scale: {:.2})",
-                width,
-                height,
-                geometry.width(),
-                geometry.height(),
-                scale
-            );
-            (width, height)
-        } else {
-            tracing::warn!(
-                "Could not detect monitor resolution, using fallback {}x{}",
-                default_res.0,
-                default_res.1
-            );
-            default_res
-        }
+        let display = self.display();
+        crate::display::resolution_from_display(&display, surface.as_ref()).unwrap_or_else(|| {
+            tracing::warn!("Could not detect monitor resolution, using fallback 1920x1080");
+            (1920, 1080)
+        })
     }
     fn advance_step(&self) {
         let imp = self.imp();

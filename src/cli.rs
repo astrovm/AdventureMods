@@ -7,7 +7,6 @@ use clap::{Args, Parser, Subcommand};
 use console::Style;
 use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
 use gtk::gdk;
-use gtk::prelude::{Cast, DisplayExt, ListModelExt, MonitorExt};
 
 use crate::banner;
 use crate::external::runtime_installer;
@@ -332,9 +331,9 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         }
     };
     let language_selection = if rich_prompts {
-        resolve_setup_languages_rich(&args, game_kind, &prompt)?
+        resolve_setup_languages(&args, game_kind, Some(&prompt))?
     } else {
-        resolve_setup_languages(&args, game_kind)?
+        resolve_setup_languages(&args, game_kind, None)?
     };
 
     if rich_prompts {
@@ -626,6 +625,7 @@ fn run_mod_install_step(
 fn resolve_setup_languages(
     args: &SetupArgs,
     game_kind: GameKind,
+    prompt: Option<&dyn Prompt>,
 ) -> Result<setup_config::LanguageSelection> {
     let mut selection =
         setup_config::load_language_selection(setup_config::app_settings().as_ref(), game_kind);
@@ -640,54 +640,27 @@ fn resolve_setup_languages(
             );
         }
         selection.subtitle = subtitle;
-    }
-
-    if let Some(value) = &args.voice_language {
-        selection.voice = setup_config::VoiceLanguage::parse(value)?;
-    }
-
-    Ok(selection)
-}
-
-fn resolve_setup_languages_rich(
-    args: &SetupArgs,
-    game_kind: GameKind,
-    prompt: &dyn Prompt,
-) -> Result<setup_config::LanguageSelection> {
-    let mut selection =
-        setup_config::load_language_selection(setup_config::app_settings().as_ref(), game_kind);
-
-    if let Some(value) = &args.subtitle_language {
-        let subtitle = setup_config::SubtitleLanguage::parse(value)?;
-        if !setup_config::SubtitleLanguage::supported_for(game_kind).contains(&subtitle) {
-            bail!(
-                "Subtitle language '{}' is not supported for {}.",
-                value,
-                game_kind.name()
-            );
-        }
-        selection.subtitle = subtitle;
-    } else {
+    } else if let Some(p) = prompt {
         let options = setup_config::SubtitleLanguage::supported_for(game_kind);
         let labels: Vec<String> = options.iter().map(|l| l.label().to_string()).collect();
         let default_index = options
             .iter()
             .position(|&l| l == selection.subtitle)
             .unwrap_or(0);
-        let selected = prompt.select("Subtitle language", &labels, default_index)?;
+        let selected = p.select("Subtitle language", &labels, default_index)?;
         selection.subtitle = options[selected];
     }
 
     if let Some(value) = &args.voice_language {
         selection.voice = setup_config::VoiceLanguage::parse(value)?;
-    } else {
+    } else if let Some(p) = prompt {
         let options = setup_config::VoiceLanguage::all();
         let labels: Vec<String> = options.iter().map(|l| l.label().to_string()).collect();
         let default_index = options
             .iter()
             .position(|&l| l == selection.voice)
             .unwrap_or(0);
-        let selected = prompt.select("Voice language", &labels, default_index)?;
+        let selected = p.select("Voice language", &labels, default_index)?;
         selection.voice = options[selected];
     }
 
@@ -1231,36 +1204,7 @@ fn detect_resolution_via_gdk() -> Option<(u32, u32)> {
         return None;
     }
     let display = gdk::Display::default()?;
-    let monitors = display.monitors();
-    // Prefer landscape monitors (width >= height) over portrait, then largest area.
-    // monitors.item(0) is not necessarily the primary display; a portrait secondary
-    // monitor may appear first and produce nonsensical results.
-    let monitor = (0..monitors.n_items())
-        .filter_map(|i| {
-            monitors
-                .item(i)
-                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
-        })
-        .max_by_key(|m| {
-            let g = m.geometry();
-            let (w, h) = (g.width() as i64, g.height() as i64);
-            (if w >= h { 1i64 } else { 0i64 }, w * h)
-        })?;
-    let geometry = monitor.geometry();
-    // scale() returns f64 and supports fractional scaling (GDK 4.14+).
-    let scale = monitor.scale();
-    let width = (geometry.width() as f64 * scale).round() as u32;
-    let height = (geometry.height() as f64 * scale).round() as u32;
-    if width > 0 && height > 0 {
-        tracing::info!(
-            "Detected resolution via GDK: {width}x{height} (logical: {}x{}, scale: {scale:.2})",
-            geometry.width(),
-            geometry.height()
-        );
-        Some((width, height))
-    } else {
-        None
-    }
+    crate::display::resolution_from_display(&display, None)
 }
 
 fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {
@@ -1309,7 +1253,7 @@ mod tests {
     use super::{
         Cli, CliOutput, Command, Prompt, SetupArgs, TerminalPrompt, parse_xrandr_resolution,
         persist_cli_language_selection, resolve_game_kind_rich, resolve_mods_flag,
-        resolve_setup_languages_rich, resolve_setup_mods, resolve_setup_mods_rich,
+        resolve_setup_languages, resolve_setup_mods, resolve_setup_mods_rich,
         run_from_args_with_io, setup_is_fully_specified,
     };
     use crate::config::APP_ID;
@@ -1535,7 +1479,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_setup_languages_rich_prompts_when_no_flags() {
+    fn resolve_setup_languages_prompts_when_no_flags() {
         with_test_settings(|settings| {
             settings
                 .set_string("sadx-subtitle-language", "english")
@@ -1564,7 +1508,7 @@ mod tests {
                 confirm_result: true,
             };
 
-            let result = resolve_setup_languages_rich(&args, GameKind::SADX, &prompt).unwrap();
+            let result = resolve_setup_languages(&args, GameKind::SADX, Some(&prompt)).unwrap();
 
             assert_eq!(result.subtitle, SubtitleLanguage::English);
             assert_eq!(result.voice, VoiceLanguage::English);
@@ -1572,7 +1516,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_setup_languages_rich_skips_prompts_when_flags_set() {
+    fn resolve_setup_languages_skips_prompts_when_flags_set() {
         with_test_settings(|_settings| {
             let args = SetupArgs {
                 game: None,
@@ -1593,7 +1537,7 @@ mod tests {
                 confirm_result: true,
             };
 
-            let result = resolve_setup_languages_rich(&args, GameKind::SA2, &prompt).unwrap();
+            let result = resolve_setup_languages(&args, GameKind::SA2, Some(&prompt)).unwrap();
 
             assert_eq!(result.subtitle, SubtitleLanguage::Spanish);
             assert_eq!(result.voice, VoiceLanguage::English);
