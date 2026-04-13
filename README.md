@@ -47,6 +47,10 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 > [!TIP]
 > `setup` opens an interactive wizard when game, path, or mod selection is missing. For a fully headless run, specify all options explicitly.
 
+<p align="center">
+  <img src="data/screenshots/cli.png" alt="CLI" width="820">
+</p>
+
 **Commands**
 
 | Command | Description |
