@@ -10,6 +10,7 @@ use gtk::gdk;
 
 use crate::banner;
 use crate::external::runtime_installer;
+use crate::path_display::display_path;
 use crate::setup::{common, config as setup_config, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
@@ -249,7 +250,7 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
             out.writeln(&format!(
                 "- {}: {}",
                 game.kind.name(),
-                out.path(&game.path.display().to_string())
+                out.path(&display_path(&game.path))
             ))?;
         }
     }
@@ -260,7 +261,7 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
             out.writeln(&format!(
                 "- {}: {}",
                 game.kind.name(),
-                out.path(&game.library_path.display().to_string())
+                out.path(&display_path(&game.library_path))
             ))?;
         }
     }
@@ -359,7 +360,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     out.writeln(&format!(
         "Setting up {} at {}",
         game_kind.name(),
-        out.path(&game_path.display().to_string())
+        out.path(&display_path(&game_path))
     ))?;
     out.writeln("")?;
 
@@ -720,7 +721,7 @@ fn resolve_game_kind_rich(
     let items: Vec<String> = result
         .games
         .iter()
-        .map(|game| format!("{} ({})", game.kind.name(), game.path.display()))
+        .map(|game| format!("{} ({})", game.kind.name(), display_path(&game.path)))
         .collect();
     let selection = prompt.select("Select installation", &items, 0)?;
     Ok(result.games[selection].kind)
@@ -755,10 +756,7 @@ fn resolve_game_path_rich(
         0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
         1 => Ok(games.remove(0).path),
         _ => {
-            let items: Vec<String> = games
-                .iter()
-                .map(|game| game.path.display().to_string())
-                .collect();
+            let items: Vec<String> = games.iter().map(|game| display_path(&game.path)).collect();
             let selection = prompt.select(
                 &format!("Select {} installation", game_kind.name()),
                 &items,
@@ -915,7 +913,7 @@ fn confirm_setup_summary(
     out.writeln(&format!("Game: {}", summary.game_kind.name()))?;
     out.writeln(&format!(
         "Path: {}",
-        out.path(&summary.game_path.display().to_string())
+        out.path(&display_path(summary.game_path))
     ))?;
     out.writeln(&format!("Resolution: {}x{}", summary.width, summary.height))?;
     out.writeln(&format!(

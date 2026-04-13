@@ -5,6 +5,7 @@ pub mod cli;
 pub mod config;
 pub mod display;
 pub mod external;
+pub mod path_display;
 pub mod setup;
 pub mod steam;
 pub mod ui;

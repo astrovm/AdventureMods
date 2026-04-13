@@ -2,6 +2,8 @@ use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
 
+use crate::path_display::display_path;
+
 #[cfg(test)]
 use crate::steam::game::Game;
 use crate::steam::game::GameKind;
@@ -136,9 +138,9 @@ impl GameInstallOption {
 
     fn selector_label(&self) -> String {
         if self.is_accessible() {
-            self.path().display().to_string()
+            display_path(self.path())
         } else {
-            format!("{} (Needs access)", self.path().display())
+            format!("{} (Needs access)", display_path(self.path()))
         }
     }
 }
@@ -174,8 +176,7 @@ impl AdventureModsGameCard {
         imp.status_label.set_visible(show_status);
         imp.status_label.set_label(&status_text);
         imp.details_label.set_visible(true);
-        imp.details_label
-            .set_label(&game.path.display().to_string());
+        imp.details_label.set_label(&display_path(&game.path));
         imp.setup_button.set_visible(true);
         imp.secondary_button.set_visible(false);
         self.add_css_class("game-card-clickable");
@@ -268,8 +269,7 @@ impl AdventureModsGameCard {
         };
 
         imp.details_label.set_visible(true);
-        imp.details_label
-            .set_label(&option.path().display().to_string());
+        imp.details_label.set_label(&display_path(option.path()));
         imp.secondary_button.set_visible(false);
 
         if install_count > 1 {
