@@ -44,6 +44,13 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.5" date="2026-04-13">
+      <description>
+        <ul>
+          <li>Paths in the UI and CLI now abbreviate the home directory as ~</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.4" date="2026-04-11">
       <description>
         <p>CLI setup now prompts for language and detects physical resolution.</p>
