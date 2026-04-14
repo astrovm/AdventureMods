@@ -2,18 +2,18 @@
 
 - Read before editing. Test before declaring done.
 - Prefer small edits over rewrites.
-- Probe before fixing issues that depend on runtime behavior or external services.
+- Reproduce before fixing issues that depend on runtime behavior or external services.
 - Unproven concerns are risks, not bugs. Say so if you haven't reproduced it.
 - Simplest working solution. No over-engineering, no speculative features, no abstractions for single-use ops.
 
 ## Output
 
-- Code first. Explanation only if non-obvious. Comments only when logic is not obvious.
+- Code first. Explanation and comments only when logic is non-obvious.
 - No filler, no boilerplate, no suggestions outside scope.
 
 ## Code
 
-- Remove unused imports, variables, parameters, dead branches, dead functions on touch.
+- Remove unused imports, variables, parameters, dead branches, dead functions in files you edit.
 - No error handling for impossible scenarios.
 - New imports at top of file.
 
