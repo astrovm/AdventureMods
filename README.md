@@ -15,7 +15,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 - SADX presets: DX Enhanced and Dreamcast Restoration
 - Installs mod managers, mods, and dependencies in one step
 - Configures native resolution, window mode, and optimal settings
-- Lets you choose subtitle and voice language during setup
+- Subtitle and voice language selection, saved per game
 
 ## Requirements
 
@@ -30,29 +30,15 @@ chmod +x Adventure_Mods-x86_64.AppImage
 ./Adventure_Mods-x86_64.AppImage
 ```
 
-No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
+Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode.
 
 ## CLI
-
-```sh
-./Adventure_Mods-x86_64.AppImage detect
-./Adventure_Mods-x86_64.AppImage list-mods --game sadx
-./Adventure_Mods-x86_64.AppImage setup
-./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
-./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
-```
-
-> [!TIP]
-> `setup` opens an interactive wizard when game, path, or mod selection is missing. For a fully headless run, specify all options explicitly.
 
 <p align="center">
   <img src="data/screenshots/cli.png" alt="CLI" width="800">
 </p>
 
-**Commands**
+### Commands
 
 | Command | Description |
 |---------|-------------|
@@ -60,35 +46,55 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 | `list-mods --game <sadx\|sa2>` | List available presets and mods for a game |
 | `setup` | Install runtimes, mod manager, mods, and config files |
 
-**Setup flags**
+### Setup flags
 
 | Flag | Description |
 |------|-------------|
 | `--game sadx\|sa2` | Select the game |
-| `--game-path /path` | Override Steam detection for setup |
+| `--game-path /path` | Override Steam detection with an explicit install path |
 | `--preset "Name"` | Use a named preset (SADX only) |
 | `--all-mods` | Install all recommended mods |
-| `--mods slug1,slug2` | Select specific mods |
-| `--subtitle-language value` | Override generated subtitle language |
-| `--voice-language value` | Override generated voice language |
-| `--width`, `--height` | Override generated resolution |
-| `--libraryfolders-vdf /path` | Use a specific Steam library file |
+| `--mods slug1,slug2` | Select specific mods by slug |
+| `--subtitle-language` | Set subtitle language (see below) |
+| `--voice-language` | Set voice language: `japanese` or `english` |
+| `--width`, `--height` | Override detected resolution |
+| `--libraryfolders-vdf /path` | Use a specific `libraryfolders.vdf` file |
 | `--steam-library /path` | Add an extra Steam library root (repeatable) |
 
-**Language values**
+**Subtitle languages**
 
-Voice: `japanese`, `english`
+- SADX: `japanese`, `english`, `french`, `spanish`, `german`
+- SA2: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
 
-SADX subtitles: `japanese`, `english`, `french`, `spanish`, `german`
+> [!TIP]
+> `setup` opens an interactive wizard when game, path, or mod selection is missing. Specify all options for a fully headless run.
 
-SA2 subtitles: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
-
-Selections are saved per game and reused the next time you run setup.
-
-**Flatpak**
+### Examples
 
 ```sh
-flatpak run io.github.astrovm.AdventureMods <subcommand>
+# Detect installed games
+./Adventure_Mods-x86_64.AppImage detect
+
+# List available mods
+./Adventure_Mods-x86_64.AppImage list-mods --game sadx
+
+# Interactive setup (wizard)
+./Adventure_Mods-x86_64.AppImage setup
+
+# Headless: install a preset
+./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
+
+# Headless: install all mods
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
+
+# Headless: pick specific mods
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
+
+# Set languages
+./Adventure_Mods-x86_64.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
+
+# Custom path and resolution
+./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
 ```
 
 ## Development
