@@ -35,7 +35,7 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 ## CLI
 
 <p align="center">
-  <img src="data/screenshots/cli.png" alt="CLI" width="800">
+  <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
 | Command | Description |
