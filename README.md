@@ -37,6 +37,7 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 ```sh
 ./Adventure_Mods-x86_64.AppImage detect
 ./Adventure_Mods-x86_64.AppImage list-mods --game sadx
+./Adventure_Mods-x86_64.AppImage setup
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
@@ -48,7 +49,7 @@ No subcommand launches the GUI. Pass a subcommand to run in CLI mode.
 > `setup` opens an interactive wizard when game, path, or mod selection is missing. For a fully headless run, specify all options explicitly.
 
 <p align="center">
-  <img src="data/screenshots/cli.png" alt="CLI" width="820">
+  <img src="data/screenshots/cli.png" alt="CLI" width="800">
 </p>
 
 **Commands**
