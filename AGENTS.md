@@ -24,8 +24,8 @@
 
 ## Verification
 
-- Use the project's actual tools. Smallest proof first, then broader checks.
-- Default checks: format, lint (warnings as errors), tests. Skip only with stated reason.
+- Smallest proof first, then broader checks.
+- Use the language's standard toolchain. Default checks: format, lint (warnings as errors), tests. Skip only with stated reason.
 - No "fixed/safe/ready" claims without fresh command output.
 
 ## Git
