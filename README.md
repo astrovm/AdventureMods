@@ -38,15 +38,13 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
   <img src="data/screenshots/cli.png" alt="CLI" width="800">
 </p>
 
-### Commands
-
 | Command | Description |
 |---------|-------------|
 | `detect` | Show detected game installs and inaccessible Steam libraries |
 | `list-mods --game <sadx\|sa2>` | List available presets and mods for a game |
 | `setup` | Install runtimes, mod manager, mods, and config files |
 
-### Setup flags
+**Setup flags**
 
 | Flag | Description |
 |------|-------------|
@@ -58,8 +56,16 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 | `--subtitle-language` | Set subtitle language (see below) |
 | `--voice-language` | Set voice language: `japanese` or `english` |
 | `--width`, `--height` | Override detected resolution |
+
+<details>
+<summary>Advanced flags</summary>
+
+| Flag | Description |
+|------|-------------|
 | `--libraryfolders-vdf /path` | Use a specific `libraryfolders.vdf` file |
 | `--steam-library /path` | Add an extra Steam library root (repeatable) |
+
+</details>
 
 **Subtitle languages**
 
@@ -69,31 +75,13 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 > [!TIP]
 > `setup` opens an interactive wizard when game, path, or mod selection is missing. Specify all options for a fully headless run.
 
-### Examples
+**Examples**
 
 ```sh
-# Detect installed games
-./Adventure_Mods-x86_64.AppImage detect
-
-# List available mods
-./Adventure_Mods-x86_64.AppImage list-mods --game sadx
-
-# Interactive setup (wizard)
-./Adventure_Mods-x86_64.AppImage setup
-
-# Headless: install a preset
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
-
-# Headless: install all mods
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
-
-# Headless: pick specific mods
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
-
-# Set languages
 ./Adventure_Mods-x86_64.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
-
-# Custom path and resolution
 ./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
 ```
 
