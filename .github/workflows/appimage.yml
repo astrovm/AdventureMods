@@ -30,7 +30,7 @@ jobs:
             libxfixes-dev libxinerama-dev libxcomposite-dev \
             wayland-protocols libcloudproviders-dev libsass-dev sassc \
             libappstream-dev desktop-file-utils appstream \
-            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh
+            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AdventureMods-AppImage-x86_64
-          path: appimage-build/*.AppImage
+          path: appimage-build/*.AppImage*
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
@@ -57,7 +57,7 @@ jobs:
             --target "$GITHUB_SHA" \
             --notes "$notes" \
             --draft || true
-          gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage \
+          gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage* \
             --repo "$GITHUB_REPOSITORY"
           gh release edit "${{ github.ref_name }}" \
             --repo "$GITHUB_REPOSITORY" \

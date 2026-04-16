@@ -15,7 +15,8 @@
 
 - Remove unused imports, variables, parameters, dead branches, dead functions in files you edit.
 - No error handling for impossible scenarios.
-- New imports at top of file.
+- All imports at top of file. No imports inside functions unless strictly required to break circular dependencies.
+- Code and comments in English. User-facing strings stay in their original language.
 
 ## Debugging
 
@@ -30,7 +31,7 @@
 
 ## Git
 
-- Never push, force push, or hard reset without explicit user approval.
+- Ask before pushing every time, even if previously approved. No batch commit+push. No force push or hard reset without approval.
 - Merge to `main` with a single squashed commit. Commit messages in English.
 
 ## Formatting

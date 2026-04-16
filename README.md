@@ -117,7 +117,7 @@ docker run --rm \
     wayland-protocols libcloudproviders-dev \
     libsass-dev sassc libappstream-dev \
     desktop-file-utils appstream \
-    wget unzip file libfuse2 curl git glslc libdrm-dev sudo
+    wget unzip file libfuse2 curl git glslc libdrm-dev sudo zsync
   curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
   export PATH="$HOME/.cargo/bin:$PATH"
   bash build-aux/appimage/build-appimage.sh
@@ -125,7 +125,7 @@ docker run --rm \
 '
 ```
 
-Output: `appimage-build/Adventure_Mods-x86_64.AppImage`
+Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`
 
 ## License
 

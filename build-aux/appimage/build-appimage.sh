@@ -134,6 +134,7 @@ rm -f \
 rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
 
 # Second pass: produce the AppImage.
+export UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*x86_64.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \
