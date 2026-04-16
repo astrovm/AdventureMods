@@ -30,7 +30,8 @@ jobs:
             libxfixes-dev libxinerama-dev libxcomposite-dev \
             wayland-protocols libcloudproviders-dev libsass-dev sassc \
             libappstream-dev desktop-file-utils appstream \
-            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync
+            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync \
+            librsvg2-dev libgirepository1.0-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
