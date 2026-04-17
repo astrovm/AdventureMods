@@ -95,10 +95,10 @@ flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods
 
 ### AppImage
 
-Build in Docker with `debian:13`:
+Build in Podman with `debian:13`:
 
 ```sh
-docker run --rm \
+podman run --rm \
   -e HOST_UID="$(id -u)" \
   -e HOST_GID="$(id -g)" \
   -v "$(pwd):/src" \
