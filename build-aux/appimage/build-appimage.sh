@@ -110,7 +110,6 @@ cd "$BUILD_DIR"
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \
 	--exclude-library 'libwayland-egl.so.*' \
-	--exclude-library 'libxml2.so.*' \
 	--plugin gtk \
 	--desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
 	--icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg"
@@ -126,8 +125,7 @@ cp "$SCRIPT_DIR/apprun-hooks/adventure-mods.sh" "$APPDIR/apprun-hooks/linuxdeplo
 echo "==> Removing bundled graphics loader libraries"
 rm -f \
 	"$APPDIR/usr/lib/libvulkan.so.1" \
-	"$APPDIR/usr/lib/libwayland-egl.so.1" \
-	"$APPDIR/usr/lib/libxml2.so.2"
+	"$APPDIR/usr/lib/libwayland-egl.so.1"
 
 # Remove the bundled GStreamer media backend. The app doesn't use media
 # playback and the module causes errors due to GLib version mismatches.
@@ -139,7 +137,6 @@ export UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*x86_6
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \
 	--exclude-library 'libwayland-egl.so.*' \
-	--exclude-library 'libxml2.so.*' \
 	--output appimage
 
 echo "==> Done! AppImage created:"
