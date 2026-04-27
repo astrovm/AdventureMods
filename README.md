@@ -11,17 +11,29 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 ## Features
 
 - Detects SADX and SA2 across all Steam library folders
-- 29 SADX mods and 12 SA2 mods
-- SADX presets: DX Enhanced and Dreamcast Restoration
+- Includes 29 SADX mods and 12 SA2 mods
+- Provides SADX presets: DX Enhanced and Dreamcast Restoration
 - Installs mod managers, mods, and dependencies in one step
 - Configures native resolution, window mode, and optimal settings
-- Subtitle and voice language selection, saved per game
+- Saves subtitle and voice language selection per game
 
 ## Requirements
 
 Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
 
 ## Installation
+
+### Gear Lever (recommended)
+
+[Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) handles desktop integration and updates:
+
+```sh
+flatpak install flathub it.mijorus.gearlever
+```
+
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest/download/Adventure_Mods-x86_64.AppImage), then open it with Gear Lever.
+
+### Manual
 
 Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest/download/Adventure_Mods-x86_64.AppImage), then:
 
@@ -41,7 +53,7 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 | Command | Description |
 |---------|-------------|
 | `detect` | Show detected game installs and inaccessible Steam libraries |
-| `list-mods --game <sadx\|sa2>` | List available presets and mods for a game |
+| `list-mods --game sadx\|sa2` | List available presets and mods for a game |
 | `setup` | Install runtimes, mod manager, mods, and config files |
 
 **Setup flags**
@@ -125,7 +137,7 @@ podman run --rm \
   chown -R "$HOST_UID:$HOST_GID" /src/appimage-build'
 ```
 
-Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`
+Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`.
 
 ## License
 
