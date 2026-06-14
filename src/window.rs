@@ -121,7 +121,6 @@ impl AdventureModsWindow {
             obj.detect_games();
         });
 
-        // Show/hide refresh button based on current navigation page
         let nav_view = self.imp().navigation_view.clone();
         let refresh_button_clone = refresh_button.clone();
         nav_view.connect_visible_page_notify(move |nav| {

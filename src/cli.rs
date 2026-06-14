@@ -1209,9 +1209,7 @@ fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {
             continue;
         }
 
-        // Scan tokens for WxH+X+Y geometry pattern
         let res = line.split_whitespace().find_map(|token| {
-            // token must contain 'x' and '+' to be a geometry spec
             let (dims, _offsets) = token.split_once('+')?;
             let (w_str, h_str) = dims.split_once('x')?;
             let w = w_str.parse::<u32>().ok()?;

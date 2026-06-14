@@ -22,7 +22,6 @@ fn canonicalize_with_suffix(path: &Path) -> PathBuf {
         match ancestor.parent() {
             Some(parent) => {
                 if let Some(component) = ancestor.file_name() {
-                    // prepend component to suffix
                     let mut new_suffix = PathBuf::from(component);
                     new_suffix.push(&suffix);
                     suffix = new_suffix;
@@ -45,7 +44,6 @@ pub(crate) fn steam_roots() -> Vec<PathBuf> {
         return vec![];
     };
 
-    // Check all common Steam paths, including both native and Flatpak installs
     let candidates = [
         home.join(".steam/debian-installation"),
         home.join(".steam/steam"),
@@ -63,7 +61,6 @@ fn library_folders_paths() -> Vec<PathBuf> {
     for root in steam_roots() {
         let path = root.join("steamapps/libraryfolders.vdf");
         if path.is_file() {
-            // Deduplicate by canonical path in case multiple Steam roots share a symlink
             let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
             if seen.insert(canonical) {
                 result.push(path);

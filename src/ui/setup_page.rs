@@ -357,7 +357,6 @@ impl AdventureModsSetupPage {
         imp.is_error.set(false);
         imp.step_busy.set(false);
 
-        // Cancel any in-flight operation
         if let Some(flag) = imp.cancel_flag.borrow().as_ref() {
             flag.store(true, Ordering::Relaxed);
         }
@@ -402,7 +401,6 @@ impl AdventureModsSetupPage {
         imp.back_button
             .set_sensitive(!is_last_step && !imp.step_busy.get());
 
-        // Clear content box
         let content_box = &imp.content_box;
         while let Some(child) = content_box.first_child() {
             content_box.remove(&child);
@@ -829,7 +827,6 @@ impl AdventureModsSetupPage {
                         }
                     });
 
-                    // Preview update on row focus/motion
                     let preview_title_clone = preview_title_label.clone();
                     let carousel_clone = carousel.clone();
                     let carousel_frame_clone = carousel_frame.clone();
@@ -931,9 +928,7 @@ impl AdventureModsSetupPage {
                 return;
             };
 
-            // Channel messages for progress bar updates
             enum ProgressMsg {
-                // Byte-level download progress (for single-file steps)
                 Bytes {
                     downloaded: u64,
                     total: Option<u64>,
@@ -943,7 +938,6 @@ impl AdventureModsSetupPage {
                     mod_name: String,
                     total: usize,
                 },
-                // Per-mod byte download progress (nested inside mod install)
                 ModBytes {
                     mod_name: String,
                     total: usize,
@@ -962,11 +956,9 @@ impl AdventureModsSetupPage {
 
             let (tx, rx) = async_channel::bounded::<ProgressMsg>(32);
 
-            // Progress update receiver
             let pb = progress_bar.clone();
             glib::spawn_future_local(async move {
                 let mut completed_mods = 0;
-                // Map from mod_name -> (downloaded, total_bytes) for active downloads
                 let mut active_downloads: HashMap<String, (u64, Option<u64>)> = HashMap::new();
                 while let Ok(msg) = rx.recv().await {
                     match msg {

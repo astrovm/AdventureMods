@@ -885,12 +885,9 @@ pub fn convert_steam_to_2004(
         anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
     }
 
-    // Success! Now we move the patched files back to the game directory.
-    // hpatchz in directory mode produces a new directory with the patched files.
-    // We want to merge/overwrite these into the game directory.
+    // hpatchz writes a complete output tree rather than patching in place.
     tracing::info!("Patch applied successfully to temp dir, moving files back...");
 
-    // Move files from out_dir to game_path
     super::common::move_dir_contents(&out_dir, game_path)?;
 
     tracing::info!("Steam-to-2004 conversion complete");
@@ -904,7 +901,6 @@ pub fn convert_steam_to_2004(
 /// if their casing doesn't exactly match the manifest (which is often lowercase).
 /// Steam on Linux may extract directories with different casing (e.g. VOICE_JP instead of voice_jp).
 fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
-    // List of known directory casing mismatches between Steam and the patch manifest.
     let renames = [
         ("SoundData/VOICE_JP", "SoundData/voice_jp"),
         ("SoundData/VOICE_US", "SoundData/voice_us"),

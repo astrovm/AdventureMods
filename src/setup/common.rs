@@ -251,11 +251,9 @@ pub fn install_mod_manager(
     let manager_url = sa_mod_manager_url();
     download::download_file(&manager_url, &archive_path, progress)?;
 
-    // Extract to a temp subdirectory
     let extract_dir = temp_dir.path().join("extracted");
     archive::extract(&archive_path, &extract_dir)?;
 
-    // Copy SAModManager.exe to game directory
     let manager_exe = extract_dir.join("SAModManager.exe");
     if !manager_exe.is_file() {
         anyhow::bail!("SAModManager.exe not found in release archive");
@@ -290,7 +288,6 @@ pub fn install_mod_manager(
         ))?;
     }
 
-    // Now install the mod loader itself
     install_mod_loader(game_path, game_kind, None)?;
 
     tracing::info!(
@@ -326,14 +323,13 @@ pub fn install_mod_loader(
 
     download::download_file(&url, &archive_path, progress)?;
 
-    // Extract into mods/.modloader (expected by the x64 Mod Manager)
+    // The x64 manager discovers loaders only in this directory.
     let loader_dir = game_path.join("mods").join(".modloader");
     std::fs::create_dir_all(&loader_dir).context("Failed to create mods/.modloader directory")?;
     archive::extract(&archive_path, &loader_dir)?;
 
     tracing::info!("Mod loader installed to {}", loader_dir.display());
 
-    // Perform the DLL replacement so the game loads the mod loader on startup.
     install_loader_dll(game_path, game_kind)?;
 
     Ok(())
@@ -375,7 +371,6 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
         anyhow::bail!("Mod loader DLL not found at {}", loader_dll.display());
     }
 
-    // Already swapped, nothing to do
     if orig_dll_path.is_file() {
         tracing::info!("Original DLL already backed up, refreshing mod loader DLL");
         std::fs::copy(&loader_dll, &data_dll_path).context(format!(
@@ -393,14 +388,12 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
         return Ok(());
     }
 
-    // Back up the original game DLL
     std::fs::rename(&data_dll_path, &orig_dll_path).context(format!(
         "Failed to back up {} to {}",
         data_dll_path.display(),
         orig_dll_path.display()
     ))?;
 
-    // Copy the mod loader DLL in place of the original
     std::fs::copy(&loader_dll, &data_dll_path).context(format!(
         "Failed to copy mod loader DLL to {}",
         data_dll_path.display()
@@ -521,11 +514,9 @@ pub fn install_mod_with_progress(
 /// Searches the staging root and up to two levels deep.  Returns `None`
 /// if no `mod.ini` is found (the caller should fall back to the root).
 fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
-    // Check root
     if staging.join("mod.ini").is_file() {
         return Some(staging.to_path_buf());
     }
-    // Check one level deep
     if let Ok(entries) = std::fs::read_dir(staging) {
         let mut first_level: Vec<_> = entries.flatten().collect();
         first_level.sort_by_key(|e| e.file_name());
@@ -535,7 +526,6 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
                 if p.join("mod.ini").is_file() {
                     return Some(p);
                 }
-                // Check two levels deep
                 if let Ok(inner) = std::fs::read_dir(&p) {
                     let mut second_level: Vec<_> = inner.flatten().collect();
                     second_level.sort_by_key(|e| e.file_name());
@@ -664,7 +654,6 @@ pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
             if target.exists() && target.is_dir() {
                 std::fs::remove_dir_all(&target)?;
             }
-            // Overwrite existing files
             std::fs::rename(&path, &target).or_else(|_| {
                 // Fallback to copy+remove if rename fails (e.g. across filesystems)
                 std::fs::copy(&path, &target)?;
