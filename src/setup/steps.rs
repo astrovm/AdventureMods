@@ -12,6 +12,25 @@ pub enum StepId {
     Complete,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetupAction {
+    InstallDotnet,
+    ConvertSteam,
+    InstallModManager,
+    InstallMods,
+}
+
+impl SetupAction {
+    pub fn cli_title(self) -> &'static str {
+        match self {
+            Self::InstallDotnet => "Install .NET Runtime",
+            Self::ConvertSteam => "Convert Steam to 2004",
+            Self::InstallModManager => "Install Mod Manager & Loader",
+            Self::InstallMods => "Install Mods & Generate Config",
+        }
+    }
+}
+
 impl StepId {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -23,6 +42,16 @@ impl StepId {
             Self::LanguageOptions => "language_options",
             Self::DownloadMods => "download_mods",
             Self::Complete => "complete",
+        }
+    }
+
+    pub fn action(self) -> Option<SetupAction> {
+        match self {
+            Self::Dotnet => Some(SetupAction::InstallDotnet),
+            Self::ConvertSteam => Some(SetupAction::ConvertSteam),
+            Self::InstallModManager => Some(SetupAction::InstallModManager),
+            Self::DownloadMods => Some(SetupAction::InstallMods),
+            Self::SteamConfig | Self::SelectMods | Self::LanguageOptions | Self::Complete => None,
         }
     }
 }
@@ -127,6 +156,13 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     ]);
 
     steps
+}
+
+pub fn actions_for_game(kind: GameKind) -> Vec<SetupAction> {
+    steps_for_game(kind)
+        .into_iter()
+        .filter_map(|step| step.id.action())
+        .collect()
 }
 
 #[cfg(test)]
@@ -275,5 +311,26 @@ mod tests {
             );
             assert!(language_pos.unwrap() < download_pos.unwrap());
         }
+    }
+
+    #[test]
+    fn setup_actions_follow_step_order() {
+        assert_eq!(
+            actions_for_game(GameKind::SADX),
+            vec![
+                SetupAction::InstallDotnet,
+                SetupAction::ConvertSteam,
+                SetupAction::InstallModManager,
+                SetupAction::InstallMods,
+            ]
+        );
+        assert_eq!(
+            actions_for_game(GameKind::SA2),
+            vec![
+                SetupAction::InstallDotnet,
+                SetupAction::InstallModManager,
+                SetupAction::InstallMods,
+            ]
+        );
     }
 }

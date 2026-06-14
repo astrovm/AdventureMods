@@ -11,6 +11,7 @@ use gtk::gdk;
 use crate::banner;
 use crate::external::runtime_installer;
 use crate::path_display::display_path;
+use crate::setup::steps::{self, SetupAction};
 use crate::setup::{common, config as setup_config, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
@@ -364,39 +365,6 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     ))?;
     out.writeln("")?;
 
-    let total_steps = total_setup_steps(game_kind);
-    let mut step_index = 1;
-
-    run_setup_step(out, step_index, total_steps, "Install .NET Runtime", || {
-        runtime_installer::install_runtimes(&game_path, game_kind.app_id())
-    })?;
-    step_index += 1;
-
-    if game_kind == GameKind::SADX {
-        run_download_step(
-            out,
-            step_index,
-            total_steps,
-            "Convert Steam to 2004",
-            |progress_fn| sadx::convert_steam_to_2004(&game_path, progress_fn),
-        )?;
-        step_index += 1;
-    }
-
-    run_download_step(
-        out,
-        step_index,
-        total_steps,
-        "Install Mod Manager & Loader",
-        |progress_fn| common::install_mod_manager(&game_path, game_kind, progress_fn),
-    )?;
-    step_index += 1;
-
-    debug_assert_eq!(
-        step_index, total_steps,
-        "step_index must equal total_steps at the final step; update total_setup_steps if you add a step"
-    );
-
     let mod_install = ModInstallStep {
         game_path: &game_path,
         game_kind,
@@ -405,7 +373,33 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         height,
         language_selection,
     };
-    run_mod_install_step(out, step_index, total_steps, &mod_install)?;
+    let actions = steps::actions_for_game(game_kind);
+    let total_steps = actions.len();
+
+    for (offset, action) in actions.into_iter().enumerate() {
+        let step_index = offset + 1;
+        let label = action.cli_title();
+        match action {
+            SetupAction::InstallDotnet => {
+                run_setup_step(out, step_index, total_steps, label, || {
+                    runtime_installer::install_runtimes(&game_path, game_kind.app_id())
+                })?;
+            }
+            SetupAction::ConvertSteam => {
+                run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                    sadx::convert_steam_to_2004(&game_path, progress_fn)
+                })?;
+            }
+            SetupAction::InstallModManager => {
+                run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                    common::install_mod_manager(&game_path, game_kind, progress_fn)
+                })?;
+            }
+            SetupAction::InstallMods => {
+                run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
+            }
+        }
+    }
     persist_cli_language_selection(game_kind, language_selection);
 
     out.success("Setup complete!")?;
@@ -422,10 +416,6 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
     args.game.is_some()
         && args.game_path.is_some()
         && (args.preset.is_some() || args.all_mods || args.mods.is_some())
-}
-
-fn total_setup_steps(game_kind: GameKind) -> usize {
-    if game_kind == GameKind::SADX { 4 } else { 3 }
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
@@ -534,13 +524,10 @@ fn run_mod_install_step(
     out: &mut CliOutput,
     index: usize,
     total: usize,
+    label: &str,
     step: &ModInstallStep<'_>,
 ) -> Result<()> {
-    out.heading(&step_heading(
-        index,
-        total,
-        "Install Mods & Generate Config",
-    ))?;
+    out.heading(&step_heading(index, total, label))?;
     // Track last printed MB per mod name to avoid flooding stderr under concurrent downloads.
     let mut last_dl_mb_per_mod: std::collections::HashMap<String, i64> =
         std::collections::HashMap::new();
