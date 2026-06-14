@@ -8,6 +8,7 @@ use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 
 use crate::blocking;
+use crate::setup::steps::StepId;
 use crate::setup::{common, config, pipeline, sadx, steps};
 use crate::steam::game::Game;
 
@@ -385,7 +386,7 @@ impl AdventureModsSetupPage {
         imp.content_box.set_vexpand(!centered_layout);
 
         imp.step_title.set_label(step.title);
-        let step_description = if step.id == "steam_config" {
+        let step_description = if step.id == StepId::SteamConfig {
             imp.game
                 .borrow()
                 .as_ref()
@@ -426,7 +427,7 @@ impl AdventureModsSetupPage {
                     .set_label(if is_last_step { "Finish" } else { "Continue" });
                 imp.next_button.set_sensitive(true);
 
-                if step.id == "language_options" {
+                if step.id == StepId::LanguageOptions {
                     let selection = self.current_language_selection();
                     let game_kind = imp.game.borrow().as_ref().map(|game| game.kind);
                     let subtitle_languages = game_kind
@@ -504,27 +505,6 @@ impl AdventureModsSetupPage {
                     content_box.append(&form_box);
                 }
             }
-            steps::StepKind::ExternalAction { button_label } => {
-                imp.next_button.set_label("Continue");
-                imp.next_button.set_sensitive(true);
-
-                let action_button = gtk::Button::builder()
-                    .label(*button_label)
-                    .halign(gtk::Align::Center)
-                    .css_classes(vec!["pill".to_string()])
-                    .build();
-
-                let step_id = step.id;
-                let game = imp.game.borrow().clone();
-                action_button.connect_clicked(move |btn| {
-                    btn.set_sensitive(false);
-                    if let Some(ref game) = game {
-                        Self::run_external_action(step_id, game.clone(), btn.clone());
-                    }
-                });
-
-                content_box.append(&action_button);
-            }
             steps::StepKind::Download => {
                 imp.next_button.set_label("Continue");
                 imp.next_button.set_sensitive(false);
@@ -539,7 +519,7 @@ impl AdventureModsSetupPage {
 
                 content_box.append(&progress_bar);
 
-                if step.id == "download_mods" {
+                if step.id == StepId::DownloadMods {
                     let cancel_button = gtk::Button::builder()
                         .label("Cancel")
                         .halign(gtk::Align::Center)
@@ -904,13 +884,13 @@ impl AdventureModsSetupPage {
         }
     }
 
-    fn run_auto_step(&self, step_id: &'static str) {
+    fn run_auto_step(&self, step_id: StepId) {
         let obj = self.clone();
         let game = self.imp().game.borrow().clone();
 
         glib::spawn_future_local(async move {
             let result = match step_id {
-                "dotnet" => {
+                StepId::Dotnet => {
                     if let Some(ref game) = game {
                         common::install_runtimes(game.path.clone(), game.kind.app_id()).await
                     } else {
@@ -934,21 +914,9 @@ impl AdventureModsSetupPage {
         });
     }
 
-    fn run_external_action(step_id: &'static str, game: Game, button: gtk::Button) {
-        if step_id == "steam_config"
-            && let Some(setup_page) = button
-                .ancestor(AdventureModsSetupPage::static_type())
-                .and_then(|w| w.downcast::<AdventureModsSetupPage>().ok())
-        {
-            let msg = common::steam_config_message(&game);
-            setup_page.imp().step_description.set_label(&msg);
-        }
-        button.set_sensitive(true);
-    }
-
     fn run_download_step(
         &self,
-        step_id: &'static str,
+        step_id: StepId,
         progress_bar: gtk::ProgressBar,
         cancel_flag: Arc<AtomicBool>,
     ) {
@@ -1077,7 +1045,7 @@ impl AdventureModsSetupPage {
             let game_kind = game.kind;
             let (width, height) = obj.get_resolution();
             let result: anyhow::Result<()> = match step_id {
-                "convert_steam" => {
+                StepId::ConvertSteam => {
                     let game_path = game.path.clone();
                     let tx_clone = tx.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
@@ -1095,7 +1063,7 @@ impl AdventureModsSetupPage {
                         .await,
                     )
                 }
-                "install_mod_manager" => {
+                StepId::InstallModManager => {
                     let game_path = game.path.clone();
                     let game_kind = game.kind;
                     let tx_clone = tx.clone();
@@ -1114,7 +1082,7 @@ impl AdventureModsSetupPage {
                         .await,
                     )
                 }
-                "download_mods" => {
+                StepId::DownloadMods => {
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total_count = selected.len();
                     let game_path = game.path.clone();
@@ -1285,7 +1253,7 @@ impl AdventureModsSetupPage {
                 // Last step: navigate back to the welcome page
                 self.go_back_to_welcome();
             } else {
-                if current_step_id == "language_options" {
+                if current_step_id == StepId::LanguageOptions {
                     self.persist_language_selection();
                 }
                 self.advance_step();
@@ -1393,6 +1361,7 @@ mod tests {
         mod_download_finished_text, mod_download_fraction, mod_download_progress_update,
         mod_download_start_text, subtitle_language_labels, voice_language_labels,
     };
+    use crate::setup::steps::StepId;
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
     use crate::ui::test_util::init_resource_overlay;
@@ -1538,7 +1507,7 @@ mod tests {
             .all_steps
             .borrow()
             .iter()
-            .position(|step| step.id == "select_mods")
+            .position(|step| step.id == StepId::SelectMods)
             .unwrap();
 
         page.imp().current_step.set(select_mods_index);
@@ -1605,7 +1574,7 @@ mod tests {
         let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
         page.imp().game.replace(None);
-        page.run_download_step("download_mods", progress_bar, cancel_flag);
+        page.run_download_step(StepId::DownloadMods, progress_bar, cancel_flag);
         while glib::MainContext::default().iteration(false) {}
 
         assert!(!page.imp().task_running.get());
@@ -1623,7 +1592,7 @@ mod tests {
         let progress_bar = gtk::ProgressBar::new();
         let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-        page.run_download_step("__test_noop__", progress_bar, cancel_flag);
+        page.run_download_step(StepId::Complete, progress_bar, cancel_flag);
 
         assert!(page.imp().task_running.get());
     }

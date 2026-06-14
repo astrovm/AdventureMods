@@ -1,8 +1,41 @@
 use crate::steam::game::GameKind;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StepId {
+    SteamConfig,
+    Dotnet,
+    ConvertSteam,
+    InstallModManager,
+    SelectMods,
+    LanguageOptions,
+    DownloadMods,
+    Complete,
+}
+
+impl StepId {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SteamConfig => "steam_config",
+            Self::Dotnet => "dotnet",
+            Self::ConvertSteam => "convert_steam",
+            Self::InstallModManager => "install_mod_manager",
+            Self::SelectMods => "select_mods",
+            Self::LanguageOptions => "language_options",
+            Self::DownloadMods => "download_mods",
+            Self::Complete => "complete",
+        }
+    }
+}
+
+impl std::fmt::Display for StepId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SetupStep {
-    pub id: &'static str,
+    pub id: StepId,
     pub title: &'static str,
     pub description: &'static str,
     pub kind: StepKind,
@@ -14,8 +47,6 @@ pub enum StepKind {
     Auto,
     /// Shows info and waits for user to click Continue.
     Info,
-    /// User launches an external tool, then clicks Continue.
-    ExternalAction { button_label: &'static str },
     /// Download + install with progress tracking.
     Download,
     /// Mod selection with checkboxes.
@@ -25,7 +56,7 @@ pub enum StepKind {
 pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     let mut steps = vec![
         SetupStep {
-            id: "steam_config",
+            id: StepId::SteamConfig,
             title: "Steam Configuration",
             description: match kind {
                 GameKind::SADX => {
@@ -38,7 +69,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             kind: StepKind::Info,
         },
         SetupStep {
-            id: "dotnet",
+            id: StepId::Dotnet,
             title: "Install .NET Runtime",
             description: "Installing .NET Desktop Runtime 8.0. This may take several minutes...",
             kind: StepKind::Auto,
@@ -48,7 +79,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     // SADX-only: Steam-to-2004 conversion
     if kind == GameKind::SADX {
         steps.push(SetupStep {
-            id: "convert_steam",
+            id: StepId::ConvertSteam,
             title: "Convert Steam to 2004",
             description: "Downloading conversion tools and patching the Steam version to the 2004 version required by the mod loader...",
             kind: StepKind::Download,
@@ -57,13 +88,13 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
 
     steps.extend([
         SetupStep {
-            id: "install_mod_manager",
+            id: StepId::InstallModManager,
             title: "Install Mod Manager & Loader",
             description: "Downloading and installing SA Mod Manager and the mod loader...",
             kind: StepKind::Download,
         },
         SetupStep {
-            id: "select_mods",
+            id: StepId::SelectMods,
             title: "Select Mods",
             description: match kind {
                 GameKind::SADX => "Choose which recommended mods to install for Sonic Adventure DX:",
@@ -72,19 +103,19 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             kind: StepKind::ModSelection,
         },
         SetupStep {
-            id: "language_options",
+            id: StepId::LanguageOptions,
             title: "Language Options",
             description: "Choose subtitle and voice languages for the generated mod manager profile:",
             kind: StepKind::Info,
         },
         SetupStep {
-            id: "download_mods",
+            id: StepId::DownloadMods,
             title: "Download Mods",
             description: "Downloading and installing selected mods...",
             kind: StepKind::Download,
         },
         SetupStep {
-            id: "complete",
+            id: StepId::Complete,
             title: "Setup Complete",
             description: if kind == GameKind::SADX {
                 "Sonic Adventure DX mods are installed! Launch the game through Steam. The mod manager will appear before the game starts, letting you enable or disable mods."
@@ -116,14 +147,14 @@ mod tests {
     #[test]
     fn test_sadx_step_ids_unique() {
         let steps = steps_for_game(GameKind::SADX);
-        let ids: HashSet<&str> = steps.iter().map(|s| s.id).collect();
+        let ids: HashSet<StepId> = steps.iter().map(|s| s.id).collect();
         assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SADX");
     }
 
     #[test]
     fn test_sa2_step_ids_unique() {
         let steps = steps_for_game(GameKind::SA2);
-        let ids: HashSet<&str> = steps.iter().map(|s| s.id).collect();
+        let ids: HashSet<StepId> = steps.iter().map(|s| s.id).collect();
         assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SA2");
     }
 
@@ -131,28 +162,13 @@ mod tests {
     fn test_all_steps_have_nonempty_text() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             for step in steps_for_game(kind) {
-                assert!(!step.id.is_empty(), "Step has empty id");
+                assert!(!step.id.as_str().is_empty(), "Step has empty id");
                 assert!(!step.title.is_empty(), "Step '{}' has empty title", step.id);
                 assert!(
                     !step.description.is_empty(),
                     "Step '{}' has empty description",
                     step.id
                 );
-            }
-        }
-    }
-
-    #[test]
-    fn test_external_action_steps_have_labels() {
-        for kind in [GameKind::SADX, GameKind::SA2] {
-            for step in steps_for_game(kind) {
-                if let StepKind::ExternalAction { button_label } = step.kind {
-                    assert!(
-                        !button_label.is_empty(),
-                        "Step '{}' has empty button label",
-                        step.id
-                    );
-                }
             }
         }
     }
@@ -180,8 +196,8 @@ mod tests {
     #[test]
     fn test_sa2_mod_selection_before_download_mods() {
         let steps = steps_for_game(GameKind::SA2);
-        let select_pos = steps.iter().position(|s| s.id == "select_mods");
-        let download_pos = steps.iter().position(|s| s.id == "download_mods");
+        let select_pos = steps.iter().position(|s| s.id == StepId::SelectMods);
+        let download_pos = steps.iter().position(|s| s.id == StepId::DownloadMods);
         assert!(
             select_pos.is_some() && download_pos.is_some(),
             "SA2 must have select_mods and download_mods steps"
@@ -197,7 +213,7 @@ mod tests {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
             assert!(
-                steps.iter().any(|s| s.id == "dotnet"),
+                steps.iter().any(|s| s.id == StepId::Dotnet),
                 "{:?} should have a dotnet step",
                 kind
             );
@@ -211,10 +227,10 @@ mod tests {
             let first = steps.first().unwrap();
             let last = steps.last().unwrap();
 
-            assert_eq!(first.id, "steam_config");
+            assert_eq!(first.id, StepId::SteamConfig);
             assert!(matches!(first.kind, StepKind::Info));
 
-            assert_eq!(last.id, "complete");
+            assert_eq!(last.id, StepId::Complete);
             assert!(matches!(last.kind, StepKind::Info));
         }
     }
@@ -222,23 +238,23 @@ mod tests {
     #[test]
     fn test_sadx_has_convert_steam_step() {
         let steps = steps_for_game(GameKind::SADX);
-        assert!(steps.iter().any(|s| s.id == "convert_steam"));
+        assert!(steps.iter().any(|s| s.id == StepId::ConvertSteam));
     }
 
     #[test]
     fn test_sa2_has_no_convert_steam_step() {
         let steps = steps_for_game(GameKind::SA2);
-        assert!(!steps.iter().any(|s| s.id == "convert_steam"));
+        assert!(!steps.iter().any(|s| s.id == StepId::ConvertSteam));
     }
 
     #[test]
     fn test_descriptions_contain_game_name() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
-            let steam_step = steps.iter().find(|s| s.id == "steam_config").unwrap();
+            let steam_step = steps.iter().find(|s| s.id == StepId::SteamConfig).unwrap();
             assert!(steam_step.description.contains(kind.name()));
 
-            let complete_step = steps.iter().find(|s| s.id == "complete").unwrap();
+            let complete_step = steps.iter().find(|s| s.id == StepId::Complete).unwrap();
             assert!(complete_step.description.contains(kind.name()));
         }
     }
@@ -247,8 +263,8 @@ mod tests {
     fn language_options_step_comes_before_download_mods() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
-            let language_pos = steps.iter().position(|s| s.id == "language_options");
-            let download_pos = steps.iter().position(|s| s.id == "download_mods");
+            let language_pos = steps.iter().position(|s| s.id == StepId::LanguageOptions);
+            let download_pos = steps.iter().position(|s| s.id == StepId::DownloadMods);
             assert!(
                 language_pos.is_some(),
                 "language_options step missing for {kind:?}"

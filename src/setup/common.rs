@@ -10,6 +10,7 @@ use crate::steam::game::{Game, GameKind};
 const GAMEBANANA_API_BASE: &str =
     "https://api.gamebanana.com/Core/Item/Data?fields=Files().aFiles()";
 
+use super::steps::StepId;
 use super::{config, sa2, sadx, types};
 pub use types::{ModEntry, ModLink, ModPreset, ModSource};
 
@@ -138,16 +139,14 @@ pub fn presets_for_game(kind: GameKind) -> &'static [ModPreset] {
 ///
 /// Returns `true` if the step's effects are already present on disk and it
 /// can safely be skipped.
-pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
+pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
     let p = &game.path;
     match step_id {
-        // Info / external-action steps: always show to the user
-        "steam_config" => proton::prefix_state(p, game.kind.app_id())
+        StepId::SteamConfig => proton::prefix_state(p, game.kind.app_id())
             .map(|state| matches!(state, proton::PrefixState::Ready))
             .unwrap_or(false),
 
-        // Runtimes: check Proton prefix for dotnetdesktop8 marker
-        "dotnet" => {
+        StepId::Dotnet => {
             let Ok(prefix) = proton_prefix(p, game.kind.app_id()) else {
                 return false;
             };
@@ -159,8 +158,7 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 .is_dir()
         }
 
-        // Steam-to-2004 conversion (SADX only): same markers as convert_steam_to_2004
-        "convert_steam" => {
+        StepId::ConvertSteam => {
             sadx_data_dir(p)
                 .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
                 .is_some()
@@ -169,22 +167,11 @@ pub fn is_step_complete(step_id: &str, game: &Game) -> bool {
                 || p.join("sonic.exe").exists()
         }
 
-        // SA Mod Manager: installed when the original exe was backed up,
-        // the mod loader DLLs are extracted, and the DLL swap has been done.
-        "install_mod_manager" => is_mod_manager_fully_installed(p, game.kind),
+        StepId::InstallModManager => is_mod_manager_fully_installed(p, game.kind),
 
-        // Mod selection: always show so the user can change their picks
-        "select_mods" => false,
-
-        // Mods download: never skip this step because it also performs mod-specific
-        // configuration and generates the SA Mod Manager profile based on the current selection.
-        // The `install_mod` function itself handles skipping existing mod directories.
-        "download_mods" => false,
-
-        // Completion screen: always show
-        "complete" => false,
-
-        _ => false,
+        StepId::SelectMods | StepId::LanguageOptions | StepId::DownloadMods | StepId::Complete => {
+            false
+        }
     }
 }
 
