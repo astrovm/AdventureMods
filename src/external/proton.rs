@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
@@ -303,9 +303,10 @@ fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
     );
 
     let mut unique = Vec::new();
+    let mut seen = HashSet::new();
     for root in roots {
         let canonical = try_canonicalize(&root);
-        if !unique.iter().any(|existing| existing == &canonical) {
+        if seen.insert(canonical.clone()) {
             unique.push(canonical);
         }
     }
@@ -439,6 +440,7 @@ fn resolve_compat_tool_path(
 fn compat_tool_dir_candidates(steam_root: &Path, steamapps: &Path, tool_name: &str) -> Vec<String> {
     let trimmed = tool_name.trim();
     let mut candidates = vec![trimmed.to_owned()];
+    let mut seen = HashSet::from([trimmed.to_owned()]);
 
     let aliases = match trimmed {
         "proton_experimental" => vec!["Proton - Experimental", "Proton Experimental"],
@@ -447,7 +449,7 @@ fn compat_tool_dir_candidates(steam_root: &Path, steamapps: &Path, tool_name: &s
     };
 
     for alias in aliases {
-        if !candidates.iter().any(|candidate| candidate == alias) {
+        if seen.insert(alias.to_owned()) {
             candidates.push(alias.to_owned());
         }
     }
@@ -468,8 +470,7 @@ fn compat_tool_dir_candidates(steam_root: &Path, steamapps: &Path, tool_name: &s
                         Some(ProtonVersion::Numbered(major, _)) if major == version
                     );
 
-                    if matches_version && !candidates.iter().any(|candidate| candidate == &dir_name)
-                    {
+                    if matches_version && seen.insert(dir_name.clone()) {
                         candidates.push(dir_name);
                     }
                 }
