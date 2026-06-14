@@ -44,6 +44,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.7" date="2026-06-14">
+      <description>
+        <p>Improved setup reliability and maintainability.</p>
+        <ul>
+          <li>Unified CLI and graphical setup workflows for consistent installation behavior</li>
+          <li>Improved Proton discovery performance</li>
+          <li>Simplified setup code and test organization for easier maintenance</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.6" date="2026-04-25">
       <description>
         <p>AppImage compatibility and auto-update support.</p>
