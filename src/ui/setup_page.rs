@@ -92,10 +92,118 @@ mod imp {
     impl BinImpl for AdventureModsSetupPage {}
 }
 
+enum ProgressMsg {
+    Bytes {
+        downloaded: u64,
+        total: Option<u64>,
+        status: String,
+    },
+    ModInstall {
+        mod_name: String,
+        total: usize,
+    },
+    ModBytes {
+        mod_name: String,
+        total: usize,
+        downloaded: u64,
+        total_bytes: Option<u64>,
+    },
+    ModFinished {
+        mod_name: String,
+        completed: usize,
+        total: usize,
+    },
+    Configuring {
+        total: usize,
+    },
+}
+
 glib::wrapper! {
     pub struct AdventureModsSetupPage(ObjectSubclass<imp::AdventureModsSetupPage>)
         @extends gtk::Widget, adw::Bin,
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+fn spawn_progress_receiver(
+    progress_bar: gtk::ProgressBar,
+    receiver: async_channel::Receiver<ProgressMsg>,
+) {
+    glib::spawn_future_local(async move {
+        let mut completed_mods = 0;
+        let mut active_downloads: HashMap<String, (u64, Option<u64>)> = HashMap::new();
+        while let Ok(msg) = receiver.recv().await {
+            match msg {
+                ProgressMsg::Bytes {
+                    downloaded,
+                    total,
+                    status,
+                } => {
+                    if let Some(total) = total {
+                        if total > 0 {
+                            progress_bar.set_fraction(downloaded as f64 / total as f64);
+                        }
+                    } else {
+                        progress_bar.pulse();
+                    }
+                    let text = format_step_download_text(&status, downloaded, total);
+                    progress_bar.set_text(Some(&text));
+                }
+                ProgressMsg::ModInstall { mod_name, total } => {
+                    progress_bar.set_fraction(completed_mod_fraction(completed_mods, total));
+                    progress_bar.set_text(Some(&mod_download_start_text(&mod_name)));
+                }
+                ProgressMsg::ModBytes {
+                    mod_name,
+                    total,
+                    downloaded,
+                    total_bytes,
+                } => {
+                    active_downloads.insert(mod_name.clone(), (downloaded, total_bytes));
+
+                    // Aggregate bytes across all active downloads for a monotonic fraction.
+                    let (agg_downloaded, agg_total) =
+                        active_downloads
+                            .values()
+                            .fold((0u64, Some(0u64)), |(ad, at), (d, t)| {
+                                let new_at = match (at, t) {
+                                    (Some(a), Some(b)) => Some(a + b),
+                                    _ => None,
+                                };
+                                (ad + d, new_at)
+                            });
+
+                    let update = mod_download_progress_update(
+                        completed_mods,
+                        total,
+                        agg_downloaded,
+                        agg_total,
+                    );
+                    if update.pulse {
+                        progress_bar.pulse();
+                    } else {
+                        progress_bar.set_fraction(update.fraction);
+                    }
+                    progress_bar.set_text(Some(&update.text));
+                }
+                ProgressMsg::ModFinished {
+                    mod_name,
+                    completed,
+                    total,
+                } => {
+                    completed_mods = completed;
+                    active_downloads.remove(&mod_name);
+                    progress_bar.set_fraction(completed_mod_fraction(completed, total));
+                    progress_bar.set_text(Some(&mod_download_finished_text(
+                        &mod_name, completed, total,
+                    )));
+                }
+                ProgressMsg::Configuring { total } => {
+                    progress_bar.set_fraction(1.0);
+                    progress_bar.set_text(Some(&format!("Generating config... ({total}/{total})")));
+                }
+            }
+        }
+    });
 }
 
 fn initial_preview_index(mod_count: usize, selected_mods: &[usize]) -> Option<usize> {
@@ -406,6 +514,11 @@ impl AdventureModsSetupPage {
             content_box.remove(&child);
         }
 
+        self.render_step(step, is_last_step, content_box);
+    }
+
+    fn render_step(&self, step: &steps::SetupStep, is_last_step: bool, content_box: &gtk::Box) {
+        let imp = self.imp();
         match &step.kind {
             steps::StepKind::Auto => {
                 imp.next_button.set_label("Continue");
@@ -554,331 +667,333 @@ impl AdventureModsSetupPage {
                 self.set_step_busy(true);
                 self.run_download_step(step.id, progress_bar, cancel_flag);
             }
-            steps::StepKind::ModSelection => {
-                imp.next_button.set_label("Install Selected");
-                imp.next_button.set_sensitive(true);
+            steps::StepKind::ModSelection => self.render_mod_selection(content_box),
+        }
+    }
 
-                let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
-                let presets = game_kind.map(common::presets_for_game).unwrap_or(&[]);
+    fn render_mod_selection(&self, content_box: &gtk::Box) {
+        let imp = self.imp();
+        imp.next_button.set_label("Install Selected");
+        imp.next_button.set_sensitive(true);
 
-                let main_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Horizontal)
-                    .homogeneous(true)
-                    .spacing(24)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .valign(gtk::Align::Fill)
-                    .halign(gtk::Align::Fill)
-                    .build();
+        let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
+        let presets = game_kind.map(common::presets_for_game).unwrap_or(&[]);
 
-                let left_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Vertical)
-                    .spacing(12)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .valign(gtk::Align::Fill)
-                    .build();
+        let main_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .homogeneous(true)
+            .spacing(24)
+            .hexpand(true)
+            .vexpand(true)
+            .valign(gtk::Align::Fill)
+            .halign(gtk::Align::Fill)
+            .build();
 
-                let scrolled = gtk::ScrolledWindow::builder()
-                    .hscrollbar_policy(gtk::PolicyType::Never)
-                    .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .valign(gtk::Align::Fill)
-                    .build();
+        let left_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .hexpand(true)
+            .vexpand(true)
+            .valign(gtk::Align::Fill)
+            .build();
 
-                let list_box = gtk::ListBox::builder()
-                    .selection_mode(gtk::SelectionMode::Single)
-                    .css_classes(vec!["boxed-list".to_string()])
-                    .build();
+        let scrolled = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .hexpand(true)
+            .vexpand(true)
+            .valign(gtk::Align::Fill)
+            .build();
 
-                let checks: std::rc::Rc<std::cell::RefCell<Vec<gtk::CheckButton>>> =
-                    std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let list_box = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::Single)
+            .css_classes(vec!["boxed-list".to_string()])
+            .build();
 
-                if !presets.is_empty() {
-                    let preset_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Horizontal)
-                        .spacing(12)
-                        .margin_bottom(6)
-                        .build();
+        let checks: std::rc::Rc<std::cell::RefCell<Vec<gtk::CheckButton>>> =
+            std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
 
-                    let preset_label = gtk::Label::builder()
-                        .label("Preset:")
-                        .css_classes(vec!["heading".to_string()])
-                        .build();
+        if !presets.is_empty() {
+            let preset_box = gtk::Box::builder()
+                .orientation(gtk::Orientation::Horizontal)
+                .spacing(12)
+                .margin_bottom(6)
+                .build();
 
-                    let preset_names: Vec<&str> = presets.iter().map(|p| p.name).collect();
-                    let dropdown = gtk::DropDown::from_strings(&preset_names);
-                    dropdown.set_hexpand(true);
+            let preset_label = gtk::Label::builder()
+                .label("Preset:")
+                .css_classes(vec!["heading".to_string()])
+                .build();
 
-                    preset_box.append(&preset_label);
-                    preset_box.append(&dropdown);
-                    left_box.append(&preset_box);
+            let preset_names: Vec<&str> = presets.iter().map(|p| p.name).collect();
+            let dropdown = gtk::DropDown::from_strings(&preset_names);
+            dropdown.set_hexpand(true);
 
-                    let preset_desc_label = gtk::Label::builder()
-                        .label(presets[0].description)
-                        .wrap(true)
-                        .halign(gtk::Align::Start)
-                        .css_classes(vec!["caption".to_string()])
-                        .margin_bottom(12)
-                        .build();
-                    left_box.append(&preset_desc_label);
+            preset_box.append(&preset_label);
+            preset_box.append(&dropdown);
+            left_box.append(&preset_box);
 
-                    let obj_clone = self.clone();
-                    let presets_clone = presets;
-                    let checks_clone = checks.clone();
-                    let desc_label_clone = preset_desc_label.clone();
-                    dropdown.connect_selected_notify(move |dd| {
-                        let idx = dd.selected() as usize;
-                        if let Some(preset) = presets_clone.get(idx) {
-                            desc_label_clone.set_label(preset.description);
+            let preset_desc_label = gtk::Label::builder()
+                .label(presets[0].description)
+                .wrap(true)
+                .halign(gtk::Align::Start)
+                .css_classes(vec!["caption".to_string()])
+                .margin_bottom(12)
+                .build();
+            left_box.append(&preset_desc_label);
 
-                            let mut sel = obj_clone.imp().selected_mods.borrow_mut();
-                            sel.clear();
+            let obj_clone = self.clone();
+            let presets_clone = presets;
+            let checks_clone = checks.clone();
+            let desc_label_clone = preset_desc_label.clone();
+            dropdown.connect_selected_notify(move |dd| {
+                let idx = dd.selected() as usize;
+                if let Some(preset) = presets_clone.get(idx) {
+                    desc_label_clone.set_label(preset.description);
 
-                            let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
-                            let mods_list = game_kind
-                                .map(common::recommended_mods_for_game)
-                                .unwrap_or(&[]);
+                    let mut sel = obj_clone.imp().selected_mods.borrow_mut();
+                    sel.clear();
 
-                            for (i, check) in checks_clone.borrow().iter().enumerate() {
-                                if let Some(mod_entry) = mods_list.get(i) {
-                                    let active = preset.mod_names.contains(&mod_entry.name);
-                                    check.set_active(active);
-                                    if active {
-                                        sel.push(i);
-                                    }
-                                }
+                    let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
+                    let mods_list = game_kind
+                        .map(common::recommended_mods_for_game)
+                        .unwrap_or(&[]);
+
+                    for (i, check) in checks_clone.borrow().iter().enumerate() {
+                        if let Some(mod_entry) = mods_list.get(i) {
+                            let active = preset.mod_names.contains(&mod_entry.name);
+                            check.set_active(active);
+                            if active {
+                                sel.push(i);
                             }
                         }
-                    });
-                }
-
-                let preview_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Vertical)
-                    .spacing(12)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .valign(gtk::Align::Fill)
-                    .halign(gtk::Align::Fill)
-                    .build();
-
-                let carousel = adw::Carousel::builder()
-                    .interactive(true)
-                    .allow_scroll_wheel(true)
-                    .vexpand(true)
-                    .build();
-
-                let indicator = adw::CarouselIndicatorDots::builder()
-                    .carousel(&carousel)
-                    .margin_top(6)
-                    .margin_bottom(6)
-                    .build();
-
-                let carousel_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Vertical)
-                    .build();
-
-                carousel_box.append(&carousel);
-                carousel_box.append(&indicator);
-
-                let carousel_frame = gtk::Frame::builder()
-                    .child(&carousel_box)
-                    .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .build();
-
-                let full_desc_label = gtk::Label::builder()
-                    .wrap(true)
-                    .halign(gtk::Align::Start)
-                    .valign(gtk::Align::Start)
-                    .css_classes(vec!["body".to_string()])
-                    .build();
-
-                let desc_scrolled = gtk::ScrolledWindow::builder()
-                    .hscrollbar_policy(gtk::PolicyType::Never)
-                    .vscrollbar_policy(gtk::PolicyType::Automatic)
-                    .max_content_height(MOD_PREVIEW_DESCRIPTION_HEIGHT)
-                    .hexpand(true)
-                    .vexpand(true)
-                    .child(&full_desc_label)
-                    .build();
-
-                let preview_title_label = gtk::Label::builder()
-                    .halign(gtk::Align::Start)
-                    .css_classes(vec!["title-3".to_string()])
-                    .build();
-
-                let links_box = gtk::Box::builder()
-                    .orientation(gtk::Orientation::Horizontal)
-                    .spacing(6)
-                    .halign(gtk::Align::Start)
-                    .build();
-
-                preview_box.append(&preview_title_label);
-                preview_box.append(&carousel_frame);
-                preview_box.append(&desc_scrolled);
-                preview_box.append(&links_box);
-
-                let mods_list = game_kind
-                    .map(common::recommended_mods_for_game)
-                    .unwrap_or(&[]);
-                let preview_game_kind = game_kind.unwrap_or(crate::steam::game::GameKind::SADX);
-                let mut initial_selected = Vec::new();
-
-                {
-                    let preview_title_clone = preview_title_label.clone();
-                    let carousel_clone = carousel.clone();
-                    let carousel_frame_clone = carousel_frame.clone();
-                    let desc_lbl_clone = full_desc_label.clone();
-                    let links_box_clone = links_box.clone();
-                    list_box.connect_row_selected(move |_, row| {
-                        let Some(row) = row else { return };
-                        populate_mod_preview_for_index(
-                            &preview_title_clone,
-                            &carousel_clone,
-                            &carousel_frame_clone,
-                            &desc_lbl_clone,
-                            &links_box_clone,
-                            preview_game_kind,
-                            row.index() as usize,
-                        );
-                    });
-                }
-
-                let default_preset = presets.first();
-
-                for (i, mod_entry) in mods_list.iter().enumerate() {
-                    let row_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Horizontal)
-                        .spacing(12)
-                        .margin_start(12)
-                        .margin_end(12)
-                        .margin_top(12)
-                        .margin_bottom(12)
-                        .hexpand(true)
-                        .build();
-
-                    let is_active = default_preset
-                        .map(|preset| preset.mod_names.contains(&mod_entry.name))
-                        .unwrap_or(true);
-
-                    let check = gtk::CheckButton::builder().active(is_active).build();
-                    checks.borrow_mut().push(check.clone());
-
-                    let text_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Vertical)
-                        .spacing(2)
-                        .hexpand(true)
-                        .build();
-
-                    let name_label = gtk::Label::builder()
-                        .label(mod_entry.name)
-                        .halign(gtk::Align::Start)
-                        .css_classes(vec!["heading".to_string()])
-                        .build();
-
-                    let desc_label = gtk::Label::builder()
-                        .label(mod_entry.description)
-                        .halign(gtk::Align::Start)
-                        .wrap(true)
-                        .css_classes(vec!["caption".to_string()])
-                        .build();
-
-                    text_box.append(&name_label);
-                    text_box.append(&desc_label);
-
-                    row_box.append(&check);
-                    row_box.append(&text_box);
-
-                    let list_row = gtk::ListBoxRow::builder().child(&row_box).build();
-
-                    let obj_clone = self.clone();
-                    let idx = i;
-                    check.connect_toggled(move |btn| {
-                        if let Ok(mut sel) = obj_clone.imp().selected_mods.try_borrow_mut() {
-                            if btn.is_active() {
-                                if !sel.contains(&idx) {
-                                    sel.push(idx);
-                                }
-                            } else {
-                                sel.retain(|&x| x != idx);
-                            }
-                        }
-                    });
-
-                    let preview_title_clone = preview_title_label.clone();
-                    let carousel_clone = carousel.clone();
-                    let carousel_frame_clone = carousel_frame.clone();
-                    let desc_lbl_clone = full_desc_label.clone();
-                    let links_box_clone = links_box.clone();
-                    check.connect_has_focus_notify(move |btn| {
-                        if btn.has_focus() {
-                            populate_mod_preview_for_index(
-                                &preview_title_clone,
-                                &carousel_clone,
-                                &carousel_frame_clone,
-                                &desc_lbl_clone,
-                                &links_box_clone,
-                                preview_game_kind,
-                                idx,
-                            );
-                        }
-                    });
-
-                    let preview_title_clone = preview_title_label.clone();
-                    let carousel_clone = carousel.clone();
-                    let carousel_frame_clone = carousel_frame.clone();
-                    let desc_lbl_clone = full_desc_label.clone();
-                    let links_box_clone = links_box.clone();
-                    let mod_entry_clone = mod_entry;
-
-                    let gesture = gtk::EventControllerMotion::new();
-                    gesture.connect_enter(move |_, _, _| {
-                        populate_mod_preview(
-                            &preview_title_clone,
-                            &carousel_clone,
-                            &carousel_frame_clone,
-                            &desc_lbl_clone,
-                            &links_box_clone,
-                            Some(mod_entry_clone),
-                        );
-                    });
-                    list_row.add_controller(gesture);
-
-                    list_box.append(&list_row);
-                    if is_active {
-                        initial_selected.push(i);
                     }
                 }
-                imp.selected_mods.replace(initial_selected);
+            });
+        }
 
-                let preview_entry =
-                    initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
-                        .and_then(|idx| mods_list.get(idx));
-                populate_mod_preview(
-                    &preview_title_label,
-                    &carousel,
-                    &carousel_frame,
-                    &full_desc_label,
-                    &links_box,
-                    preview_entry,
+        let preview_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .hexpand(true)
+            .vexpand(true)
+            .valign(gtk::Align::Fill)
+            .halign(gtk::Align::Fill)
+            .build();
+
+        let carousel = adw::Carousel::builder()
+            .interactive(true)
+            .allow_scroll_wheel(true)
+            .vexpand(true)
+            .build();
+
+        let indicator = adw::CarouselIndicatorDots::builder()
+            .carousel(&carousel)
+            .margin_top(6)
+            .margin_bottom(6)
+            .build();
+
+        let carousel_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .build();
+
+        carousel_box.append(&carousel);
+        carousel_box.append(&indicator);
+
+        let carousel_frame = gtk::Frame::builder()
+            .child(&carousel_box)
+            .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+
+        let full_desc_label = gtk::Label::builder()
+            .wrap(true)
+            .halign(gtk::Align::Start)
+            .valign(gtk::Align::Start)
+            .css_classes(vec!["body".to_string()])
+            .build();
+
+        let desc_scrolled = gtk::ScrolledWindow::builder()
+            .hscrollbar_policy(gtk::PolicyType::Never)
+            .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .max_content_height(MOD_PREVIEW_DESCRIPTION_HEIGHT)
+            .hexpand(true)
+            .vexpand(true)
+            .child(&full_desc_label)
+            .build();
+
+        let preview_title_label = gtk::Label::builder()
+            .halign(gtk::Align::Start)
+            .css_classes(vec!["title-3".to_string()])
+            .build();
+
+        let links_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(6)
+            .halign(gtk::Align::Start)
+            .build();
+
+        preview_box.append(&preview_title_label);
+        preview_box.append(&carousel_frame);
+        preview_box.append(&desc_scrolled);
+        preview_box.append(&links_box);
+
+        let mods_list = game_kind
+            .map(common::recommended_mods_for_game)
+            .unwrap_or(&[]);
+        let preview_game_kind = game_kind.unwrap_or(crate::steam::game::GameKind::SADX);
+        let mut initial_selected = Vec::new();
+
+        {
+            let preview_title_clone = preview_title_label.clone();
+            let carousel_clone = carousel.clone();
+            let carousel_frame_clone = carousel_frame.clone();
+            let desc_lbl_clone = full_desc_label.clone();
+            let links_box_clone = links_box.clone();
+            list_box.connect_row_selected(move |_, row| {
+                let Some(row) = row else { return };
+                populate_mod_preview_for_index(
+                    &preview_title_clone,
+                    &carousel_clone,
+                    &carousel_frame_clone,
+                    &desc_lbl_clone,
+                    &links_box_clone,
+                    preview_game_kind,
+                    row.index() as usize,
                 );
-                if let Some(initial_index) =
-                    initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
-                    && let Some(row) = list_box.row_at_index(initial_index as i32)
-                {
-                    list_box.select_row(Some(&row));
-                }
+            });
+        }
 
-                scrolled.set_child(Some(&list_box));
-                left_box.append(&scrolled);
-                main_box.append(&left_box);
-                main_box.append(&preview_box);
-                content_box.append(&main_box);
+        let default_preset = presets.first();
+
+        for (i, mod_entry) in mods_list.iter().enumerate() {
+            let row_box = gtk::Box::builder()
+                .orientation(gtk::Orientation::Horizontal)
+                .spacing(12)
+                .margin_start(12)
+                .margin_end(12)
+                .margin_top(12)
+                .margin_bottom(12)
+                .hexpand(true)
+                .build();
+
+            let is_active = default_preset
+                .map(|preset| preset.mod_names.contains(&mod_entry.name))
+                .unwrap_or(true);
+
+            let check = gtk::CheckButton::builder().active(is_active).build();
+            checks.borrow_mut().push(check.clone());
+
+            let text_box = gtk::Box::builder()
+                .orientation(gtk::Orientation::Vertical)
+                .spacing(2)
+                .hexpand(true)
+                .build();
+
+            let name_label = gtk::Label::builder()
+                .label(mod_entry.name)
+                .halign(gtk::Align::Start)
+                .css_classes(vec!["heading".to_string()])
+                .build();
+
+            let desc_label = gtk::Label::builder()
+                .label(mod_entry.description)
+                .halign(gtk::Align::Start)
+                .wrap(true)
+                .css_classes(vec!["caption".to_string()])
+                .build();
+
+            text_box.append(&name_label);
+            text_box.append(&desc_label);
+
+            row_box.append(&check);
+            row_box.append(&text_box);
+
+            let list_row = gtk::ListBoxRow::builder().child(&row_box).build();
+
+            let obj_clone = self.clone();
+            let idx = i;
+            check.connect_toggled(move |btn| {
+                if let Ok(mut sel) = obj_clone.imp().selected_mods.try_borrow_mut() {
+                    if btn.is_active() {
+                        if !sel.contains(&idx) {
+                            sel.push(idx);
+                        }
+                    } else {
+                        sel.retain(|&x| x != idx);
+                    }
+                }
+            });
+
+            let preview_title_clone = preview_title_label.clone();
+            let carousel_clone = carousel.clone();
+            let carousel_frame_clone = carousel_frame.clone();
+            let desc_lbl_clone = full_desc_label.clone();
+            let links_box_clone = links_box.clone();
+            check.connect_has_focus_notify(move |btn| {
+                if btn.has_focus() {
+                    populate_mod_preview_for_index(
+                        &preview_title_clone,
+                        &carousel_clone,
+                        &carousel_frame_clone,
+                        &desc_lbl_clone,
+                        &links_box_clone,
+                        preview_game_kind,
+                        idx,
+                    );
+                }
+            });
+
+            let preview_title_clone = preview_title_label.clone();
+            let carousel_clone = carousel.clone();
+            let carousel_frame_clone = carousel_frame.clone();
+            let desc_lbl_clone = full_desc_label.clone();
+            let links_box_clone = links_box.clone();
+            let mod_entry_clone = mod_entry;
+
+            let gesture = gtk::EventControllerMotion::new();
+            gesture.connect_enter(move |_, _, _| {
+                populate_mod_preview(
+                    &preview_title_clone,
+                    &carousel_clone,
+                    &carousel_frame_clone,
+                    &desc_lbl_clone,
+                    &links_box_clone,
+                    Some(mod_entry_clone),
+                );
+            });
+            list_row.add_controller(gesture);
+
+            list_box.append(&list_row);
+            if is_active {
+                initial_selected.push(i);
             }
         }
+        imp.selected_mods.replace(initial_selected);
+
+        let preview_entry = initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
+            .and_then(|idx| mods_list.get(idx));
+        populate_mod_preview(
+            &preview_title_label,
+            &carousel,
+            &carousel_frame,
+            &full_desc_label,
+            &links_box,
+            preview_entry,
+        );
+        if let Some(initial_index) =
+            initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
+            && let Some(row) = list_box.row_at_index(initial_index as i32)
+        {
+            list_box.select_row(Some(&row));
+        }
+
+        scrolled.set_child(Some(&list_box));
+        left_box.append(&scrolled);
+        main_box.append(&left_box);
+        main_box.append(&preview_box);
+        content_box.append(&main_box);
     }
 
     fn run_auto_step(&self, step_id: StepId) {
@@ -928,111 +1043,9 @@ impl AdventureModsSetupPage {
                 return;
             };
 
-            enum ProgressMsg {
-                Bytes {
-                    downloaded: u64,
-                    total: Option<u64>,
-                    status: String,
-                },
-                ModInstall {
-                    mod_name: String,
-                    total: usize,
-                },
-                ModBytes {
-                    mod_name: String,
-                    total: usize,
-                    downloaded: u64,
-                    total_bytes: Option<u64>,
-                },
-                ModFinished {
-                    mod_name: String,
-                    completed: usize,
-                    total: usize,
-                },
-                Configuring {
-                    total: usize,
-                },
-            }
-
             let (tx, rx) = async_channel::bounded::<ProgressMsg>(32);
 
-            let pb = progress_bar.clone();
-            glib::spawn_future_local(async move {
-                let mut completed_mods = 0;
-                let mut active_downloads: HashMap<String, (u64, Option<u64>)> = HashMap::new();
-                while let Ok(msg) = rx.recv().await {
-                    match msg {
-                        ProgressMsg::Bytes {
-                            downloaded,
-                            total,
-                            status,
-                        } => {
-                            if let Some(total) = total {
-                                if total > 0 {
-                                    pb.set_fraction(downloaded as f64 / total as f64);
-                                }
-                            } else {
-                                pb.pulse();
-                            }
-                            let text = format_step_download_text(&status, downloaded, total);
-                            pb.set_text(Some(&text));
-                        }
-                        ProgressMsg::ModInstall { mod_name, total } => {
-                            pb.set_fraction(completed_mod_fraction(completed_mods, total));
-                            pb.set_text(Some(&mod_download_start_text(&mod_name)));
-                        }
-                        ProgressMsg::ModBytes {
-                            mod_name,
-                            total,
-                            downloaded,
-                            total_bytes,
-                        } => {
-                            active_downloads.insert(mod_name.clone(), (downloaded, total_bytes));
-
-                            // Aggregate bytes across all active downloads for a monotonic fraction.
-                            let (agg_downloaded, agg_total) = active_downloads.values().fold(
-                                (0u64, Some(0u64)),
-                                |(ad, at), (d, t)| {
-                                    let new_at = match (at, t) {
-                                        (Some(a), Some(b)) => Some(a + b),
-                                        _ => None,
-                                    };
-                                    (ad + d, new_at)
-                                },
-                            );
-
-                            let update = mod_download_progress_update(
-                                completed_mods,
-                                total,
-                                agg_downloaded,
-                                agg_total,
-                            );
-                            if update.pulse {
-                                pb.pulse();
-                            } else {
-                                pb.set_fraction(update.fraction);
-                            }
-                            pb.set_text(Some(&update.text));
-                        }
-                        ProgressMsg::ModFinished {
-                            mod_name,
-                            completed,
-                            total,
-                        } => {
-                            completed_mods = completed;
-                            active_downloads.remove(&mod_name);
-                            pb.set_fraction(completed_mod_fraction(completed, total));
-                            pb.set_text(Some(&mod_download_finished_text(
-                                &mod_name, completed, total,
-                            )));
-                        }
-                        ProgressMsg::Configuring { total } => {
-                            pb.set_fraction(1.0);
-                            pb.set_text(Some(&format!("Generating config... ({total}/{total})")));
-                        }
-                    }
-                }
-            });
+            spawn_progress_receiver(progress_bar.clone(), rx);
 
             let game_kind = game.kind;
             let (width, height) = obj.get_resolution();
