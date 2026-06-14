@@ -1,0 +1,536 @@
+use super::*;
+
+#[test]
+fn test_parse_libraryfolders() {
+    let input = r#"
+"libraryfolders"
+{
+    "0"
+    {
+        "path"		"/home/user/.local/share/Steam"
+        "label"		""
+        "apps"
+        {
+            "71250"		"6789"
+            "213610"	"12345"
+        }
+    }
+    "1"
+    {
+        "path"		"/mnt/games/SteamLibrary"
+        "label"		""
+        "apps"
+        {
+            "400"		"5000"
+        }
+    }
+}
+"#;
+    let root = parse(input).unwrap();
+    let folders = root.get("libraryfolders").unwrap().as_map().unwrap();
+
+    let lib0 = folders.get("0").unwrap().as_map().unwrap();
+    assert_eq!(
+        lib0.get("path").unwrap().as_str().unwrap(),
+        "/home/user/.local/share/Steam"
+    );
+
+    let apps0 = lib0.get("apps").unwrap().as_map().unwrap();
+    assert!(apps0.contains_key("71250"));
+    assert!(apps0.contains_key("213610"));
+
+    let lib1 = folders.get("1").unwrap().as_map().unwrap();
+    assert_eq!(
+        lib1.get("path").unwrap().as_str().unwrap(),
+        "/mnt/games/SteamLibrary"
+    );
+}
+
+#[test]
+fn test_parse_simple_key_value() {
+    let input = r#""root" "hello""#;
+    let root = parse(input).unwrap();
+    assert_eq!(root.get("root").unwrap().as_str().unwrap(), "hello");
+}
+
+#[test]
+fn test_parse_empty_map() {
+    let input = r#""root" {}"#;
+    let root = parse(input).unwrap();
+    let map = root.get("root").unwrap().as_map().unwrap();
+    assert!(map.is_empty());
+}
+
+#[test]
+fn test_parse_nested_maps() {
+    let input = r#"
+"a"
+{
+    "b"
+    {
+        "c"
+        {
+            "d"     "deep"
+        }
+    }
+}
+"#;
+    let root = parse(input).unwrap();
+    let val = root
+        .get("a")
+        .unwrap()
+        .get("b")
+        .unwrap()
+        .get("c")
+        .unwrap()
+        .get("d")
+        .unwrap()
+        .as_str()
+        .unwrap();
+    assert_eq!(val, "deep");
+}
+
+#[test]
+fn test_parse_escape_sequences() {
+    let input = r#""root" { "a" "line1\nline2" "b" "tab\there" "c" "back\\slash" "d" "a\"quote" }"#;
+    let root = parse(input).unwrap();
+    let m = root.get("root").unwrap();
+    assert_eq!(m.get("a").unwrap().as_str().unwrap(), "line1\nline2");
+    assert_eq!(m.get("b").unwrap().as_str().unwrap(), "tab\there");
+    assert_eq!(m.get("c").unwrap().as_str().unwrap(), "back\\slash");
+    assert_eq!(m.get("d").unwrap().as_str().unwrap(), "a\"quote");
+}
+
+#[test]
+fn test_parse_comments() {
+    let input = r#"
+// This is a comment
+"root"
+{
+    // Another comment
+    "key"       "value"
+    // End comment
+}
+"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_parse_empty_string_value() {
+    let input = r#""root" { "key" "" }"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        ""
+    );
+}
+
+#[test]
+fn test_parse_whitespace_variations() {
+    let input = "\"root\"\t\t{\r\n\t\"key\"\t\t\"value\"\r\n}";
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_parse_malformed_unclosed_quote() {
+    let input = r#""root" { "key" "unclosed }"#;
+    assert!(parse(input).is_none());
+}
+
+#[test]
+fn test_parse_malformed_unclosed_brace() {
+    let input = r#""root" { "key" "value""#;
+    assert!(parse(input).is_none());
+}
+
+#[test]
+fn test_parse_empty_input() {
+    assert!(parse("").is_none());
+    assert!(parse("   ").is_none());
+    assert!(parse("// just a comment\n").is_none());
+}
+
+#[test]
+fn test_parse_with_utf8_bom() {
+    let input = "\u{FEFF}\"root\" { \"key\" \"value\" }";
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_vdfvalue_accessors() {
+    let string_val = VdfValue::String("hello".to_string());
+    assert_eq!(string_val.as_str(), Some("hello"));
+    assert!(string_val.as_map().is_none());
+    assert!(string_val.get("anything").is_none());
+
+    let map_val = VdfValue::Map(HashMap::new());
+    assert!(map_val.as_str().is_none());
+    assert!(map_val.as_map().is_some());
+    assert!(map_val.get("missing").is_none());
+}
+
+#[test]
+fn test_parse_duplicate_keys() {
+    let input = r#""root" { "key" "first" "key" "second" }"#;
+    let root = parse(input).unwrap();
+    // HashMap: last inserted wins
+    let val = root
+        .get("root")
+        .unwrap()
+        .get("key")
+        .unwrap()
+        .as_str()
+        .unwrap();
+    assert_eq!(val, "second");
+}
+
+#[test]
+fn test_parse_consecutive_escapes() {
+    // Two backslashes followed by n: should produce literal `\n` (backslash + n)
+    let input = r#""root" { "a" "a\\\\b" "b" "x\\ny" }"#;
+    let root = parse(input).unwrap();
+    let m = root.get("root").unwrap();
+    assert_eq!(m.get("a").unwrap().as_str().unwrap(), "a\\\\b");
+    assert_eq!(m.get("b").unwrap().as_str().unwrap(), "x\\ny");
+}
+
+#[test]
+fn test_parse_unknown_escape() {
+    // Unknown escape like \x should be kept as-is: backslash + x
+    let input = r#""root" { "key" "abc\xdef" }"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "abc\\xdef"
+    );
+}
+
+#[test]
+fn test_parse_numeric_keys() {
+    // VDF often uses numeric keys as pseudo-arrays (like libraryfolders.vdf)
+    let input = r#""root" { "0" "first" "1" "second" "2" "third" }"#;
+    let root = parse(input).unwrap();
+    let m = root.get("root").unwrap();
+    assert_eq!(m.get("0").unwrap().as_str().unwrap(), "first");
+    assert_eq!(m.get("1").unwrap().as_str().unwrap(), "second");
+    assert_eq!(m.get("2").unwrap().as_str().unwrap(), "third");
+}
+
+#[test]
+fn test_vdfvalue_get_chained_missing() {
+    let root = parse(r#""root" { "a" { "b" "val" } }"#).unwrap();
+    // Valid chain
+    assert_eq!(
+        root.get("root")
+            .and_then(|v| v.get("a"))
+            .and_then(|v| v.get("b"))
+            .and_then(|v| v.as_str()),
+        Some("val")
+    );
+    // Missing intermediate key
+    assert!(
+        root.get("root")
+            .and_then(|v| v.get("x"))
+            .and_then(|v| v.get("b"))
+            .is_none()
+    );
+    // get() on a string value
+    assert!(
+        root.get("root")
+            .and_then(|v| v.get("a"))
+            .and_then(|v| v.get("b"))
+            .and_then(|v| v.get("anything"))
+            .is_none()
+    );
+}
+
+#[test]
+fn test_parse_only_whitespace_between_entries() {
+    // No separators other than whitespace between key-value pairs
+    let input = "\"root\"{\"a\"\"1\"\"b\"\"2\"}";
+    let root = parse(input).unwrap();
+    let m = root.get("root").unwrap();
+    assert_eq!(m.get("a").unwrap().as_str().unwrap(), "1");
+    assert_eq!(m.get("b").unwrap().as_str().unwrap(), "2");
+}
+
+#[test]
+fn test_parse_comment_at_eof_no_newline() {
+    let input = "\"root\" \"value\" // trailing comment";
+    let root = parse(input).unwrap();
+    assert_eq!(root.get("root").unwrap().as_str().unwrap(), "value");
+}
+
+#[test]
+fn test_parse_map_with_mixed_value_types() {
+    let input = r#"
+"root"
+{
+    "string_val"    "hello"
+    "sub_map"
+    {
+        "nested"    "world"
+    }
+    "another"       "test"
+}
+"#;
+    let root = parse(input).unwrap();
+    let m = root.get("root").unwrap();
+    assert_eq!(m.get("string_val").unwrap().as_str().unwrap(), "hello");
+    assert!(m.get("sub_map").unwrap().as_map().is_some());
+    assert_eq!(
+        m.get("sub_map")
+            .unwrap()
+            .get("nested")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "world"
+    );
+    assert_eq!(m.get("another").unwrap().as_str().unwrap(), "test");
+}
+
+#[test]
+fn test_parse_no_root_value() {
+    // Bare key with no value following
+    assert!(parse(r#""key""#).is_none());
+}
+
+#[test]
+fn test_parse_unquoted_key_fails() {
+    // VDF requires quoted keys
+    assert!(parse("root { }").is_none());
+}
+
+#[test]
+fn test_parse_deeply_nested_100_levels() {
+    let mut input = String::new();
+    for i in 0..100 {
+        input.push_str(&format!("\"l{i}\" {{\n"));
+    }
+    input.push_str("\"leaf\" \"value\"\n");
+    for _ in 0..100 {
+        input.push_str("}\n");
+    }
+    let root = parse(&input).unwrap();
+
+    // Walk down to the leaf
+    let mut current = &root;
+    for i in 0..100 {
+        current = current.get(&format!("l{i}")).unwrap();
+    }
+    assert_eq!(current.get("leaf").unwrap().as_str().unwrap(), "value");
+}
+
+#[test]
+fn test_parse_long_string_value() {
+    let long_value = "x".repeat(100_000);
+    let input = format!("\"root\" \"{}\"", long_value);
+    let root = parse(&input).unwrap();
+    assert_eq!(root.get("root").unwrap().as_str().unwrap(), long_value);
+}
+
+#[test]
+fn test_parse_many_keys() {
+    let mut input = String::from("\"root\" {\n");
+    for i in 0..10_000 {
+        input.push_str(&format!("\"key_{i}\" \"{i}\"\n"));
+    }
+    input.push('}');
+    let root = parse(&input).unwrap();
+    let map = root.get("root").unwrap().as_map().unwrap();
+    assert_eq!(map.len(), 10_000);
+    assert_eq!(map.get("key_0").unwrap().as_str().unwrap(), "0");
+    assert_eq!(map.get("key_9999").unwrap().as_str().unwrap(), "9999");
+}
+
+#[test]
+fn test_parse_unicode_values() {
+    let input = "\"root\" { \"path\" \"/home/ünïcödé/♪music/Steam\" }";
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("path")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "/home/ünïcödé/♪music/Steam"
+    );
+}
+
+#[test]
+fn test_parse_unicode_key() {
+    let input = "\"root\" { \"ключ\" \"значение\" }";
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("ключ")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "значение"
+    );
+}
+
+#[test]
+fn test_parse_empty_key() {
+    // VDF allows empty string keys (edge case from some malformed files)
+    let input = r#""root" { "" "value" }"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root").unwrap().get("").unwrap().as_str().unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_parse_backslash_at_eof_in_string() {
+    // Backslash with no following char: unterminated escape → parse fails
+    let input = "\"root\" \"value\\";
+    assert!(parse(input).is_none());
+}
+
+#[test]
+fn test_parse_newline_in_path_value() {
+    // Real Steam paths never contain newlines, but the parser should handle
+    // the \n escape sequence producing an actual newline in the value.
+    let input = r#""root" "line1\nline2""#;
+    let root = parse(input).unwrap();
+    assert_eq!(root.get("root").unwrap().as_str().unwrap(), "line1\nline2");
+}
+
+#[test]
+fn test_parse_multiple_consecutive_escape_sequences() {
+    // \t\n\\ in one value
+    let input = r#""root" "\t\n\\""#;
+    let root = parse(input).unwrap();
+    assert_eq!(root.get("root").unwrap().as_str().unwrap(), "\t\n\\");
+}
+
+#[test]
+fn test_parse_windows_style_path() {
+    // Some VDF entries on Linux can contain Windows-style paths with backslashes.
+    // Each \\ in VDF decodes to a single \, which is what a Windows path contains.
+    let input = r#""root" { "path" "C:\\Program Files\\Steam" }"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("path")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "C:\\Program Files\\Steam"
+    );
+}
+
+#[test]
+fn test_parse_value_is_map_not_string() {
+    let input = r#""root" { "nested" { "key" "val" } }"#;
+    let root = parse(input).unwrap();
+    // Trying to get "nested" as a string should fail
+    assert!(
+        root.get("root")
+            .unwrap()
+            .get("nested")
+            .unwrap()
+            .as_str()
+            .is_none()
+    );
+    // Getting it as a map should work
+    assert!(
+        root.get("root")
+            .unwrap()
+            .get("nested")
+            .unwrap()
+            .as_map()
+            .is_some()
+    );
+}
+
+#[test]
+fn test_parse_comment_before_closing_brace() {
+    let input = r#"
+"root"
+{
+    "key"   "value"
+    // This comment is right before the closing brace
+}
+"#;
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_parse_mixed_crlf_lf_line_endings() {
+    let input = "\"root\"\r\n{\r\n\t\"key\"\t\"value\"\r\n}\r\n";
+    let root = parse(input).unwrap();
+    assert_eq!(
+        root.get("root")
+            .unwrap()
+            .get("key")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "value"
+    );
+}
+
+#[test]
+fn test_parse_rejects_trailing_non_whitespace_text() {
+    let input = r#""root" "value" trailing"#;
+    assert!(parse(input).is_none());
+}
+
+#[test]
+fn test_parse_rejects_second_root_object() {
+    let input = r#""root" "value" "another" "entry""#;
+    assert!(parse(input).is_none());
+}
