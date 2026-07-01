@@ -14,6 +14,7 @@ use crate::steam::game::Game;
 
 const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
+const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
 mod imp {
     use std::cell::RefCell;
 
@@ -800,8 +801,18 @@ impl AdventureModsSetupPage {
         carousel_box.append(&carousel);
         carousel_box.append(&indicator);
 
-        let carousel_frame = gtk::Frame::builder()
+        let carousel_aspect = gtk::AspectFrame::builder()
+            .ratio(16.0_f32 / 9.0_f32)
+            .obey_child(false)
+            .xalign(0.5)
+            .yalign(0.5)
+            .hexpand(true)
+            .vexpand(true)
             .child(&carousel_box)
+            .build();
+
+        let carousel_frame = gtk::Frame::builder()
+            .child(&carousel_aspect)
             .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
             .hexpand(true)
             .vexpand(true)
@@ -809,6 +820,7 @@ impl AdventureModsSetupPage {
 
         let full_desc_label = gtk::Label::builder()
             .wrap(true)
+            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .valign(gtk::Align::Start)
             .css_classes(vec!["body".to_string()])
@@ -824,6 +836,8 @@ impl AdventureModsSetupPage {
             .build();
 
         let preview_title_label = gtk::Label::builder()
+            .wrap(true)
+            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .css_classes(vec!["title-3".to_string()])
             .build();
