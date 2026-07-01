@@ -335,7 +335,7 @@ fn populate_mod_preview(
     carousel: &adw::Carousel,
     carousel_frame: &gtk::Frame,
     description_label: &gtk::Label,
-    links_box: &gtk::Box,
+    links_box: &gtk::FlowBox,
     mod_entry: Option<&common::ModEntry>,
 ) {
     let mut children = Vec::new();
@@ -415,7 +415,7 @@ fn populate_mod_preview(
             .uri(link.url)
             .halign(gtk::Align::Start)
             .build();
-        links_box.append(&button);
+        links_box.insert(&button, -1);
     }
 }
 
@@ -424,7 +424,7 @@ fn populate_mod_preview_for_index(
     carousel: &adw::Carousel,
     carousel_frame: &gtk::Frame,
     description_label: &gtk::Label,
-    links_box: &gtk::Box,
+    links_box: &gtk::FlowBox,
     game_kind: crate::steam::game::GameKind,
     index: usize,
 ) {
@@ -820,7 +820,7 @@ impl AdventureModsSetupPage {
 
         let full_desc_label = gtk::Label::builder()
             .wrap(true)
-            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
+            .width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .valign(gtk::Align::Start)
             .css_classes(vec!["body".to_string()])
@@ -837,14 +837,17 @@ impl AdventureModsSetupPage {
 
         let preview_title_label = gtk::Label::builder()
             .wrap(true)
-            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
+            .width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .css_classes(vec!["title-3".to_string()])
             .build();
 
-        let links_box = gtk::Box::builder()
-            .orientation(gtk::Orientation::Horizontal)
-            .spacing(6)
+        let links_box = gtk::FlowBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .min_children_per_line(1)
+            .max_children_per_line(3)
+            .column_spacing(24)
+            .row_spacing(6)
             .halign(gtk::Align::Start)
             .build();
 
