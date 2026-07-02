@@ -10,7 +10,15 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     container:
       image: debian:13
 
@@ -42,11 +50,25 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AdventureMods-AppImage-x86_64
+          name: AdventureMods-AppImage-${{ matrix.arch }}
           path: appimage-build/*.AppImage*
 
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: AdventureMods-AppImage-*
+          path: appimage-artifacts
+          merge-multiple: true
+
       - name: Upload to release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -58,8 +80,9 @@ jobs:
             --target "$GITHUB_SHA" \
             --notes "$notes" \
             --draft || true
-          gh release upload "${{ github.ref_name }}" appimage-build/*.AppImage* \
-            --repo "$GITHUB_REPOSITORY"
+          gh release upload "${{ github.ref_name }}" appimage-artifacts/*.AppImage* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
           gh release edit "${{ github.ref_name }}" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false

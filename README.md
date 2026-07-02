@@ -31,15 +31,15 @@ Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
 flatpak install flathub it.mijorus.gearlever
 ```
 
-Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest/download/Adventure_Mods-x86_64.AppImage), then open it with Gear Lever.
+Download the latest AppImage for your CPU architecture from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then open it with Gear Lever.
 
 ### Manual
 
-Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest/download/Adventure_Mods-x86_64.AppImage), then:
+Download the latest AppImage for your CPU architecture from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
 
 ```sh
-chmod +x Adventure_Mods-x86_64.AppImage
-./Adventure_Mods-x86_64.AppImage
+chmod +x Adventure_Mods-<arch>.AppImage
+./Adventure_Mods-<arch>.AppImage
 ```
 
 Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode.
@@ -90,11 +90,11 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 **Examples**
 
 ```sh
-./Adventure_Mods-x86_64.AppImage setup --game sadx --preset "DX Enhanced"
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --all-mods
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
-./Adventure_Mods-x86_64.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
-./Adventure_Mods-x86_64.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
+./Adventure_Mods-<arch>.AppImage setup --game sadx --preset "DX Enhanced"
+./Adventure_Mods-<arch>.AppImage setup --game sa2 --all-mods
+./Adventure_Mods-<arch>.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
+./Adventure_Mods-<arch>.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
+./Adventure_Mods-<arch>.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
 ```
 
 ## Development
@@ -114,6 +114,10 @@ make appimage
 ```
 
 Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`.
+
+The AppImage build is native-architecture: x86_64 hosts produce x86_64 AppImages,
+and ARM64/aarch64 hosts produce aarch64 AppImages. GitHub release builds publish
+both architectures.
 
 ## License
 

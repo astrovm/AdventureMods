@@ -6,10 +6,30 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/appimage-build"
 APPDIR="$BUILD_DIR/AppDir"
 
-LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage"
 GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
-HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip"
-SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz"
+BUILD_ARCH="$(uname -m)"
+case "$BUILD_ARCH" in
+	x86_64)
+		APPIMAGE_ARCH="x86_64"
+		LINUXDEPLOY_ARCH="x86_64"
+		SEVENZIP_ARCH="x64"
+		HPATCHZ_ARCH="linux64"
+		;;
+	aarch64 | arm64)
+		APPIMAGE_ARCH="aarch64"
+		LINUXDEPLOY_ARCH="aarch64"
+		SEVENZIP_ARCH="arm64"
+		HPATCHZ_ARCH="linux_arm64"
+		;;
+	*)
+		echo "Unsupported AppImage architecture: $BUILD_ARCH" >&2
+		exit 1
+		;;
+esac
+
+LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
+HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_${HPATCHZ_ARCH}.zip"
+SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-${SEVENZIP_ARCH}.tar.xz"
 
 GTK4_VERSION="4.20.3"
 GTK4_URL="https://download.gnome.org/sources/gtk/4.20/gtk-${GTK4_VERSION}.tar.xz"
@@ -34,6 +54,7 @@ fi
 echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
+echo "==> Building ${APPIMAGE_ARCH} AppImage"
 
 # Build GTK4 and libadwaita from source for smooth animations (GTK 4.20+),
 # while linking against the host glibc for broad compatibility.
@@ -82,7 +103,7 @@ DESTDIR="$APPDIR" meson install -C "$BUILD_DIR/meson"
 
 echo "==> Downloading hpatchz"
 wget -q -O "$BUILD_DIR/tmp/hpatchz.zip" "$HPATCHZ_URL"
-unzip -o -j "$BUILD_DIR/tmp/hpatchz.zip" "linux64/hpatchz" -d "$BUILD_DIR/tmp/"
+unzip -o -j "$BUILD_DIR/tmp/hpatchz.zip" "${HPATCHZ_ARCH}/hpatchz" -d "$BUILD_DIR/tmp/"
 install -Dm755 "$BUILD_DIR/tmp/hpatchz" "$APPDIR/usr/bin/hpatchz"
 
 echo "==> Downloading 7-Zip"
@@ -132,7 +153,7 @@ rm -f \
 rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
 
 # Second pass: produce the AppImage.
-export UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*x86_64.AppImage.zsync"
+export UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*${APPIMAGE_ARCH}.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \

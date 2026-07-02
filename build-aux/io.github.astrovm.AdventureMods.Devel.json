@@ -50,19 +50,34 @@
           "type": "file",
           "url": "https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz",
           "dest-filename": "7zip.tar.xz",
-          "sha256": "c74dc4a48492cde43f5fec10d53fb2a66f520e4a62a69d630c44cb22c477edc6"
+          "sha256": "c74dc4a48492cde43f5fec10d53fb2a66f520e4a62a69d630c44cb22c477edc6",
+          "only-arches": ["x86_64"]
+        },
+        {
+          "type": "file",
+          "url": "https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-arm64.tar.xz",
+          "dest-filename": "7zip.tar.xz",
+          "sha256": "aa8f3d0a19af9674d3af0ec788b4e261501071e626cd75ad149f1c2c176cc87d",
+          "only-arches": ["aarch64"]
         }
       ]
     },
     {
       "name": "hdiffpatch",
       "buildsystem": "simple",
-      "build-commands": ["install -Dm755 hpatchz /app/bin/hpatchz"],
+      "build-commands": ["install -Dm755 linux*/hpatchz /app/bin/hpatchz"],
       "sources": [
         {
           "type": "archive",
           "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip",
-          "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a"
+          "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a",
+          "only-arches": ["x86_64"]
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux_arm64.zip",
+          "sha256": "b617e91200aab3c0a76b0aa0840cd4cf10fceea84d16dde4ed700029193d1eee",
+          "only-arches": ["aarch64"]
         }
       ]
     },
