@@ -44,6 +44,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.8" date="2026-07-02">
+      <description>
+        <p>Improved graphical setup crash resilience.</p>
+        <ul>
+          <li>Prevented Rust panics in GTK callbacks from aborting the application</li>
+          <li>Handled stale setup navigation state with retryable errors instead of crashes</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.7" date="2026-07-02">
       <description>
         <p>Improved setup reliability, mod selection polish, and maintainability.</p>
