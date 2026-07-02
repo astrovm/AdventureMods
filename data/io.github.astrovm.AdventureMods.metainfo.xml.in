@@ -46,12 +46,12 @@
   <releases>
     <release version="0.3.7" date="2026-07-02">
       <description>
-        <p>Improved setup reliability, packaging, and mod selection polish.</p>
+        <p>Improved setup reliability, mod selection polish, and maintainability.</p>
         <ul>
           <li>Unified CLI and graphical setup workflows for consistent installation behavior</li>
           <li>Improved Proton discovery performance</li>
           <li>Stabilized mod selection column widths when preview content changes</li>
-          <li>Updated dependencies for newer GTK, libadwaita, and download stack support</li>
+          <li>Updated Rust dependencies, including GTK bindings and download stack support</li>
           <li>Simplified setup code and test organization for easier maintenance</li>
         </ul>
       </description>
