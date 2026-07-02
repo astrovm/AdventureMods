@@ -12,7 +12,6 @@ use crate::setup::steps::StepId;
 use crate::setup::{common, config, pipeline, sadx, steps};
 use crate::steam::game::Game;
 
-const MOD_PREVIEW_IMAGE_HEIGHT: i32 = 250;
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
 mod imp {
@@ -813,14 +812,13 @@ impl AdventureModsSetupPage {
 
         let carousel_frame = gtk::Frame::builder()
             .child(&carousel_aspect)
-            .height_request(MOD_PREVIEW_IMAGE_HEIGHT)
             .hexpand(true)
             .vexpand(true)
             .build();
 
         let full_desc_label = gtk::Label::builder()
             .wrap(true)
-            .width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
+            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .valign(gtk::Align::Start)
             .css_classes(vec!["body".to_string()])
@@ -837,7 +835,7 @@ impl AdventureModsSetupPage {
 
         let preview_title_label = gtk::Label::builder()
             .wrap(true)
-            .width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
+            .max_width_chars(MOD_PREVIEW_TEXT_WIDTH_CHARS)
             .halign(gtk::Align::Start)
             .css_classes(vec!["title-3".to_string()])
             .build();
@@ -1542,6 +1540,7 @@ mod tests {
             .unwrap()
             .downcast::<gtk::Box>()
             .unwrap();
+        while glib::MainContext::default().iteration(false) {}
         let left_box = main_box
             .first_child()
             .unwrap()
@@ -1644,12 +1643,16 @@ mod tests {
             .downcast::<gtk::Box>()
             .unwrap();
 
+        let row = list_box.row_at_index(8).unwrap();
+        list_box.select_row(Some(&row));
+        while glib::MainContext::default().iteration(false) {}
+
         let initial_left_width = left_box.width();
         let initial_preview_width = preview_box.width();
         assert!(initial_left_width > 0);
         assert!(initial_preview_width > 0);
 
-        for row_index in [8, 9, 10, 11] {
+        for row_index in [9, 10, 11] {
             let row = list_box.row_at_index(row_index).unwrap();
             list_box.select_row(Some(&row));
             while glib::MainContext::default().iteration(false) {}
@@ -1657,6 +1660,46 @@ mod tests {
             assert_eq!(left_box.width(), initial_left_width);
             assert_eq!(preview_box.width(), initial_preview_width);
         }
+    }
+
+    #[gtk::test]
+    fn mod_selection_keeps_two_columns_in_narrow_window() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SADX,
+            path: tmp.path().to_path_buf(),
+        });
+        let select_mods_index = page
+            .imp()
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == StepId::SelectMods)
+            .unwrap();
+
+        page.imp().current_step.set(select_mods_index);
+        page.show_current_step();
+
+        let window = gtk::Window::builder()
+            .default_width(700)
+            .default_height(820)
+            .child(&page)
+            .build();
+        window.present();
+        while glib::MainContext::default().iteration(false) {}
+
+        let main_box = page
+            .imp()
+            .content_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+
+        assert_eq!(main_box.orientation(), gtk::Orientation::Horizontal);
+        assert!(main_box.is_homogeneous());
     }
 
     #[gtk::test]
