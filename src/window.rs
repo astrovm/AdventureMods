@@ -95,20 +95,22 @@ impl AdventureModsWindow {
         welcome_page.connect_local("library-access-granted", true, {
             let obj = self.clone();
             move |args| {
-                let Ok(path) = args[1].get::<String>() else {
-                    return None;
-                };
+                let _ = crate::ui::catch_ui_panic("library access granted signal", || {
+                    let Ok(path) = args[1].get::<String>() else {
+                        return;
+                    };
 
-                let path_buf = std::path::PathBuf::from(path);
-                {
-                    let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
-                    if !extra_paths.iter().any(|existing| existing == &path_buf) {
-                        extra_paths.push(path_buf);
-                        obj.save_extra_library_paths();
+                    let path_buf = std::path::PathBuf::from(path);
+                    {
+                        let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
+                        if !extra_paths.iter().any(|existing| existing == &path_buf) {
+                            extra_paths.push(path_buf);
+                            obj.save_extra_library_paths();
+                        }
                     }
-                }
 
-                obj.detect_games();
+                    obj.detect_games();
+                });
                 None
             }
         });
@@ -118,17 +120,21 @@ impl AdventureModsWindow {
         let refresh_button = self.imp().refresh_button.clone();
         let obj = self.clone();
         refresh_button.connect_clicked(move |_| {
-            obj.detect_games();
+            let _ = crate::ui::catch_ui_panic("refresh button", || {
+                obj.detect_games();
+            });
         });
 
         let nav_view = self.imp().navigation_view.clone();
         let refresh_button_clone = refresh_button.clone();
         nav_view.connect_visible_page_notify(move |nav| {
-            let is_welcome = nav
-                .visible_page()
-                .map(|page| page.tag() == Some("welcome".into()))
-                .unwrap_or(false);
-            refresh_button_clone.set_visible(is_welcome);
+            let _ = crate::ui::catch_ui_panic("visible page change", || {
+                let is_welcome = nav
+                    .visible_page()
+                    .map(|page| page.tag() == Some("welcome".into()))
+                    .unwrap_or(false);
+                refresh_button_clone.set_visible(is_welcome);
+            });
         });
     }
 
@@ -154,11 +160,13 @@ impl AdventureModsWindow {
         self.set_maximized(settings.boolean("window-maximized"));
 
         self.connect_close_request(move |window| {
-            if !window.is_maximized() {
-                let _ = settings.set_int("window-width", window.width());
-                let _ = settings.set_int("window-height", window.height());
-            }
-            let _ = settings.set_boolean("window-maximized", window.is_maximized());
+            let _ = crate::ui::catch_ui_panic("window close request", || {
+                if !window.is_maximized() {
+                    let _ = settings.set_int("window-width", window.width());
+                    let _ = settings.set_int("window-height", window.height());
+                }
+                let _ = settings.set_boolean("window-maximized", window.is_maximized());
+            });
             glib::Propagation::Proceed
         });
     }

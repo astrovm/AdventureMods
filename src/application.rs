@@ -44,25 +44,32 @@ mod imp {
 
             let quit_action = gio::ActionEntry::builder("quit")
                 .activate(|app: &super::AdventureModsApplication, _, _| {
-                    app.quit();
+                    let _ = crate::ui::catch_ui_panic("quit action", || {
+                        app.quit();
+                    });
                 })
                 .build();
 
             let about_action = gio::ActionEntry::builder("about")
                 .activate(|app: &super::AdventureModsApplication, _, _| {
-                    let about = adw::AboutDialog::builder()
-                        .application_name(config::APP_NAME)
-                        .application_icon(config::APP_ID)
-                        .developer_name("astrovm")
-                        .version(env!("CARGO_PKG_VERSION"))
-                        .developers(vec!["astrovm"])
-                        .copyright("2026 astrovm")
-                        .license_type(gtk::License::MitX11)
-                        .issue_url("https://github.com/astrovm/AdventureMods/issues")
-                        .build();
+                    let _ = crate::ui::catch_ui_panic("about action", || {
+                        let about = adw::AboutDialog::builder()
+                            .application_name(config::APP_NAME)
+                            .application_icon(config::APP_ID)
+                            .developer_name("astrovm")
+                            .version(env!("CARGO_PKG_VERSION"))
+                            .developers(vec!["astrovm"])
+                            .copyright("2026 astrovm")
+                            .license_type(gtk::License::MitX11)
+                            .issue_url("https://github.com/astrovm/AdventureMods/issues")
+                            .build();
 
-                    let window = app.active_window().unwrap();
-                    about.present(Some(&window));
+                        let Some(window) = app.active_window() else {
+                            tracing::warn!("About action activated without an active window");
+                            return;
+                        };
+                        about.present(Some(&window));
+                    });
                 })
                 .build();
 

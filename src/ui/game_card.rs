@@ -68,35 +68,43 @@ mod imp {
             let gesture = gtk::GestureClick::new();
             gesture.set_button(1);
             gesture.connect_released(move |_, _, _, _| {
-                let imp = obj.imp();
-                if imp.install_selector.is_visible() {
-                    return;
-                }
-                if let Some(ref cb) = *imp.setup_callback.borrow() {
-                    cb();
-                }
+                let _ = crate::ui::catch_ui_panic("game card click", || {
+                    let imp = obj.imp();
+                    if imp.install_selector.is_visible() {
+                        return;
+                    }
+                    if let Some(ref cb) = *imp.setup_callback.borrow() {
+                        cb();
+                    }
+                });
             });
             self.obj().add_controller(gesture);
 
             let obj = self.obj().clone();
             self.setup_button.connect_clicked(move |_| {
-                let imp = obj.imp();
-                if let Some(ref cb) = *imp.setup_callback.borrow() {
-                    cb();
-                }
+                let _ = crate::ui::catch_ui_panic("game card setup button", || {
+                    let imp = obj.imp();
+                    if let Some(ref cb) = *imp.setup_callback.borrow() {
+                        cb();
+                    }
+                });
             });
 
             let obj = self.obj().clone();
             self.install_selector.connect_selected_notify(move |_| {
-                obj.update_selected_install_option();
+                let _ = crate::ui::catch_ui_panic("game card install selector", || {
+                    obj.update_selected_install_option();
+                });
             });
 
             let obj = self.obj().clone();
             self.secondary_button.connect_clicked(move |_| {
-                let imp = obj.imp();
-                if let Some(ref cb) = *imp.secondary_callback.borrow() {
-                    cb();
-                }
+                let _ = crate::ui::catch_ui_panic("game card secondary button", || {
+                    let imp = obj.imp();
+                    if let Some(ref cb) = *imp.secondary_callback.borrow() {
+                        cb();
+                    }
+                });
             });
         }
     }

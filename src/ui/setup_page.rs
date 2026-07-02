@@ -78,12 +78,20 @@ mod imp {
 
             let obj = self.obj().clone();
             self.next_button.connect_clicked(move |_| {
-                obj.on_next_clicked();
+                if crate::ui::catch_ui_panic("setup next button", || obj.on_next_clicked()).is_err()
+                {
+                    obj.show_error(
+                        "Something went wrong while continuing setup. Please try again.",
+                    );
+                }
             });
 
             let obj = self.obj().clone();
             self.back_button.connect_clicked(move |_| {
-                obj.on_back_clicked();
+                if crate::ui::catch_ui_panic("setup back button", || obj.on_back_clicked()).is_err()
+                {
+                    obj.show_error("Something went wrong while going back. Please try again.");
+                }
             });
         }
     }
@@ -591,24 +599,28 @@ impl AdventureModsSetupPage {
                     let obj = self.clone();
                     let subtitle_languages = subtitle_languages.to_vec();
                     subtitle_dropdown.connect_selected_notify(move |dropdown| {
-                        let language = subtitle_languages
-                            .get(dropdown.selected() as usize)
-                            .copied()
-                            .unwrap_or(config::SubtitleLanguage::English);
-                        let mut selection = obj.current_language_selection();
-                        selection.subtitle = language;
-                        obj.imp().language_selection.replace(Some(selection));
+                        let _ = crate::ui::catch_ui_panic("subtitle language selector", || {
+                            let language = subtitle_languages
+                                .get(dropdown.selected() as usize)
+                                .copied()
+                                .unwrap_or(config::SubtitleLanguage::English);
+                            let mut selection = obj.current_language_selection();
+                            selection.subtitle = language;
+                            obj.imp().language_selection.replace(Some(selection));
+                        });
                     });
 
                     let obj = self.clone();
                     voice_dropdown.connect_selected_notify(move |dropdown| {
-                        let language = config::VoiceLanguage::all()
-                            .get(dropdown.selected() as usize)
-                            .copied()
-                            .unwrap_or(config::VoiceLanguage::English);
-                        let mut selection = obj.current_language_selection();
-                        selection.voice = language;
-                        obj.imp().language_selection.replace(Some(selection));
+                        let _ = crate::ui::catch_ui_panic("voice language selector", || {
+                            let language = config::VoiceLanguage::all()
+                                .get(dropdown.selected() as usize)
+                                .copied()
+                                .unwrap_or(config::VoiceLanguage::English);
+                            let mut selection = obj.current_language_selection();
+                            selection.voice = language;
+                            obj.imp().language_selection.replace(Some(selection));
+                        });
                     });
 
                     form_box.append(&subtitle_box);
@@ -640,25 +652,33 @@ impl AdventureModsSetupPage {
                     let flag = cancel_flag.clone();
                     let obj = self.clone();
                     cancel_button.connect_clicked(move |btn| {
-                        flag.store(true, Ordering::Relaxed);
-                        btn.set_sensitive(false);
-                        btn.set_label("Cancelling...");
-                        // Poll until the blocking task has finished before re-showing
-                        // the step, so we don't start a new task while the old one is
-                        // still writing to disk.
-                        let obj2 = obj.clone();
-                        let source_id = glib::timeout_add_local(
-                            std::time::Duration::from_millis(50),
-                            move || {
-                                if obj2.imp().task_running.get() {
-                                    return glib::ControlFlow::Continue;
-                                }
-                                obj2.imp().poll_source.borrow_mut().take();
-                                obj2.show_current_step();
-                                glib::ControlFlow::Break
-                            },
-                        );
-                        obj.imp().poll_source.replace(Some(source_id));
+                        if crate::ui::catch_ui_panic("download cancel button", || {
+                            flag.store(true, Ordering::Relaxed);
+                            btn.set_sensitive(false);
+                            btn.set_label("Cancelling...");
+                            // Poll until the blocking task has finished before re-showing
+                            // the step, so we don't start a new task while the old one is
+                            // still writing to disk.
+                            let obj2 = obj.clone();
+                            let source_id = glib::timeout_add_local(
+                                std::time::Duration::from_millis(50),
+                                move || {
+                                    if obj2.imp().task_running.get() {
+                                        return glib::ControlFlow::Continue;
+                                    }
+                                    obj2.imp().poll_source.borrow_mut().take();
+                                    obj2.show_current_step();
+                                    glib::ControlFlow::Break
+                                },
+                            );
+                            obj.imp().poll_source.replace(Some(source_id));
+                        })
+                        .is_err()
+                        {
+                            obj.show_error(
+                                "Something went wrong while cancelling. Please try again.",
+                            );
+                        }
                     });
 
                     content_box.append(&cancel_button);
@@ -747,28 +767,30 @@ impl AdventureModsSetupPage {
             let checks_clone = checks.clone();
             let desc_label_clone = preset_desc_label.clone();
             dropdown.connect_selected_notify(move |dd| {
-                let idx = dd.selected() as usize;
-                if let Some(preset) = presets_clone.get(idx) {
-                    desc_label_clone.set_label(preset.description);
+                let _ = crate::ui::catch_ui_panic("mod preset selector", || {
+                    let idx = dd.selected() as usize;
+                    if let Some(preset) = presets_clone.get(idx) {
+                        desc_label_clone.set_label(preset.description);
 
-                    let mut sel = obj_clone.imp().selected_mods.borrow_mut();
-                    sel.clear();
+                        let mut sel = obj_clone.imp().selected_mods.borrow_mut();
+                        sel.clear();
 
-                    let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
-                    let mods_list = game_kind
-                        .map(common::recommended_mods_for_game)
-                        .unwrap_or(&[]);
+                        let game_kind = obj_clone.imp().game.borrow().as_ref().map(|g| g.kind);
+                        let mods_list = game_kind
+                            .map(common::recommended_mods_for_game)
+                            .unwrap_or(&[]);
 
-                    for (i, check) in checks_clone.borrow().iter().enumerate() {
-                        if let Some(mod_entry) = mods_list.get(i) {
-                            let active = preset.mod_names.contains(&mod_entry.name);
-                            check.set_active(active);
-                            if active {
-                                sel.push(i);
+                        for (i, check) in checks_clone.borrow().iter().enumerate() {
+                            if let Some(mod_entry) = mods_list.get(i) {
+                                let active = preset.mod_names.contains(&mod_entry.name);
+                                check.set_active(active);
+                                if active {
+                                    sel.push(i);
+                                }
                             }
                         }
                     }
-                }
+                });
             });
         }
 
@@ -867,16 +889,18 @@ impl AdventureModsSetupPage {
             let desc_lbl_clone = full_desc_label.clone();
             let links_box_clone = links_box.clone();
             list_box.connect_row_selected(move |_, row| {
-                let Some(row) = row else { return };
-                populate_mod_preview_for_index(
-                    &preview_title_clone,
-                    &carousel_clone,
-                    &carousel_frame_clone,
-                    &desc_lbl_clone,
-                    &links_box_clone,
-                    preview_game_kind,
-                    row.index() as usize,
-                );
+                let _ = crate::ui::catch_ui_panic("mod row selection", || {
+                    let Some(row) = row else { return };
+                    populate_mod_preview_for_index(
+                        &preview_title_clone,
+                        &carousel_clone,
+                        &carousel_frame_clone,
+                        &desc_lbl_clone,
+                        &links_box_clone,
+                        preview_game_kind,
+                        row.index() as usize,
+                    );
+                });
             });
         }
 
@@ -930,15 +954,17 @@ impl AdventureModsSetupPage {
             let obj_clone = self.clone();
             let idx = i;
             check.connect_toggled(move |btn| {
-                if let Ok(mut sel) = obj_clone.imp().selected_mods.try_borrow_mut() {
-                    if btn.is_active() {
-                        if !sel.contains(&idx) {
-                            sel.push(idx);
+                let _ = crate::ui::catch_ui_panic("mod checkbox", || {
+                    if let Ok(mut sel) = obj_clone.imp().selected_mods.try_borrow_mut() {
+                        if btn.is_active() {
+                            if !sel.contains(&idx) {
+                                sel.push(idx);
+                            }
+                        } else {
+                            sel.retain(|&x| x != idx);
                         }
-                    } else {
-                        sel.retain(|&x| x != idx);
                     }
-                }
+                });
             });
 
             let preview_title_clone = preview_title_label.clone();
@@ -947,17 +973,19 @@ impl AdventureModsSetupPage {
             let desc_lbl_clone = full_desc_label.clone();
             let links_box_clone = links_box.clone();
             check.connect_has_focus_notify(move |btn| {
-                if btn.has_focus() {
-                    populate_mod_preview_for_index(
-                        &preview_title_clone,
-                        &carousel_clone,
-                        &carousel_frame_clone,
-                        &desc_lbl_clone,
-                        &links_box_clone,
-                        preview_game_kind,
-                        idx,
-                    );
-                }
+                let _ = crate::ui::catch_ui_panic("mod checkbox focus", || {
+                    if btn.has_focus() {
+                        populate_mod_preview_for_index(
+                            &preview_title_clone,
+                            &carousel_clone,
+                            &carousel_frame_clone,
+                            &desc_lbl_clone,
+                            &links_box_clone,
+                            preview_game_kind,
+                            idx,
+                        );
+                    }
+                });
             });
 
             let preview_title_clone = preview_title_label.clone();
@@ -969,14 +997,16 @@ impl AdventureModsSetupPage {
 
             let gesture = gtk::EventControllerMotion::new();
             gesture.connect_enter(move |_, _, _| {
-                populate_mod_preview(
-                    &preview_title_clone,
-                    &carousel_clone,
-                    &carousel_frame_clone,
-                    &desc_lbl_clone,
-                    &links_box_clone,
-                    Some(mod_entry_clone),
-                );
+                let _ = crate::ui::catch_ui_panic("mod row hover", || {
+                    populate_mod_preview(
+                        &preview_title_clone,
+                        &carousel_clone,
+                        &carousel_frame_clone,
+                        &desc_lbl_clone,
+                        &links_box_clone,
+                        Some(mod_entry_clone),
+                    );
+                });
             });
             list_row.add_controller(gesture);
 
@@ -1243,12 +1273,18 @@ impl AdventureModsSetupPage {
     fn skip_completed_steps(&self, start_idx: usize) -> usize {
         let imp = self.imp();
         let all_steps = imp.all_steps.borrow();
-        let game = imp.game.borrow().clone().unwrap();
+        let Some(game) = imp.game.borrow().clone() else {
+            tracing::warn!("Cannot skip completed setup steps without a selected game");
+            return start_idx;
+        };
+        let Some(last_step_idx) = all_steps.len().checked_sub(1) else {
+            return start_idx;
+        };
         let mut idx = start_idx;
 
         // Skip steps that are already complete, but NEVER skip the last step
         // (the completion screen).
-        while idx < all_steps.len() - 1 {
+        while idx < last_step_idx {
             let step = &all_steps[idx];
             if common::is_step_complete(step.id, &game) {
                 tracing::info!("Auto-skipping completed step: {}", step.id);
@@ -1266,7 +1302,19 @@ impl AdventureModsSetupPage {
             self.show_current_step();
         } else {
             let imp = self.imp();
-            let current_step_id = imp.all_steps.borrow()[imp.current_step.get()].id;
+            let Some(current_step_id) = imp
+                .all_steps
+                .borrow()
+                .get(imp.current_step.get())
+                .map(|step| step.id)
+            else {
+                tracing::warn!(
+                    "Setup next button clicked with invalid step index {}",
+                    imp.current_step.get()
+                );
+                self.show_error("Setup state is out of date. Please try again.");
+                return;
+            };
             let next = imp.current_step.get() + 1;
             let total = imp.all_steps.borrow().len();
             if next >= total {
@@ -1315,12 +1363,20 @@ impl AdventureModsSetupPage {
         }
 
         let all_steps = imp.all_steps.borrow();
-        let game = imp.game.borrow().clone().unwrap();
+        let Some(game) = imp.game.borrow().clone() else {
+            tracing::warn!("Setup back button clicked without a selected game");
+            self.go_back_to_welcome();
+            return;
+        };
         let mut prev = current - 1;
 
         // Skip steps backwards that are either automatic or already complete
         while prev > 0 {
-            let step = &all_steps[prev];
+            let Some(step) = all_steps.get(prev) else {
+                tracing::warn!("Setup back button clicked with invalid step index {prev}");
+                self.show_error("Setup state is out of date. Please try again.");
+                return;
+            };
             if matches!(step.kind, steps::StepKind::Auto)
                 || common::is_step_complete(step.id, &game)
             {
@@ -1332,7 +1388,11 @@ impl AdventureModsSetupPage {
 
         // Final check for the step we landed on: if it's still something that should be skipped,
         // it means we've reached the beginning of the list and everything before 'current' was skippable.
-        let step = &all_steps[prev];
+        let Some(step) = all_steps.get(prev) else {
+            tracing::warn!("Setup back button landed on invalid step index {prev}");
+            self.show_error("Setup state is out of date. Please try again.");
+            return;
+        };
         if matches!(step.kind, steps::StepKind::Auto) || common::is_step_complete(step.id, &game) {
             self.go_back_to_welcome();
         } else {
@@ -1343,8 +1403,11 @@ impl AdventureModsSetupPage {
 
     fn go_back_to_welcome(&self) {
         if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
-            let nav_view: adw::NavigationView = nav_view.downcast().unwrap();
-            nav_view.pop();
+            if let Ok(nav_view) = nav_view.downcast::<adw::NavigationView>() {
+                nav_view.pop();
+            } else {
+                tracing::warn!("Setup page ancestor was not a NavigationView");
+            }
         }
     }
 
