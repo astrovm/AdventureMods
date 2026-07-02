@@ -65,7 +65,7 @@
     {
       "name": "hdiffpatch",
       "buildsystem": "simple",
-      "build-commands": ["install -Dm755 linux*/hpatchz /app/bin/hpatchz"],
+      "build-commands": ["install -Dm755 hpatchz /app/bin/hpatchz"],
       "sources": [
         {
           "type": "archive",

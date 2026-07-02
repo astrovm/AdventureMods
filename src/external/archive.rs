@@ -88,7 +88,7 @@ mod tests {
     }
 
     fn assert_manifest_installs_hpatchz(manifest: &str) {
-        assert!(manifest.contains("install -Dm755 linux*/hpatchz /app/bin/hpatchz"));
+        assert!(manifest.contains("install -Dm755 hpatchz /app/bin/hpatchz"));
         assert!(manifest.contains("hdiffpatch_v4.12.2_bin_linux64.zip"));
         assert!(manifest.contains("hdiffpatch_v4.12.2_bin_linux_arm64.zip"));
     }
