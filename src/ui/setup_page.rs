@@ -1584,6 +1584,82 @@ mod tests {
     }
 
     #[gtk::test]
+    fn mod_selection_columns_keep_width_when_preview_content_changes() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SADX,
+            path: tmp.path().to_path_buf(),
+        });
+        let select_mods_index = page
+            .imp()
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == StepId::SelectMods)
+            .unwrap();
+
+        page.imp().current_step.set(select_mods_index);
+        page.show_current_step();
+
+        let window = gtk::Window::builder()
+            .default_width(1100)
+            .default_height(820)
+            .child(&page)
+            .build();
+        window.present();
+        while glib::MainContext::default().iteration(false) {}
+
+        let main_box = page
+            .imp()
+            .content_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let left_box = main_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let scrolled = left_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::ScrolledWindow>()
+            .unwrap();
+        let viewport = scrolled
+            .child()
+            .unwrap()
+            .downcast::<gtk::Viewport>()
+            .unwrap();
+        let list_box = viewport
+            .child()
+            .unwrap()
+            .downcast::<gtk::ListBox>()
+            .unwrap();
+        let preview_box = main_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+
+        let initial_left_width = left_box.width();
+        let initial_preview_width = preview_box.width();
+        assert!(initial_left_width > 0);
+        assert!(initial_preview_width > 0);
+
+        for row_index in [8, 9, 10, 11] {
+            let row = list_box.row_at_index(row_index).unwrap();
+            list_box.select_row(Some(&row));
+            while glib::MainContext::default().iteration(false) {}
+
+            assert_eq!(left_box.width(), initial_left_width);
+            assert_eq!(preview_box.width(), initial_preview_width);
+        }
+    }
+
+    #[gtk::test]
     fn run_download_step_clears_task_running_when_game_is_missing() {
         init_resource_overlay();
 
