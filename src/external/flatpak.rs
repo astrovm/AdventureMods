@@ -51,9 +51,8 @@ fn host_command_with_env(
         for arg in args {
             cmd.arg(arg);
         }
-        cmd.output().with_context(|| {
-            format!("Could not run host command {program}")
-        })
+        cmd.output()
+            .with_context(|| format!("Could not run host command {program}"))
     }
 }
 
