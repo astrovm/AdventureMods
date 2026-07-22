@@ -25,6 +25,27 @@ fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
 }
 
 #[test]
+fn test_steam_roots_find_native_and_flatpak_steam() {
+    let tmp = tempfile::tempdir().unwrap();
+    let native = tmp.path().join(".local/share/Steam");
+    let flatpak = tmp
+        .path()
+        .join(".var/app/com.valvesoftware.Steam/.local/share/Steam");
+    std::fs::create_dir_all(&native).unwrap();
+    std::fs::create_dir_all(&flatpak).unwrap();
+
+    let roots = steam_roots_in(tmp.path());
+
+    assert_eq!(roots, vec![native, flatpak]);
+}
+
+#[test]
+fn test_steam_roots_skip_missing_installations() {
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(steam_roots_in(tmp.path()).is_empty());
+}
+
+#[test]
 fn test_find_sadx_in_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp

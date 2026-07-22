@@ -5,5 +5,5 @@ Type=Application
 Exec=adventure-mods
 Icon=@APP_ID_RAW@
 Terminal=false
-Categories=Utility;Game;
+Categories=Game;
 Keywords=sonic;adventure;mods;sadx;sa2;

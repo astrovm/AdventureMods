@@ -39,11 +39,7 @@ pub struct InaccessibleGame {
     pub library_path: PathBuf,
 }
 
-pub(crate) fn steam_roots() -> Vec<PathBuf> {
-    let Some(home) = dirs::home_dir() else {
-        return vec![];
-    };
-
+fn steam_roots_in(home: &Path) -> Vec<PathBuf> {
     let candidates = [
         home.join(".steam/debian-installation"),
         home.join(".steam/steam"),
@@ -52,6 +48,12 @@ pub(crate) fn steam_roots() -> Vec<PathBuf> {
     ];
 
     candidates.into_iter().filter(|p| p.is_dir()).collect()
+}
+
+pub(crate) fn steam_roots() -> Vec<PathBuf> {
+    dirs::home_dir()
+        .map(|home| steam_roots_in(&home))
+        .unwrap_or_default()
 }
 
 fn library_folders_paths() -> Vec<PathBuf> {

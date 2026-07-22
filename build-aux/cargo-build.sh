@@ -16,13 +16,15 @@ fi
 # Set up vendored sources if the vendor directory exists (Flatpak offline build)
 if [ -d "$MESON_SOURCE_ROOT/cargo/vendor" ]; then
     mkdir -p "$CARGO_HOME"
-    cat > "$CARGO_HOME/config.toml" <<TOML
+    if [ ! -f "$CARGO_HOME/config" ] && [ ! -f "$CARGO_HOME/config.toml" ]; then
+        cat > "$CARGO_HOME/config.toml" <<TOML
 [source.crates-io]
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
 directory = "$MESON_SOURCE_ROOT/cargo/vendor"
 TOML
+    fi
 fi
 
 # Copy Meson-generated config.rs so Cargo uses the correct build-time constants

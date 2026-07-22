@@ -213,17 +213,19 @@ mod tests {
     }
 
     #[test]
-    fn flatpak_manifest_installs_7zz() {
-        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
-        assert_manifest_installs_7zz(manifest);
-        assert_manifest_installs_hpatchz(manifest);
-    }
+    fn flatpak_manifests_use_current_runtime_and_shared_helpers() {
+        let production = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
+        let development =
+            include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
 
-    #[test]
-    fn flatpak_devel_manifest_installs_7zz() {
-        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
-        assert_manifest_installs_7zz(manifest);
-        assert_manifest_installs_hpatchz(manifest);
+        for manifest in [production, development] {
+            assert!(manifest.contains("\"runtime-version\": \"50\""));
+            assert!(manifest.contains("\"flatpak/7zip.json\""));
+            assert!(manifest.contains("\"flatpak/hdiffpatch.json\""));
+        }
+
+        assert_manifest_installs_7zz(include_str!("../../build-aux/flatpak/7zip.json"));
+        assert_manifest_installs_hpatchz(include_str!("../../build-aux/flatpak/hdiffpatch.json"));
     }
 
     #[test]

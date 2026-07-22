@@ -102,7 +102,8 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 ### Flatpak
 
 ```sh
-flatpak-builder --user --install build build-aux/io.github.astrovm.AdventureMods.Devel.json
+flatpak-builder --force-clean --user --install-deps-from=flathub --install \
+  build build-aux/io.github.astrovm.AdventureMods.Devel.json
 ```
 
 ### AppImage

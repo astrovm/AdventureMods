@@ -17,6 +17,10 @@ pub enum PrefixState {
     MissingPrefix,
     MissingMetadata,
     SteamConfigIncomplete,
+    ProtonUnavailable {
+        tool_name: String,
+        proton_dir: PathBuf,
+    },
     ConfigMismatch {
         prefix_tool: String,
         configured_tool: String,
@@ -57,6 +61,13 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::MissingMetadata);
     };
 
+    if !has_wine_binary(&prefix_metadata.proton_dir) {
+        return Ok(PrefixState::ProtonUnavailable {
+            tool_name: prefix_metadata.tool_name,
+            proton_dir: prefix_metadata.proton_dir,
+        });
+    }
+
     match configured_tool_from_config(game_path, app_id)? {
         ConfiguredToolLookup::Tool(configured_tool) => {
             let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
@@ -82,10 +93,21 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
 pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
     match prefix_state(game_path, app_id)? {
         PrefixState::Ready => Ok(()),
-        PrefixState::MissingPrefix
-        | PrefixState::MissingMetadata
-        | PrefixState::SteamConfigIncomplete => anyhow::bail!(
-            "Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
+        PrefixState::MissingPrefix => anyhow::bail!(
+            "Steam has not created this game's Proton prefix. Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
+        ),
+        PrefixState::MissingMetadata => anyhow::bail!(
+            "This game's Proton prefix metadata is incomplete. Open the game from Steam once so Steam can repair it, then close the game and try again."
+        ),
+        PrefixState::SteamConfigIncomplete => anyhow::bail!(
+            "Steam's Proton configuration for this game is missing or unreadable. Select a compatibility tool in Steam, open the game once, then close it and try again."
+        ),
+        PrefixState::ProtonUnavailable {
+            tool_name,
+            proton_dir,
+        } => anyhow::bail!(
+            "The Proton prefix uses {tool_name}, but its Wine executable is missing from {}. Reinstall that Proton version in Steam, open the game once, then try again.",
+            proton_dir.display()
         ),
         PrefixState::ConfigMismatch {
             prefix_tool,
@@ -101,10 +123,17 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         Ok(PrefixState::Ready) => {
             format!("The Proton prefix for {game_name} is ready. You can continue right away.")
         }
-        Ok(PrefixState::MissingPrefix)
-        | Ok(PrefixState::MissingMetadata)
-        | Ok(PrefixState::SteamConfigIncomplete) => format!(
-            "Open {game_name} from Steam once, wait for Proton to finish setting it up, then close the game and continue here."
+        Ok(PrefixState::MissingPrefix) => format!(
+            "Steam has not created a Proton prefix for {game_name}. Open the game once, wait for setup to finish, then close it and continue here."
+        ),
+        Ok(PrefixState::MissingMetadata) => format!(
+            "The Proton prefix metadata for {game_name} is incomplete. Open the game from Steam once so Steam can repair it, then continue here."
+        ),
+        Ok(PrefixState::SteamConfigIncomplete) => format!(
+            "Steam's Proton configuration for {game_name} is missing or unreadable. Select a compatibility tool, open the game once, then continue here."
+        ),
+        Ok(PrefixState::ProtonUnavailable { tool_name, .. }) => format!(
+            "{game_name} uses {tool_name}, but that Proton installation is unavailable. Reinstall it in Steam, open the game once, then continue here."
         ),
         Ok(PrefixState::ConfigMismatch {
             prefix_tool,
@@ -254,10 +283,15 @@ fn read_prefix_metadata(compatdata: &Path) -> Result<Option<PrefixMetadata>> {
         .trim()
         .to_owned();
 
-    let proton_dir = content
+    let proton_dirs: Vec<_> = content
         .lines()
         .filter_map(proton_dir_from_config_info_line)
-        .find(|path| has_wine_binary(path));
+        .collect();
+    let proton_dir = proton_dirs
+        .iter()
+        .find(|path| has_wine_binary(path))
+        .cloned()
+        .or_else(|| proton_dirs.into_iter().next());
 
     match proton_dir {
         Some(proton_dir) if !tool_name.is_empty() => Ok(Some(PrefixMetadata {
@@ -775,6 +809,9 @@ mod tests {
 
         let result = prefix_state(&game_path, 71250).unwrap();
         assert_eq!(result, PrefixState::MissingPrefix);
+
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("has not created this game's Proton prefix"));
     }
 
     #[test]
@@ -790,6 +827,36 @@ mod tests {
 
         let result = prefix_state(&game_path, 71250).unwrap();
         assert_eq!(result, PrefixState::MissingMetadata);
+
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("prefix metadata is incomplete"));
+    }
+
+    #[test]
+    fn test_prefix_state_reports_missing_proton_installation() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+        let proton_dir = steam_root.join("steamapps/common/Proton Missing");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(&compatdata, "Proton Missing", &proton_dir);
+
+        assert_eq!(
+            prefix_state(&game_path, 71250).unwrap(),
+            PrefixState::ProtonUnavailable {
+                tool_name: "Proton Missing".to_owned(),
+                proton_dir: proton_dir.clone(),
+            }
+        );
+
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("Proton Missing"));
+        assert!(message.contains(&proton_dir.display().to_string()));
+        assert!(message.contains("Wine executable is missing"));
     }
 
     #[test]
@@ -813,6 +880,9 @@ mod tests {
 
         let result = prefix_state(&game_path, 71250).unwrap();
         assert_eq!(result, PrefixState::SteamConfigIncomplete);
+
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("configuration for this game is missing"));
     }
 
     #[test]

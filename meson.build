@@ -13,6 +13,7 @@ project(
 
 i18n = import('i18n')
 gnome = import('gnome')
+python = find_program('python3')
 
 base_id = 'io.github.astrovm.AdventureMods'
 
@@ -48,6 +49,12 @@ conf.set_quoted('GETTEXT_PACKAGE', 'adventure-mods')
 conf.set_quoted('LOCALEDIR', localedir)
 conf.set_quoted('PKGDATADIR', pkgdatadir)
 conf.set_quoted('PROFILE', profile)
+
+test(
+  'Validate offline Cargo sources',
+  python,
+  args: [meson.project_source_root() / 'build-aux' / 'check-cargo-sources.py'],
+)
 
 subdir('data')
 subdir('po')

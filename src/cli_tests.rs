@@ -846,6 +846,7 @@ fn looks_like_cli_ignores_no_color_without_subcommand() {
 
 #[test]
 fn terminal_prompt_respects_no_color_setting() {
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     console::set_colors_enabled_stderr(true);
 
     let prompt = TerminalPrompt { use_color: false };
@@ -924,6 +925,7 @@ fn cli_output_no_color_writes_plain() {
 
 #[test]
 fn cli_output_with_color_emits_ansi_sequences() {
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     let previous = console::colors_enabled();
     console::set_colors_enabled(true);
 
@@ -1007,6 +1009,7 @@ fn run_from_args_disables_color_with_no_color_env() {
 
 #[test]
 fn clap_parse_error_contains_no_ansi_codes() {
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
     let previous = console::colors_enabled();
     console::set_colors_enabled(true);
     let mut output = Vec::new();
