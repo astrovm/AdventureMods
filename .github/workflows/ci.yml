@@ -56,13 +56,6 @@ jobs:
             runner: ubuntu-26.04
           - arch: aarch64
             runner: ubuntu-26.04-arm
-        profile:
-          - name: production
-            manifest: build-aux/io.github.astrovm.AdventureMods.json
-            app-id: io.github.astrovm.AdventureMods
-          - name: development
-            manifest: build-aux/io.github.astrovm.AdventureMods.Devel.json
-            app-id: io.github.astrovm.AdventureMods.Devel
     runs-on: ${{ matrix.variant.runner }}
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -74,26 +67,26 @@ jobs:
       - name: Validate manifest inputs
         run: |
           build-aux/check-cargo-sources.py
-          flatpak-builder --show-manifest "${{ matrix.profile.manifest }}" >/dev/null
+          flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.json >/dev/null
 
       - name: Build Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
         with:
-          manifest-path: ${{ matrix.profile.manifest }}
+          manifest-path: build-aux/io.github.astrovm.AdventureMods.json
           arch: ${{ matrix.variant.arch }}
-          build-dir: flatpak-${{ matrix.profile.name }}
-          build-bundle: ${{ startsWith(github.ref, 'refs/tags/') && matrix.profile.name == 'production' }}
+          build-dir: flatpak-production
+          build-bundle: ${{ startsWith(github.ref, 'refs/tags/') }}
           bundle: AdventureMods.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
-          upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') && matrix.profile.name == 'production' }}
+          upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') }}
           run-tests: false
-          cache-key: flatpak-${{ matrix.profile.name }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
+          cache-key: flatpak-production-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
 
       - name: Verify packaged application
         run: >-
           build-aux/test-flatpak-package.sh
-          flatpak-${{ matrix.profile.name }}
-          "${{ matrix.profile.app-id }}"
+          flatpak-production
+          io.github.astrovm.AdventureMods
 
   appimage:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
