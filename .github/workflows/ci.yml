@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: |
@@ -69,7 +69,7 @@ jobs:
       options: --privileged
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate manifest inputs
         run: |
@@ -82,8 +82,11 @@ jobs:
           manifest-path: ${{ matrix.profile.manifest }}
           arch: ${{ matrix.variant.arch }}
           build-dir: flatpak-${{ matrix.profile.name }}
-          build-bundle: false
-          upload-artifact: false
+          build-bundle: ${{ startsWith(github.ref, 'refs/tags/') && matrix.profile.name == 'production' }}
+          bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+          upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') && matrix.profile.name == 'production' }}
+          artifact-name: AdventureMods-Flatpak-${{ matrix.variant.arch }}
           run-tests: true
           cache-key: flatpak-${{ matrix.profile.name }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
 
@@ -110,7 +113,7 @@ jobs:
       image: debian:13
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: |
@@ -124,7 +127,7 @@ jobs:
             libxi-dev libxext-dev libxcursor-dev libxdamage-dev \
             libxfixes-dev libxinerama-dev libxcomposite-dev \
             wayland-protocols libcloudproviders-dev libsass-dev sassc \
-            libappstream-dev desktop-file-utils appstream \
+            libappstream-dev desktop-file-utils appstream libxml2-utils \
             wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync \
             librsvg2-dev libgirepository1.0-dev
 
@@ -142,19 +145,26 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: appimage
+    needs: [appimage, flatpak]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download AppImage artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: AdventureMods-AppImage-*
           path: appimage-artifacts
+          merge-multiple: true
+
+      - name: Download Flatpak artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: AdventureMods-Flatpak-*
+          path: flatpak-artifacts
           merge-multiple: true
 
       - name: Upload to release
@@ -169,7 +179,9 @@ jobs:
             --target "$GITHUB_SHA" \
             --notes "$notes" \
             --draft || true
-          gh release upload "${{ github.ref_name }}" appimage-artifacts/*.AppImage* \
+          gh release upload "${{ github.ref_name }}" \
+            appimage-artifacts/*.AppImage* \
+            flatpak-artifacts/*.flatpak \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
           gh release edit "${{ github.ref_name }}" \

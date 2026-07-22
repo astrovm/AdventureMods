@@ -5,14 +5,14 @@
   "sources": [
     {
       "type": "archive",
-      "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux64.zip",
-      "sha256": "432886341e6099adeb5223427454e9bc0b565f81edfbe2e3387f804611c07e4a",
+      "url": "https://github.com/sisong/HDiffPatch/releases/download/v5.1.1/hdiffpatch_v5.1.1_bin_linux64.zip",
+      "sha256": "7f42743f1b1af6fb0fd8d78f269b1bde9659e2c038cf82a8ebff2858155095e8",
       "only-arches": ["x86_64"]
     },
     {
       "type": "archive",
-      "url": "https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_linux_arm64.zip",
-      "sha256": "b617e91200aab3c0a76b0aa0840cd4cf10fceea84d16dde4ed700029193d1eee",
+      "url": "https://github.com/sisong/HDiffPatch/releases/download/v5.1.1/hdiffpatch_v5.1.1_bin_linux_arm64.zip",
+      "sha256": "6c383e4e61ce70df58547c0273cd483cd30517e5bcf748b9b453f040c69cbb97",
       "only-arches": ["aarch64"]
     }
   ]

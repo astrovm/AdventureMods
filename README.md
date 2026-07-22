@@ -23,6 +23,18 @@ Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
 
 ## Installation
 
+### Flatpak bundle
+
+Download the Flatpak bundle for your CPU architecture from
+[GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
+
+```sh
+flatpak install --user AdventureMods-<arch>.flatpak
+```
+
+Flatpak downloads the required GNOME runtime from Flathub. Application updates
+require downloading the bundle from the next Adventure Mods release.
+
 ### Gear Lever (recommended)
 
 [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) handles desktop integration and updates:
