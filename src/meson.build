@@ -34,19 +34,13 @@ cargo_build = custom_target(
   ],
 )
 
-cargo_test_env = environment()
-cargo_test_env.set('CARGO_NET_OFFLINE', 'true')
-cargo_test_env.set('CARGO_TARGET_DIR', meson.project_build_root() / 'target')
-
 test(
   'Rust tests',
-  find_program('cargo'),
+  find_program(meson.project_source_root() / 'build-aux' / 'cargo-test.sh'),
   args: [
-    'test',
-    '--locked',
-    '--manifest-path', meson.project_source_root() / 'Cargo.toml',
+    meson.project_build_root(),
+    meson.project_source_root(),
   ],
   depends: cargo_build,
-  env: cargo_test_env,
   timeout: 600,
 )

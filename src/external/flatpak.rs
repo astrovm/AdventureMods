@@ -40,7 +40,7 @@ fn host_command_with_env(
         }
         cmd.output().with_context(|| {
             format!(
-                "Could not run host Proton command {program} through flatpak-spawn. Check that flatpak-spawn is installed and that Adventure Mods has permission to access org.freedesktop.Flatpak"
+                "Could not run host command {program} through flatpak-spawn. Check that flatpak-spawn is installed and that Adventure Mods has permission to access org.freedesktop.Flatpak"
             )
         })
     } else {
@@ -52,9 +52,7 @@ fn host_command_with_env(
             cmd.arg(arg);
         }
         cmd.output().with_context(|| {
-            format!(
-                "Could not run host Proton command {program}. Check that the selected Proton version is installed and readable"
-            )
+            format!("Could not run host command {program}")
         })
     }
 }
@@ -92,7 +90,7 @@ mod tests {
     }
 
     #[test]
-    fn flatpak_command_runs_host_proton_through_flatpak_spawn() {
+    fn flatpak_command_runs_host_command_through_flatpak_spawn() {
         let (_temp_dir, flatpak_spawn) = executable_script("#!/bin/sh\nprintf '%s\\n' \"$@\"\n");
         let env = HashMap::from([("WINEPREFIX".to_owned(), "/steam/pfx".to_owned())]);
 

@@ -3,8 +3,9 @@
 
 import json
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 
 def fail(messages: list[str]) -> None:
@@ -32,6 +33,12 @@ def main() -> None:
         for source in sources
         if source.get("type") == "archive"
     }
+    package_checksums = {
+        source["dest"]: json.loads(source["contents"])["package"]
+        for source in sources
+        if source.get("type") == "inline"
+        and source.get("dest-filename") == ".cargo-checksum.json"
+    }
 
     problems = []
     for destination, checksum in expected.items():
@@ -41,8 +48,17 @@ def main() -> None:
         elif actual != checksum:
             problems.append(f"Wrong checksum for Cargo source: {destination}")
 
+        package_checksum = package_checksums.get(destination)
+        if package_checksum is None:
+            problems.append(f"Missing .cargo-checksum.json: {destination}")
+        elif package_checksum != checksum:
+            problems.append(f"Wrong package checksum: {destination}")
+
     for destination in sorted(archives.keys() - expected.keys()):
         problems.append(f"Stale Cargo source: {destination}")
+
+    for destination in sorted(package_checksums.keys() - expected.keys()):
+        problems.append(f"Stale .cargo-checksum.json: {destination}")
 
     config_sources = [
         source
