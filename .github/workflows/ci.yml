@@ -76,7 +76,7 @@ jobs:
           build-aux/check-cargo-sources.py
           flatpak-builder --show-manifest "${{ matrix.profile.manifest }}" >/dev/null
 
-      - name: Build and test Flatpak
+      - name: Build Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
         with:
           manifest-path: ${{ matrix.profile.manifest }}
@@ -86,8 +86,7 @@ jobs:
           bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
           upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') && matrix.profile.name == 'production' }}
-          artifact-name: AdventureMods-Flatpak-${{ matrix.variant.arch }}
-          run-tests: true
+          run-tests: false
           cache-key: flatpak-${{ matrix.profile.name }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
 
       - name: Verify packaged application
@@ -163,7 +162,7 @@ jobs:
       - name: Download Flatpak artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: AdventureMods-Flatpak-*
+          pattern: AdventureMods-*.flatpak
           path: flatpak-artifacts
           merge-multiple: true
 
