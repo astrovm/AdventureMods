@@ -12,8 +12,18 @@ if [ -z "${CARGO_HOME:-}" ]; then
     export CARGO_HOME="$CARGO_TARGET_DIR/cargo-home"
 fi
 
-# Offline only when a vendored crate tree is present.
+# Vendored sources (same setup as cargo-build.sh) + offline when a vendor tree exists.
 if [ -d "$MESON_SOURCE_ROOT/cargo/vendor" ]; then
+    mkdir -p "$CARGO_HOME"
+    if [ ! -f "$CARGO_HOME/config" ] && [ ! -f "$CARGO_HOME/config.toml" ]; then
+        cat > "$CARGO_HOME/config.toml" <<TOML
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "$MESON_SOURCE_ROOT/cargo/vendor"
+TOML
+    fi
     export CARGO_NET_OFFLINE=true
 fi
 

@@ -2,8 +2,15 @@ name: CI
 
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+# One run per PR or branch; cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -76,7 +83,8 @@ jobs:
           arch: ${{ matrix.variant.arch }}
           build-dir: flatpak-production
           build-bundle: ${{ startsWith(github.ref, 'refs/tags/') }}
-          bundle: AdventureMods.flatpak
+          # Arch-specific filename so multi-arch release downloads do not collide.
+          bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
           upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') }}
           run-tests: false
