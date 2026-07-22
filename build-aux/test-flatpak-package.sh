@@ -21,4 +21,4 @@ desktop-file-validate "$files_dir/share/applications/$app_id.desktop"
 appstreamcli validate --no-net "$files_dir/share/metainfo/$app_id.metainfo.xml"
 glib-compile-schemas --strict --dry-run "$files_dir/share/glib-2.0/schemas"
 
-"$files_dir/bin/adventure-mods" --version
+flatpak build "$build_dir" adventure-mods --version
