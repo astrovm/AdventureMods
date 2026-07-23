@@ -61,10 +61,10 @@ jobs:
         variant:
           - arch: x86_64
             runner: ubuntu-26.04
-            run-tests: true
+            run_tests: true
           - arch: aarch64
             runner: ubuntu-26.04-arm
-            run-tests: false
+            run_tests: false
     runs-on: ${{ matrix.variant.runner }}
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -90,7 +90,7 @@ jobs:
           bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
           upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') }}
-          run-tests: ${{ matrix.variant.run-tests }}
+          run-tests: ${{ matrix.variant.run_tests }}
           cache-key: flatpak-production-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
 
       - name: Verify packaged application
