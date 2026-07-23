@@ -30,8 +30,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             build-essential \
             curl \
             pkg-config \
@@ -116,8 +116,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y \
+          apt update
+          apt install -y \
             build-essential pkg-config meson gettext python3-pip python3-setuptools \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
