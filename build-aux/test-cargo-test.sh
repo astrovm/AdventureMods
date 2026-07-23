@@ -21,7 +21,7 @@ printf '%s\n' "$@" > "$TEST_OUTPUT/args"
 EOF
 chmod +x "$bin_dir/cargo"
 
-TEST_OUTPUT="$output_dir" PATH="$bin_dir:$PATH" \
+TEST_OUTPUT="$output_dir" PATH="$bin_dir:$PATH" CARGO_HOME= \
     sh "$(dirname "$0")/cargo-test.sh" "$build_dir" "$source_dir"
 
 default_home="$build_dir/target/cargo-home"
