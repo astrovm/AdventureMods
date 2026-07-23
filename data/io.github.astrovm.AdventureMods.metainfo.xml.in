@@ -45,15 +45,15 @@
   </branding>
   <releases>
     <release version="0.3.10" date="2026-07-23">
-    <description>
-      <p>Improved Linux packaging and Flatpak distribution.</p>
-      <ul>
-        <li>Added production Flatpak builds for x86_64 and ARM64</li>
-        <li>Prepared publication through the official astrovm Flatpak repository</li>
-        <li>Updated Flatpak and AppImage dependencies, validation, and host integration</li>
-      </ul>
-    </description>
-  </release>
+      <description>
+        <p>Improved Linux packaging and Flatpak distribution.</p>
+        <ul>
+          <li>Added production Flatpak builds for x86_64 and ARM64</li>
+          <li>Prepared publication through the official astrovm Flatpak repository</li>
+          <li>Updated Flatpak and AppImage dependencies, validation, and host integration</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.9" date="2026-07-02">
       <description>
         <p>Added ARM64 packaging support and refreshed CI builds.</p>
