@@ -17,10 +17,10 @@ python = find_program('python3')
 
 base_id = 'io.github.astrovm.AdventureMods'
 
-dependency('glib-2.0', version: '>= 2.76')
-dependency('gio-2.0', version: '>= 2.76')
-dependency('gtk4', version: '>= 4.14')
-dependency('libadwaita-1', version: '>= 1.5')
+dependency('glib-2.0', version: '>= 2.84')
+dependency('gio-2.0', version: '>= 2.84')
+dependency('gtk4', version: '>= 4.22')
+dependency('libadwaita-1', version: '>= 1.9')
 
 profile = get_option('profile')
 if profile == 'development'
