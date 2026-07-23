@@ -89,7 +89,7 @@ jobs:
           # Arch-specific filename so multi-arch release downloads do not collide.
           bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
-          upload-artifact: ${{ startsWith(github.ref, 'refs/tags/') }}
+          upload-artifact: false
           run-tests: ${{ matrix.variant.run_tests }}
           cache-key: flatpak-production-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
 
@@ -98,6 +98,13 @@ jobs:
           build-aux/test-flatpak-package.sh
           flatpak-production
           io.github.astrovm.AdventureMods
+
+      - name: Upload Flatpak artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          path: AdventureMods-${{ matrix.variant.arch }}.flatpak
 
   appimage:
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
