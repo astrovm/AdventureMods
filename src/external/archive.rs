@@ -81,27 +81,27 @@ mod tests {
         assert!(manifest.contains("\"type\": \"file\""));
         assert!(manifest.contains("tar xf 7zip.tar.xz"));
         assert!(manifest.contains("install -Dm755 7zz /app/bin/7zz"));
-        assert!(manifest.contains("7z2600-linux-x64.tar.xz"));
-        assert!(manifest.contains("7z2600-linux-arm64.tar.xz"));
+        assert!(manifest.contains("7z2602-linux-x64.tar.xz"));
+        assert!(manifest.contains("7z2602-linux-arm64.tar.xz"));
         assert!(manifest.contains("\"only-arches\": [\"x86_64\"]"));
         assert!(manifest.contains("\"only-arches\": [\"aarch64\"]"));
     }
 
     fn assert_manifest_installs_hpatchz(manifest: &str) {
         assert!(manifest.contains("install -Dm755 hpatchz /app/bin/hpatchz"));
-        assert!(manifest.contains("hdiffpatch_v4.12.2_bin_linux64.zip"));
-        assert!(manifest.contains("hdiffpatch_v4.12.2_bin_linux_arm64.zip"));
+        assert!(manifest.contains("hdiffpatch_v5.1.1_bin_linux64.zip"));
+        assert!(manifest.contains("hdiffpatch_v5.1.1_bin_linux_arm64.zip"));
     }
 
     fn assert_appimage_build_installs_7zz(script: &str) {
         assert!(script.contains("install -Dm755 \"$BUILD_DIR/tmp/7zz\" \"$APPDIR/usr/bin/7zz\""));
-        assert!(script.contains("7z2600-linux-${SEVENZIP_ARCH}.tar.xz"));
+        assert!(script.contains("7z2602-linux-${SEVENZIP_ARCH}.tar.xz"));
         assert!(script.contains("SEVENZIP_ARCH=\"x64\""));
         assert!(script.contains("SEVENZIP_ARCH=\"arm64\""));
     }
 
     fn assert_appimage_build_installs_hpatchz(script: &str) {
-        assert!(script.contains("hdiffpatch_v4.12.2_bin_${HPATCHZ_ARCH}.zip"));
+        assert!(script.contains("hdiffpatch_v5.1.1_bin_${HPATCHZ_ARCH}.zip"));
         assert!(script.contains("\"${HPATCHZ_ARCH}/hpatchz\""));
         assert!(script.contains("HPATCHZ_ARCH=\"linux64\""));
         assert!(script.contains("HPATCHZ_ARCH=\"linux_arm64\""));
@@ -111,6 +111,7 @@ mod tests {
         assert!(script.contains("linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"));
         assert!(script.contains("LINUXDEPLOY_ARCH=\"x86_64\""));
         assert!(script.contains("LINUXDEPLOY_ARCH=\"aarch64\""));
+        assert!(script.contains("LDAI_UPDATE_INFORMATION="));
         assert!(script.contains("*${APPIMAGE_ARCH}.AppImage.zsync"));
     }
 
@@ -213,17 +214,19 @@ mod tests {
     }
 
     #[test]
-    fn flatpak_manifest_installs_7zz() {
-        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
-        assert_manifest_installs_7zz(manifest);
-        assert_manifest_installs_hpatchz(manifest);
-    }
+    fn flatpak_manifests_use_current_runtime_and_shared_helpers() {
+        let production = include_str!("../../build-aux/io.github.astrovm.AdventureMods.json");
+        let development =
+            include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
 
-    #[test]
-    fn flatpak_devel_manifest_installs_7zz() {
-        let manifest = include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
-        assert_manifest_installs_7zz(manifest);
-        assert_manifest_installs_hpatchz(manifest);
+        for manifest in [production, development] {
+            assert!(manifest.contains("\"runtime-version\": \"50\""));
+            assert!(manifest.contains("\"flatpak/7zip.json\""));
+            assert!(manifest.contains("\"flatpak/hdiffpatch.json\""));
+        }
+
+        assert_manifest_installs_7zz(include_str!("../../build-aux/flatpak/7zip.json"));
+        assert_manifest_installs_hpatchz(include_str!("../../build-aux/flatpak/hdiffpatch.json"));
     }
 
     #[test]

@@ -33,3 +33,14 @@ cargo_build = custom_target(
     meson.project_name(),
   ],
 )
+
+test(
+  'Rust tests',
+  find_program(meson.project_source_root() / 'build-aux' / 'cargo-test.sh'),
+  args: [
+    meson.project_build_root(),
+    meson.project_source_root(),
+  ],
+  depends: cargo_build,
+  timeout: 600,
+)

@@ -13,13 +13,14 @@ project(
 
 i18n = import('i18n')
 gnome = import('gnome')
+python = find_program('python3')
 
 base_id = 'io.github.astrovm.AdventureMods'
 
-dependency('glib-2.0', version: '>= 2.76')
-dependency('gio-2.0', version: '>= 2.76')
-dependency('gtk4', version: '>= 4.14')
-dependency('libadwaita-1', version: '>= 1.5')
+dependency('glib-2.0', version: '>= 2.84')
+dependency('gio-2.0', version: '>= 2.84')
+dependency('gtk4', version: '>= 4.22')
+dependency('libadwaita-1', version: '>= 1.9')
 
 profile = get_option('profile')
 if profile == 'development'
@@ -48,6 +49,12 @@ conf.set_quoted('GETTEXT_PACKAGE', 'adventure-mods')
 conf.set_quoted('LOCALEDIR', localedir)
 conf.set_quoted('PKGDATADIR', pkgdatadir)
 conf.set_quoted('PROFILE', profile)
+
+test(
+  'Validate offline Cargo sources',
+  python,
+  args: [meson.project_source_root() / 'build-aux' / 'check-cargo-sources.py'],
+)
 
 subdir('data')
 subdir('po')

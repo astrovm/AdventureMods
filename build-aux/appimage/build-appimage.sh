@@ -6,7 +6,9 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BUILD_DIR="$PROJECT_DIR/appimage-build"
 APPDIR="$BUILD_DIR/AppDir"
 
-GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh"
+LINUXDEPLOY_VERSION="1-alpha-20251107-1"
+GTK_PLUGIN_COMMIT="7a3fbc31a9e5075073ff8790f26effbac5f84453"
+GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/${GTK_PLUGIN_COMMIT}/linuxdeploy-plugin-gtk.sh"
 BUILD_ARCH="$(uname -m)"
 case "$BUILD_ARCH" in
 	x86_64)
@@ -27,14 +29,14 @@ case "$BUILD_ARCH" in
 		;;
 esac
 
-LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
-HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v4.12.2/hdiffpatch_v4.12.2_bin_${HPATCHZ_ARCH}.zip"
-SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-${SEVENZIP_ARCH}.tar.xz"
+LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
+HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v5.1.1/hdiffpatch_v5.1.1_bin_${HPATCHZ_ARCH}.zip"
+SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.02/7z2602-linux-${SEVENZIP_ARCH}.tar.xz"
 
-GTK4_VERSION="4.20.3"
-GTK4_URL="https://download.gnome.org/sources/gtk/4.20/gtk-${GTK4_VERSION}.tar.xz"
-LIBADWAITA_VERSION="1.8.5.1"
-LIBADWAITA_URL="https://download.gnome.org/sources/libadwaita/1.8/libadwaita-${LIBADWAITA_VERSION}.tar.xz"
+GTK4_VERSION="4.22.4"
+GTK4_URL="https://download.gnome.org/sources/gtk/4.22/gtk-${GTK4_VERSION}.tar.xz"
+LIBADWAITA_VERSION="1.9.2"
+LIBADWAITA_URL="https://download.gnome.org/sources/libadwaita/1.9/libadwaita-${LIBADWAITA_VERSION}.tar.xz"
 
 cleanup() {
 	rm -rf "$BUILD_DIR/tmp"
@@ -153,7 +155,7 @@ rm -f \
 rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
 
 # Second pass: produce the AppImage.
-export UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*${APPIMAGE_ARCH}.AppImage.zsync"
+export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*${APPIMAGE_ARCH}.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \

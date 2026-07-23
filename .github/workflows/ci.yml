@@ -2,8 +2,15 @@ name: CI
 
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+# One run per PR or branch; cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -19,12 +26,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             build-essential \
             curl \
             pkg-config \
@@ -46,28 +53,78 @@ jobs:
       - name: Run tests
         run: xvfb-run cargo test
 
-  appimage:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      - name: Test Cargo runner
+        run: sh build-aux/test-cargo-test.sh
+
+  flatpak:
     needs: test
     strategy:
       fail-fast: false
       matrix:
-        include:
+        variant:
           - arch: x86_64
             runner: ubuntu-26.04
           - arch: aarch64
             runner: ubuntu-26.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.variant.runner }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate manifest inputs
+        run: |
+          build-aux/check-cargo-sources.py
+          flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.json >/dev/null
+          flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.Devel.json >/dev/null
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb # v6.7
+        with:
+          manifest-path: build-aux/io.github.astrovm.AdventureMods.json
+          arch: ${{ matrix.variant.arch }}
+          build-dir: flatpak-production
+          build-bundle: ${{ startsWith(github.ref, 'refs/tags/') }}
+          # Arch-specific filename so multi-arch release downloads do not collide.
+          bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
+          upload-artifact: false
+          run-tests: false
+          cache-key: flatpak-production-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'build-aux/**') }}
+
+      - name: Verify packaged application
+        run: >-
+          build-aux/test-flatpak-package.sh
+          flatpak-production
+          io.github.astrovm.AdventureMods
+
+      - name: Upload Flatpak artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          path: AdventureMods-${{ matrix.variant.arch }}.flatpak
+
+  appimage:
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
+    runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
     container:
       image: debian:13
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: |
-          apt-get update
-          apt-get install -y \
+          apt update
+          apt install -y \
             build-essential pkg-config meson gettext python3-pip python3-setuptools \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
@@ -76,7 +133,7 @@ jobs:
             libxi-dev libxext-dev libxcursor-dev libxdamage-dev \
             libxfixes-dev libxinerama-dev libxcomposite-dev \
             wayland-protocols libcloudproviders-dev libsass-dev sassc \
-            libappstream-dev desktop-file-utils appstream \
+            libappstream-dev desktop-file-utils appstream libxml2-utils \
             wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync \
             librsvg2-dev libgirepository1.0-dev
 
@@ -94,19 +151,39 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: appimage
+    needs: [appimage, flatpak]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate release version
+        run: |
+          version="${{ github.ref_name }}"
+          version="${version#v}"
+          cargo_version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::Tag version $version does not match Cargo.toml version $cargo_version"
+            exit 1
+          fi
+
+          python3 build-aux/extract-release-notes.py "$version" >/dev/null
 
       - name: Download AppImage artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: AdventureMods-AppImage-*
           path: appimage-artifacts
+          merge-multiple: true
+
+      - name: Download Flatpak artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: AdventureMods-*.flatpak
+          path: flatpak-artifacts
           merge-multiple: true
 
       - name: Upload to release
@@ -121,9 +198,33 @@ jobs:
             --target "$GITHUB_SHA" \
             --notes "$notes" \
             --draft || true
-          gh release upload "${{ github.ref_name }}" appimage-artifacts/*.AppImage* \
+          gh release upload "${{ github.ref_name }}" \
+            appimage-artifacts/*.AppImage* \
+            flatpak-artifacts/*.flatpak \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
           gh release edit "${{ github.ref_name }}" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false
+
+  publish-flatpak-repository:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Trigger Flatpak repository publication
+        env:
+          GH_TOKEN: ${{ secrets.FLATPAK_REPO_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::Skipping Flatpak repository publication because FLATPAK_REPO_TOKEN is not configured"
+            exit 0
+          fi
+
+          gh api \
+            --method POST \
+            repos/astrovm/flatpak/dispatches \
+            -f event_type=publish-app \
+            -f "client_payload[repository]=$GITHUB_REPOSITORY" \
+            -f "client_payload[tag]=${{ github.ref_name }}"
