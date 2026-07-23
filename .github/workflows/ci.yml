@@ -159,6 +159,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Validate release version
+        run: |
+          version="${{ github.ref_name }}"
+          version="${version#v}"
+          cargo_version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::Tag version $version does not match Cargo.toml version $cargo_version"
+            exit 1
+          fi
+
+          python3 build-aux/extract-release-notes.py "$version" >/dev/null
+
       - name: Download AppImage artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -193,3 +206,25 @@ jobs:
           gh release edit "${{ github.ref_name }}" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false
+
+  publish-flatpak-repository:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: release
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Trigger Flatpak repository publication
+        env:
+          GH_TOKEN: ${{ secrets.FLATPAK_REPO_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::Skipping Flatpak repository publication because FLATPAK_REPO_TOKEN is not configured"
+            exit 0
+          fi
+
+          gh api \
+            --method POST \
+            repos/astrovm/flatpak/dispatches \
+            -f event_type=publish-app \
+            -f "client_payload[repository]=$GITHUB_REPOSITORY" \
+            -f "client_payload[tag]=${{ github.ref_name }}"
