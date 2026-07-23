@@ -61,6 +61,20 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::MissingMetadata);
     };
 
+    let configured_tool = configured_tool_from_config(game_path, app_id)?;
+
+    if let ConfiguredToolLookup::Tool(configured_tool) = &configured_tool {
+        let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
+        let configured_canonical = try_canonicalize(&configured_tool.proton_dir);
+
+        if configured_canonical != prefix_canonical {
+            return Ok(PrefixState::ConfigMismatch {
+                prefix_tool: prefix_metadata.tool_name,
+                configured_tool: configured_tool.name.clone(),
+            });
+        }
+    }
+
     if !has_wine_binary(&prefix_metadata.proton_dir) {
         return Ok(PrefixState::ProtonUnavailable {
             tool_name: prefix_metadata.tool_name,
@@ -68,23 +82,11 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         });
     }
 
-    match configured_tool_from_config(game_path, app_id)? {
-        ConfiguredToolLookup::Tool(configured_tool) => {
-            let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
-            let configured_canonical = try_canonicalize(&configured_tool.proton_dir);
-
-            if configured_canonical != prefix_canonical {
-                return Ok(PrefixState::ConfigMismatch {
-                    prefix_tool: prefix_metadata.tool_name,
-                    configured_tool: configured_tool.name,
-                });
-            }
-        }
-        ConfiguredToolLookup::MissingConfig | ConfiguredToolLookup::InvalidConfig => {
-            return Ok(PrefixState::SteamConfigIncomplete);
-        }
-        ConfiguredToolLookup::MissingConfiguredTool
-        | ConfiguredToolLookup::ConfiguredToolUnavailable => {}
+    if matches!(
+        configured_tool,
+        ConfiguredToolLookup::MissingConfig | ConfiguredToolLookup::InvalidConfig
+    ) {
+        return Ok(PrefixState::SteamConfigIncomplete);
     }
 
     Ok(PrefixState::Ready)
@@ -1057,6 +1059,60 @@ mod tests {
             PrefixState::ConfigMismatch {
                 prefix_tool: "GE-Proton10-33".to_string(),
                 configured_tool: "Proton - Experimental".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn test_prefix_state_detects_mismatch_when_old_proton_is_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let configured_proton = common.join("Proton - Experimental/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&configured_proton).unwrap();
+        std::fs::write(configured_proton.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "GE-Proton10-33",
+            &steam_root.join("compatibilitytools.d/GE-Proton10-33"),
+        );
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+    {
+        "Software"
+        {
+            "Valve"
+            {
+                "Steam"
+                {
+                    "CompatToolMapping"
+                    {
+                        "0"
+                        {
+                            "name"  "Proton - Experimental"
+                        }
+                    }
+                }
+            }
+        }
+    }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            prefix_state(&game_path, 71250).unwrap(),
+            PrefixState::ConfigMismatch {
+                prefix_tool: "GE-Proton10-33".to_owned(),
+                configured_tool: "Proton - Experimental".to_owned(),
             }
         );
     }
