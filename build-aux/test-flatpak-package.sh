@@ -26,5 +26,6 @@ glib-compile-schemas --strict --dry-run "$files_dir/share/glib-2.0/schemas"
 # Host integration finish-args (Steam mounts + flatpak-spawn talk-name)
 grep -q 'org\.freedesktop\.Flatpak' "$metadata"
 grep -qE '(\.steam|Steam)' "$metadata"
+flatpak build "$build_dir" sh -c 'command -v flatpak-spawn >/dev/null'
 
 flatpak build "$build_dir" adventure-mods --version
