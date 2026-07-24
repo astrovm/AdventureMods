@@ -4,7 +4,14 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # Path filters are not evaluated for tag pushes (release CI still runs).
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
   workflow_dispatch:
 
 # One run per PR or branch; cancel superseded runs on the same ref.

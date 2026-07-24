@@ -30,8 +30,7 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 [Install Adventure Mods](https://flatpak.4st.li/apps/io.github.astrovm.AdventureMods/install/), or use the terminal:
 
 ```sh
-flatpak install --user \
-  https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
+flatpak install https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
 After installing, open **Adventure Mods** from your application menu and follow the setup wizard.
@@ -45,12 +44,14 @@ flatpak update
 <details>
 <summary>Other options (AppImage)</summary>
 
-**AppImage with Gear Lever** — [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever)
-handles desktop integration and updates:
+**AppImage with Gear Lever** — [Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install),
+or use the terminal:
 
 ```sh
-flatpak install flathub it.mijorus.gearlever
+flatpak install https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatpakref
 ```
+
+Gear Lever handles desktop integration and updates.
 
 Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest)
 and open it with Gear Lever.
