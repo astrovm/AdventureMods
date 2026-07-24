@@ -162,5 +162,17 @@ export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*
 	--exclude-library 'libwayland-egl.so.*' \
 	--output appimage
 
+generated_name="Adventure_Mods-${APPIMAGE_ARCH}.AppImage"
+appimage_name="AdventureMods-${APPIMAGE_ARCH}.AppImage"
+
+if [ ! -f "$generated_name" ]; then
+	echo "Expected AppImage was not generated: $generated_name" >&2
+	exit 1
+fi
+
+mv "$generated_name" "$appimage_name"
+rm -f "$generated_name.zsync" "$appimage_name.zsync"
+zsyncmake -u "$appimage_name" -o "$appimage_name.zsync" "$appimage_name"
+
 echo "==> Done! AppImage created:"
-ls -lh "$BUILD_DIR"/Adventure_Mods*.AppImage 2>/dev/null || ls -lh "$BUILD_DIR"/*.AppImage
+ls -lh "$appimage_name" "$appimage_name.zsync"
