@@ -44,6 +44,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.12" date="2026-07-24">
+      <description>
+        <p>Improved animation smoothness and interface responsiveness.</p>
+        <ul>
+          <li>Limited progress display updates to keep animations responsive</li>
+          <li>Cached and reused mod preview images while avoiding redundant refreshes</li>
+          <li>Added smooth setup step transitions with reduced-motion support</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.11" date="2026-07-23">
       <description>
         <p>Updated runtime requirements for the latest SA Mod Manager.</p>

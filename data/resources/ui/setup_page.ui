@@ -43,13 +43,22 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkBox" id="content_box">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">12</property>
-                    <property name="halign">fill</property>
+                  <object class="GtkRevealer" id="content_revealer">
+                    <property name="reveal-child">true</property>
+                    <property name="transition-type">crossfade</property>
+                    <property name="transition-duration">160</property>
                     <property name="hexpand">true</property>
-                    <property name="valign">fill</property>
                     <property name="vexpand">true</property>
+                    <property name="child">
+                      <object class="GtkBox" id="content_box">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">12</property>
+                        <property name="halign">fill</property>
+                        <property name="hexpand">true</property>
+                        <property name="valign">fill</property>
+                        <property name="vexpand">true</property>
+                      </object>
+                    </property>
                   </object>
                 </child>
               </object>

@@ -33,11 +33,17 @@
 }
 
 .game-card-clickable {
-    transition: box-shadow 160ms ease, transform 160ms ease;
+    transition: box-shadow 160ms ease;
 }
 
 .game-card-clickable:hover {
     box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-card-clickable {
+        transition: none;
+    }
 }
 
 .game-card-title {

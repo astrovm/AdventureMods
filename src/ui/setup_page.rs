@@ -1,11 +1,13 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib};
 
 use crate::blocking;
 use crate::setup::steps::StepId;
@@ -14,9 +16,10 @@ use crate::steam::game::Game;
 
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
-mod imp {
-    use std::cell::RefCell;
+const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
+const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
 
+mod imp {
     use super::*;
 
     #[derive(Default, gtk::CompositeTemplate)]
@@ -28,6 +31,8 @@ mod imp {
         pub step_title: TemplateChild<gtk::Label>,
         #[template_child]
         pub step_description: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub content_revealer: TemplateChild<gtk::Revealer>,
         #[template_child]
         pub content_box: TemplateChild<gtk::Box>,
         #[template_child]
@@ -132,84 +137,143 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+#[derive(Clone, Debug, PartialEq)]
+struct ProgressDisplay {
+    fraction: Option<f64>,
+    pulse: bool,
+    text: String,
+}
+
+#[derive(Default)]
+struct ProgressState {
+    completed_mods: usize,
+    active_downloads: HashMap<String, (u64, Option<u64>)>,
+    display: Option<ProgressDisplay>,
+}
+
+impl ProgressState {
+    fn apply(&mut self, msg: ProgressMsg) {
+        self.display = Some(match msg {
+            ProgressMsg::Bytes {
+                downloaded,
+                total,
+                status,
+            } => ProgressDisplay {
+                fraction: total
+                    .filter(|total| *total > 0)
+                    .map(|total| downloaded as f64 / total as f64),
+                pulse: total.is_none(),
+                text: format_step_download_text(&status, downloaded, total),
+            },
+            ProgressMsg::ModInstall { mod_name, total } => ProgressDisplay {
+                fraction: Some(completed_mod_fraction(self.completed_mods, total)),
+                pulse: false,
+                text: mod_download_start_text(&mod_name),
+            },
+            ProgressMsg::ModBytes {
+                mod_name,
+                total,
+                downloaded,
+                total_bytes,
+            } => {
+                self.active_downloads
+                    .insert(mod_name, (downloaded, total_bytes));
+                let (downloaded, total_bytes) = self.active_downloads.values().fold(
+                    (0u64, Some(0u64)),
+                    |(downloaded, total), (item_downloaded, item_total)| {
+                        let total = match (total, item_total) {
+                            (Some(total), Some(item_total)) => Some(total + item_total),
+                            _ => None,
+                        };
+                        (downloaded + item_downloaded, total)
+                    },
+                );
+                let update = mod_download_progress_update(
+                    self.completed_mods,
+                    total,
+                    downloaded,
+                    total_bytes,
+                );
+                ProgressDisplay {
+                    fraction: Some(update.fraction),
+                    pulse: update.pulse,
+                    text: update.text,
+                }
+            }
+            ProgressMsg::ModFinished {
+                mod_name,
+                completed,
+                total,
+            } => {
+                self.completed_mods = completed;
+                self.active_downloads.remove(&mod_name);
+                ProgressDisplay {
+                    fraction: Some(completed_mod_fraction(completed, total)),
+                    pulse: false,
+                    text: mod_download_finished_text(&mod_name, completed, total),
+                }
+            }
+            ProgressMsg::Configuring { total } => {
+                self.active_downloads.clear();
+                ProgressDisplay {
+                    fraction: Some(1.0),
+                    pulse: false,
+                    text: format!("Generating config... ({total}/{total})"),
+                }
+            }
+        });
+    }
+
+    fn render(&self, progress_bar: &gtk::ProgressBar, previous: &mut Option<ProgressDisplay>) {
+        let Some(display) = self.display.as_ref() else {
+            return;
+        };
+
+        if display.pulse {
+            progress_bar.pulse();
+        } else if let Some(fraction) = display.fraction {
+            let changed = previous
+                .as_ref()
+                .and_then(|previous| previous.fraction)
+                .is_none_or(|previous| (previous - fraction).abs() >= 0.001);
+            if changed {
+                progress_bar.set_fraction(fraction);
+            }
+        }
+
+        if previous.as_ref().map(|previous| previous.text.as_str()) != Some(display.text.as_str()) {
+            progress_bar.set_text(Some(&display.text));
+        }
+
+        *previous = Some(display.clone());
+    }
+}
+
 fn spawn_progress_receiver(
     progress_bar: gtk::ProgressBar,
     receiver: async_channel::Receiver<ProgressMsg>,
 ) {
     glib::spawn_future_local(async move {
-        let mut completed_mods = 0;
-        let mut active_downloads: HashMap<String, (u64, Option<u64>)> = HashMap::new();
+        let mut state = ProgressState::default();
+        let mut previous = None;
+        let mut last_render = None;
+
         while let Ok(msg) = receiver.recv().await {
-            match msg {
-                ProgressMsg::Bytes {
-                    downloaded,
-                    total,
-                    status,
-                } => {
-                    if let Some(total) = total {
-                        if total > 0 {
-                            progress_bar.set_fraction(downloaded as f64 / total as f64);
-                        }
-                    } else {
-                        progress_bar.pulse();
-                    }
-                    let text = format_step_download_text(&status, downloaded, total);
-                    progress_bar.set_text(Some(&text));
-                }
-                ProgressMsg::ModInstall { mod_name, total } => {
-                    progress_bar.set_fraction(completed_mod_fraction(completed_mods, total));
-                    progress_bar.set_text(Some(&mod_download_start_text(&mod_name)));
-                }
-                ProgressMsg::ModBytes {
-                    mod_name,
-                    total,
-                    downloaded,
-                    total_bytes,
-                } => {
-                    active_downloads.insert(mod_name.clone(), (downloaded, total_bytes));
+            state.apply(msg);
 
-                    // Aggregate bytes across all active downloads for a monotonic fraction.
-                    let (agg_downloaded, agg_total) =
-                        active_downloads
-                            .values()
-                            .fold((0u64, Some(0u64)), |(ad, at), (d, t)| {
-                                let new_at = match (at, t) {
-                                    (Some(a), Some(b)) => Some(a + b),
-                                    _ => None,
-                                };
-                                (ad + d, new_at)
-                            });
-
-                    let update = mod_download_progress_update(
-                        completed_mods,
-                        total,
-                        agg_downloaded,
-                        agg_total,
-                    );
-                    if update.pulse {
-                        progress_bar.pulse();
-                    } else {
-                        progress_bar.set_fraction(update.fraction);
-                    }
-                    progress_bar.set_text(Some(&update.text));
-                }
-                ProgressMsg::ModFinished {
-                    mod_name,
-                    completed,
-                    total,
-                } => {
-                    completed_mods = completed;
-                    active_downloads.remove(&mod_name);
-                    progress_bar.set_fraction(completed_mod_fraction(completed, total));
-                    progress_bar.set_text(Some(&mod_download_finished_text(
-                        &mod_name, completed, total,
-                    )));
-                }
-                ProgressMsg::Configuring { total } => {
-                    progress_bar.set_fraction(1.0);
-                    progress_bar.set_text(Some(&format!("Generating config... ({total}/{total})")));
+            if let Some(last_render) = last_render {
+                let elapsed = Instant::now().duration_since(last_render);
+                if elapsed < PROGRESS_UPDATE_INTERVAL {
+                    glib::timeout_future(PROGRESS_UPDATE_INTERVAL - elapsed).await;
                 }
             }
+
+            while let Ok(msg) = receiver.try_recv() {
+                state.apply(msg);
+            }
+
+            state.render(&progress_bar, &mut previous);
+            last_render = Some(Instant::now());
         }
     });
 }
@@ -337,14 +401,13 @@ fn voice_language_index(language: config::VoiceLanguage) -> u32 {
         .unwrap_or(0) as u32
 }
 
-fn populate_mod_preview(
-    title_label: &gtk::Label,
-    carousel: &adw::Carousel,
-    carousel_frame: &gtk::Frame,
-    description_label: &gtk::Label,
-    links_box: &gtk::FlowBox,
-    mod_entry: Option<&common::ModEntry>,
-) {
+#[derive(Default)]
+struct ModPreviewState {
+    current_index: Option<usize>,
+    pages: HashMap<usize, Vec<gtk::Widget>>,
+}
+
+fn clear_carousel(carousel: &adw::Carousel) {
     let mut children = Vec::new();
     let mut child = carousel.first_child();
     while let Some(widget) = child {
@@ -354,32 +417,21 @@ fn populate_mod_preview(
     for child in children {
         carousel.remove(&child);
     }
+}
 
-    let (name, pictures, description, links) = if let Some(mod_entry) = mod_entry {
-        (
-            mod_entry.name,
-            mod_entry.pictures,
-            mod_entry.full_description.unwrap_or(mod_entry.description),
-            mod_entry.links,
-        )
-    } else {
-        ("", &[][..], "", &[][..])
-    };
-
-    title_label.set_label(name);
-
-    if pictures.is_empty() {
-        carousel_frame.set_visible(false);
-    } else {
-        carousel_frame.set_visible(true);
-        for pic in pictures {
-            let img = gtk::Picture::builder()
+fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
+    mod_entry
+        .pictures
+        .iter()
+        .map(|pic| {
+            let texture = gdk::Texture::from_resource(*pic);
+            let image = gtk::Picture::builder()
                 .can_shrink(true)
                 .content_fit(gtk::ContentFit::Contain)
                 .hexpand(true)
                 .vexpand(true)
                 .build();
-            img.set_resource(Some(*pic));
+            image.set_paintable(Some(&texture));
 
             let badge_text = if pic.contains("_before") {
                 Some("Before")
@@ -398,21 +450,67 @@ fn populate_mod_preview(
                     .css_classes(vec!["caption".to_string(), "osd".to_string()])
                     .build();
                 let overlay = gtk::Overlay::builder()
-                    .child(&img)
+                    .child(&image)
                     .hexpand(true)
                     .vexpand(true)
                     .build();
                 overlay.add_overlay(&badge);
-                carousel.append(&overlay);
+                overlay.upcast::<gtk::Widget>()
             } else {
-                carousel.append(&img);
+                image.upcast::<gtk::Widget>()
             }
-        }
+        })
+        .collect()
+}
+
+fn populate_mod_preview(
+    title_label: &gtk::Label,
+    carousel: &adw::Carousel,
+    carousel_frame: &gtk::Frame,
+    description_label: &gtk::Label,
+    links_box: &gtk::FlowBox,
+    preview_state: &Rc<RefCell<ModPreviewState>>,
+    index: Option<usize>,
+    mod_entry: Option<&common::ModEntry>,
+) {
+    if preview_state.borrow().current_index == index {
+        return;
     }
 
+    clear_carousel(carousel);
+    let (name, description, links) = if let Some(mod_entry) = mod_entry {
+        (
+            mod_entry.name,
+            mod_entry.full_description.unwrap_or(mod_entry.description),
+            mod_entry.links,
+        )
+    } else {
+        ("", "", &[][..])
+    };
+
+    let pages = match (index, mod_entry) {
+        (Some(index), Some(mod_entry)) => {
+            if let Some(pages) = preview_state.borrow().pages.get(&index).cloned() {
+                pages
+            } else {
+                let pages = build_mod_preview_pages(mod_entry);
+                preview_state
+                    .borrow_mut()
+                    .pages
+                    .insert(index, pages.clone());
+                pages
+            }
+        }
+        _ => Vec::new(),
+    };
+
+    title_label.set_label(name);
+    carousel_frame.set_visible(!pages.is_empty());
+    for page in pages {
+        carousel.append(&page);
+    }
     description_label.set_label(description);
 
-    // Update links
     while let Some(child) = links_box.first_child() {
         links_box.remove(&child);
     }
@@ -424,6 +522,8 @@ fn populate_mod_preview(
             .build();
         links_box.insert(&button, -1);
     }
+
+    preview_state.borrow_mut().current_index = index;
 }
 
 fn populate_mod_preview_for_index(
@@ -432,6 +532,7 @@ fn populate_mod_preview_for_index(
     carousel_frame: &gtk::Frame,
     description_label: &gtk::Label,
     links_box: &gtk::FlowBox,
+    preview_state: &Rc<RefCell<ModPreviewState>>,
     game_kind: crate::steam::game::GameKind,
     index: usize,
 ) {
@@ -442,8 +543,16 @@ fn populate_mod_preview_for_index(
         carousel_frame,
         description_label,
         links_box,
+        preview_state,
+        Some(index),
         mods.get(index),
     );
+}
+
+fn cancel_pending_preview(source: &Rc<RefCell<Option<glib::SourceId>>>) {
+    if let Some(source_id) = source.borrow_mut().take() {
+        source_id.remove();
+    }
 }
 
 impl AdventureModsSetupPage {
@@ -517,12 +626,16 @@ impl AdventureModsSetupPage {
         imp.back_button
             .set_sensitive(!is_last_step && !imp.step_busy.get());
 
+        imp.content_revealer.set_reveal_child(false);
         let content_box = &imp.content_box;
         while let Some(child) = content_box.first_child() {
             content_box.remove(&child);
         }
 
         self.render_step(step, is_last_step, content_box);
+
+        let content_revealer = imp.content_revealer.clone();
+        glib::idle_add_local_once(move || content_revealer.set_reveal_child(true));
     }
 
     fn render_step(&self, step: &steps::SetupStep, is_last_step: bool, content_box: &gtk::Box) {
@@ -880,6 +993,8 @@ impl AdventureModsSetupPage {
             .map(common::recommended_mods_for_game)
             .unwrap_or(&[]);
         let preview_game_kind = game_kind.unwrap_or(crate::steam::game::GameKind::SADX);
+        let preview_state = Rc::new(RefCell::new(ModPreviewState::default()));
+        let hover_source = Rc::new(RefCell::new(None::<glib::SourceId>));
         let mut initial_selected = Vec::new();
 
         {
@@ -888,15 +1003,19 @@ impl AdventureModsSetupPage {
             let carousel_frame_clone = carousel_frame.clone();
             let desc_lbl_clone = full_desc_label.clone();
             let links_box_clone = links_box.clone();
+            let preview_state_clone = preview_state.clone();
+            let hover_source_clone = hover_source.clone();
             list_box.connect_row_selected(move |_, row| {
                 let _ = crate::ui::catch_ui_panic("mod row selection", || {
                     let Some(row) = row else { return };
+                    cancel_pending_preview(&hover_source_clone);
                     populate_mod_preview_for_index(
                         &preview_title_clone,
                         &carousel_clone,
                         &carousel_frame_clone,
                         &desc_lbl_clone,
                         &links_box_clone,
+                        &preview_state_clone,
                         preview_game_kind,
                         row.index() as usize,
                     );
@@ -972,15 +1091,19 @@ impl AdventureModsSetupPage {
             let carousel_frame_clone = carousel_frame.clone();
             let desc_lbl_clone = full_desc_label.clone();
             let links_box_clone = links_box.clone();
+            let preview_state_clone = preview_state.clone();
+            let hover_source_clone = hover_source.clone();
             check.connect_has_focus_notify(move |btn| {
                 let _ = crate::ui::catch_ui_panic("mod checkbox focus", || {
                     if btn.has_focus() {
+                        cancel_pending_preview(&hover_source_clone);
                         populate_mod_preview_for_index(
                             &preview_title_clone,
                             &carousel_clone,
                             &carousel_frame_clone,
                             &desc_lbl_clone,
                             &links_box_clone,
+                            &preview_state_clone,
                             preview_game_kind,
                             idx,
                         );
@@ -993,21 +1116,40 @@ impl AdventureModsSetupPage {
             let carousel_frame_clone = carousel_frame.clone();
             let desc_lbl_clone = full_desc_label.clone();
             let links_box_clone = links_box.clone();
-            let mod_entry_clone = mod_entry;
+            let preview_state_clone = preview_state.clone();
+            let hover_source_enter = hover_source.clone();
 
             let gesture = gtk::EventControllerMotion::new();
             gesture.connect_enter(move |_, _, _| {
                 let _ = crate::ui::catch_ui_panic("mod row hover", || {
-                    populate_mod_preview(
-                        &preview_title_clone,
-                        &carousel_clone,
-                        &carousel_frame_clone,
-                        &desc_lbl_clone,
-                        &links_box_clone,
-                        Some(mod_entry_clone),
-                    );
+                    cancel_pending_preview(&hover_source_enter);
+                    let source_slot = hover_source_enter.clone();
+                    let source_slot_for_callback = source_slot.clone();
+                    let preview_title = preview_title_clone.clone();
+                    let carousel = carousel_clone.clone();
+                    let carousel_frame = carousel_frame_clone.clone();
+                    let description = desc_lbl_clone.clone();
+                    let links = links_box_clone.clone();
+                    let preview_state = preview_state_clone.clone();
+                    let source_id = glib::timeout_add_local(MOD_PREVIEW_HOVER_DELAY, move || {
+                        let _ = source_slot_for_callback.borrow_mut().take();
+                        populate_mod_preview_for_index(
+                            &preview_title,
+                            &carousel,
+                            &carousel_frame,
+                            &description,
+                            &links,
+                            &preview_state,
+                            preview_game_kind,
+                            idx,
+                        );
+                        glib::ControlFlow::Break
+                    });
+                    source_slot.borrow_mut().replace(source_id);
                 });
             });
+            let hover_source_leave = hover_source.clone();
+            gesture.connect_leave(move |_| cancel_pending_preview(&hover_source_leave));
             list_row.add_controller(gesture);
 
             list_box.append(&list_row);
@@ -1017,21 +1159,22 @@ impl AdventureModsSetupPage {
         }
         imp.selected_mods.replace(initial_selected);
 
-        let preview_entry = initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
-            .and_then(|idx| mods_list.get(idx));
-        populate_mod_preview(
-            &preview_title_label,
-            &carousel,
-            &carousel_frame,
-            &full_desc_label,
-            &links_box,
-            preview_entry,
-        );
         if let Some(initial_index) =
             initial_preview_index(mods_list.len(), &imp.selected_mods.borrow())
-            && let Some(row) = list_box.row_at_index(initial_index as i32)
         {
-            list_box.select_row(Some(&row));
+            populate_mod_preview_for_index(
+                &preview_title_label,
+                &carousel,
+                &carousel_frame,
+                &full_desc_label,
+                &links_box,
+                &preview_state,
+                preview_game_kind,
+                initial_index,
+            );
+            if let Some(row) = list_box.row_at_index(initial_index as i32) {
+                list_box.select_row(Some(&row));
+            }
         }
 
         scrolled.set_child(Some(&list_box));
@@ -1533,6 +1676,25 @@ mod tests {
         let update = mod_download_progress_update(1, 4, 1_048_576, Some(2_097_152));
 
         assert_eq!(update.text, "Downloading mods - 1.0 / 2.0 MB");
+    }
+
+    #[test]
+    fn progress_state_keeps_the_latest_download_update() {
+        let mut state = ProgressState::default();
+        state.apply(ProgressMsg::Bytes {
+            downloaded: 1_048_576,
+            total: Some(4_194_304),
+            status: "Downloading...".to_string(),
+        });
+        state.apply(ProgressMsg::Bytes {
+            downloaded: 2_097_152,
+            total: Some(4_194_304),
+            status: "Downloading...".to_string(),
+        });
+
+        let display = state.display.unwrap();
+        assert_eq!(display.fraction, Some(0.5));
+        assert_eq!(display.text, "Downloading... - 2.0 / 4.0 MB");
     }
 
     #[test]
