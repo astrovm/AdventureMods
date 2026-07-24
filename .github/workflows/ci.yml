@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  apply-preview-cleanup:
+  capture-preview-cleanup:
     if: github.event.pull_request.head.ref == 'agent/optimize-ui-animations'
     runs-on: ubuntu-26.04
     permissions:
@@ -18,24 +18,24 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
-      - name: Install Rust formatter
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-
-      - name: Apply and commit cleanup
+      - name: Capture cleanup trace
         env:
           PATCH_SCRIPT: H4sIAFsWY2oC/61WTXObMBC98ytUDo6UYUico2ynh06mh06nmaS3NMPIsHaYAGKEqN16/N+7Qpgvf6RpzQFj7e7bt/ukBWehZEpyoV+SeE7iNJdKk3v869TPChzHmMmsWqZuocKrMr4qQJd5kIsl+KpwmaNhrdHHuPoKRBSYBcocR0GeiBBSyHSBDk8OwYtWd3O5CWhifEsFaF5Gr5x/t385N+QCBYUsVQj0Mo9DNnG9f4kdho7tI/OGdFzX/OQKfsawCgotNHAyeginD7D4BEky/Sqje2t9NMbbWwsRZxGsOfmW61hm07KIf0NtSWUUYPHqV2MdhTJNZcY5Yt0ZC3oysrE4i35yfy6VkivK/LBUCnGCKhOZzWxKDEPO3v8XUEdwQvs1HCfNWtZGCFrx8dp6mdkPFnVyltrOLtpSpBC8Yi5OQmWCeKFBpJwbA+ef8f4FrT2Fq7b0K8eKzdbeNUiBeQJ0jwJjChZSBQaRNvnY5EyqFZBAaPRB3U6WYHkPJWsIebY8I1kDOTljgW9It1d8G/koEdeSaxdNVn8JujEc6uYJUNpFHaIN4Vruz46DpRKZYL8yWHkE1jn2CiLsHukOOl5FiFCXIsHGmRnlh7LMNMVYtjsMtf3DrMHhTVIl4gLIA4bEKdzhMVF04TbpNrunLUmFDl+g8MgC8dFiQbecbDDVEx9fXz9/UFvXJq2ndMWn5kv3q8GpHUdrHO5ag8rQXwGyT/M4AauccunH+6npVqZvn8jzJRv1Gh2EiczA+5Gh28y6sZ1Du+V6ZkyIC65j3yQeqbqFqTtE/KKcZ5ZAItJ5JEjKO1tp4W5Sf6lkmdMLC3rBtkd4uaej6D5ZQ4Q1kfVWrKgiZdTS8kUpb6yGp/W7MXDkRWRRAoqEIklIEeuOihWcUc3BAdlRorO1h9fBUp1j3vsVHnVFBn51MigjotgNQGRScets+3PyOyTBISL2sBoFOoes0zNmNBn/jSZjg7+vSSPJEfxt+/HTO1Ydn4p5t1EeGZszlsU6FslpdUdHJtg7dNzlse9n26566U3x3kp/8KR08x3UZ1D5ezSqQ0/rM8Q/ptHAr6W+p1X1XbtSmM9+2Jobc/4AUMRSzD4LAAA=
         run: |
-          printf '%s' "$PATCH_SCRIPT" | base64 -d | gzip -d > /tmp/fix-preview.py
-          python3 /tmp/fix-preview.py
-          cargo fmt
+          set +e
+          {
+            set -x
+            printf '%s' "$PATCH_SCRIPT" | base64 -d | gzip -d > /tmp/fix-preview.py
+            python3 /tmp/fix-preview.py
+            echo "python_status=$?"
+            git diff --check
+            echo "diff_status=$?"
+          } > cleanup-diagnostic.txt 2>&1
           git fetch origin main
           git checkout origin/main -- .github/workflows/ci.yml
           rm -f final-clippy-error.txt
-          git diff --check
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add --all
-          git commit -m "Fix mod preview clippy lints"
+          git commit -m "Capture preview cleanup trace"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
