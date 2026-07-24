@@ -256,7 +256,7 @@ fn spawn_progress_receiver(
     glib::spawn_future_local(async move {
         let mut state = ProgressState::default();
         let mut previous = None;
-        let mut last_render = None;
+        let mut last_render: Option<Instant> = None;
 
         while let Ok(msg) = receiver.recv().await {
             state.apply(msg);
@@ -1580,9 +1580,10 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        completed_mod_fraction, format_step_download_text, initial_preview_index,
-        mod_download_finished_text, mod_download_fraction, mod_download_progress_update,
-        mod_download_start_text, subtitle_language_labels, voice_language_labels,
+        ProgressMsg, ProgressState, completed_mod_fraction, format_step_download_text,
+        initial_preview_index, mod_download_finished_text, mod_download_fraction,
+        mod_download_progress_update, mod_download_start_text, subtitle_language_labels,
+        voice_language_labels,
     };
     use crate::setup::steps::StepId;
     use crate::steam::game::Game;
