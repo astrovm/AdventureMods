@@ -72,50 +72,40 @@ Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
-The graphical app is recommended for most users. Use the CLI for automation or non-interactive setup.
-
-Run a command through the installed Flatpak:
-
-```sh
-flatpak run io.github.astrovm.AdventureMods [command] [options]
-```
-
-Start the interactive setup from a terminal:
+The graphical app is recommended for most users. From a terminal, the usual entry point is the interactive setup wizard:
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods setup
 ```
 
+It walks through game selection, mods, and install steps. Omit game or mod flags to stay interactive; pass them only when you want a fully non-interactive run.
+
+<details>
+<summary>Other commands</summary>
+
 | Command                      | Description                                                  |
 | ---------------------------- | ------------------------------------------------------------ |
 | `detect`                     | Show detected game installs and inaccessible Steam libraries |
 | `list-mods --game sadx\|sa2` | List available presets and mods for a game                   |
-| `setup`                      | Install runtimes, mod manager, mods, and config files        |
-
-Examples:
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods detect
 flatpak run io.github.astrovm.AdventureMods list-mods --game sadx
-flatpak run io.github.astrovm.AdventureMods setup --game sadx --preset "DX Enhanced"
-flatpak run io.github.astrovm.AdventureMods setup --game sa2 --all-mods
-```
-
-Use `--help` to see every command and option:
-
-```sh
 flatpak run io.github.astrovm.AdventureMods --help
-flatpak run io.github.astrovm.AdventureMods setup --help
 ```
+
+</details>
 
 <details>
 <summary>Non-interactive setup options</summary>
+
+Use these with `setup` for scripting. When game, path, or mod selection is omitted, `setup` stays interactive.
 
 | Flag                         | Description                                  |
 | ---------------------------- | -------------------------------------------- |
 | `--game sadx\|sa2`           | Select the game                              |
 | `--game-path /path`          | Override Steam detection                     |
-| `--preset "Name"`           | Named preset (SADX only)                     |
+| `--preset "Name"`            | Named preset (SADX only)                     |
 | `--all-mods`                 | Install all recommended mods                 |
 | `--mods slug1,slug2`         | Install specific mods by slug                |
 | `--subtitle-language`        | Select subtitles                             |
@@ -129,7 +119,10 @@ Subtitle languages:
 - SADX: `japanese`, `english`, `french`, `spanish`, `german`
 - SA2: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
 
-When game, path, or mod selection is omitted, `setup` opens the interactive wizard.
+```sh
+flatpak run io.github.astrovm.AdventureMods setup --game sadx --preset "DX Enhanced"
+flatpak run io.github.astrovm.AdventureMods setup --help
+```
 
 </details>
 
