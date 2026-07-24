@@ -27,10 +27,11 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 
 **Flatpak (recommended)**
 
+[Install Adventure Mods](https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref), or use the terminal:
+
 ```sh
-flatpak remote-add --if-not-exists --user astrovm \
-  https://flatpak.4st.li/astrovm.flatpakrepo
-flatpak install --user astrovm io.github.astrovm.AdventureMods
+flatpak install --user \
+  https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
 Update later with `flatpak update`.
