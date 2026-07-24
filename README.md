@@ -66,13 +66,13 @@ Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
 
 </details>
 
-## Command line (optional)
+## CLI (optional)
 
 <p align="center">
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
-The graphical app is recommended for most users. Use the command line for automation or non-interactive setup.
+The graphical app is recommended for most users. Use the CLI for automation or non-interactive setup.
 
 Run a command through the installed Flatpak:
 
