@@ -45,12 +45,15 @@ flatpak update
 <details>
 <summary>Other options (AppImage)</summary>
 
-**AppImage with Gear Lever** — [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever)
-handles desktop integration and updates:
+**AppImage with Gear Lever** — [Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install),
+or use the terminal:
 
 ```sh
-flatpak install flathub it.mijorus.gearlever
+flatpak install --user \
+  https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatpakref
 ```
+
+Gear Lever handles desktop integration and updates.
 
 Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest)
 and open it with Gear Lever.
