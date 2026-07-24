@@ -33,7 +33,7 @@
 }
 
 .game-card-clickable {
-    transition: box-shadow 160ms ease;
+    transition: box-shadow 160ms ease-out;
 }
 
 .game-card-clickable:hover {
