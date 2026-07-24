@@ -19,15 +19,13 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 
 ## Requirements
 
-Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
+- Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610)
+- Force **Proton 10.0** for each game under Properties → Compatibility  
+  Proton 11 and tools based on it (Hotfix, Experimental, many custom builds such as CachyOS) currently cannot keep SA Mod Manager running.
 
-For each game, force **Proton 10.0** under Properties → Compatibility. Proton 11 and tools based on it (Hotfix, Experimental, many custom builds such as CachyOS) currently cannot keep SA Mod Manager running.
+## Install
 
-## Installation
-
-### Flatpak (recommended)
-
-Add the official astrovm repository and install Adventure Mods:
+**Flatpak (recommended)**
 
 ```sh
 flatpak remote-add --if-not-exists --user astrovm \
@@ -35,41 +33,41 @@ flatpak remote-add --if-not-exists --user astrovm \
 flatpak install --user astrovm io.github.astrovm.AdventureMods
 ```
 
-Future releases are installed through `flatpak update`.
+Update later with `flatpak update`.
 
-### Standalone Flatpak bundle
+<details>
+<summary>Other options (standalone Flatpak, AppImage)</summary>
 
-Alternatively, download the Flatpak bundle for your CPU architecture from
+**Standalone Flatpak bundle** — download for your CPU architecture from
 [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
 
 ```sh
 flatpak install --user AdventureMods-<arch>.flatpak
 ```
 
-Flatpak downloads the required GNOME runtime from Flathub. Standalone bundles
-do not configure the astrovm repository, so later releases must be downloaded
-manually.
+Flatpak pulls the GNOME runtime from Flathub. Standalone bundles do not add the
+astrovm repo, so later releases must be downloaded manually.
 
-### AppImage with Gear Lever
-
-[Gear Lever](https://flathub.org/apps/it.mijorus.gearlever) handles desktop integration and updates:
+**AppImage with Gear Lever** — [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever)
+handles desktop integration and updates:
 
 ```sh
 flatpak install flathub it.mijorus.gearlever
 ```
 
-Download the latest AppImage for your CPU architecture from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then open it with Gear Lever.
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest)
+and open it with Gear Lever.
 
-### AppImage manually
-
-Download the latest AppImage for your CPU architecture from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
+**AppImage manually**
 
 ```sh
 chmod +x Adventure_Mods-<arch>.AppImage
 ./Adventure_Mods-<arch>.AppImage
 ```
 
-Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode.
+Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
+
+</details>
 
 ## CLI
 
@@ -77,32 +75,32 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
-| Command | Description |
-|---------|-------------|
-| `detect` | Show detected game installs and inaccessible Steam libraries |
-| `list-mods --game sadx\|sa2` | List available presets and mods for a game |
-| `setup` | Install runtimes, mod manager, mods, and config files |
+| Command                      | Description                                                  |
+| ---------------------------- | ------------------------------------------------------------ |
+| `detect`                     | Show detected game installs and inaccessible Steam libraries |
+| `list-mods --game sadx\|sa2` | List available presets and mods for a game                   |
+| `setup`                      | Install runtimes, mod manager, mods, and config files        |
 
-**Setup flags**
+**Common setup flags**
 
-| Flag | Description |
-|------|-------------|
-| `--game sadx\|sa2` | Select the game |
-| `--game-path /path` | Override Steam detection with an explicit install path |
-| `--preset "Name"` | Use a named preset (SADX only) |
-| `--all-mods` | Install all recommended mods |
-| `--mods slug1,slug2` | Select specific mods by slug |
-| `--subtitle-language` | Set subtitle language (see below) |
-| `--voice-language` | Set voice language: `japanese` or `english` |
-| `--width`, `--height` | Override detected resolution |
+| Flag                  | Description                     |
+| --------------------- | ------------------------------- |
+| `--game sadx\|sa2`    | Select the game                 |
+| `--game-path /path`   | Override Steam detection        |
+| `--preset "Name"`     | Named preset (SADX only)        |
+| `--all-mods`          | Install all recommended mods    |
+| `--mods slug1,slug2`  | Specific mods by slug           |
+| `--subtitle-language` | Subtitles (see languages below) |
+| `--voice-language`    | Voice: `japanese` or `english`  |
+| `--width`, `--height` | Override detected resolution    |
 
 <details>
 <summary>Advanced flags</summary>
 
-| Flag | Description |
-|------|-------------|
-| `--libraryfolders-vdf /path` | Use a specific `libraryfolders.vdf` file |
-| `--steam-library /path` | Add an extra Steam library root (repeatable) |
+| Flag                         | Description                                  |
+| ---------------------------- | -------------------------------------------- |
+| `--libraryfolders-vdf /path` | Use a specific `libraryfolders.vdf` file     |
+| `--steam-library /path`      | Add an extra Steam library root (repeatable) |
 
 </details>
 
@@ -126,26 +124,21 @@ Running without a subcommand launches the GUI. Pass a subcommand to use CLI mode
 
 ## Development
 
-### Flatpak
+**Flatpak**
 
 ```sh
 flatpak-builder --force-clean --user --install-deps-from=flathub --install \
   build build-aux/io.github.astrovm.AdventureMods.Devel.json
 ```
 
-### AppImage
-
-Build in Podman with `debian:13`:
+**AppImage** (Podman + `debian:13`)
 
 ```sh
 make appimage
 ```
 
-Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`.
-
-The AppImage build is native-architecture: x86_64 hosts produce x86_64 AppImages,
-and ARM64/aarch64 hosts produce aarch64 AppImages. GitHub release builds publish
-both architectures.
+Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`. Builds match the host
+architecture (x86_64 or aarch64). GitHub Releases publish both.
 
 ## License
 
