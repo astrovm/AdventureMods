@@ -37,17 +37,7 @@ flatpak install --user \
 Update later with `flatpak update`.
 
 <details>
-<summary>Other options (standalone Flatpak, AppImage)</summary>
-
-**Standalone Flatpak bundle** — download for your CPU architecture from
-[GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
-
-```sh
-flatpak install --user AdventureMods-<arch>.flatpak
-```
-
-Flatpak pulls the GNOME runtime from Flathub. Standalone bundles do not add the
-astrovm repo, so later releases must be downloaded manually.
+<summary>Other options (AppImage)</summary>
 
 **AppImage with Gear Lever** — [Gear Lever](https://flathub.org/apps/it.mijorus.gearlever)
 handles desktop integration and updates:
