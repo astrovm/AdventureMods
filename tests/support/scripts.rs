@@ -12,7 +12,7 @@ pub fn install_fake_wine(path: &Path, log_path: &Path) {
     write_script(
         path,
         &format!(
-            "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$@\" > \"{}\"\nmkdir -p \"$WINEPREFIX/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0\"\n",
+            "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$@\" > \"{}\"\nmkdir -p \"$WINEPREFIX/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0\"\n",
             log_path.display()
         ),
     );
