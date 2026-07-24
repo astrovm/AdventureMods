@@ -37,6 +37,11 @@ pub enum PrefixState {
         tool_name: String,
         major: u32,
     },
+    /// Prefix tool label could not be mapped to a major version (custom builds, etc.).
+    /// Setup may continue, but the UI should warn and recommend Proton 10.0.
+    UnknownProton {
+        tool_name: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -101,24 +106,25 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::SteamConfigIncomplete);
     }
 
-    if let Some(major) = proton_major_from_labels(
-        &prefix_metadata.tool_name,
-        &prefix_metadata.proton_dir,
-    ) {
-        if major > MAX_SUPPORTED_PROTON_MAJOR {
-            return Ok(PrefixState::UnsupportedProton {
+    match proton_major_from_labels(&prefix_metadata.tool_name, &prefix_metadata.proton_dir) {
+        Some(major) if major > MAX_SUPPORTED_PROTON_MAJOR => {
+            Ok(PrefixState::UnsupportedProton {
                 tool_name: prefix_metadata.tool_name,
                 major,
-            });
+            })
         }
+        Some(_) => Ok(PrefixState::Ready),
+        None => Ok(PrefixState::UnknownProton {
+            tool_name: prefix_metadata.tool_name,
+        }),
     }
-
-    Ok(PrefixState::Ready)
 }
 
 pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
     match prefix_state(game_path, app_id)? {
-        PrefixState::Ready => Ok(()),
+        // Unknown labels still allow installs (custom tools / test fixtures), but
+        // steam_config_message warns the user to prefer Proton 10.0.
+        PrefixState::Ready | PrefixState::UnknownProton { .. } => Ok(()),
         PrefixState::MissingPrefix => anyhow::bail!(
             "Steam has not created this game's Proton prefix. Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
         ),
@@ -172,6 +178,9 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         ),
         Ok(PrefixState::UnsupportedProton { tool_name, major }) => format!(
             "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then continue here."
+        ),
+        Ok(PrefixState::UnknownProton { tool_name }) => format!(
+            "{game_name} is using {tool_name}, but Adventure Mods could not tell which Proton/Wine major version that is. SA Mod Manager needs Proton 10.0; Proton 11 and newer will not launch it. If this is not Proton 10.0, force Proton 10.0 under Properties → Compatibility, launch once, close it, then continue here."
         ),
         Err(err) => {
             tracing::warn!("Failed to inspect Proton prefix state: {err}");
@@ -1110,17 +1119,17 @@ mod tests {
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
         let game_path = common.join("Sonic Adventure DX");
-        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let proton10 = common.join("Proton 10.0/files/bin");
         let compatdata = steam_root.join("steamapps/compatdata/71250");
 
         std::fs::create_dir_all(&game_path).unwrap();
-        std::fs::create_dir_all(&proton_exp).unwrap();
-        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(&proton10).unwrap();
+        std::fs::write(proton10.join("wine64"), "").unwrap();
         std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
         write_prefix_metadata(
             &compatdata,
-            "Proton - Experimental",
-            &steam_root.join("steamapps/common/Proton - Experimental"),
+            "10.1000-105",
+            &steam_root.join("steamapps/common/Proton 10.0"),
         );
 
         let config_dir = steam_root.join("config");
@@ -1152,17 +1161,17 @@ mod tests {
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
         let game_path = common.join("Sonic Adventure DX");
-        let proton_exp = common.join("Proton - Experimental/files/bin");
+        let proton10 = common.join("Proton 10.0/files/bin");
         let compatdata = steam_root.join("steamapps/compatdata/71250");
 
         std::fs::create_dir_all(&game_path).unwrap();
-        std::fs::create_dir_all(&proton_exp).unwrap();
-        std::fs::write(proton_exp.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(&proton10).unwrap();
+        std::fs::write(proton10.join("wine64"), "").unwrap();
         std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
         write_prefix_metadata(
             &compatdata,
-            "Proton - Experimental",
-            &steam_root.join("steamapps/common/Proton - Experimental"),
+            "10.1000-105",
+            &steam_root.join("steamapps/common/Proton 10.0"),
         );
 
         let config_dir = steam_root.join("config");
@@ -1193,6 +1202,65 @@ mod tests {
 
         let result = prefix_state(&game_path, 71250).unwrap();
         assert_eq!(result, PrefixState::Ready);
+    }
+
+    #[test]
+    fn test_prefix_state_warns_on_unknown_proton_label() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let custom = steam_root.join("compatibilitytools.d/TestProton/files/bin");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(&custom).unwrap();
+        std::fs::write(custom.join("wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(
+            &compatdata,
+            "TestProton",
+            &steam_root.join("compatibilitytools.d/TestProton"),
+        );
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "0"
+                    {
+                        "name"  "TestProton"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            prefix_state(&game_path, 71250).unwrap(),
+            PrefixState::UnknownProton {
+                tool_name: "TestProton".to_owned(),
+            }
+        );
+        assert!(ensure_prefix_ready(&game_path, 71250).is_ok());
+
+        let message = steam_config_message("Sonic Adventure DX", &game_path, 71250);
+        assert!(message.contains("could not tell"));
+        assert!(message.contains("Proton 10.0"));
+        assert!(message.contains("TestProton"));
     }
 
     #[test]
