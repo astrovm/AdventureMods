@@ -44,6 +44,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.11" date="2026-07-23">
+      <description>
+        <p>Updated the Proton .NET Desktop Runtime for the latest SA Mod Manager.</p>
+        <ul>
+          <li>Installed .NET Desktop Runtime 10 instead of 8</li>
+          <li>Detected runtime major version 10 or newer so existing 8.x prefixes are upgraded</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.10" date="2026-07-23">
       <description>
         <p>Improved Linux packaging and Flatpak distribution.</p>
