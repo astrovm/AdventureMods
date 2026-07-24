@@ -1,8 +1,8 @@
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use adw::prelude::*;
@@ -18,6 +18,7 @@ const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
 const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
+const CONTENT_FADE_MS: u32 = 160;
 
 mod imp {
     use super::*;
@@ -82,6 +83,14 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
 
+            sync_content_fade_duration(&self.content_revealer);
+            if let Some(settings) = gtk::Settings::default() {
+                let revealer = self.content_revealer.get();
+                settings.connect_gtk_enable_animations_notify(move |_| {
+                    sync_content_fade_duration(&revealer);
+                });
+            }
+
             let obj = self.obj().clone();
             self.next_button.connect_clicked(move |_| {
                 if crate::ui::catch_ui_panic("setup next button", || obj.on_next_clicked()).is_err()
@@ -107,6 +116,8 @@ mod imp {
 }
 
 enum ProgressMsg {
+    /// Wakes the UI so it can read the latest byte samples. Safe to drop when full.
+    Refresh,
     Bytes {
         downloaded: u64,
         total: Option<u64>,
@@ -116,12 +127,6 @@ enum ProgressMsg {
         mod_name: String,
         total: usize,
     },
-    ModBytes {
-        mod_name: String,
-        total: usize,
-        downloaded: u64,
-        total_bytes: Option<u64>,
-    },
     ModFinished {
         mod_name: String,
         completed: usize,
@@ -130,6 +135,124 @@ enum ProgressMsg {
     Configuring {
         total: usize,
     },
+}
+
+/// Latest high-frequency byte samples. Download workers overwrite these without blocking;
+/// the UI merges them each frame so a full progress channel cannot leave stale per-mod totals.
+#[derive(Default)]
+struct ProgressSamples {
+    step: Mutex<Option<(u64, Option<u64>, String)>>,
+    mods: Mutex<HashMap<String, (u64, Option<u64>)>>,
+    mod_total: AtomicUsize,
+}
+
+impl ProgressSamples {
+    fn set_step_bytes(&self, downloaded: u64, total: Option<u64>, status: impl Into<String>) {
+        *self.step.lock().expect("progress samples lock") =
+            Some((downloaded, total, status.into()));
+    }
+
+    fn set_mod_bytes(
+        &self,
+        mod_name: impl Into<String>,
+        downloaded: u64,
+        total_bytes: Option<u64>,
+        total_mods: usize,
+    ) {
+        self.mod_total.store(total_mods, Ordering::Relaxed);
+        self.mods
+            .lock()
+            .expect("progress samples lock")
+            .insert(mod_name.into(), (downloaded, total_bytes));
+    }
+
+    fn clear_mod(&self, mod_name: &str) {
+        self.mods
+            .lock()
+            .expect("progress samples lock")
+            .remove(mod_name);
+    }
+
+    fn clear(&self) {
+        *self.step.lock().expect("progress samples lock") = None;
+        self.mods.lock().expect("progress samples lock").clear();
+        self.mod_total.store(0, Ordering::Relaxed);
+    }
+
+    fn apply_to(&self, state: &mut ProgressState) {
+        if let Some((downloaded, total, status)) =
+            self.step.lock().expect("progress samples lock").clone()
+        {
+            state.apply(ProgressMsg::Bytes {
+                downloaded,
+                total,
+                status,
+            });
+        }
+
+        let mods = self.mods.lock().expect("progress samples lock").clone();
+        if mods.is_empty() {
+            return;
+        }
+
+        let total_mods = self.mod_total.load(Ordering::Relaxed);
+        state.active_downloads = mods;
+        let (downloaded, total_bytes) = state.active_downloads.values().fold(
+            (0u64, Some(0u64)),
+            |(downloaded, total), (item_downloaded, item_total)| {
+                let total = match (total, item_total) {
+                    (Some(total), Some(item_total)) => Some(total + item_total),
+                    _ => None,
+                };
+                (downloaded + item_downloaded, total)
+            },
+        );
+        let update =
+            mod_download_progress_update(state.completed_mods, total_mods, downloaded, total_bytes);
+        state.display = Some(ProgressDisplay {
+            fraction: Some(update.fraction),
+            pulse: update.pulse,
+            text: update.text,
+        });
+    }
+}
+
+fn wake_progress_ui(tx: &async_channel::Sender<ProgressMsg>) {
+    let _ = tx.try_send(ProgressMsg::Refresh);
+}
+
+fn publish_step_bytes(
+    tx: &async_channel::Sender<ProgressMsg>,
+    samples: &ProgressSamples,
+    downloaded: u64,
+    total: Option<u64>,
+    status: &str,
+) {
+    samples.set_step_bytes(downloaded, total, status);
+    wake_progress_ui(tx);
+}
+
+fn publish_mod_bytes(
+    tx: &async_channel::Sender<ProgressMsg>,
+    samples: &ProgressSamples,
+    mod_name: &str,
+    total_mods: usize,
+    downloaded: u64,
+    total_bytes: Option<u64>,
+) {
+    samples.set_mod_bytes(mod_name, downloaded, total_bytes, total_mods);
+    wake_progress_ui(tx);
+}
+
+fn sync_content_fade_duration(revealer: &gtk::Revealer) {
+    let animations_enabled = gtk::Settings::default()
+        .map(|settings| settings.is_gtk_enable_animations())
+        .unwrap_or(true);
+    revealer.set_transition_duration(if animations_enabled {
+        CONTENT_FADE_MS
+    } else {
+        0
+    });
 }
 
 glib::wrapper! {
@@ -163,7 +286,8 @@ struct ProgressState {
 
 impl ProgressState {
     fn apply(&mut self, msg: ProgressMsg) {
-        self.display = Some(match msg {
+        let display = match msg {
+            ProgressMsg::Refresh => return,
             ProgressMsg::Bytes {
                 downloaded,
                 total,
@@ -180,36 +304,6 @@ impl ProgressState {
                 pulse: false,
                 text: mod_download_start_text(&mod_name),
             },
-            ProgressMsg::ModBytes {
-                mod_name,
-                total,
-                downloaded,
-                total_bytes,
-            } => {
-                self.active_downloads
-                    .insert(mod_name, (downloaded, total_bytes));
-                let (downloaded, total_bytes) = self.active_downloads.values().fold(
-                    (0u64, Some(0u64)),
-                    |(downloaded, total), (item_downloaded, item_total)| {
-                        let total = match (total, item_total) {
-                            (Some(total), Some(item_total)) => Some(total + item_total),
-                            _ => None,
-                        };
-                        (downloaded + item_downloaded, total)
-                    },
-                );
-                let update = mod_download_progress_update(
-                    self.completed_mods,
-                    total,
-                    downloaded,
-                    total_bytes,
-                );
-                ProgressDisplay {
-                    fraction: Some(update.fraction),
-                    pulse: update.pulse,
-                    text: update.text,
-                }
-            }
             ProgressMsg::ModFinished {
                 mod_name,
                 completed,
@@ -231,7 +325,8 @@ impl ProgressState {
                     text: format!("Generating config... ({total}/{total})"),
                 }
             }
-        });
+        };
+        self.display = Some(display);
     }
 
     fn render(&self, progress_bar: &gtk::ProgressBar, previous: &mut Option<ProgressDisplay>) {
@@ -268,6 +363,7 @@ fn drain_progress_updates(
 fn spawn_progress_receiver(
     progress_bar: gtk::ProgressBar,
     receiver: async_channel::Receiver<ProgressMsg>,
+    samples: Arc<ProgressSamples>,
 ) {
     glib::spawn_future_local(async move {
         let mut state = ProgressState::default();
@@ -285,6 +381,7 @@ fn spawn_progress_receiver(
             }
 
             drain_progress_updates(&receiver, &mut state);
+            samples.apply_to(&mut state);
 
             state.render(&progress_bar, &mut previous);
             last_render = Some(Instant::now());
@@ -622,6 +719,65 @@ impl AdventureModsSetupPage {
             return;
         };
 
+        // Gate navigation immediately. Step body renders after the fade-out; without
+        // this, a second Continue click can skip Auto/Download entirely.
+        if matches!(step.kind, steps::StepKind::Auto | steps::StepKind::Download) {
+            imp.next_button.set_sensitive(false);
+        }
+
+        let is_last_step = step_idx + 1 >= all_steps.len();
+        imp.back_button.set_visible(!is_last_step);
+        imp.back_button
+            .set_sensitive(!is_last_step && !imp.step_busy.get());
+
+        drop(all_steps);
+        self.transition_step_content();
+    }
+
+    fn cancel_content_transition(&self) {
+        let imp = self.imp();
+        if let Some(handler) = imp.content_transition_handler.borrow_mut().take() {
+            imp.content_revealer.disconnect(handler);
+        }
+    }
+
+    fn transition_step_content(&self) {
+        let imp = self.imp();
+        let revealer = imp.content_revealer.clone();
+        self.cancel_content_transition();
+
+        if !self.is_mapped() || !revealer.is_child_revealed() {
+            self.render_current_step_content();
+            revealer.set_reveal_child(true);
+            return;
+        }
+
+        let obj = self.downgrade();
+        let handler = revealer.connect_child_revealed_notify(move |revealer| {
+            if revealer.is_child_revealed() {
+                return;
+            }
+
+            let Some(obj) = obj.upgrade() else {
+                return;
+            };
+            obj.cancel_content_transition();
+            obj.render_current_step_content();
+            revealer.set_reveal_child(true);
+        });
+        imp.content_transition_handler.replace(Some(handler));
+        revealer.set_reveal_child(false);
+    }
+
+    /// Title, description, and layout stay in sync with the step body.
+    fn apply_step_chrome(&self) {
+        let imp = self.imp();
+        let step_idx = imp.current_step.get();
+        let all_steps = imp.all_steps.borrow();
+        let Some(step) = all_steps.get(step_idx) else {
+            return;
+        };
+
         let centered_layout = !matches!(step.kind, steps::StepKind::ModSelection);
         imp.body_box.set_valign(if centered_layout {
             gtk::Align::Center
@@ -651,50 +807,11 @@ impl AdventureModsSetupPage {
             step.description.to_string()
         };
         imp.step_description.set_label(&step_description);
-
-        let is_last_step = step_idx + 1 >= all_steps.len();
-        imp.back_button.set_visible(!is_last_step);
-        imp.back_button
-            .set_sensitive(!is_last_step && !imp.step_busy.get());
-
-        drop(all_steps);
-        self.transition_step_content();
-    }
-
-    fn transition_step_content(&self) {
-        let imp = self.imp();
-        let revealer = imp.content_revealer.clone();
-
-        if let Some(handler) = imp.content_transition_handler.borrow_mut().take() {
-            revealer.disconnect(handler);
-        }
-
-        if !self.is_mapped() || !revealer.is_child_revealed() {
-            self.render_current_step_content();
-            revealer.set_reveal_child(true);
-            return;
-        }
-
-        let obj = self.downgrade();
-        let handler = revealer.connect_child_revealed_notify(move |revealer| {
-            if revealer.is_child_revealed() {
-                return;
-            }
-
-            let Some(obj) = obj.upgrade() else {
-                return;
-            };
-            if let Some(handler) = obj.imp().content_transition_handler.borrow_mut().take() {
-                revealer.disconnect(handler);
-            }
-            obj.render_current_step_content();
-            revealer.set_reveal_child(true);
-        });
-        imp.content_transition_handler.replace(Some(handler));
-        revealer.set_reveal_child(false);
     }
 
     fn render_current_step_content(&self) {
+        self.apply_step_chrome();
+
         let imp = self.imp();
         let step_idx = imp.current_step.get();
         let all_steps = imp.all_steps.borrow();
@@ -1235,8 +1352,9 @@ impl AdventureModsSetupPage {
             };
 
             let (tx, rx) = async_channel::bounded::<ProgressMsg>(32);
+            let samples = Arc::new(ProgressSamples::default());
 
-            spawn_progress_receiver(progress_bar.clone(), rx);
+            spawn_progress_receiver(progress_bar.clone(), rx, samples.clone());
 
             let game_kind = game.kind;
             let (width, height) = obj.get_resolution();
@@ -1244,13 +1362,10 @@ impl AdventureModsSetupPage {
                 StepId::ConvertSteam => {
                     let game_path = game.path.clone();
                     let tx_clone = tx.clone();
+                    let samples = samples.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.try_send(ProgressMsg::Bytes {
-                                downloaded: dl,
-                                total,
-                                status: "Downloading...".to_string(),
-                            });
+                            publish_step_bytes(&tx_clone, &samples, dl, total, "Downloading...");
                         }));
                     blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
@@ -1263,13 +1378,10 @@ impl AdventureModsSetupPage {
                     let game_path = game.path.clone();
                     let game_kind = game.kind;
                     let tx_clone = tx.clone();
+                    let samples = samples.clone();
                     let progress_fn: Option<crate::external::download::ProgressFn> =
                         Some(Box::new(move |dl, total| {
-                            let _ = tx_clone.try_send(ProgressMsg::Bytes {
-                                downloaded: dl,
-                                total,
-                                status: "Downloading...".to_string(),
-                            });
+                            publish_step_bytes(&tx_clone, &samples, dl, total, "Downloading...");
                         }));
                     blocking::flatten_spawn_result(
                         gio::spawn_blocking(move || {
@@ -1318,12 +1430,14 @@ impl AdventureModsSetupPage {
                                             if cancel_during_install.load(Ordering::Relaxed) {
                                                 return Err(anyhow::anyhow!("cancelled"));
                                             }
-                                            let _ = tx.try_send(ProgressMsg::ModBytes {
-                                                mod_name: mod_name.to_string(),
-                                                total: total_count,
+                                            publish_mod_bytes(
+                                                &tx,
+                                                &samples,
+                                                mod_name,
+                                                total_count,
                                                 downloaded,
                                                 total_bytes,
-                                            });
+                                            );
                                         }
                                         pipeline::InstallProgress::Finished {
                                             mod_name,
@@ -1333,6 +1447,7 @@ impl AdventureModsSetupPage {
                                             if cancel_during_install.load(Ordering::Relaxed) {
                                                 return Err(anyhow::anyhow!("cancelled"));
                                             }
+                                            samples.clear_mod(mod_name);
                                             let _ = tx.send_blocking(ProgressMsg::ModFinished {
                                                 mod_name: mod_name.to_string(),
                                                 completed,
@@ -1343,6 +1458,7 @@ impl AdventureModsSetupPage {
                                             // Do not honour cancel here: all mods are already
                                             // installed. Aborting now would leave mods installed
                                             // but no config written.
+                                            samples.clear();
                                             let _ = tx.send_blocking(ProgressMsg::Configuring {
                                                 total: total_count,
                                             });
@@ -1443,35 +1559,42 @@ impl AdventureModsSetupPage {
     }
 
     fn on_next_clicked(&self) {
-        if self.imp().is_error.get() {
+        let imp = self.imp();
+
+        // Ignore clicks during content fade or while a step is running work.
+        if imp.content_transition_handler.borrow().is_some() || imp.step_busy.get() {
+            return;
+        }
+
+        if imp.is_error.get() {
             // Retry: re-run the current step
             self.show_current_step();
+            return;
+        }
+
+        let Some(current_step_id) = imp
+            .all_steps
+            .borrow()
+            .get(imp.current_step.get())
+            .map(|step| step.id)
+        else {
+            tracing::warn!(
+                "Setup next button clicked with invalid step index {}",
+                imp.current_step.get()
+            );
+            self.show_error("Setup state is out of date. Please try again.");
+            return;
+        };
+        let next = imp.current_step.get() + 1;
+        let total = imp.all_steps.borrow().len();
+        if next >= total {
+            // Last step: navigate back to the welcome page
+            self.go_back_to_welcome();
         } else {
-            let imp = self.imp();
-            let Some(current_step_id) = imp
-                .all_steps
-                .borrow()
-                .get(imp.current_step.get())
-                .map(|step| step.id)
-            else {
-                tracing::warn!(
-                    "Setup next button clicked with invalid step index {}",
-                    imp.current_step.get()
-                );
-                self.show_error("Setup state is out of date. Please try again.");
-                return;
-            };
-            let next = imp.current_step.get() + 1;
-            let total = imp.all_steps.borrow().len();
-            if next >= total {
-                // Last step: navigate back to the welcome page
-                self.go_back_to_welcome();
-            } else {
-                if current_step_id == StepId::LanguageOptions {
-                    self.persist_language_selection();
-                }
-                self.advance_step();
+            if current_step_id == StepId::LanguageOptions {
+                self.persist_language_selection();
             }
+            self.advance_step();
         }
     }
 
@@ -1561,6 +1684,10 @@ impl AdventureModsSetupPage {
         let imp = self.imp();
         imp.is_error.set(true);
 
+        // Cancel any in-flight fade so its completion handler cannot wipe this error UI.
+        self.cancel_content_transition();
+        imp.content_revealer.set_reveal_child(true);
+
         let content_box = &imp.content_box;
         while let Some(child) = content_box.first_child() {
             content_box.remove(&child);
@@ -1585,7 +1712,7 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        ProgressDisplay, ProgressMsg, ProgressState, completed_mod_fraction,
+        ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState, completed_mod_fraction,
         drain_progress_updates, format_step_download_text, fraction_needs_update,
         initial_preview_index, mod_download_finished_text, mod_download_fraction,
         mod_download_progress_update, mod_download_start_text, subtitle_language_labels,
@@ -1702,6 +1829,43 @@ mod tests {
 
         let mut state = ProgressState::default();
         drain_progress_updates(&receiver, &mut state);
+
+        let display = state.display.unwrap();
+        assert_eq!(display.fraction, Some(0.5));
+        assert_eq!(display.text, "Downloading... - 2.0 / 4.0 MB");
+    }
+
+    #[test]
+    fn progress_samples_keep_latest_bytes_per_mod() {
+        let samples = ProgressSamples::default();
+        samples.set_mod_bytes("Alpha", 1_048_576, Some(2_097_152), 2);
+        samples.set_mod_bytes("Beta", 524_288, Some(2_097_152), 2);
+        samples.set_mod_bytes("Alpha", 1_572_864, Some(2_097_152), 2);
+
+        let mut state = ProgressState::default();
+        samples.apply_to(&mut state);
+
+        assert_eq!(
+            state.active_downloads.get("Alpha"),
+            Some(&(1_572_864, Some(2_097_152)))
+        );
+        assert_eq!(
+            state.active_downloads.get("Beta"),
+            Some(&(524_288, Some(2_097_152)))
+        );
+        let display = state.display.unwrap();
+        assert_eq!(display.text, "Downloading mods - 2.0 / 4.0 MB");
+        assert!(!display.pulse);
+    }
+
+    #[test]
+    fn progress_samples_overwrite_step_bytes() {
+        let samples = ProgressSamples::default();
+        samples.set_step_bytes(1_048_576, Some(4_194_304), "Downloading...");
+        samples.set_step_bytes(2_097_152, Some(4_194_304), "Downloading...");
+
+        let mut state = ProgressState::default();
+        samples.apply_to(&mut state);
 
         let display = state.display.unwrap();
         assert_eq!(display.fraction, Some(0.5));
