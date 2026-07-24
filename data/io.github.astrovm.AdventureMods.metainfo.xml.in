@@ -50,7 +50,7 @@
         <ul>
           <li>Coalesced progress display updates to keep animations responsive</li>
           <li>Cached and reused mod preview images while avoiding redundant refreshes</li>
-          <li>Added fade-out and fade-in transitions with reduced-motion support</li>
+          <li>Added quick fade-in step transitions with reduced-motion support</li>
         </ul>
       </description>
     </release>

@@ -46,7 +46,7 @@
                   <object class="GtkRevealer" id="content_revealer">
                     <property name="reveal-child">false</property>
                     <property name="transition-type">crossfade</property>
-                    <property name="transition-duration">160</property>
+                    <property name="transition-duration">100</property>
                     <property name="hexpand">true</property>
                     <property name="vexpand">true</property>
                     <property name="child">

@@ -18,7 +18,8 @@ const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
 const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
-const CONTENT_FADE_MS: u32 = 160;
+/// Fade-in only duration for step body swaps. Kept short so Continue/Back feel snappy.
+const CONTENT_FADE_MS: u32 = 100;
 
 mod imp {
     use super::*;
@@ -55,7 +56,6 @@ mod imp {
         // SourceId of the cancel poll timer; removed by the task completion path
         // to prevent the poll from firing after a normal (non-cancelled) finish.
         pub poll_source: RefCell<Option<glib::SourceId>>,
-        pub content_transition_handler: RefCell<Option<glib::SignalHandlerId>>,
     }
 
     impl std::fmt::Debug for AdventureModsSetupPage {
@@ -244,11 +244,14 @@ fn publish_mod_bytes(
     wake_progress_ui(tx);
 }
 
-fn sync_content_fade_duration(revealer: &gtk::Revealer) {
-    let animations_enabled = gtk::Settings::default()
+fn content_animations_enabled() -> bool {
+    gtk::Settings::default()
         .map(|settings| settings.is_gtk_enable_animations())
-        .unwrap_or(true);
-    revealer.set_transition_duration(if animations_enabled {
+        .unwrap_or(true)
+}
+
+fn sync_content_fade_duration(revealer: &gtk::Revealer) {
+    revealer.set_transition_duration(if content_animations_enabled() {
         CONTENT_FADE_MS
     } else {
         0
@@ -719,8 +722,7 @@ impl AdventureModsSetupPage {
             return;
         };
 
-        // Gate navigation immediately. Step body renders after the fade-out; without
-        // this, a second Continue click can skip Auto/Download entirely.
+        // Gate navigation immediately for steps that start work as soon as they render.
         if matches!(step.kind, steps::StepKind::Auto | steps::StepKind::Download) {
             imp.next_button.set_sensitive(false);
         }
@@ -734,39 +736,40 @@ impl AdventureModsSetupPage {
         self.transition_step_content();
     }
 
-    fn cancel_content_transition(&self) {
+    fn current_step_prefers_instant_transition(&self) -> bool {
         let imp = self.imp();
-        if let Some(handler) = imp.content_transition_handler.borrow_mut().take() {
-            imp.content_revealer.disconnect(handler);
-        }
+        imp.all_steps
+            .borrow()
+            .get(imp.current_step.get())
+            .is_some_and(|step| {
+                matches!(step.kind, steps::StepKind::Auto | steps::StepKind::Download)
+            })
     }
 
+    /// Swap step body with a short fade-in. Work steps (Auto/Download) skip motion
+    /// so progress UI appears immediately.
     fn transition_step_content(&self) {
         let imp = self.imp();
-        let revealer = imp.content_revealer.clone();
-        self.cancel_content_transition();
+        let revealer = &imp.content_revealer;
 
-        if !self.is_mapped() || !revealer.is_child_revealed() {
+        let instant = self.current_step_prefers_instant_transition()
+            || !self.is_mapped()
+            || !content_animations_enabled();
+
+        if instant {
+            revealer.set_transition_duration(0);
             self.render_current_step_content();
             revealer.set_reveal_child(true);
+            sync_content_fade_duration(revealer);
             return;
         }
 
-        let obj = self.downgrade();
-        let handler = revealer.connect_child_revealed_notify(move |revealer| {
-            if revealer.is_child_revealed() {
-                return;
-            }
-
-            let Some(obj) = obj.upgrade() else {
-                return;
-            };
-            obj.cancel_content_transition();
-            obj.render_current_step_content();
-            revealer.set_reveal_child(true);
-        });
-        imp.content_transition_handler.replace(Some(handler));
+        // Fade-in only: hide without animating, rebuild, then crossfade in (~100 ms).
+        revealer.set_transition_duration(0);
         revealer.set_reveal_child(false);
+        self.render_current_step_content();
+        sync_content_fade_duration(revealer);
+        revealer.set_reveal_child(true);
     }
 
     /// Title, description, and layout stay in sync with the step body.
@@ -1561,8 +1564,8 @@ impl AdventureModsSetupPage {
     fn on_next_clicked(&self) {
         let imp = self.imp();
 
-        // Ignore clicks during content fade or while a step is running work.
-        if imp.content_transition_handler.borrow().is_some() || imp.step_busy.get() {
+        // Ignore clicks while a step is running work (Auto/Download).
+        if imp.step_busy.get() {
             return;
         }
 
@@ -1684,9 +1687,10 @@ impl AdventureModsSetupPage {
         let imp = self.imp();
         imp.is_error.set(true);
 
-        // Cancel any in-flight fade so its completion handler cannot wipe this error UI.
-        self.cancel_content_transition();
+        // Show errors immediately; do not wait on the step fade-in.
+        imp.content_revealer.set_transition_duration(0);
         imp.content_revealer.set_reveal_child(true);
+        sync_content_fade_duration(&imp.content_revealer);
 
         let content_box = &imp.content_box;
         while let Some(child) = content_box.first_child() {
