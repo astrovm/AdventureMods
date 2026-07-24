@@ -153,9 +153,7 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
             matches!(
                 proton::prefix_state(p, game.kind.app_id()),
                 Ok(proton::PrefixState::Ready)
-            ) && prefix
-                .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
-                .is_dir()
+            ) && runtime_installer::is_dotnet_installed(&prefix)
         }
 
         StepId::ConvertSteam => {
@@ -220,7 +218,7 @@ fn proton_prefix(game_path: &Path, app_id: u32) -> Result<std::path::PathBuf> {
         ))
 }
 
-/// Install .NET Desktop Runtime 8.0 into the game's Proton prefix
+/// Install .NET Desktop Runtime 10.0 into the game's Proton prefix
 /// using the game's own Proton/Wine.
 pub async fn install_runtimes(game_path: std::path::PathBuf, app_id: u32) -> Result<()> {
     blocking::flatten_spawn_result(

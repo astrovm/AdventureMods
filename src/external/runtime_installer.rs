@@ -5,15 +5,15 @@ use anyhow::{Context, Result};
 use super::download;
 use super::proton;
 
-/// .NET Desktop Runtime 8.0 x64 offline installer.
+/// .NET Desktop Runtime 10.0 x64 offline installer.
 ///
 /// Use the stable aka.ms redirect so Microsoft can rotate the underlying build
 /// without breaking downloads when old patch-specific URLs expire.
-const DOTNET_DESKTOP_8_URL: &str = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe";
+const DOTNET_DESKTOP_10_URL: &str = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe";
 
-fn dotnet_desktop_8_url() -> String {
-    std::env::var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8")
-        .unwrap_or_else(|_| DOTNET_DESKTOP_8_URL.to_string())
+fn dotnet_desktop_10_url() -> String {
+    std::env::var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10")
+        .unwrap_or_else(|_| DOTNET_DESKTOP_10_URL.to_string())
 }
 
 fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
@@ -29,14 +29,35 @@ fn is_success_or_reboot_code(code: i32) -> bool {
     code == 0 || code == 3010 || code == (3010 & 0xff)
 }
 
-/// Check whether .NET Desktop Runtime 8 is already installed in the prefix.
-pub fn is_dotnet_installed(prefix: &Path) -> bool {
-    prefix
-        .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
-        .is_dir()
+/// Path to the Windows Desktop shared framework inside a Proton/Wine prefix.
+pub fn windows_desktop_app_dir(prefix: &Path) -> std::path::PathBuf {
+    prefix.join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
 }
 
-/// Download and install .NET Desktop Runtime 8 into the game's
+/// Check whether .NET Desktop Runtime 10 (or newer major) is installed in the prefix.
+///
+/// SA Mod Manager requires at least 10.0.0; presence of an older runtime (e.g. 8.x)
+/// alone is not enough.
+pub fn is_dotnet_installed(prefix: &Path) -> bool {
+    let desktop_app = windows_desktop_app_dir(prefix);
+    let Ok(entries) = std::fs::read_dir(&desktop_app) else {
+        return false;
+    };
+
+    entries.filter_map(|e| e.ok()).any(|entry| {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            return false;
+        };
+        // Version folders look like "10.0.0", "10.0.10", etc.
+        name.split('.')
+            .next()
+            .and_then(|major| major.parse::<u32>().ok())
+            .is_some_and(|major| major >= 10)
+    })
+}
+
+/// Download and install .NET Desktop Runtime 10 into the game's
 /// Proton prefix using the game's own Proton/Wine installation.
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
@@ -56,9 +77,9 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
     }
 
     if !is_dotnet_installed(&prefix) {
-        tracing::info!("Installing .NET Desktop Runtime 8...");
-        let dotnet_path = installer_dir.join("windowsdesktop-runtime-8-win-x64.exe");
-        let dotnet_url = dotnet_desktop_8_url();
+        tracing::info!("Installing .NET Desktop Runtime 10...");
+        let dotnet_path = installer_dir.join("windowsdesktop-runtime-10-win-x64.exe");
+        let dotnet_url = dotnet_desktop_10_url();
         download::download_file(&dotnet_url, &dotnet_path, None)?;
 
         let output = proton::run_in_prefix(
@@ -72,13 +93,15 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let code = output.status.code().unwrap_or(-1);
             if !is_success_or_reboot_code(code) {
-                anyhow::bail!(".NET Desktop Runtime 8 installation failed (code {code}): {stderr}");
+                anyhow::bail!(
+                    ".NET Desktop Runtime 10 installation failed (code {code}): {stderr}"
+                );
             }
         }
-        tracing::info!(".NET Desktop Runtime 8 installed");
+        tracing::info!(".NET Desktop Runtime 10 installed");
         let _ = std::fs::remove_file(&dotnet_path);
     } else {
-        tracing::info!(".NET Desktop Runtime 8 already installed, skipping");
+        tracing::info!(".NET Desktop Runtime 10 already installed, skipping");
     }
 
     let _ = std::fs::remove_dir(&installer_dir);
@@ -94,19 +117,35 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
-    fn test_is_dotnet_installed_true() {
+    fn test_is_dotnet_installed_true_for_10() {
         let tmp = tempfile::tempdir().unwrap();
-        let dotnet_path = tmp
-            .path()
-            .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App");
+        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("10.0.0");
         std::fs::create_dir_all(&dotnet_path).unwrap();
 
         assert!(is_dotnet_installed(tmp.path()));
     }
 
     #[test]
-    fn test_is_dotnet_installed_false() {
+    fn test_is_dotnet_installed_true_for_newer_major() {
         let tmp = tempfile::tempdir().unwrap();
+        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("11.0.0");
+        std::fs::create_dir_all(&dotnet_path).unwrap();
+
+        assert!(is_dotnet_installed(tmp.path()));
+    }
+
+    #[test]
+    fn test_is_dotnet_installed_false_when_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(!is_dotnet_installed(tmp.path()));
+    }
+
+    #[test]
+    fn test_is_dotnet_installed_false_for_only_8() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("8.0.0");
+        std::fs::create_dir_all(&dotnet_path).unwrap();
+
         assert!(!is_dotnet_installed(tmp.path()));
     }
 
@@ -135,15 +174,15 @@ mod tests {
         let _lock = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var(
-                "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+                "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
                 "http://127.0.0.1:4010/dotnet.exe",
             );
         }
 
-        assert_eq!(dotnet_desktop_8_url(), "http://127.0.0.1:4010/dotnet.exe");
+        assert_eq!(dotnet_desktop_10_url(), "http://127.0.0.1:4010/dotnet.exe");
 
         unsafe {
-            std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8");
+            std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10");
         }
     }
 }

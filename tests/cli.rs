@@ -280,7 +280,7 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -358,7 +358,7 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -451,7 +451,7 @@ fn setup_installs_sadx_preset_from_cli_flag() {
             server.url("/sadx-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -552,7 +552,7 @@ fn setup_surfaces_mod_download_failures() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -636,7 +636,7 @@ fn setup_surfaces_archive_extraction_failures() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -721,7 +721,7 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -847,7 +847,7 @@ fn interactive_sa2_setup_completes_via_tty() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -953,7 +953,7 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
             server.url("/sadx-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (
@@ -1078,7 +1078,7 @@ fn setup_installs_selected_mods_from_cli_flags() {
             server.url("/sa2-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
             server.url("/dotnet.exe"),
         ),
         (

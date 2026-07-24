@@ -100,7 +100,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: StepId::Dotnet,
             title: "Install .NET Runtime",
-            description: "Installing .NET Desktop Runtime 8.0. This may take several minutes...",
+            description: "Installing .NET Desktop Runtime 10.0. This may take several minutes...",
             kind: StepKind::Auto,
         },
     ];
