@@ -48,7 +48,7 @@
       <description>
         <p>Improved animation smoothness and interface responsiveness.</p>
         <ul>
-          <li>Limited progress display updates to keep animations responsive</li>
+          <li>Coalesced progress display updates to keep animations responsive</li>
           <li>Cached and reused mod preview images while avoiding redundant refreshes</li>
           <li>Added smooth setup step transitions with reduced-motion support</li>
         </ul>
