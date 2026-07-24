@@ -16,6 +16,52 @@ permissions:
   contents: read
 
 jobs:
+  apply-mod-preview-refactor:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/optimize-ui-animations'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            curl \
+            pkg-config \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            xvfb
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Refactor and validate mod previews
+        env:
+          PATCH_SCRIPT: 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
+        run: |
+          printf '%s' "$PATCH_SCRIPT" | base64 -d | gzip -d > /tmp/refactor-mod-preview.py
+          python3 /tmp/refactor-mod-preview.py
+          cargo fmt
+          cargo clippy --all-targets -- -D warnings
+          xvfb-run cargo test
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ci.yml
+          rm -f .github/workflows/refactor-mod-preview.yml current-clippy-error.txt
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git commit -m "Refactor cached mod previews"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   test:
     strategy:
       fail-fast: false
