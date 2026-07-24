@@ -159,9 +159,13 @@ jobs:
           name: AdventureMods-AppImage-${{ matrix.arch }}
           path: appimage-build/*.AppImage*
 
-  release:
+  # Create the draft release immediately on tag push (no build deps).
+  # GitHub rejects GITHUB_TOKEN release creation when the tag commit's
+  # .github/workflows tree differs from the default branch. Long package
+  # jobs race with merges to main; creating the draft first freezes the
+  # release before that can happen. Asset upload later only needs contents:write.
+  create-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [appimage, flatpak]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -182,6 +186,31 @@ jobs:
 
           python3 build-aux/extract-release-notes.py "$version" >/dev/null
 
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ github.ref_name }}"
+          version="${tag#v}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists"
+            exit 0
+          fi
+          notes=$(python3 build-aux/extract-release-notes.py "$version")
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --notes "$notes" \
+            --draft
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [appimage, flatpak, create-release]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+
+    steps:
       - name: Download AppImage artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -196,24 +225,17 @@ jobs:
           path: flatpak-artifacts
           merge-multiple: true
 
-      - name: Upload to release
+      - name: Upload and publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${{ github.ref_name }}"
-          version="${version#v}"
-          notes=$(python3 build-aux/extract-release-notes.py "$version")
-          gh release create "${{ github.ref_name }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --notes "$notes" \
-            --draft || true
-          gh release upload "${{ github.ref_name }}" \
+          tag="${{ github.ref_name }}"
+          gh release upload "$tag" \
             appimage-artifacts/*.AppImage* \
             flatpak-artifacts/*.flatpak \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
-          gh release edit "${{ github.ref_name }}" \
+          gh release edit "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --draft=false
 
