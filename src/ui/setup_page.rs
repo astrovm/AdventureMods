@@ -424,7 +424,7 @@ fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
         .pictures
         .iter()
         .map(|pic| {
-            let texture = gdk::Texture::from_resource(*pic);
+            let texture = gdk::Texture::from_resource(pic);
             let image = gtk::Picture::builder()
                 .can_shrink(true)
                 .content_fit(gtk::ContentFit::Contain)
@@ -470,9 +470,9 @@ fn populate_mod_preview(
     description_label: &gtk::Label,
     links_box: &gtk::FlowBox,
     preview_state: &Rc<RefCell<ModPreviewState>>,
-    index: Option<usize>,
-    mod_entry: Option<&common::ModEntry>,
+    preview: (Option<usize>, Option<&common::ModEntry>),
 ) {
+    let (index, mod_entry) = preview;
     if preview_state.borrow().current_index == index {
         return;
     }
@@ -533,9 +533,9 @@ fn populate_mod_preview_for_index(
     description_label: &gtk::Label,
     links_box: &gtk::FlowBox,
     preview_state: &Rc<RefCell<ModPreviewState>>,
-    game_kind: crate::steam::game::GameKind,
-    index: usize,
+    selection: (crate::steam::game::GameKind, usize),
 ) {
+    let (game_kind, index) = selection;
     let mods = common::recommended_mods_for_game(game_kind);
     populate_mod_preview(
         title_label,
@@ -544,8 +544,7 @@ fn populate_mod_preview_for_index(
         description_label,
         links_box,
         preview_state,
-        Some(index),
-        mods.get(index),
+        (Some(index), mods.get(index)),
     );
 }
 
@@ -1013,8 +1012,7 @@ impl AdventureModsSetupPage {
                         &desc_lbl_clone,
                         &links_box_clone,
                         &preview_state_clone,
-                        preview_game_kind,
-                        row.index() as usize,
+                        (preview_game_kind, row.index() as usize),
                     );
                 });
             });
@@ -1101,8 +1099,7 @@ impl AdventureModsSetupPage {
                             &desc_lbl_clone,
                             &links_box_clone,
                             &preview_state_clone,
-                            preview_game_kind,
-                            idx,
+                            (preview_game_kind, idx),
                         );
                     }
                 });
@@ -1137,8 +1134,7 @@ impl AdventureModsSetupPage {
                             &description,
                             &links,
                             &preview_state,
-                            preview_game_kind,
-                            idx,
+                            (preview_game_kind, idx),
                         );
                         glib::ControlFlow::Break
                     });
@@ -1166,8 +1162,7 @@ impl AdventureModsSetupPage {
                 &full_desc_label,
                 &links_box,
                 &preview_state,
-                preview_game_kind,
-                initial_index,
+                (preview_game_kind, initial_index),
             );
             if let Some(row) = list_box.row_at_index(initial_index as i32) {
                 list_box.select_row(Some(&row));
