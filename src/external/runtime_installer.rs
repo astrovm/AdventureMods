@@ -45,6 +45,9 @@ pub fn is_dotnet_installed(prefix: &Path) -> bool {
     };
 
     entries.filter_map(|e| e.ok()).any(|entry| {
+        if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            return false;
+        }
         let name = entry.file_name();
         let Some(name) = name.to_str() else {
             return false;

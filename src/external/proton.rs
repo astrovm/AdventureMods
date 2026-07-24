@@ -126,7 +126,7 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
             "This game's Proton prefix metadata is incomplete. Open the game from Steam once so Steam can repair it, then close the game and try again."
         ),
         PrefixState::SteamConfigIncomplete => anyhow::bail!(
-            "Steam's Proton configuration for this game is missing or unreadable. Select a compatibility tool in Steam, open the game once, then close it and try again."
+            "Steam's Proton configuration for this game is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then close it and try again."
         ),
         PrefixState::ProtonUnavailable {
             tool_name,
@@ -150,9 +150,7 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
 pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> String {
     match prefix_state(game_path, app_id) {
         Ok(PrefixState::Ready) => {
-            format!(
-                "The Proton prefix for {game_name} is ready (compatible Proton). You can continue right away."
-            )
+            format!("The Proton prefix for {game_name} is ready. You can continue right away.")
         }
         Ok(PrefixState::MissingPrefix) => format!(
             "Steam has not created a Proton prefix for {game_name}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and continue here."
@@ -173,7 +171,7 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
             "{game_name} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then continue here."
         ),
         Ok(PrefixState::UnsupportedProton { tool_name, major }) => format!(
-            "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → enable “Force the use of a specific Steam Play compatibility tool” → Proton 10.0. Launch the game once, close it, then continue here."
+            "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then continue here."
         ),
         Err(err) => {
             tracing::warn!("Failed to inspect Proton prefix state: {err}");
