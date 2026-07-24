@@ -107,12 +107,10 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
     }
 
     match proton_major_from_labels(&prefix_metadata.tool_name, &prefix_metadata.proton_dir) {
-        Some(major) if major > MAX_SUPPORTED_PROTON_MAJOR => {
-            Ok(PrefixState::UnsupportedProton {
-                tool_name: prefix_metadata.tool_name,
-                major,
-            })
-        }
+        Some(major) if major > MAX_SUPPORTED_PROTON_MAJOR => Ok(PrefixState::UnsupportedProton {
+            tool_name: prefix_metadata.tool_name,
+            major,
+        }),
         Some(_) => Ok(PrefixState::Ready),
         None => Ok(PrefixState::UnknownProton {
             tool_name: prefix_metadata.tool_name,
