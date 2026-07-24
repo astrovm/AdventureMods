@@ -135,12 +135,13 @@ When game, path, or mod selection is omitted, `setup` opens the interactive wiza
 
 ## Development
 
-**Flatpak**
+**Flatpak** (Devel manifest, installs for the current user)
 
 ```sh
-flatpak-builder --force-clean --user --install-deps-from=flathub --install \
-  build build-aux/io.github.astrovm.AdventureMods.Devel.json
+make flatpak
 ```
+
+Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
 
 **AppImage** (Podman + `debian:13`)
 
