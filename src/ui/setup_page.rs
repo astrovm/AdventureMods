@@ -262,7 +262,7 @@ fn spawn_progress_receiver(
             state.apply(msg);
 
             if let Some(last_render) = last_render {
-                let elapsed = Instant::now().duration_since(last_render);
+                let elapsed = last_render.elapsed();
                 if elapsed < PROGRESS_UPDATE_INTERVAL {
                     glib::timeout_future(PROGRESS_UPDATE_INTERVAL - elapsed).await;
                 }
@@ -773,17 +773,15 @@ impl AdventureModsSetupPage {
                             // the step, so we don't start a new task while the old one is
                             // still writing to disk.
                             let obj2 = obj.clone();
-                            let source_id = glib::timeout_add_local(
-                                std::time::Duration::from_millis(50),
-                                move || {
+                            let source_id =
+                                glib::timeout_add_local(Duration::from_millis(50), move || {
                                     if obj2.imp().task_running.get() {
                                         return glib::ControlFlow::Continue;
                                     }
                                     obj2.imp().poll_source.borrow_mut().take();
                                     obj2.show_current_step();
                                     glib::ControlFlow::Break
-                                },
-                            );
+                                });
                             obj.imp().poll_source.replace(Some(source_id));
                         })
                         .is_err()
@@ -843,8 +841,7 @@ impl AdventureModsSetupPage {
             .css_classes(vec!["boxed-list".to_string()])
             .build();
 
-        let checks: std::rc::Rc<std::cell::RefCell<Vec<gtk::CheckButton>>> =
-            std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let checks: Rc<RefCell<Vec<gtk::CheckButton>>> = Rc::new(RefCell::new(Vec::new()));
 
         if !presets.is_empty() {
             let preset_box = gtk::Box::builder()
@@ -1145,7 +1142,7 @@ impl AdventureModsSetupPage {
                         );
                         glib::ControlFlow::Break
                     });
-                    source_slot.borrow_mut().replace(source_id);
+                    let _ = source_slot.borrow_mut().replace(source_id);
                 });
             });
             let hover_source_leave = hover_source.clone();
