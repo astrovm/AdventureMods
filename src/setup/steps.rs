@@ -89,10 +89,10 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
             title: "Steam Configuration",
             description: match kind {
                 GameKind::SADX => {
-                    "Make sure you have run Sonic Adventure DX at least once from Steam so that its Proton prefix is created."
+                    "Force Proton 10.0 for Sonic Adventure DX in Steam (Properties → Compatibility). Proton 11, Hotfix, Experimental, and many custom builds cannot run SA Mod Manager. Launch the game once so the Proton prefix is created, then close it."
                 }
                 GameKind::SA2 => {
-                    "Make sure you have run Sonic Adventure 2 at least once from Steam so that its Proton prefix is created."
+                    "Force Proton 10.0 for Sonic Adventure 2 in Steam (Properties → Compatibility). Proton 11, Hotfix, Experimental, and many custom builds cannot run SA Mod Manager. Launch the game once so the Proton prefix is created, then close it."
                 }
             },
             kind: StepKind::Info,

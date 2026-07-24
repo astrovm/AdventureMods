@@ -21,6 +21,8 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 
 Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
 
+For each game, force **Proton 10.0** under Properties → Compatibility. Proton 11 and tools based on it (Hotfix, Experimental, many custom builds such as CachyOS) currently cannot keep SA Mod Manager running.
+
 ## Installation
 
 ### Flatpak (recommended)
