@@ -34,7 +34,13 @@ flatpak install --user \
   https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
-Update later with `flatpak update`.
+After installing, open **Adventure Mods** from your application menu and follow the setup wizard.
+
+Update it later through your software manager or with:
+
+```sh
+flatpak update
+```
 
 <details>
 <summary>Other options (AppImage)</summary>
@@ -60,19 +66,21 @@ Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
 
 </details>
 
-## Command line
+## Command line (optional)
 
 <p align="center">
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
-Use the installed Flatpak for both the GUI and command line:
+The graphical app is recommended for most users. Use the command line for automation or non-interactive setup.
+
+Run a command through the installed Flatpak:
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods [command] [options]
 ```
 
-Running it without a command opens the GUI. Most users only need the interactive setup:
+Start the interactive setup from a terminal:
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods setup
