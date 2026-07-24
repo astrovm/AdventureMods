@@ -911,8 +911,7 @@ impl AdventureModsSetupPage {
             .css_classes(vec!["boxed-list".to_string()])
             .build();
 
-        let checks: Rc<RefCell<Vec<gtk::CheckButton>>> =
-            Rc::new(RefCell::new(Vec::new()));
+        let checks: Rc<RefCell<Vec<gtk::CheckButton>>> = Rc::new(RefCell::new(Vec::new()));
         if !presets.is_empty() {
             let preset_box = gtk::Box::builder()
                 .orientation(gtk::Orientation::Horizontal)
