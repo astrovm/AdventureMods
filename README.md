@@ -52,19 +52,31 @@ and open it with Gear Lever.
 **AppImage manually**
 
 ```sh
-chmod +x Adventure_Mods-<arch>.AppImage
-./Adventure_Mods-<arch>.AppImage
+chmod +x AdventureMods-<arch>.AppImage
+./AdventureMods-<arch>.AppImage
 ```
 
 Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
 
 </details>
 
-## CLI
+## Command line
 
 <p align="center">
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
+
+Use the installed Flatpak for both the GUI and command line:
+
+```sh
+flatpak run io.github.astrovm.AdventureMods [command] [options]
+```
+
+Running it without a command opens the GUI. Most users only need the interactive setup:
+
+```sh
+flatpak run io.github.astrovm.AdventureMods setup
+```
 
 | Command                      | Description                                                  |
 | ---------------------------- | ------------------------------------------------------------ |
@@ -72,46 +84,46 @@ Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
 | `list-mods --game sadx\|sa2` | List available presets and mods for a game                   |
 | `setup`                      | Install runtimes, mod manager, mods, and config files        |
 
-**Common setup flags**
+Examples:
 
-| Flag                  | Description                     |
-| --------------------- | ------------------------------- |
-| `--game sadx\|sa2`    | Select the game                 |
-| `--game-path /path`   | Override Steam detection        |
-| `--preset "Name"`     | Named preset (SADX only)        |
-| `--all-mods`          | Install all recommended mods    |
-| `--mods slug1,slug2`  | Specific mods by slug           |
-| `--subtitle-language` | Subtitles (see languages below) |
-| `--voice-language`    | Voice: `japanese` or `english`  |
-| `--width`, `--height` | Override detected resolution    |
+```sh
+flatpak run io.github.astrovm.AdventureMods detect
+flatpak run io.github.astrovm.AdventureMods list-mods --game sadx
+flatpak run io.github.astrovm.AdventureMods setup --game sadx --preset "DX Enhanced"
+flatpak run io.github.astrovm.AdventureMods setup --game sa2 --all-mods
+```
+
+Use `--help` to see every command and option:
+
+```sh
+flatpak run io.github.astrovm.AdventureMods --help
+flatpak run io.github.astrovm.AdventureMods setup --help
+```
 
 <details>
-<summary>Advanced flags</summary>
+<summary>Non-interactive setup options</summary>
 
 | Flag                         | Description                                  |
 | ---------------------------- | -------------------------------------------- |
+| `--game sadx\|sa2`           | Select the game                              |
+| `--game-path /path`          | Override Steam detection                     |
+| `--preset "Name"`           | Named preset (SADX only)                     |
+| `--all-mods`                 | Install all recommended mods                 |
+| `--mods slug1,slug2`         | Install specific mods by slug                |
+| `--subtitle-language`        | Select subtitles                             |
+| `--voice-language`           | Select `japanese` or `english` voices        |
+| `--width`, `--height`        | Override the detected resolution             |
 | `--libraryfolders-vdf /path` | Use a specific `libraryfolders.vdf` file     |
 | `--steam-library /path`      | Add an extra Steam library root (repeatable) |
 
-</details>
-
-**Subtitle languages**
+Subtitle languages:
 
 - SADX: `japanese`, `english`, `french`, `spanish`, `german`
 - SA2: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
 
-> [!TIP]
-> `setup` opens an interactive wizard when game, path, or mod selection is missing. Specify all options for a fully headless run.
+When game, path, or mod selection is omitted, `setup` opens the interactive wizard.
 
-**Examples**
-
-```sh
-./Adventure_Mods-<arch>.AppImage setup --game sadx --preset "DX Enhanced"
-./Adventure_Mods-<arch>.AppImage setup --game sa2 --all-mods
-./Adventure_Mods-<arch>.AppImage setup --game sa2 --mods sa2-render-fix,better-radar
-./Adventure_Mods-<arch>.AppImage setup --game sa2 --subtitle-language japanese --voice-language english
-./Adventure_Mods-<arch>.AppImage setup --game sadx --game-path "/path/to/SADX" --width 2560 --height 1440
-```
+</details>
 
 ## Development
 
@@ -128,7 +140,7 @@ flatpak-builder --force-clean --user --install-deps-from=flathub --install \
 make appimage
 ```
 
-Output: `appimage-build/Adventure_Mods*.AppImage` and `.zsync`. Builds match the host
+Output: `appimage-build/AdventureMods-<arch>.AppImage` and `.zsync`. Builds match the host
 architecture (x86_64 or aarch64). GitHub Releases publish both.
 
 ## License
