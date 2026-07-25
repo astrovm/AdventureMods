@@ -44,6 +44,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.13" date="2026-07-25">
+      <description>
+        <p>Improved Proton compatibility checks before setup begins.</p>
+        <ul>
+          <li>Detected configured Proton 11+ tools before Steam replaces a working Proton 10 prefix</li>
+          <li>Prevented setup from continuing until the game's Proton configuration is ready</li>
+          <li>Added a Check Again action to refresh the configuration without starting installation</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.12" date="2026-07-24">
       <description>
         <p>Improved animation smoothness and interface responsiveness.</p>
