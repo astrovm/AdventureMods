@@ -32,6 +32,11 @@ pub enum PrefixState {
         prefix_tool: String,
         configured_tool: String,
     },
+    /// Steam is configured to replace the prefix with Proton/Wine 11+.
+    UnsupportedConfiguredProton {
+        tool_name: String,
+        major: u32,
+    },
     /// Prefix uses Proton/Wine 11+, which cannot keep SA Mod Manager running.
     UnsupportedProton {
         tool_name: String,
@@ -85,6 +90,16 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         let configured_canonical = try_canonicalize(&configured_tool.proton_dir);
 
         if configured_canonical != prefix_canonical {
+            if let Some(major) =
+                proton_major_from_labels(&configured_tool.name, &configured_tool.proton_dir)
+                && major > MAX_SUPPORTED_PROTON_MAJOR
+            {
+                return Ok(PrefixState::UnsupportedConfiguredProton {
+                    tool_name: configured_tool.name.clone(),
+                    major,
+                });
+            }
+
             return Ok(PrefixState::ConfigMismatch {
                 prefix_tool: prefix_metadata.tool_name,
                 configured_tool: configured_tool.name.clone(),
@@ -145,6 +160,9 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
         } => anyhow::bail!(
             "This game's Proton prefix still uses {prefix_tool}, but Steam is configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then try again."
         ),
+        PrefixState::UnsupportedConfiguredProton { tool_name, major } => anyhow::bail!(
+            "Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
+        ),
         PrefixState::UnsupportedProton { tool_name, major } => anyhow::bail!(
             "This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
         ),
@@ -157,25 +175,28 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
             format!("The Proton prefix for {game_name} is ready. You can continue right away.")
         }
         Ok(PrefixState::MissingPrefix) => format!(
-            "Steam has not created a Proton prefix for {game_name}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and continue here."
+            "Steam has not created a Proton prefix for {game_name}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and check again here."
         ),
         Ok(PrefixState::MissingMetadata) => format!(
-            "The Proton prefix metadata for {game_name} is incomplete. Force Proton 10.0 if needed, open the game from Steam once so Steam can repair it, then continue here."
+            "The Proton prefix metadata for {game_name} is incomplete. Force Proton 10.0 if needed, open the game from Steam once so Steam can repair it, then check again here."
         ),
         Ok(PrefixState::SteamConfigIncomplete) => format!(
-            "Steam's Proton configuration for {game_name} is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then continue here."
+            "Steam's Proton configuration for {game_name} is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then check again here."
         ),
         Ok(PrefixState::ProtonUnavailable { tool_name, .. }) => format!(
-            "{game_name} uses {tool_name}, but that Proton installation is unavailable. Install Proton 10.0 in Steam, force it for this game, open the game once, then continue here."
+            "{game_name} uses {tool_name}, but that Proton installation is unavailable. Install Proton 10.0 in Steam, force it for this game, open the game once, then check again here."
         ),
         Ok(PrefixState::ConfigMismatch {
             prefix_tool,
             configured_tool,
         }) => format!(
-            "{game_name} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then continue here."
+            "{game_name} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then check again here."
+        ),
+        Ok(PrefixState::UnsupportedConfiguredProton { tool_name, major }) => format!(
+            "Steam is configured to use {tool_name} (Proton/Wine {major}) for {game_name}, which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
         ),
         Ok(PrefixState::UnsupportedProton { tool_name, major }) => format!(
-            "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then continue here."
+            "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
         ),
         Ok(PrefixState::UnknownProton { tool_name }) => format!(
             "{game_name} is using {tool_name}, but Adventure Mods could not tell which Proton/Wine major version that is. SA Mod Manager needs Proton 10.0; Proton 11 and newer will not launch it. If this is not Proton 10.0, force Proton 10.0 under Properties → Compatibility, launch once, close it, then continue here."
@@ -183,7 +204,7 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
         Err(err) => {
             tracing::warn!("Failed to inspect Proton prefix state: {err}");
             format!(
-                "Force Proton 10.0 for {game_name} in Steam, open it once, then close it and continue here."
+                "Force Proton 10.0 for {game_name} in Steam, open it once, then close it and check again here."
             )
         }
     }
@@ -194,12 +215,18 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
 /// Handles labels like `10.1000-105`, `11.0-100`, `CachyOS-11.0-100`,
 /// `Proton 8.0`, and directory names like `Proton 10.0`.
 fn proton_major_from_labels(tool_name: &str, proton_dir: &Path) -> Option<u32> {
-    proton_major_from_text(tool_name).or_else(|| {
-        proton_dir
-            .file_name()
-            .and_then(|name| name.to_str())
-            .and_then(proton_major_from_text)
-    })
+    proton_major_from_text(tool_name)
+        .or_else(|| {
+            proton_dir
+                .file_name()
+                .and_then(|name| name.to_str())
+                .and_then(proton_major_from_text)
+        })
+        .or_else(|| {
+            std::fs::read_to_string(proton_dir.join("version"))
+                .ok()
+                .and_then(|version| proton_major_from_text(&version))
+        })
 }
 
 fn proton_major_from_text(text: &str) -> Option<u32> {
@@ -708,6 +735,23 @@ mod tests {
         assert_eq!(
             proton_major_from_labels("Proton - Experimental", &dir),
             Some(10)
+        );
+    }
+
+    #[test]
+    fn test_proton_major_from_labels_uses_tool_version_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton-CachyOS Latest");
+        std::fs::create_dir_all(&proton_dir).unwrap();
+        std::fs::write(
+            proton_dir.join("version"),
+            "1778931159 cachyos-11.0-20260506-slr\n",
+        )
+        .unwrap();
+
+        assert_eq!(
+            proton_major_from_labels("Proton-CachyOS Latest", &proton_dir),
+            Some(11)
         );
     }
 
@@ -1317,6 +1361,69 @@ mod tests {
                 configured_tool: "Proton - Experimental".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn test_prefix_state_rejects_unsupported_configured_tool_before_prefix_update() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let common = steam_root.join("steamapps/common");
+        let game_path = common.join("Sonic Adventure DX");
+        let proton10 = common.join("Proton 10.0");
+        let cachyos = steam_root.join("compatibilitytools.d/Proton-CachyOS Latest");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(proton10.join("files/bin")).unwrap();
+        std::fs::write(proton10.join("files/bin/wine64"), "").unwrap();
+        std::fs::create_dir_all(cachyos.join("files/bin")).unwrap();
+        std::fs::write(cachyos.join("files/bin/wine64"), "").unwrap();
+        std::fs::write(
+            cachyos.join("version"),
+            "1778931159 cachyos-11.0-20260506-slr\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(&compatdata, "10.1000-105", &proton10);
+
+        let config_dir = steam_root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "Proton-CachyOS Latest"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            prefix_state(&game_path, 71250).unwrap(),
+            PrefixState::UnsupportedConfiguredProton {
+                tool_name: "Proton-CachyOS Latest".to_owned(),
+                major: 11,
+            }
+        );
+
+        let message = steam_config_message("Sonic Adventure DX", &game_path, 71250);
+        assert!(message.contains("Steam is configured to use"));
+        assert!(message.contains("Proton/Wine 11"));
+        assert!(!message.contains("update the prefix"));
     }
 
     #[test]
