@@ -177,6 +177,10 @@ pub fn steam_config_message(game: &Game) -> String {
     proton::steam_config_message(game.kind.name(), &game.path, game.kind.app_id())
 }
 
+pub fn can_continue_from_steam_config(game: &Game) -> bool {
+    proton::ensure_prefix_ready(&game.path, game.kind.app_id()).is_ok()
+}
+
 fn is_mod_manager_fully_installed(game_path: &Path, game_kind: GameKind) -> bool {
     let exe_backed_up = game_path.join("Launcher.exe.bak").exists()
         || game_path.join("Sonic Adventure DX.exe.bak").exists();

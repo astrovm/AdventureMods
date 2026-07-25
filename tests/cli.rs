@@ -5,6 +5,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use adventure_mods::cli::{Cli, run_with_io};
+use adventure_mods::path_display::display_path;
 use adventure_mods::setup::common::ModSource;
 use adventure_mods::setup::{sa2, sadx};
 use clap::Parser;
@@ -170,7 +171,7 @@ fn detect_reports_inaccessible_libraries_from_explicit_vdf() {
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("Detected games:"));
     assert!(output.contains("Inaccessible Steam libraries:"));
-    assert!(output.contains(missing_library.to_str().unwrap()));
+    assert!(output.contains(&display_path(&missing_library)));
 }
 
 #[test]
@@ -188,7 +189,7 @@ fn detect_reports_games_from_explicit_vdf() {
 
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("Sonic Adventure DX"));
-    assert!(output.contains(fixture.game_path.to_str().unwrap()));
+    assert!(output.contains(&display_path(&fixture.game_path)));
 }
 
 #[test]

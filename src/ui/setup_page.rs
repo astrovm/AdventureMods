@@ -846,8 +846,17 @@ impl AdventureModsSetupPage {
                 self.run_auto_step(step.id);
             }
             steps::StepKind::Info => {
-                imp.next_button
-                    .set_label(if is_last_step { "Finish" } else { "Continue" });
+                let steam_config_ready =
+                    step.id == StepId::SteamConfig && self.steam_config_ready();
+                imp.next_button.set_label(
+                    if step.id == StepId::SteamConfig && !steam_config_ready {
+                        "Check Again"
+                    } else if is_last_step {
+                        "Finish"
+                    } else {
+                        "Continue"
+                    },
+                );
                 imp.next_button.set_sensitive(true);
 
                 if step.id == StepId::LanguageOptions {
@@ -1523,6 +1532,15 @@ impl AdventureModsSetupPage {
             (1920, 1080)
         })
     }
+
+    fn steam_config_ready(&self) -> bool {
+        self.imp()
+            .game
+            .borrow()
+            .as_ref()
+            .is_some_and(common::can_continue_from_steam_config)
+    }
+
     fn advance_step(&self) {
         let imp = self.imp();
         let next = imp.current_step.get() + 1;
@@ -1594,6 +1612,10 @@ impl AdventureModsSetupPage {
             // Last step: navigate back to the welcome page
             self.go_back_to_welcome();
         } else {
+            if current_step_id == StepId::SteamConfig && !self.steam_config_ready() {
+                self.show_current_step();
+                return;
+            }
             if current_step_id == StepId::LanguageOptions {
                 self.persist_language_selection();
             }
