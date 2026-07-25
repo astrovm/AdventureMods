@@ -174,8 +174,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          version="${{ github.ref_name }}"
+          version="$RELEASE_TAG"
           version="${version#v}"
           cargo_version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
 
@@ -189,8 +191,9 @@ jobs:
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          tag="${{ github.ref_name }}"
+          tag="$RELEASE_TAG"
           version="${tag#v}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists"
@@ -228,8 +231,9 @@ jobs:
       - name: Upload and publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          tag="${{ github.ref_name }}"
+          tag="$RELEASE_TAG"
           gh release upload "$tag" \
             appimage-artifacts/*.AppImage* \
             flatpak-artifacts/*.flatpak \
@@ -248,10 +252,11 @@ jobs:
       - name: Trigger Flatpak repository publication
         env:
           GH_TOKEN: ${{ secrets.FLATPAK_REPO_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::Skipping Flatpak repository publication because FLATPAK_REPO_TOKEN is not configured"
-            exit 0
+            echo "::error::FLATPAK_REPO_TOKEN is required to publish the Flatpak repository"
+            exit 1
           fi
 
           gh api \
@@ -259,4 +264,4 @@ jobs:
             repos/astrovm/flatpak/dispatches \
             -f event_type=publish-app \
             -f "client_payload[repository]=$GITHUB_REPOSITORY" \
-            -f "client_payload[tag]=${{ github.ref_name }}"
+            -f "client_payload[tag]=$RELEASE_TAG"
