@@ -1,5 +1,6 @@
 use super::*;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Build a mock VDF structure for libraryfolders with one library.
 fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
@@ -703,6 +704,115 @@ fn test_detect_games_dedupes_symlinked_library_paths() {
         .filter(|g| g.kind == GameKind::SADX)
         .collect();
     assert_eq!(sadx.len(), 1);
+}
+
+fn make_steam_library(root: &Path, kind: GameKind) -> PathBuf {
+    let game_dir = root.join("steamapps/common").join(kind.install_dir());
+    std::fs::create_dir_all(&game_dir).unwrap();
+    let exe = match kind {
+        GameKind::SADX => "Sonic Adventure DX.exe",
+        GameKind::SA2 => "sonic2app.exe",
+    };
+    std::fs::write(game_dir.join(exe), "").unwrap();
+    game_dir
+}
+
+#[test]
+fn resolve_granted_library_accepts_portal_path_with_steamapps() {
+    let tmp = tempfile::tempdir().unwrap();
+    let expected = PathBuf::from("/data/SteamLibrary");
+    let portal = tmp.path().join("doc").join("d1a2b3c4");
+    make_steam_library(&portal, GameKind::SADX);
+
+    let resolved = resolve_granted_steam_library(&portal, &expected).unwrap();
+    assert_eq!(resolved, portal);
+}
+
+#[test]
+fn resolve_granted_library_accepts_parent_that_contains_expected_name() {
+    let tmp = tempfile::tempdir().unwrap();
+    let expected = tmp.path().join("SteamLibrary");
+    let parent = tmp.path().join("data");
+    let nested = parent.join("SteamLibrary");
+    make_steam_library(&nested, GameKind::SADX);
+
+    let resolved = resolve_granted_steam_library(&parent, &expected).unwrap();
+    assert_eq!(resolved, nested);
+}
+
+#[test]
+fn resolve_granted_library_accepts_steamapps_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let library = tmp.path().join("SteamLibrary");
+    make_steam_library(&library, GameKind::SADX);
+
+    let resolved = resolve_granted_steam_library(&library.join("steamapps"), &library).unwrap();
+    assert_eq!(resolved, library);
+}
+
+#[test]
+fn resolve_granted_library_rejects_unrelated_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let expected = tmp.path().join("SteamLibrary");
+    let selected = tmp.path().join("Documents");
+    std::fs::create_dir_all(&selected).unwrap();
+
+    assert!(resolve_granted_steam_library(&selected, &expected).is_none());
+}
+
+#[cfg(target_os = "linux")]
+fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
+    use std::ffi::CString;
+    use std::os::unix::ffi::OsStrExt;
+
+    unsafe extern "C" {
+        fn setxattr(
+            path: *const core::ffi::c_char,
+            name: *const core::ffi::c_char,
+            value: *const u8,
+            size: usize,
+            flags: i32,
+        ) -> i32;
+    }
+
+    let c_path = CString::new(path.as_os_str().as_bytes()).unwrap();
+    let c_name = CString::new("user.document-portal.host-path").unwrap();
+    let value = host_path.as_os_str().as_bytes();
+    let result = unsafe {
+        setxattr(
+            c_path.as_ptr(),
+            c_name.as_ptr(),
+            value.as_ptr(),
+            value.len(),
+            0,
+        )
+    };
+    result == 0
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host_library = PathBuf::from("/data/SteamLibrary");
+    let portal = tmp.path().join("run-user-doc").join("abc123");
+    make_steam_library(&portal, GameKind::SADX);
+
+    if !try_set_host_path_xattr(&portal, &host_library) {
+        eprintln!("skipping xattr-backed portal grant test; filesystem has no user xattrs");
+        return;
+    }
+
+    let root = mock_vdf(host_library.to_str().unwrap(), &["71250"]);
+    let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&portal));
+
+    assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
+    assert!(
+        result
+            .inaccessible
+            .iter()
+            .all(|game| game.library_path != host_library)
+    );
 }
 
 #[test]
