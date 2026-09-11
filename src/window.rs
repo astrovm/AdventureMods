@@ -101,16 +101,12 @@ impl AdventureModsWindow {
                     };
 
                     let path_buf = std::path::PathBuf::from(path);
-                    let added = {
-                        let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
-                        add_extra_library_path(&mut extra_paths, path_buf)
-                    };
-
-                    if added {
-                        obj.save_extra_library_paths();
-                    }
-
-                    obj.detect_games();
+                    handle_library_access_granted(
+                        &obj.imp().extra_library_paths,
+                        path_buf,
+                        || obj.save_extra_library_paths(),
+                        || obj.detect_games(),
+                    );
                 });
                 None
             }
@@ -296,6 +292,24 @@ fn add_extra_library_path(
     true
 }
 
+fn handle_library_access_granted(
+    extra_paths: &std::cell::RefCell<Vec<std::path::PathBuf>>,
+    path: std::path::PathBuf,
+    save: impl FnOnce(),
+    refresh: impl FnOnce(),
+) {
+    let added = {
+        let mut extra_paths = extra_paths.borrow_mut();
+        add_extra_library_path(&mut extra_paths, path)
+    };
+
+    if added {
+        save();
+    }
+
+    refresh();
+}
+
 fn next_detection_request_id(current: u64) -> u64 {
     current.wrapping_add(1)
 }
@@ -306,9 +320,13 @@ fn should_apply_detection_result(latest_request_id: u64, request_id: u64) -> boo
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::path::PathBuf;
 
-    use super::{add_extra_library_path, next_detection_request_id, should_apply_detection_result};
+    use super::{
+        add_extra_library_path, handle_library_access_granted, next_detection_request_id,
+        should_apply_detection_result,
+    };
 
     #[test]
     fn adding_a_granted_library_path_reports_new_paths_only() {
@@ -329,6 +347,26 @@ mod tests {
                 PathBuf::from("/run/user/1000/doc/abc123/SteamLibrary")
             ]
         );
+    }
+
+    #[test]
+    fn granting_library_saves_before_refreshing() {
+        let paths = RefCell::new(Vec::new());
+        let events = RefCell::new(Vec::new());
+        let granted_path = PathBuf::from("/run/user/1000/doc/abc123/SteamLibrary");
+        let expected_path = granted_path.clone();
+
+        handle_library_access_granted(
+            &paths,
+            granted_path,
+            || {
+                assert_eq!(*paths.borrow(), vec![expected_path]);
+                events.borrow_mut().push("saved");
+            },
+            || events.borrow_mut().push("refreshed"),
+        );
+
+        assert_eq!(*events.borrow(), vec!["saved", "refreshed"]);
     }
 
     #[test]

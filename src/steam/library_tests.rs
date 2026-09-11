@@ -718,22 +718,21 @@ fn make_steam_library(root: &Path, kind: GameKind) -> PathBuf {
 }
 
 #[test]
-fn resolve_granted_library_accepts_portal_path_with_steamapps() {
+fn resolve_granted_library_accepts_matching_library_root() {
     let tmp = tempfile::tempdir().unwrap();
-    let expected = PathBuf::from("/data/SteamLibrary");
-    let portal = tmp.path().join("doc").join("d1a2b3c4");
-    make_steam_library(&portal, GameKind::SADX);
+    let expected = tmp.path().join("SteamLibrary");
+    make_steam_library(&expected, GameKind::SADX);
 
-    let resolved = resolve_granted_steam_library(&portal, &expected).unwrap();
-    assert_eq!(resolved, portal);
+    let resolved = resolve_granted_steam_library(&expected, &expected).unwrap();
+    assert_eq!(resolved, expected);
 }
 
 #[test]
 fn resolve_granted_library_accepts_parent_that_contains_expected_name() {
     let tmp = tempfile::tempdir().unwrap();
-    let expected = tmp.path().join("SteamLibrary");
     let parent = tmp.path().join("data");
     let nested = parent.join("SteamLibrary");
+    let expected = nested.clone();
     make_steam_library(&nested, GameKind::SADX);
 
     let resolved = resolve_granted_steam_library(&parent, &expected).unwrap();
@@ -748,6 +747,17 @@ fn resolve_granted_library_accepts_steamapps_folder() {
 
     let resolved = resolve_granted_steam_library(&library.join("steamapps"), &library).unwrap();
     assert_eq!(resolved, library);
+}
+
+#[test]
+fn resolve_granted_library_rejects_different_steam_library() {
+    let tmp = tempfile::tempdir().unwrap();
+    let expected = tmp.path().join("SteamLibrary");
+    let selected = tmp.path().join("OtherSteamLibrary");
+    make_steam_library(&expected, GameKind::SADX);
+    make_steam_library(&selected, GameKind::SADX);
+
+    assert!(resolve_granted_steam_library(&selected, &expected).is_none());
 }
 
 #[test]
@@ -788,6 +798,23 @@ fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
         )
     };
     result == 0
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn resolve_granted_library_accepts_matching_portal_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    let expected = tmp.path().join("host/SteamLibrary");
+    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
+    make_steam_library(&portal, GameKind::SADX);
+
+    if !try_set_host_path_xattr(&portal, &expected) {
+        eprintln!("skipping xattr-backed portal grant test; filesystem has no user xattrs");
+        return;
+    }
+
+    let resolved = resolve_granted_steam_library(&portal, &expected).unwrap();
+    assert_eq!(resolved, portal);
 }
 
 #[cfg(target_os = "linux")]

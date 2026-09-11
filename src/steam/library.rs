@@ -178,16 +178,17 @@ fn find_document_portal_library(expected: &Path) -> Option<PathBuf> {
 /// Turn a folder returned by the Flatpak file portal into a usable Steam library root.
 ///
 /// The portal typically yields `/run/user/$UID/doc/<id>` instead of the host
-/// path from Steam (`/data/SteamLibrary`). That document is still the library
-/// if it contains `steamapps`.
+/// path from Steam (`/data/SteamLibrary`). A selected document is usable when
+/// it contains `steamapps` and maps back to the expected host library.
 pub(crate) fn resolve_granted_steam_library(selected: &Path, expected: &Path) -> Option<PathBuf> {
     if is_steam_library_root(selected) {
-        return Some(selected.to_path_buf());
+        return granted_library_matches_expected(selected, expected)
+            .then(|| selected.to_path_buf());
     }
 
     if let Some(name) = expected.file_name() {
         let nested = selected.join(name);
-        if is_steam_library_root(&nested) {
+        if is_steam_library_root(&nested) && granted_library_matches_expected(&nested, expected) {
             return Some(nested);
         }
     }
@@ -196,10 +197,16 @@ pub(crate) fn resolve_granted_steam_library(selected: &Path, expected: &Path) ->
         && let Some(parent) = selected.parent()
         && is_steam_library_root(parent)
     {
-        return Some(parent.to_path_buf());
+        return granted_library_matches_expected(parent, expected).then(|| parent.to_path_buf());
     }
 
     find_document_portal_library(expected)
+}
+
+fn granted_library_matches_expected(selected: &Path, expected: &Path) -> bool {
+    library_paths_equivalent(selected, expected)
+        || document_portal_host_path(selected)
+            .is_some_and(|host| library_paths_equivalent(&host, expected))
 }
 
 #[derive(Debug, Clone)]

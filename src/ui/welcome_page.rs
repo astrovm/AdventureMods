@@ -161,12 +161,6 @@ impl AdventureModsWelcomePage {
         glib::spawn_future_local(async move {
             match dialog.select_folder_future(Some(&window)).await {
                 Ok(folder) => {
-                    let _ = folder.query_info(
-                        "standard::type,standard::name,xattr::user.document-portal.host-path",
-                        gio::FileQueryInfoFlags::NONE,
-                        gio::Cancellable::NONE,
-                    );
-
                     let Some(path) = folder.path() else {
                         obj.show_library_access_error(&format!(
                             "Could not read the selected folder. Please choose {}.",
@@ -183,7 +177,7 @@ impl AdventureModsWelcomePage {
                             "Granted folder is not a usable Steam library"
                         );
                         obj.show_library_access_error(&format!(
-                            "That folder is not a Steam library. Select {} (it must contain a steamapps folder).",
+                            "That folder is not the requested Steam library. Select {} (it must contain a steamapps folder).",
                             display_path(&expected_library)
                         ));
                         return;
