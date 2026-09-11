@@ -483,7 +483,12 @@ fn sibling_steam_root_candidates(library_root: &Path) -> Vec<PathBuf> {
 }
 
 fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool {
-    if steam_root == library_path {
+    let mut target_paths = vec![try_canonicalize(library_path)];
+    if let Some(host_path) = library::document_portal_host_path(library_path) {
+        target_paths.push(try_canonicalize(&host_path));
+    }
+
+    if target_paths.contains(&try_canonicalize(steam_root)) {
         return true;
     }
 
@@ -498,10 +503,6 @@ fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool
         return false;
     };
 
-    let target = library_path
-        .canonicalize()
-        .unwrap_or_else(|_| library_path.to_path_buf());
-
     folders.values().any(|folder| {
         folder
             .as_map()
@@ -509,7 +510,7 @@ fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool
             .and_then(|value| value.as_str())
             .map(PathBuf::from)
             .and_then(|path| path.canonicalize().ok().or(Some(path)))
-            .is_some_and(|path| path == target)
+            .is_some_and(|path| target_paths.contains(&path))
     })
 }
 
@@ -1113,6 +1114,35 @@ mod tests {
         .unwrap();
 
         assert_eq!(steam_client_root(&game_path).unwrap(), steam_root);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_steam_root_references_document_portal_library() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path().join("steam-root");
+        let host_library = tmp.path().join("host/SteamLibrary");
+        let portal_library = tmp.path().join("doc/abc123/SteamLibrary");
+
+        std::fs::create_dir_all(steam_root.join("steamapps")).unwrap();
+        std::fs::create_dir_all(portal_library.join("steamapps")).unwrap();
+        std::fs::write(
+            steam_root.join("steamapps/libraryfolders.vdf"),
+            format!(
+                "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"\t\"{}\"\n    }}\n}}\n",
+                host_library.display()
+            ),
+        )
+        .unwrap();
+
+        if !try_set_host_path_xattr(&portal_library, &host_library) {
+            eprintln!(
+                "skipping xattr-backed Steam root portal test; filesystem has no user xattrs"
+            );
+            return;
+        }
+
+        assert!(steam_root_references_library(&steam_root, &portal_library));
     }
 
     #[test]

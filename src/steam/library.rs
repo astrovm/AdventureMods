@@ -45,7 +45,7 @@ fn library_paths_equivalent(left: &Path, right: &Path) -> bool {
 ///
 /// Flatpak folder grants are visible at `/run/user/$UID/doc/<id>` rather than
 /// at the original host path from `libraryfolders.vdf`.
-fn document_portal_host_path(path: &Path) -> Option<PathBuf> {
+pub(crate) fn document_portal_host_path(path: &Path) -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
     {
         use std::ffi::{CString, OsString};
