@@ -101,12 +101,13 @@ impl AdventureModsWindow {
                     };
 
                     let path_buf = std::path::PathBuf::from(path);
-                    {
+                    let added = {
                         let mut extra_paths = obj.imp().extra_library_paths.borrow_mut();
-                        if !extra_paths.iter().any(|existing| existing == &path_buf) {
-                            extra_paths.push(path_buf);
-                            obj.save_extra_library_paths();
-                        }
+                        add_extra_library_path(&mut extra_paths, path_buf)
+                    };
+
+                    if added {
+                        obj.save_extra_library_paths();
                     }
 
                     obj.detect_games();
@@ -283,6 +284,18 @@ impl AdventureModsWindow {
     }
 }
 
+fn add_extra_library_path(
+    extra_paths: &mut Vec<std::path::PathBuf>,
+    path: std::path::PathBuf,
+) -> bool {
+    if extra_paths.iter().any(|existing| existing == &path) {
+        return false;
+    }
+
+    extra_paths.push(path);
+    true
+}
+
 fn next_detection_request_id(current: u64) -> u64 {
     current.wrapping_add(1)
 }
@@ -293,7 +306,30 @@ fn should_apply_detection_result(latest_request_id: u64, request_id: u64) -> boo
 
 #[cfg(test)]
 mod tests {
-    use super::{next_detection_request_id, should_apply_detection_result};
+    use std::path::PathBuf;
+
+    use super::{add_extra_library_path, next_detection_request_id, should_apply_detection_result};
+
+    #[test]
+    fn adding_a_granted_library_path_reports_new_paths_only() {
+        let mut paths = vec![PathBuf::from("/data/SteamLibrary")];
+
+        assert!(!add_extra_library_path(
+            &mut paths,
+            PathBuf::from("/data/SteamLibrary")
+        ));
+        assert!(add_extra_library_path(
+            &mut paths,
+            PathBuf::from("/run/user/1000/doc/abc123/SteamLibrary")
+        ));
+        assert_eq!(
+            paths,
+            vec![
+                PathBuf::from("/data/SteamLibrary"),
+                PathBuf::from("/run/user/1000/doc/abc123/SteamLibrary")
+            ]
+        );
+    }
 
     #[test]
     fn newer_detection_request_replaces_older_one() {
