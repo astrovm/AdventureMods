@@ -81,6 +81,35 @@ fn document_portal_host_path(path: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Resolve a host path through the document-portal path containing `portal_path`.
+///
+/// Portal xattrs are available on the mounted path and its ancestors. Walking
+/// those ancestors lets callers map sibling paths from metadata written by
+/// Steam on the host filesystem into the sandbox-visible document path.
+pub(crate) fn resolve_document_portal_path(
+    portal_path: &Path,
+    host_path: &Path,
+) -> Option<PathBuf> {
+    let host_path = canonicalize_with_suffix(host_path);
+    let mut current = Some(portal_path);
+
+    while let Some(portal_path) = current {
+        if let Some(portal_host) = document_portal_host_path(portal_path) {
+            let portal_host = canonicalize_with_suffix(&portal_host);
+            if let Ok(relative) = host_path.strip_prefix(&portal_host) {
+                let resolved = portal_path.join(relative);
+                if resolved.exists() {
+                    return Some(resolved);
+                }
+            }
+        }
+
+        current = portal_path.parent();
+    }
+
+    None
+}
+
 #[cfg(target_os = "linux")]
 mod linux_xattr {
     unsafe extern "C" {

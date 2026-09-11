@@ -79,7 +79,7 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::MissingPrefix);
     }
 
-    let Some(prefix_metadata) = read_prefix_metadata(&compatdata)? else {
+    let Some(prefix_metadata) = read_prefix_metadata_for_game(game_path, &compatdata)? else {
         return Ok(PrefixState::MissingMetadata);
     };
 
@@ -368,7 +368,22 @@ fn failure_priority(lookup: &ConfiguredToolLookup) -> u8 {
 fn find_proton_from_prefix_metadata(game_path: &Path, app_id: u32) -> Result<Option<PathBuf>> {
     let steamapps = steamapps_dir(game_path)?;
     let compatdata = steamapps.join("compatdata").join(app_id.to_string());
-    Ok(read_prefix_metadata(&compatdata)?.map(|metadata| metadata.proton_dir))
+    Ok(read_prefix_metadata_for_game(game_path, &compatdata)?.map(|metadata| metadata.proton_dir))
+}
+
+fn read_prefix_metadata_for_game(
+    game_path: &Path,
+    compatdata: &Path,
+) -> Result<Option<PrefixMetadata>> {
+    let Some(mut metadata) = read_prefix_metadata(compatdata)? else {
+        return Ok(None);
+    };
+
+    if let Some(resolved) = library::resolve_document_portal_path(game_path, &metadata.proton_dir) {
+        metadata.proton_dir = resolved;
+    }
+
+    Ok(Some(metadata))
 }
 
 fn read_prefix_metadata(compatdata: &Path) -> Result<Option<PrefixMetadata>> {
@@ -986,6 +1001,91 @@ mod tests {
 
         let result = find_proton_for_app(&game_path, 71250).unwrap();
         assert_eq!(result, common.join("Proton 8.0"));
+    }
+
+    #[cfg(target_os = "linux")]
+    fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        unsafe extern "C" {
+            fn setxattr(
+                path: *const core::ffi::c_char,
+                name: *const core::ffi::c_char,
+                value: *const u8,
+                size: usize,
+                flags: i32,
+            ) -> i32;
+        }
+
+        let c_path = CString::new(path.as_os_str().as_bytes()).unwrap();
+        let c_name = CString::new("user.document-portal.host-path").unwrap();
+        let value = host_path.as_os_str().as_bytes();
+        let result = unsafe {
+            setxattr(
+                c_path.as_ptr(),
+                c_name.as_ptr(),
+                value.as_ptr(),
+                value.len(),
+                0,
+            )
+        };
+        result == 0
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_find_proton_for_app_maps_host_metadata_into_document_portal() {
+        let tmp = tempfile::tempdir().unwrap();
+        let portal_root = tmp.path().join("doc/abc123/SteamLibrary");
+        let portal_common = portal_root.join("steamapps/common");
+        let game_path = portal_common.join("Sonic Adventure DX");
+        let portal_proton = portal_common.join("Proton 10.0");
+        let host_common = tmp.path().join("host/SteamLibrary/steamapps/common");
+        let host_proton = host_common.join("Proton 10.0");
+        let compatdata = portal_root.join("steamapps/compatdata/71250");
+
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(portal_proton.join("files/bin")).unwrap();
+        std::fs::write(portal_proton.join("files/bin/wine64"), "").unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(&compatdata, "10.1000-105", &host_proton);
+        std::fs::create_dir_all(portal_root.join("config")).unwrap();
+        std::fs::write(
+            portal_root.join("config/config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "proton_10"
+                    }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+        std::fs::create_dir_all(&host_common).unwrap();
+
+        if !try_set_host_path_xattr(&portal_common, &host_common) {
+            eprintln!("skipping xattr-backed Proton portal test; filesystem has no user xattrs");
+            return;
+        }
+
+        assert_eq!(prefix_state(&game_path, 71250).unwrap(), PrefixState::Ready);
+        assert_eq!(
+            find_proton_for_app(&game_path, 71250).unwrap(),
+            portal_proton
+        );
     }
 
     #[test]
