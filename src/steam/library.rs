@@ -110,6 +110,22 @@ pub(crate) fn resolve_document_portal_path(
     None
 }
 
+/// Resolve a path from a document-portal mount back to its host path.
+pub(crate) fn resolve_document_portal_host_path(portal_path: &Path) -> Option<PathBuf> {
+    let mut current = Some(portal_path);
+
+    while let Some(portal_root) = current {
+        if let Some(host_root) = document_portal_host_path(portal_root) {
+            let relative = portal_path.strip_prefix(portal_root).ok()?;
+            return Some(host_root.join(relative));
+        }
+
+        current = portal_root.parent();
+    }
+
+    None
+}
+
 #[cfg(target_os = "linux")]
 mod linux_xattr {
     unsafe extern "C" {

@@ -302,10 +302,13 @@ pub fn run_in_prefix(
     extra_args: &[&str],
 ) -> Result<Output> {
     let proton_dir = find_proton_for_app(game_path, app_id)?;
+    let host_proton_dir = host_command_path(&proton_dir);
     let mut env = proton_env(game_path, app_id)?;
-    configure_proton_runtime_env(&mut env, &proton_dir);
+    map_env_paths_for_host_command(&mut env);
+    configure_proton_runtime_env(&mut env, &host_proton_dir);
 
-    let wine = wine_binary(&proton_dir);
+    let wine = wine_binary(&host_proton_dir);
+    let exe = host_command_path(exe);
 
     let exe_str = exe.to_string_lossy();
     let args: Vec<&str> = std::iter::once(exe_str.as_ref())
@@ -321,6 +324,25 @@ pub fn run_in_prefix(
     );
 
     flatpak::host_command_with_env_sync(&wine_str, &args, &env)
+}
+
+fn host_command_path(path: &Path) -> PathBuf {
+    library::resolve_document_portal_host_path(path).unwrap_or_else(|| path.to_path_buf())
+}
+
+fn map_env_paths_for_host_command(env: &mut HashMap<String, String>) {
+    for key in [
+        "WINEPREFIX",
+        "STEAM_COMPAT_DATA_PATH",
+        "STEAM_COMPAT_CLIENT_INSTALL_PATH",
+    ] {
+        if let Some(value) = env.get_mut(key) {
+            let path = Path::new(value);
+            if let Some(host_path) = library::resolve_document_portal_host_path(path) {
+                *value = host_path.to_string_lossy().into_owned();
+            }
+        }
+    }
 }
 
 fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
@@ -695,6 +717,14 @@ fn configure_proton_runtime_env(env: &mut HashMap<String, String>, proton_dir: &
         .filter(|existing| !existing.is_empty())
         .map_or(bin_dir.clone(), |existing| format!("{bin_dir}:{existing}"));
     env.insert("PATH".into(), path);
+
+    let wineserver = proton_dir.join("files/bin/wineserver");
+    if wineserver.is_file() {
+        env.insert(
+            "WINESERVER".into(),
+            wineserver.to_string_lossy().into_owned(),
+        );
+    }
 }
 
 /// Check whether a Proton directory contains a usable Wine binary.
@@ -1123,6 +1153,57 @@ mod tests {
         assert_eq!(
             find_proton_for_app(&game_path, 71250).unwrap(),
             portal_proton
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_host_command_paths_map_document_portal_paths() {
+        let tmp = tempfile::tempdir().unwrap();
+        let host_root = tmp.path().join("host/SteamLibrary");
+        let portal_root = tmp.path().join("doc/abc123/SteamLibrary");
+        let portal_prefix = portal_root.join("steamapps/compatdata/71250/pfx");
+
+        std::fs::create_dir_all(&portal_prefix).unwrap();
+
+        if !try_set_host_path_xattr(&portal_root, &host_root) {
+            eprintln!(
+                "skipping xattr-backed host command path test; filesystem has no user xattrs"
+            );
+            return;
+        }
+
+        assert_eq!(
+            host_command_path(&portal_prefix),
+            host_root.join("steamapps/compatdata/71250/pfx")
+        );
+
+        let mut env = HashMap::from([
+            (
+                "WINEPREFIX".to_owned(),
+                portal_prefix.to_string_lossy().into_owned(),
+            ),
+            (
+                "STEAM_COMPAT_DATA_PATH".to_owned(),
+                portal_root
+                    .join("steamapps/compatdata/71250")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        ]);
+        map_env_paths_for_host_command(&mut env);
+
+        assert_eq!(
+            env["WINEPREFIX"],
+            host_root
+                .join("steamapps/compatdata/71250/pfx")
+                .to_string_lossy()
+        );
+        assert_eq!(
+            env["STEAM_COMPAT_DATA_PATH"],
+            host_root
+                .join("steamapps/compatdata/71250")
+                .to_string_lossy()
         );
     }
 
@@ -1787,25 +1868,33 @@ mod tests {
 
     #[test]
     fn test_configure_proton_runtime_env_sets_loader_paths() {
-        let proton_dir = Path::new("/steamapps/common/Proton 10.0");
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton 10.0");
+        std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+        std::fs::write(proton_dir.join("files/bin/wineserver"), "").unwrap();
         let mut env = HashMap::from([
             ("LD_LIBRARY_PATH".to_owned(), "/host/lib".to_owned()),
             ("PATH".to_owned(), "/usr/bin".to_owned()),
         ]);
 
-        configure_proton_runtime_env(&mut env, proton_dir);
+        configure_proton_runtime_env(&mut env, &proton_dir);
+
+        let proton_dir = proton_dir.to_string_lossy();
 
         assert_eq!(
             env["LD_LIBRARY_PATH"],
-            "/steamapps/common/Proton 10.0/files/lib/x86_64-linux-gnu:/steamapps/common/Proton 10.0/files/lib/i386-linux-gnu:/host/lib"
+            format!(
+                "{proton_dir}/files/lib/x86_64-linux-gnu:{proton_dir}/files/lib/i386-linux-gnu:/host/lib"
+            )
         );
         assert_eq!(
             env["WINEDLLPATH"],
-            "/steamapps/common/Proton 10.0/files/lib/vkd3d:/steamapps/common/Proton 10.0/files/lib/wine"
+            format!("{proton_dir}/files/lib/vkd3d:{proton_dir}/files/lib/wine")
         );
+        assert_eq!(env["PATH"], format!("{proton_dir}/files/bin:/usr/bin"));
         assert_eq!(
-            env["PATH"],
-            "/steamapps/common/Proton 10.0/files/bin:/usr/bin"
+            env["WINESERVER"],
+            format!("{proton_dir}/files/bin/wineserver")
         );
     }
 

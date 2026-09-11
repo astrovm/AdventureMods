@@ -819,6 +819,26 @@ fn resolve_granted_library_accepts_matching_portal_path() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn resolve_document_portal_host_path_maps_nested_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = tmp.path().join("host/SteamLibrary");
+    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
+    let nested = portal.join("steamapps/common/Proton 10.0");
+    std::fs::create_dir_all(&nested).unwrap();
+
+    if !try_set_host_path_xattr(&portal, &host) {
+        eprintln!("skipping xattr-backed portal host path test; filesystem has no user xattrs");
+        return;
+    }
+
+    assert_eq!(
+        resolve_document_portal_host_path(&nested),
+        Some(host.join("steamapps/common/Proton 10.0"))
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
     let tmp = tempfile::tempdir().unwrap();
     let host_library = PathBuf::from("/data/SteamLibrary");
