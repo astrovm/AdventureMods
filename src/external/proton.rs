@@ -292,7 +292,7 @@ pub fn proton_env(game_path: &Path, app_id: u32) -> Result<HashMap<String, Strin
     Ok(env)
 }
 
-/// Run an executable inside the game's Proton prefix using Wine.
+/// Run an executable inside the game's Proton prefix using Proton's Wine runtime.
 ///
 /// `extra_args` are passed to the executable after the exe path.
 pub fn run_in_prefix(
@@ -302,7 +302,8 @@ pub fn run_in_prefix(
     extra_args: &[&str],
 ) -> Result<Output> {
     let proton_dir = find_proton_for_app(game_path, app_id)?;
-    let env = proton_env(game_path, app_id)?;
+    let mut env = proton_env(game_path, app_id)?;
+    configure_proton_runtime_env(&mut env, &proton_dir);
 
     let wine = wine_binary(&proton_dir);
 
@@ -658,6 +659,42 @@ fn wine_binary(proton_dir: &Path) -> PathBuf {
     } else {
         proton_dir.join("files/bin/wine")
     }
+}
+
+fn configure_proton_runtime_env(env: &mut HashMap<String, String>, proton_dir: &Path) {
+    let lib_dir = proton_dir.join("files/lib");
+    let runtime_library_path = [
+        lib_dir.join("x86_64-linux-gnu"),
+        lib_dir.join("i386-linux-gnu"),
+    ]
+    .into_iter()
+    .map(|path| path.to_string_lossy().into_owned())
+    .collect::<Vec<_>>()
+    .join(":");
+
+    let ld_library_path = env
+        .get("LD_LIBRARY_PATH")
+        .filter(|existing| !existing.is_empty())
+        .map_or(runtime_library_path.clone(), |existing| {
+            format!("{runtime_library_path}:{existing}")
+        });
+    env.insert("LD_LIBRARY_PATH".into(), ld_library_path);
+
+    env.insert(
+        "WINEDLLPATH".into(),
+        [lib_dir.join("vkd3d"), lib_dir.join("wine")]
+            .into_iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join(":"),
+    );
+
+    let bin_dir = proton_dir.join("files/bin").to_string_lossy().into_owned();
+    let path = env
+        .get("PATH")
+        .filter(|existing| !existing.is_empty())
+        .map_or(bin_dir.clone(), |existing| format!("{bin_dir}:{existing}"));
+    env.insert("PATH".into(), path);
 }
 
 /// Check whether a Proton directory contains a usable Wine binary.
@@ -1746,6 +1783,30 @@ mod tests {
             steam_root.to_string_lossy()
         );
         assert_eq!(env["SteamAppId"], "71250");
+    }
+
+    #[test]
+    fn test_configure_proton_runtime_env_sets_loader_paths() {
+        let proton_dir = Path::new("/steamapps/common/Proton 10.0");
+        let mut env = HashMap::from([
+            ("LD_LIBRARY_PATH".to_owned(), "/host/lib".to_owned()),
+            ("PATH".to_owned(), "/usr/bin".to_owned()),
+        ]);
+
+        configure_proton_runtime_env(&mut env, proton_dir);
+
+        assert_eq!(
+            env["LD_LIBRARY_PATH"],
+            "/steamapps/common/Proton 10.0/files/lib/x86_64-linux-gnu:/steamapps/common/Proton 10.0/files/lib/i386-linux-gnu:/host/lib"
+        );
+        assert_eq!(
+            env["WINEDLLPATH"],
+            "/steamapps/common/Proton 10.0/files/lib/vkd3d:/steamapps/common/Proton 10.0/files/lib/wine"
+        );
+        assert_eq!(
+            env["PATH"],
+            "/steamapps/common/Proton 10.0/files/bin:/usr/bin"
+        );
     }
 
     #[test]
