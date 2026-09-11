@@ -305,25 +305,50 @@ pub fn run_in_prefix(
     let host_proton_dir = host_command_path(&proton_dir);
     let mut env = proton_env(game_path, app_id)?;
     map_env_paths_for_host_command(&mut env);
-    configure_proton_runtime_env(&mut env, &host_proton_dir);
-
-    let wine = wine_binary(&host_proton_dir);
     let exe = host_command_path(exe);
-
-    let exe_str = exe.to_string_lossy();
-    let args: Vec<&str> = std::iter::once(exe_str.as_ref())
-        .chain(extra_args.iter().copied())
-        .collect();
-    let wine_str = wine.to_string_lossy().to_string();
+    let (program, command_args) = prefix_command(&host_proton_dir, &exe, extra_args, &mut env);
+    let args: Vec<&str> = command_args.iter().map(String::as_str).collect();
+    let program_str = program.to_string_lossy().to_string();
 
     tracing::info!(
-        "Running {} in prefix for app {} with Proton at {}",
+        "Running {} in prefix for app {} with Proton at {} using {}",
         exe.display(),
         app_id,
-        proton_dir.display()
+        proton_dir.display(),
+        program.display()
     );
 
-    flatpak::host_command_with_env_sync(&wine_str, &args, &env)
+    flatpak::host_command_with_env_sync(&program_str, &args, &env)
+}
+
+fn prefix_command(
+    proton_dir: &Path,
+    exe: &Path,
+    extra_args: &[&str],
+    env: &mut HashMap<String, String>,
+) -> (PathBuf, Vec<String>) {
+    let proton_launcher = proton_dir.join("proton");
+    let use_launcher = proton_launcher.is_file();
+    let mut args = Vec::with_capacity(extra_args.len() + 2);
+
+    if use_launcher {
+        // Proton's launcher initializes the session and repairs tracked prefix
+        // files before dispatching through its own compatible Wine loader.
+        args.push("runinprefix".to_owned());
+    } else {
+        configure_proton_runtime_env(env, proton_dir);
+    }
+
+    args.push(exe.to_string_lossy().into_owned());
+    args.extend(extra_args.iter().map(|arg| (*arg).to_owned()));
+
+    let program = if use_launcher {
+        proton_launcher
+    } else {
+        wine_binary(proton_dir)
+    };
+
+    (program, args)
 }
 
 fn host_command_path(path: &Path) -> PathBuf {
@@ -1907,6 +1932,35 @@ mod tests {
         std::fs::write(wine_dir.join("wine64"), "").unwrap();
 
         assert_eq!(wine_binary(tmp.path()), wine_dir.join("wine"));
+    }
+
+    #[test]
+    fn test_prefix_command_prefers_proton_launcher() {
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton 10.0");
+        std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+        std::fs::write(proton_dir.join("files/bin/wine"), "").unwrap();
+        std::fs::write(proton_dir.join("proton"), "").unwrap();
+        let mut env = HashMap::new();
+
+        let (program, args) = prefix_command(
+            &proton_dir,
+            Path::new("/tmp/windowsdesktop-runtime.exe"),
+            &["/install", "/quiet"],
+            &mut env,
+        );
+
+        assert_eq!(program, proton_dir.join("proton"));
+        assert_eq!(
+            args,
+            vec![
+                "runinprefix".to_owned(),
+                "/tmp/windowsdesktop-runtime.exe".to_owned(),
+                "/install".to_owned(),
+                "/quiet".to_owned(),
+            ]
+        );
+        assert!(env.is_empty());
     }
 
     #[test]
