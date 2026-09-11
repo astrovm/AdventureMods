@@ -51,7 +51,7 @@
           <li>Refreshed detected games automatically after granting Steam library access</li>
           <li>Resolved Proton installations stored outside the sandbox through the document portal</li>
           <li>Validated that granted paths match the requested Steam library</li>
-          <li>Used Proton's runtime library paths when installing .NET dependencies</li>
+          <li>Ran .NET dependency installers with Proton's compatible Wine loader and runtime paths</li>
         </ul>
       </description>
     </release>

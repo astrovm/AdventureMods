@@ -675,11 +675,11 @@ fn steamapps_dir(game_path: &Path) -> Result<PathBuf> {
 
 /// Determine the Wine binary path inside a Proton installation.
 fn wine_binary(proton_dir: &Path) -> PathBuf {
-    let wine64 = proton_dir.join("files/bin/wine64");
-    if wine64.is_file() {
-        wine64
+    let wine = proton_dir.join("files/bin/wine");
+    if wine.is_file() {
+        wine
     } else {
-        proton_dir.join("files/bin/wine")
+        proton_dir.join("files/bin/wine64")
     }
 }
 
@@ -1896,6 +1896,17 @@ mod tests {
             env["WINESERVER"],
             format!("{proton_dir}/files/bin/wineserver")
         );
+    }
+
+    #[test]
+    fn test_wine_binary_prefers_compatible_loader() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wine_dir = tmp.path().join("files/bin");
+        std::fs::create_dir_all(&wine_dir).unwrap();
+        std::fs::write(wine_dir.join("wine"), "").unwrap();
+        std::fs::write(wine_dir.join("wine64"), "").unwrap();
+
+        assert_eq!(wine_binary(tmp.path()), wine_dir.join("wine"));
     }
 
     #[test]
