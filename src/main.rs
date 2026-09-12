@@ -72,6 +72,13 @@ fn load_resources() {
 mod tests {
     use super::*;
 
+    fn restore_package_data_dir(value: Option<std::ffi::OsString>) {
+        match value {
+            Some(value) => unsafe { std::env::set_var("ADVENTURE_MODS_PKGDATADIR", value) },
+            None => unsafe { std::env::remove_var("ADVENTURE_MODS_PKGDATADIR") },
+        }
+    }
+
     #[test]
     fn command_line_exit_codes_short_circuit_gui_startup() {
         assert_eq!(
@@ -96,9 +103,6 @@ mod tests {
 
     #[test]
     fn gui_initialization_handles_missing_resource_bundle() {
-        unsafe {
-            std::env::set_var("ADVENTURE_MODS_PKGDATADIR", "/previous/path");
-        }
         let previous = std::env::var_os("ADVENTURE_MODS_PKGDATADIR");
         unsafe {
             std::env::set_var(
@@ -109,14 +113,11 @@ mod tests {
 
         initialize_gui();
 
-        match previous {
-            Some(value) => unsafe { std::env::set_var("ADVENTURE_MODS_PKGDATADIR", value) },
-            None => unsafe { std::env::remove_var("ADVENTURE_MODS_PKGDATADIR") },
-        }
-
-        unsafe {
-            std::env::remove_var("ADVENTURE_MODS_PKGDATADIR");
-        }
+        restore_package_data_dir(Some(std::ffi::OsString::from("/previous/path")));
         initialize_gui();
+
+        restore_package_data_dir(None);
+        initialize_gui();
+        restore_package_data_dir(previous);
     }
 }
