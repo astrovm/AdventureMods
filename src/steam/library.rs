@@ -97,7 +97,7 @@ pub(crate) fn resolve_document_portal_path(
         if let Some(portal_host) = document_portal_host_path(portal_path) {
             let portal_host = canonicalize_with_suffix(&portal_host);
             if let Ok(relative) = host_path.strip_prefix(&portal_host) {
-                let resolved = portal_path.join(relative);
+                let resolved = join_path_suffix(portal_path, relative);
                 if resolved.exists() {
                     return Some(resolved);
                 }
@@ -117,13 +117,21 @@ pub(crate) fn resolve_document_portal_host_path(portal_path: &Path) -> Option<Pa
     while let Some(portal_root) = current {
         if let Some(host_root) = document_portal_host_path(portal_root) {
             let relative = portal_path.strip_prefix(portal_root).ok()?;
-            return Some(host_root.join(relative));
+            return Some(join_path_suffix(&host_root, relative));
         }
 
         current = portal_root.parent();
     }
 
     None
+}
+
+fn join_path_suffix(base: &Path, suffix: &Path) -> PathBuf {
+    if suffix.as_os_str().is_empty() {
+        base.to_path_buf()
+    } else {
+        base.join(suffix)
+    }
 }
 
 #[cfg(target_os = "linux")]
