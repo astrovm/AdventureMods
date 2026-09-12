@@ -33,6 +33,206 @@ fn canonicalize_with_suffix(path: &Path) -> PathBuf {
     }
 }
 
+fn is_steam_library_root(path: &Path) -> bool {
+    path.join("steamapps").is_dir()
+}
+
+fn library_paths_equivalent(left: &Path, right: &Path) -> bool {
+    canonicalize_with_suffix(left) == canonicalize_with_suffix(right)
+}
+
+/// Host path exported by the xdg-document-portal FUSE mount, if any.
+///
+/// Flatpak folder grants are visible at `/run/user/$UID/doc/<id>` rather than
+/// at the original host path from `libraryfolders.vdf`.
+pub(crate) fn document_portal_host_path(path: &Path) -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::ffi::{CString, OsString};
+        use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+        let c_path = CString::new(path.as_os_str().as_bytes()).ok()?;
+        let c_name = CString::new("user.document-portal.host-path").ok()?;
+        let mut buf = vec![0u8; 4096];
+        let len = unsafe {
+            linux_xattr::getxattr(
+                c_path.as_ptr(),
+                c_name.as_ptr(),
+                buf.as_mut_ptr(),
+                buf.len(),
+            )
+        };
+        if len <= 0 {
+            return None;
+        }
+        buf.truncate(len as usize);
+        while buf.last() == Some(&0) {
+            buf.pop();
+        }
+        if buf.is_empty() {
+            return None;
+        }
+        Some(PathBuf::from(OsString::from_vec(buf)))
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = path;
+        None
+    }
+}
+
+/// Resolve a host path through the document-portal path containing `portal_path`.
+///
+/// Portal xattrs are available on the mounted path and its ancestors. Walking
+/// those ancestors lets callers map sibling paths from metadata written by
+/// Steam on the host filesystem into the sandbox-visible document path.
+pub(crate) fn resolve_document_portal_path(
+    portal_path: &Path,
+    host_path: &Path,
+) -> Option<PathBuf> {
+    let host_path = canonicalize_with_suffix(host_path);
+    let mut current = Some(portal_path);
+
+    while let Some(portal_path) = current {
+        if let Some(portal_host) = document_portal_host_path(portal_path) {
+            let portal_host = canonicalize_with_suffix(&portal_host);
+            if let Ok(relative) = host_path.strip_prefix(&portal_host) {
+                let resolved = join_path_suffix(portal_path, relative);
+                if resolved.exists() {
+                    return Some(resolved);
+                }
+            }
+        }
+
+        current = portal_path.parent();
+    }
+
+    None
+}
+
+/// Resolve a path from a document-portal mount back to its host path.
+pub(crate) fn resolve_document_portal_host_path(portal_path: &Path) -> Option<PathBuf> {
+    let mut current = Some(portal_path);
+
+    while let Some(portal_root) = current {
+        if let Some(host_root) = document_portal_host_path(portal_root) {
+            let relative = portal_path.strip_prefix(portal_root).ok()?;
+            return Some(join_path_suffix(&host_root, relative));
+        }
+
+        current = portal_root.parent();
+    }
+
+    None
+}
+
+fn join_path_suffix(base: &Path, suffix: &Path) -> PathBuf {
+    if suffix.as_os_str().is_empty() {
+        base.to_path_buf()
+    } else {
+        base.join(suffix)
+    }
+}
+
+#[cfg(target_os = "linux")]
+mod linux_xattr {
+    unsafe extern "C" {
+        pub fn getxattr(
+            path: *const core::ffi::c_char,
+            name: *const core::ffi::c_char,
+            value: *mut u8,
+            size: usize,
+        ) -> isize;
+    }
+}
+
+fn extra_library_root_for_host(extra: &Path, host_library: &Path) -> Option<PathBuf> {
+    if library_paths_equivalent(extra, host_library) {
+        return Some(extra.to_path_buf());
+    }
+
+    let portal_host = document_portal_host_path(extra)?;
+    let portal_n = canonicalize_with_suffix(&portal_host);
+    let host_n = canonicalize_with_suffix(host_library);
+
+    if portal_n == host_n {
+        return Some(extra.to_path_buf());
+    }
+
+    let rel = host_n.strip_prefix(&portal_n).ok()?;
+    let nested = extra.join(rel);
+    is_steam_library_root(&nested).then_some(nested)
+}
+
+fn document_portal_root() -> Option<PathBuf> {
+    let runtime_dir = std::env::var_os("XDG_RUNTIME_DIR")?;
+    let doc_root = PathBuf::from(runtime_dir).join("doc");
+    doc_root.is_dir().then_some(doc_root)
+}
+
+fn find_document_portal_library(expected: &Path) -> Option<PathBuf> {
+    let doc_root = document_portal_root()?;
+    let expected_n = canonicalize_with_suffix(expected);
+    let expected_name = expected.file_name()?;
+
+    for entry in std::fs::read_dir(doc_root).ok()? {
+        let path = entry.ok()?.path();
+        if !path.is_dir() || path.file_name().is_some_and(|name| name == "by-app") {
+            continue;
+        }
+
+        if let Some(root) = extra_library_root_for_host(&path, expected)
+            && is_steam_library_root(&root)
+        {
+            return Some(root);
+        }
+
+        let nested = path.join(expected_name);
+        if is_steam_library_root(&nested)
+            && document_portal_host_path(&nested)
+                .is_some_and(|host| canonicalize_with_suffix(&host) == expected_n)
+        {
+            return Some(nested);
+        }
+    }
+
+    None
+}
+
+/// Turn a folder returned by the Flatpak file portal into a usable Steam library root.
+///
+/// The portal typically yields `/run/user/$UID/doc/<id>` instead of the host
+/// path from Steam (`/data/SteamLibrary`). A selected document is usable when
+/// it contains `steamapps` and maps back to the expected host library.
+pub(crate) fn resolve_granted_steam_library(selected: &Path, expected: &Path) -> Option<PathBuf> {
+    if is_steam_library_root(selected) {
+        return granted_library_matches_expected(selected, expected)
+            .then(|| selected.to_path_buf());
+    }
+
+    if let Some(name) = expected.file_name() {
+        let nested = selected.join(name);
+        if is_steam_library_root(&nested) && granted_library_matches_expected(&nested, expected) {
+            return Some(nested);
+        }
+    }
+
+    if selected.file_name().is_some_and(|name| name == "steamapps")
+        && let Some(parent) = selected.parent()
+        && is_steam_library_root(parent)
+    {
+        return granted_library_matches_expected(parent, expected).then(|| parent.to_path_buf());
+    }
+
+    find_document_portal_library(expected)
+}
+
+fn granted_library_matches_expected(selected: &Path, expected: &Path) -> bool {
+    library_paths_equivalent(selected, expected)
+        || document_portal_host_path(selected)
+            .is_some_and(|host| library_paths_equivalent(&host, expected))
+}
+
 #[derive(Debug, Clone)]
 pub struct InaccessibleGame {
     pub kind: GameKind,
@@ -198,9 +398,19 @@ fn detect_games_from_parsed_vdfs(
         // exist (that is why the game is inaccessible), so canonicalize() will
         // always fail. Instead, canonicalize the nearest existing ancestor and
         // re-attach the remaining suffix so symlinked parent directories are
-        // resolved correctly.
+        // resolved correctly. Skip libraries already granted through the
+        // document portal (same host path, different sandbox path).
         let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
         for inc in kind_inaccessible {
+            let covered_by_grant = extra_libraries.iter().any(|extra| {
+                extra_library_root_for_host(extra, &inc.library_path)
+                    .and_then(|root| find_game_in_library_path(&root, kind))
+                    .is_some()
+            });
+            if covered_by_grant {
+                continue;
+            }
+
             let canonical = canonicalize_with_suffix(&inc.library_path);
             if seen_inacc.insert(canonical) {
                 result.inaccessible.push(inc);

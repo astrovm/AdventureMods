@@ -145,7 +145,3 @@ make appimage
 
 Output: `appimage-build/AdventureMods-<arch>.AppImage` and `.zsync`. Builds match the host
 architecture (x86_64 or aarch64). GitHub Releases publish both.
-
-## License
-
-[MIT](LICENSE)

@@ -44,6 +44,17 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.14" date="2026-09-11">
+      <description>
+        <p>Improved Steam library access and Proton detection in Flatpak.</p>
+        <ul>
+          <li>Refreshed detected games automatically after granting Steam library access</li>
+          <li>Resolved Proton installations stored outside the sandbox through the document portal</li>
+          <li>Validated that granted paths match the requested Steam library</li>
+          <li>Ran .NET dependency installers through Proton's prefix launcher and compatible Wine runtime</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.13" date="2026-07-25">
       <description>
         <p>Improved Proton compatibility checks before setup begins.</p>

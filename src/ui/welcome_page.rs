@@ -3,8 +3,9 @@ use adw::subclass::prelude::*;
 use gtk::gio;
 use gtk::glib;
 
+use crate::path_display::display_path;
 use crate::steam::game::{Game, GameKind};
-use crate::steam::library::{DetectionResult, InaccessibleGame};
+use crate::steam::library::{DetectionResult, InaccessibleGame, resolve_granted_steam_library};
 use crate::ui::game_card::{AdventureModsGameCard, GameInstallOption};
 
 mod imp {
@@ -153,34 +154,43 @@ impl AdventureModsWelcomePage {
             .accept_label("Grant Access")
             .build();
 
-        if expected_library.exists() {
-            let folder = gio::File::for_path(&expected_library);
-            dialog.set_initial_folder(Some(&folder));
-        }
+        // The host file chooser can see this path even when the sandbox cannot.
+        dialog.set_initial_folder(Some(&gio::File::for_path(&expected_library)));
 
         let obj = self.clone();
         glib::spawn_future_local(async move {
             match dialog.select_folder_future(Some(&window)).await {
                 Ok(folder) => {
-                    if let Some(path) = folder.path() {
-                        if !selected_library_matches(&expected_library, &path) {
-                            if let Some(window) = obj.root().and_then(|root| {
-                                root.downcast::<crate::window::AdventureModsWindow>().ok()
-                            }) {
-                                window.show_status_message(
-                                    &format!(
-                                        "Selected folder does not match the required Steam library: {}",
-                                        expected_library.display()
-                                    ),
-                                    true,
-                                );
-                            }
-                            return;
-                        }
+                    let Some(path) = folder.path() else {
+                        obj.show_library_access_error(&format!(
+                            "Could not read the selected folder. Please choose {}.",
+                            display_path(&expected_library)
+                        ));
+                        return;
+                    };
 
-                        let selected = path.to_string_lossy().to_string();
-                        obj.emit_by_name::<()>("library-access-granted", &[&selected]);
-                    }
+                    let Some(resolved) = resolve_granted_steam_library(&path, &expected_library)
+                    else {
+                        tracing::warn!(
+                            selected = %path.display(),
+                            expected = %expected_library.display(),
+                            "Granted folder is not a usable Steam library"
+                        );
+                        obj.show_library_access_error(&format!(
+                            "That folder is not the requested Steam library. Select {} (it must contain a steamapps folder).",
+                            display_path(&expected_library)
+                        ));
+                        return;
+                    };
+
+                    tracing::info!(
+                        selected = %path.display(),
+                        expected = %expected_library.display(),
+                        resolved = %resolved.display(),
+                        "Granted Steam library access"
+                    );
+                    let selected = resolved.to_string_lossy().to_string();
+                    obj.emit_by_name::<()>("library-access-granted", &[&selected]);
                 }
                 Err(err) => {
                     tracing::info!("Library access dialog cancelled or failed: {err}");
@@ -188,19 +198,15 @@ impl AdventureModsWelcomePage {
             }
         });
     }
-}
 
-fn selected_library_matches(
-    expected_library: &std::path::Path,
-    selected_library: &std::path::Path,
-) -> bool {
-    let expected = expected_library
-        .canonicalize()
-        .unwrap_or_else(|_| expected_library.to_path_buf());
-    let selected = selected_library
-        .canonicalize()
-        .unwrap_or_else(|_| selected_library.to_path_buf());
-    expected == selected
+    fn show_library_access_error(&self, message: &str) {
+        if let Some(window) = self
+            .root()
+            .and_then(|root| root.downcast::<crate::window::AdventureModsWindow>().ok())
+        {
+            window.show_status_message(message, true);
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -278,26 +284,6 @@ mod tests {
     use crate::steam::game::Game;
     use crate::steam::library::InaccessibleGame;
     use crate::ui::test_util::init_resource_overlay;
-
-    #[test]
-    fn selected_library_matches_accepts_same_path() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("steam-library");
-        std::fs::create_dir_all(&path).unwrap();
-
-        assert!(selected_library_matches(&path, &path));
-    }
-
-    #[test]
-    fn selected_library_matches_rejects_different_path() {
-        let tmp = tempfile::tempdir().unwrap();
-        let expected = tmp.path().join("expected");
-        let selected = tmp.path().join("selected");
-        std::fs::create_dir_all(&expected).unwrap();
-        std::fs::create_dir_all(&selected).unwrap();
-
-        assert!(!selected_library_matches(&expected, &selected));
-    }
 
     #[test]
     fn build_game_cards_always_includes_missing_games() {
