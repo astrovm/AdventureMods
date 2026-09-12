@@ -739,11 +739,13 @@ fn configure_proton_runtime_env(env: &mut HashMap<String, String>, proton_dir: &
     );
 
     let bin_dir = proton_dir.join("files/bin").to_string_lossy().into_owned();
-    let path = env
+    let inherited_path = env
         .get("PATH")
-        .filter(|existing| !existing.is_empty())
-        .map_or(bin_dir.clone(), |existing| format!("{bin_dir}:{existing}"));
-    env.insert("PATH".into(), path);
+        .cloned()
+        .or_else(|| std::env::var("PATH").ok());
+    if let Some(existing) = inherited_path.filter(|path| !path.is_empty()) {
+        env.insert("PATH".into(), format!("{bin_dir}:{existing}"));
+    }
 
     let wineserver = proton_dir.join("files/bin/wineserver");
     if wineserver.is_file() {
@@ -1922,6 +1924,21 @@ mod tests {
         assert_eq!(
             env["WINESERVER"],
             format!("{proton_dir}/files/bin/wineserver")
+        );
+    }
+
+    #[test]
+    fn test_configure_proton_runtime_env_preserves_inherited_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton 10.0");
+        let mut env = HashMap::new();
+
+        configure_proton_runtime_env(&mut env, &proton_dir);
+
+        let inherited_path = std::env::var("PATH").unwrap();
+        assert_eq!(
+            env["PATH"],
+            format!("{}/files/bin:{inherited_path}", proton_dir.display())
         );
     }
 
