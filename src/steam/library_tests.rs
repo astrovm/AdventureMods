@@ -363,6 +363,80 @@ fn test_detect_games_from_vdf_corrupt() {
 }
 
 #[test]
+fn test_library_detection_handles_missing_fields_and_stale_entries() {
+    let mut folders = HashMap::new();
+    folders.insert(
+        "scalar".to_string(),
+        vdf::VdfValue::String("not-a-folder".to_string()),
+    );
+
+    let mut no_apps = HashMap::new();
+    no_apps.insert(
+        "path".to_string(),
+        vdf::VdfValue::String("/tmp/no-apps".to_string()),
+    );
+    folders.insert("no-apps".to_string(), vdf::VdfValue::Map(no_apps));
+
+    let mut missing_path_apps = HashMap::new();
+    missing_path_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut missing_path = HashMap::new();
+    missing_path.insert("apps".to_string(), vdf::VdfValue::Map(missing_path_apps));
+    folders.insert("missing-path".to_string(), vdf::VdfValue::Map(missing_path));
+
+    let mut empty_path_apps = HashMap::new();
+    empty_path_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut empty_path = HashMap::new();
+    empty_path.insert("path".to_string(), vdf::VdfValue::String("   ".to_string()));
+    empty_path.insert("apps".to_string(), vdf::VdfValue::Map(empty_path_apps));
+    folders.insert("empty-path".to_string(), vdf::VdfValue::Map(empty_path));
+
+    let inaccessible_path = "/definitely/missing/steam-library";
+    let mut inaccessible_apps = HashMap::new();
+    inaccessible_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut inaccessible = HashMap::new();
+    inaccessible.insert(
+        "path".to_string(),
+        vdf::VdfValue::String(inaccessible_path.to_string()),
+    );
+    inaccessible.insert("apps".to_string(), vdf::VdfValue::Map(inaccessible_apps));
+    folders.insert("inaccessible".to_string(), vdf::VdfValue::Map(inaccessible));
+
+    let mut root = HashMap::new();
+    root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+    let result = detect_games_from_parsed_vdfs(&[vdf::VdfValue::Map(root)], &[]);
+    assert!(result.games.is_empty());
+    assert!(
+        result
+            .inaccessible
+            .iter()
+            .any(|game| game.library_path == Path::new(inaccessible_path))
+    );
+
+    let missing_vdf = PathBuf::from("/definitely/missing/libraryfolders.vdf");
+    assert!(
+        detect_games_from_vdf_with_extra_libraries(&missing_vdf, &[])
+            .games
+            .is_empty()
+    );
+    let _ = detect_games_with_extra_libraries(&[]);
+}
+
+#[test]
+fn test_library_detection_reports_stale_game_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let stale = tmp
+        .path()
+        .join("steamapps/common")
+        .join(GameKind::SA2.install_dir());
+    std::fs::create_dir_all(&stale).unwrap();
+
+    let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
+    let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+    assert!(paths.is_empty());
+    assert!(inaccessible.is_empty());
+}
+
+#[test]
 fn test_multiple_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp

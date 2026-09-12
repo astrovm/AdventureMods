@@ -153,6 +153,17 @@ mod tests {
     }
 
     #[test]
+    fn test_is_dotnet_installed_ignores_files_and_invalid_version_names() {
+        let tmp = tempfile::tempdir().unwrap();
+        let desktop_app = windows_desktop_app_dir(tmp.path());
+        std::fs::create_dir_all(&desktop_app).unwrap();
+        std::fs::write(desktop_app.join("10.0.0-file"), b"not a directory").unwrap();
+        std::fs::create_dir_all(desktop_app.join("runtime")).unwrap();
+
+        assert!(!is_dotnet_installed(tmp.path()));
+    }
+
+    #[test]
     fn test_is_success_or_reboot_code() {
         assert!(is_success_or_reboot_code(0));
         assert!(is_success_or_reboot_code(3010));
@@ -170,6 +181,54 @@ mod tests {
 
         assert_eq!(dir, compatdata.join("adventure-mods-installers"));
         assert!(dir.is_dir());
+    }
+
+    #[test]
+    fn test_install_runtimes_skips_when_dotnet_is_already_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let game_path = steam_root.join("steamapps/common/Sonic Adventure 2");
+        let proton_dir = steam_root.join("steamapps/common/Proton 10.0");
+        let compatdata = steam_root.join("steamapps/compatdata/213610");
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+        std::fs::write(proton_dir.join("files/bin/wine64"), b"").unwrap();
+        std::fs::create_dir_all(
+            compatdata.join(
+                "pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0",
+            ),
+        )
+        .unwrap();
+        std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
+        std::fs::write(
+            compatdata.join("config_info"),
+            format!("{}\n", proton_dir.join("files").display()),
+        )
+        .unwrap();
+        std::fs::create_dir_all(steam_root.join("config")).unwrap();
+        std::fs::write(
+            steam_root.join("config/config.vdf"),
+            r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "213610" { "name" "proton_10" }
+                }
+            }
+        }
+    }
+}"#,
+        )
+        .unwrap();
+
+        install_runtimes(&game_path, 213610).unwrap();
+        assert!(!compatdata.join("adventure-mods-installers").exists());
     }
 
     #[test]

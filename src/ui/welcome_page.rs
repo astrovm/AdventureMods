@@ -453,4 +453,72 @@ mod tests {
 
         assert!(page.imp().games_row.first_child().is_some());
     }
+
+    #[gtk::test]
+    fn detection_cards_open_setup_and_handle_inaccessible_libraries() {
+        init_resource_overlay();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let nav_view = adw::NavigationView::new();
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![Game {
+                    kind: GameKind::SADX,
+                    path: "/games/sadx".into(),
+                }],
+                inaccessible: vec![],
+            },
+            nav_view.clone(),
+        );
+
+        let detected_card = page
+            .imp()
+            .games_row
+            .first_child()
+            .and_downcast::<AdventureModsGameCard>()
+            .unwrap();
+        let controllers = detected_card.observe_controllers();
+        let gesture = controllers
+            .item(0)
+            .unwrap()
+            .downcast::<gtk::GestureClick>()
+            .unwrap();
+        gesture.emit_by_name::<()>("released", &[&1i32, &0f64, &0f64]);
+        assert_eq!(
+            nav_view.visible_page().unwrap().title().as_str(),
+            GameKind::SADX.name()
+        );
+
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![],
+                inaccessible: vec![InaccessibleGame {
+                    kind: GameKind::SADX,
+                    library_path: "/mnt/steam".into(),
+                }],
+            },
+            nav_view,
+        );
+        let inaccessible_card = page
+            .imp()
+            .games_row
+            .first_child()
+            .and_downcast::<AdventureModsGameCard>()
+            .unwrap();
+        let controllers = inaccessible_card.observe_controllers();
+        let gesture = controllers
+            .item(0)
+            .unwrap()
+            .downcast::<gtk::GestureClick>()
+            .unwrap();
+        gesture.emit_by_name::<()>("released", &[&1i32, &0f64, &0f64]);
+
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![],
+                inaccessible: vec![],
+            },
+            adw::NavigationView::new(),
+        );
+    }
 }

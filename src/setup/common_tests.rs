@@ -59,6 +59,70 @@ fn test_gamebanana_item_dl_base_override() {
 }
 
 #[test]
+fn test_gamebanana_item_reports_malformed_and_empty_responses() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let bodies = ["not-json".to_string(), "[]".to_string(), "[{}]".to_string()];
+    let server = std::thread::spawn(move || {
+        for body in bodies {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 4096];
+            let _ = stream.read(&mut request);
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        }
+    });
+
+    let api_base = format!("http://127.0.0.1:{port}/gbapi?fields=Files().aFiles()");
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_GAMEBANANA_API_BASE", &api_base);
+    }
+
+    let malformed = resolve_download_url(&ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 1,
+    })
+    .unwrap_err();
+    assert!(
+        malformed
+            .to_string()
+            .contains("Failed to parse GameBanana API response")
+    );
+
+    let empty = resolve_download_url(&ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 2,
+    })
+    .unwrap_err();
+    assert!(empty.to_string().contains("Empty GameBanana API response"));
+
+    let no_files = resolve_download_url(&ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 3,
+    })
+    .unwrap_err();
+    assert!(
+        no_files
+            .to_string()
+            .contains("No files found in GameBanana API response")
+    );
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+    }
+    server.join().unwrap();
+}
+
+#[test]
 fn test_resolve_direct_url() {
     let source = ModSource::DirectUrl {
         url: "https://example.com/mod.7z",
@@ -334,6 +398,24 @@ fn test_install_passthrough_mod_preserves_existing_directory() {
 }
 
 #[test]
+fn test_install_passthrough_mod_replaces_incomplete_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let staging = tmp.path().join("staging");
+    let mods_dir = tmp.path().join("mods");
+    let extracted = staging.join("SomeMod");
+    let existing = mods_dir.join("SomeMod");
+    std::fs::create_dir_all(&extracted).unwrap();
+    std::fs::create_dir_all(&existing).unwrap();
+    std::fs::write(extracted.join("mod.ini"), b"[new]").unwrap();
+    std::fs::write(existing.join("old.txt"), b"old").unwrap();
+
+    install_passthrough_mod(&staging, &mods_dir).unwrap();
+
+    assert!(existing.join("mod.ini").is_file());
+    assert!(!existing.join("old.txt").exists());
+}
+
+#[test]
 fn test_normalize_mod_version_rewrites_stale_packaged_value() {
     let tmp = tempfile::tempdir().unwrap();
     let mod_dir = tmp.path().join("Better Tails AI");
@@ -377,6 +459,23 @@ fn test_normalize_mod_version_ignores_plain_mods() {
     normalize_mod_version(&mod_dir).unwrap();
 
     assert!(!mod_dir.join("mod.version").exists());
+}
+
+#[test]
+fn test_normalize_mod_version_ignores_directories_without_metadata_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mod_dir = tmp.path().join("Incomplete Mod");
+    std::fs::create_dir_all(&mod_dir).unwrap();
+
+    normalize_mod_version(&mod_dir).unwrap();
+    assert!(!mod_dir.join("mod.version").exists());
+}
+
+#[test]
+fn test_update_metadata_ignores_malformed_lines() {
+    assert!(!has_update_metadata(
+        "not metadata\nGameBananaItemType=Mod\n"
+    ));
 }
 
 #[test]
@@ -439,6 +538,24 @@ fn test_move_dir_contents_overwrites_existing_file() {
     move_dir_contents(&src, &dest).unwrap();
     assert_eq!(std::fs::read(dest.join("shared.txt")).unwrap(), b"new");
     assert!(!src.join("shared.txt").exists());
+}
+
+#[test]
+fn test_move_dir_contents_replaces_file_with_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("src");
+    let dest = tmp.path().join("dest");
+    std::fs::create_dir_all(src.join("nested")).unwrap();
+    std::fs::create_dir_all(&dest).unwrap();
+    std::fs::write(dest.join("nested"), b"old file").unwrap();
+    std::fs::write(src.join("nested/new.txt"), b"new file").unwrap();
+
+    move_dir_contents(&src, &dest).unwrap();
+
+    assert_eq!(
+        std::fs::read(dest.join("nested/new.txt")).unwrap(),
+        b"new file"
+    );
 }
 
 /// Helper: simulate the Steam exe replacement logic from `install_mod_manager`.
@@ -771,4 +888,323 @@ fn test_mod_entry_explicit_dir_name() {
     };
     let dir_name = mod_entry.dir_name.unwrap_or(mod_entry.name);
     assert_eq!(dir_name, "FolderName");
+}
+
+#[test]
+fn test_step_completion_detects_conversion_and_manager_markers() {
+    let dir = tempfile::tempdir().unwrap();
+    let game = Game {
+        kind: GameKind::SADX,
+        path: dir.path().to_path_buf(),
+    };
+
+    assert!(!is_step_complete(
+        StepId::Dotnet,
+        &Game {
+            path: "/game".into(),
+            ..game.clone()
+        }
+    ));
+    assert!(!is_step_complete(StepId::SelectMods, &game));
+
+    std::fs::create_dir_all(dir.path().join("system")).unwrap();
+    std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
+    assert!(is_step_complete(StepId::ConvertSteam, &game));
+
+    std::fs::remove_file(dir.path().join("system/CHRMODELS_orig.dll")).unwrap();
+    std::fs::write(dir.path().join("SADXModLoader.dll"), b"loader").unwrap();
+    assert!(is_step_complete(StepId::ConvertSteam, &game));
+
+    std::fs::remove_file(dir.path().join("SADXModLoader.dll")).unwrap();
+    std::fs::create_dir_all(dir.path().join("mods/.modloader")).unwrap();
+    std::fs::write(
+        dir.path().join("mods/.modloader/SADXModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+    assert!(is_step_complete(StepId::ConvertSteam, &game));
+
+    std::fs::remove_file(dir.path().join("mods/.modloader/SADXModLoader.dll")).unwrap();
+    std::fs::write(dir.path().join("sonic.exe"), b"game").unwrap();
+    assert!(is_step_complete(StepId::ConvertSteam, &game));
+
+    std::fs::write(dir.path().join("Sonic Adventure DX.exe.bak"), b"backup").unwrap();
+    std::fs::write(
+        dir.path().join("mods/.modloader/SADXModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
+    assert!(is_mod_manager_fully_installed(dir.path(), GameKind::SADX));
+    assert!(is_step_complete(StepId::InstallModManager, &game));
+
+    let sa2_dir = tempfile::tempdir().unwrap();
+    let sa2 = Game {
+        kind: GameKind::SA2,
+        path: sa2_dir.path().to_path_buf(),
+    };
+    std::fs::write(sa2_dir.path().join("Launcher.exe.bak"), b"backup").unwrap();
+    std::fs::create_dir_all(sa2_dir.path().join("mods/.modloader")).unwrap();
+    std::fs::write(
+        sa2_dir.path().join("mods/.modloader/SA2ModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+    std::fs::create_dir_all(sa2_dir.path().join("resource/gd_PC/DLL/Win32")).unwrap();
+    std::fs::write(
+        sa2_dir
+            .path()
+            .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll"),
+        b"orig",
+    )
+    .unwrap();
+    assert!(is_mod_manager_fully_installed(
+        sa2_dir.path(),
+        GameKind::SA2
+    ));
+    assert!(is_step_complete(StepId::InstallModManager, &sa2));
+}
+
+#[test]
+fn test_dotnet_step_is_complete_for_a_ready_prefix_with_runtime() {
+    let tmp = tempfile::tempdir().unwrap();
+    let steam_root = tmp.path();
+    let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
+    let proton_dir = steam_root.join("steamapps/common/Proton 10.0");
+    let compatdata = steam_root.join("steamapps/compatdata/71250");
+    std::fs::create_dir_all(&game_path).unwrap();
+    std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+    std::fs::write(proton_dir.join("files/bin/wine64"), b"").unwrap();
+    std::fs::create_dir_all(
+        compatdata
+            .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0"),
+    )
+    .unwrap();
+    std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
+    std::fs::write(
+        compatdata.join("config_info"),
+        format!("{}\n", proton_dir.join("files").display()),
+    )
+    .unwrap();
+    std::fs::create_dir_all(steam_root.join("config")).unwrap();
+    std::fs::write(
+        steam_root.join("config/config.vdf"),
+        r#""InstallConfigStore"
+{
+    "Software" { "Valve" { "Steam" { "CompatToolMapping" {
+        "71250" { "name" "proton_10" }
+    } } } }
+}"#,
+    )
+    .unwrap();
+
+    let game = Game {
+        kind: GameKind::SADX,
+        path: game_path,
+    };
+    assert!(is_step_complete(StepId::Dotnet, &game));
+}
+
+#[test]
+fn test_install_loader_refreshes_existing_and_reports_missing_loader() {
+    let sadx_dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(sadx_dir.path().join("system")).unwrap();
+    std::fs::create_dir_all(sadx_dir.path().join("mods/.modloader")).unwrap();
+    std::fs::write(sadx_dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
+    std::fs::write(sadx_dir.path().join("system/CHRMODELS.dll"), b"old").unwrap();
+    std::fs::write(
+        sadx_dir.path().join("mods/.modloader/SADXModLoader.dll"),
+        b"new",
+    )
+    .unwrap();
+    install_loader_dll(sadx_dir.path(), GameKind::SADX).unwrap();
+    assert_eq!(
+        std::fs::read(sadx_dir.path().join("system/CHRMODELS.dll")).unwrap(),
+        b"new"
+    );
+
+    let sa2_dir = tempfile::tempdir().unwrap();
+    let dll_dir = sa2_dir.path().join("resource/gd_PC/DLL/Win32");
+    std::fs::create_dir_all(&dll_dir).unwrap();
+    std::fs::create_dir_all(sa2_dir.path().join("mods/.modloader")).unwrap();
+    std::fs::write(dll_dir.join("Data_DLL.dll"), b"data").unwrap();
+    std::fs::write(
+        sa2_dir.path().join("mods/.modloader/SA2ModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+    install_loader_dll(sa2_dir.path(), GameKind::SA2).unwrap();
+    assert!(dll_dir.join("Data_DLL_orig.dll").is_file());
+
+    let missing = tempfile::tempdir().unwrap();
+    let error = install_loader_dll(missing.path(), GameKind::SADX).unwrap_err();
+    assert!(error.to_string().contains("Mod loader DLL not found"));
+
+    let no_data = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(no_data.path().join("mods/.modloader")).unwrap();
+    std::fs::write(
+        no_data.path().join("mods/.modloader/SADXModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+    install_loader_dll(no_data.path(), GameKind::SADX).unwrap();
+}
+
+#[test]
+fn test_install_manager_and_loader_skip_existing_installations() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("system")).unwrap();
+    std::fs::create_dir_all(dir.path().join("mods/.modloader")).unwrap();
+    std::fs::write(dir.path().join("Sonic Adventure DX.exe.bak"), b"backup").unwrap();
+    std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
+    std::fs::write(
+        dir.path().join("mods/.modloader/SADXModLoader.dll"),
+        b"loader",
+    )
+    .unwrap();
+
+    install_mod_manager(dir.path(), GameKind::SADX, None).unwrap();
+    install_mod_loader(dir.path(), GameKind::SADX, None).unwrap();
+}
+
+#[test]
+fn test_install_mod_wrapper_and_update_url_metadata() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let dir = tempfile::tempdir().unwrap();
+    let mod_dir = dir.path().join("mods/TestMod");
+    std::fs::create_dir_all(&mod_dir).unwrap();
+    std::fs::write(
+        mod_dir.join("mod.ini"),
+        b"Name=Test\nUpdateUrl=https://example.test\n",
+    )
+    .unwrap();
+
+    let mod_entry = ModEntry {
+        name: "Test Mod",
+        slug: "test-mod",
+        source: ModSource::DirectUrl {
+            url: "https://example.test/test.zip",
+        },
+        description: "test",
+        full_description: None,
+        pictures: &[],
+        dir_name: Some("TestMod"),
+        links: &[],
+    };
+    let updates = std::sync::Arc::new(AtomicUsize::new(0));
+    let updates_clone = updates.clone();
+    install_mod(
+        dir.path(),
+        &mod_entry,
+        Some(Box::new(move |_, _| {
+            updates_clone.fetch_add(1, Ordering::Relaxed);
+        })),
+    )
+    .unwrap();
+    assert_eq!(updates.load(Ordering::Relaxed), 0);
+    assert!(mod_dir.join("mod.version").is_file());
+}
+
+#[test]
+fn test_move_dir_contents_cross_filesystem_fallback_when_available() {
+    let Ok(dest_root) = tempfile::tempdir_in("/dev/shm") else {
+        return;
+    };
+    let source_root = tempfile::tempdir().unwrap();
+    let source = source_root.path().join("src");
+    let dest = dest_root.path().join("dest");
+    std::fs::create_dir_all(&source).unwrap();
+    std::fs::write(source.join("cross-device.txt"), b"copied").unwrap();
+
+    move_dir_contents(&source, &dest).unwrap();
+
+    assert_eq!(
+        std::fs::read(dest.join("cross-device.txt")).unwrap(),
+        b"copied"
+    );
+}
+#[test]
+fn test_install_manager_and_loader_from_synthetic_downloads() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::os::unix::fs::PermissionsExt;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = std::thread::spawn(move || {
+        for _ in 0..2 {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 4096];
+            let _ = stream.read(&mut request);
+            let body = b"synthetic archive";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+            stream.write_all(body).unwrap();
+        }
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("system")).unwrap();
+    std::fs::write(dir.path().join("system/CHRMODELS.dll"), b"original").unwrap();
+
+    let fake_7zz = dir.path().join("fake-7zz");
+    std::fs::write(
+        &fake_7zz,
+        r##"#!/bin/sh
+dest=""
+for arg in "$@"; do
+    case "$arg" in
+        -o*) dest="${arg#-o}" ;;
+    esac
+done
+mkdir -p "$dest"
+case "$dest" in
+    */extracted) printf manager > "$dest/SAModManager.exe" ;;
+    *) printf loader > "$dest/SADXModLoader.dll" ;;
+esac
+"##,
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&fake_7zz).unwrap().permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&fake_7zz, permissions).unwrap();
+
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var(
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            format!("http://127.0.0.1:{port}/manager"),
+        );
+        std::env::set_var(
+            "ADVENTURE_MODS_URL_SADX_MOD_LOADER",
+            format!("http://127.0.0.1:{port}/loader"),
+        );
+    }
+
+    install_mod_manager(dir.path(), GameKind::SADX, Some(Box::new(|_, _| {}))).unwrap();
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_URL_SA_MOD_MANAGER");
+        std::env::remove_var("ADVENTURE_MODS_URL_SADX_MOD_LOADER");
+    }
+    server.join().unwrap();
+
+    assert!(dir.path().join("SAModManager.exe").is_file());
+    assert!(
+        dir.path()
+            .join("mods/.modloader/SADXModLoader.dll")
+            .is_file()
+    );
+    assert!(dir.path().join("system/CHRMODELS_orig.dll").is_file());
+    assert_eq!(
+        std::fs::read(dir.path().join("system/CHRMODELS.dll")).unwrap(),
+        b"loader"
+    );
 }

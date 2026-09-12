@@ -64,6 +64,13 @@ mod tests {
     }
 
     #[test]
+    fn flatten_spawn_result_returns_static_str_panic_message() {
+        let result = flatten_spawn_result::<()>(Err(Box::new("boom" as &'static str)));
+
+        assert_eq!(result.unwrap_err().to_string(), "spawn error: boom");
+    }
+
+    #[test]
     fn flatten_spawn_result_falls_back_for_non_string_panics() {
         let result = flatten_spawn_result::<()>(Err(Box::new(123_u32)));
 

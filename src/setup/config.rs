@@ -157,9 +157,16 @@ pub fn voice_settings_key(game_kind: GameKind) -> &'static str {
 }
 
 pub fn app_settings() -> Option<gio::Settings> {
-    let schema_source = gio::SettingsSchemaSource::default();
-    let has_schema = schema_source.is_some_and(|s| s.lookup(crate::config::APP_ID, true).is_some());
-    has_schema.then(|| gio::Settings::new(crate::config::APP_ID))
+    let schema_source = match std::env::var_os("GSETTINGS_SCHEMA_DIR") {
+        Some(directory) => gio::SettingsSchemaSource::from_directory(directory, None, true).ok(),
+        None => gio::SettingsSchemaSource::default(),
+    };
+    let schema = schema_source?.lookup(crate::config::APP_ID, true)?;
+    Some(gio::Settings::new_full(
+        &schema,
+        None::<&gio::SettingsBackend>,
+        None,
+    ))
 }
 
 pub fn load_language_selection(
@@ -517,6 +524,24 @@ mod tests {
     }
 
     #[test]
+    fn language_values_expose_all_supported_labels_and_codes() {
+        for language in [
+            SubtitleLanguage::English,
+            SubtitleLanguage::Japanese,
+            SubtitleLanguage::French,
+            SubtitleLanguage::German,
+            SubtitleLanguage::Spanish,
+            SubtitleLanguage::Italian,
+        ] {
+            assert!(!language.as_str().is_empty());
+            assert!(!language.label().is_empty());
+        }
+        assert_eq!(VoiceLanguage::English.as_str(), "english");
+        assert_eq!(VoiceLanguage::Japanese.as_str(), "japanese");
+        assert_eq!(voice_code(VoiceLanguage::English), 1);
+    }
+
+    #[test]
     fn voice_language_rejects_unknown_value() {
         assert!(VoiceLanguage::parse("klingon").is_err());
     }
@@ -547,5 +572,7 @@ mod tests {
             "sa2-subtitle-language"
         );
         assert_eq!(voice_settings_key(GameKind::SA2), "sa2-voice-language");
+        assert!(SubtitleLanguage::parse("klingon").is_err());
+        let _ = app_settings();
     }
 }

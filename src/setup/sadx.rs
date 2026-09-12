@@ -335,4 +335,57 @@ mod tests {
 
         convert_steam_to_2004(tmp.path(), None).unwrap();
     }
+
+    #[test]
+    fn test_url_and_hpatchz_overrides_are_used() {
+        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        let _guard = ENV_LOCK
+            .get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap();
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
+                "http://127.0.0.1:4010/steam-tools.7z",
+            );
+            std::env::set_var("ADVENTURE_MODS_HPATCHZ", "/tmp/test-hpatchz");
+        }
+
+        assert_eq!(steam_tools_url(), "http://127.0.0.1:4010/steam-tools.7z");
+        assert_eq!(
+            hpatchz_program(),
+            std::path::PathBuf::from("/tmp/test-hpatchz")
+        );
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS");
+            std::env::remove_var("ADVENTURE_MODS_HPATCHZ");
+        }
+    }
+
+    #[test]
+    fn test_normalize_case_for_patch_renames_expected_directories() {
+        let tmp = tempfile::tempdir().unwrap();
+        for path in [
+            "SoundData/VOICE_JP",
+            "SoundData/VOICE_US",
+            "SoundData/SE",
+            "SoundData/voice_jp/WMA",
+            "SoundData/voice_us/WMA",
+        ] {
+            std::fs::create_dir_all(tmp.path().join(path)).unwrap();
+        }
+
+        normalize_case_for_patch(tmp.path()).unwrap();
+
+        for path in [
+            "SoundData/voice_jp",
+            "SoundData/voice_us",
+            "SoundData/se",
+            "SoundData/voice_jp/wma",
+            "SoundData/voice_us/wma",
+        ] {
+            assert!(tmp.path().join(path).is_dir(), "missing {path}");
+        }
+    }
 }

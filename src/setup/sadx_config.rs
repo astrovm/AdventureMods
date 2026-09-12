@@ -590,4 +590,12 @@ mod tests {
                 .contains("Subtitle language 'italian' is not supported for SADX")
         );
     }
+
+    #[test]
+    fn subtitle_codes_cover_all_sadx_languages() {
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Japanese), 0);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Spanish), 3);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::German), 4);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Italian), 1);
+    }
 }

@@ -919,6 +919,9 @@ mod tests {
             }
         );
 
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("cannot run SA Mod Manager"));
+
         let message = steam_config_message("Sonic Adventure DX", &game_path, 71250);
         assert!(message.contains("Proton 10.0"));
         assert!(message.contains("11"));
@@ -969,6 +972,8 @@ mod tests {
         .unwrap();
 
         assert_eq!(prefix_state(&game_path, 71250).unwrap(), PrefixState::Ready);
+        assert!(ensure_prefix_ready(&game_path, 71250).is_ok());
+        assert!(steam_config_message("Sonic Adventure DX", &game_path, 71250).contains("ready"));
     }
 
     #[test]
@@ -1294,6 +1299,11 @@ mod tests {
 
     #[test]
     fn test_failure_priority_ordering() {
+        let tool = ConfiguredTool {
+            name: "Proton 10".to_owned(),
+            proton_dir: PathBuf::from("/steam/Proton 10"),
+        };
+        assert_eq!(failure_priority(&ConfiguredToolLookup::Tool(tool)), 4);
         assert!(
             failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable)
                 > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
@@ -1332,6 +1342,10 @@ mod tests {
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
         assert!(format!("{error:#}").contains("has not created this game's Proton prefix"));
+        assert!(
+            steam_config_message("Sonic Adventure DX", Path::new("/game"), 71250)
+                .contains("Force Proton 10.0")
+        );
     }
 
     #[test]
@@ -1350,6 +1364,7 @@ mod tests {
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
         assert!(format!("{error:#}").contains("prefix metadata is incomplete"));
+        assert!(steam_config_message("Sonic Adventure DX", &game_path, 71250).contains("metadata"));
     }
 
     #[test]
@@ -1377,6 +1392,10 @@ mod tests {
         assert!(message.contains("Proton Missing"));
         assert!(message.contains(&proton_dir.display().to_string()));
         assert!(message.contains("Wine executable is missing"));
+        assert!(
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+                .contains("installation is unavailable")
+        );
     }
 
     #[test]
@@ -1403,6 +1422,9 @@ mod tests {
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
         assert!(format!("{error:#}").contains("configuration for this game is missing"));
+        assert!(
+            steam_config_message("Sonic Adventure DX", &game_path, 71250).contains("configuration")
+        );
     }
 
     #[test]
@@ -1638,6 +1660,11 @@ mod tests {
                 configured_tool: "Proton - Experimental".to_string(),
             }
         );
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("still uses"));
+        assert!(
+            steam_config_message("Sonic Adventure DX", &game_path, 71250).contains("still has")
+        );
     }
 
     #[test]
@@ -1701,6 +1728,8 @@ mod tests {
         assert!(message.contains("Steam is configured to use"));
         assert!(message.contains("Proton/Wine 11"));
         assert!(!message.contains("update the prefix"));
+        let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
+        assert!(format!("{error:#}").contains("cannot run SA Mod Manager"));
     }
 
     #[test]

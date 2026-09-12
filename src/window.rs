@@ -136,20 +136,15 @@ impl AdventureModsWindow {
     }
 
     fn setup_settings(&self) {
-        let schema_source = gio::SettingsSchemaSource::default();
-        let has_schema =
-            schema_source.is_some_and(|s| s.lookup(crate::config::APP_ID, true).is_some());
-
-        if !has_schema {
+        let Some(settings) = crate::setup::config::app_settings() else {
             tracing::warn!(
                 "GSettings schema '{}' not found, using default window size",
                 crate::config::APP_ID
             );
             self.set_default_size(WIZARD_DEFAULT_WIDTH, WIZARD_DEFAULT_HEIGHT);
             return;
-        }
+        };
 
-        let settings = gio::Settings::new(crate::config::APP_ID);
         self.load_extra_library_paths(&settings);
         self.imp().settings.replace(Some(settings.clone()));
 
@@ -322,11 +317,71 @@ fn should_apply_detection_result(latest_request_id: u64, request_id: u64) -> boo
 mod tests {
     use std::cell::RefCell;
     use std::path::PathBuf;
+    use std::process::Command as ProcessCommand;
+    use std::sync::{Mutex, OnceLock};
+
+    use adw::prelude::*;
+    use adw::subclass::prelude::ObjectSubclassIsExt;
+    use gio::prelude::SettingsExt;
+    use gtk::gio;
 
     use super::{
-        add_extra_library_path, handle_library_access_granted, next_detection_request_id,
-        should_apply_detection_result,
+        AdventureModsWindow, add_extra_library_path, handle_library_access_granted,
+        next_detection_request_id, should_apply_detection_result,
     };
+    use crate::steam::game::{Game, GameKind};
+    use crate::ui::test_util::init_resource_overlay;
+
+    fn test_application() -> gtk::Application {
+        gtk::Application::new(
+            Some("io.github.astrovm.AdventureMods.WindowTests"),
+            gio::ApplicationFlags::NON_UNIQUE,
+        )
+    }
+
+    fn with_test_settings<T>(test: impl FnOnce(&gio::Settings) -> T) -> T {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let _guard = LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let schema_dir = tempfile::tempdir().unwrap();
+        let schema_path = schema_dir
+            .path()
+            .join(format!("{}.gschema.xml", crate::config::APP_ID));
+        let schema = include_str!("../data/io.github.astrovm.AdventureMods.gschema.xml")
+            .replace("@APP_ID_RAW@", crate::config::APP_ID)
+            .replace("@APP_PATH_RAW@", "/io/github/astrovm/AdventureMods/");
+        std::fs::write(&schema_path, schema).unwrap();
+        assert!(
+            ProcessCommand::new("glib-compile-schemas")
+                .arg(schema_dir.path())
+                .status()
+                .unwrap()
+                .success()
+        );
+
+        let previous_schema_dir = std::env::var("GSETTINGS_SCHEMA_DIR").ok();
+        let previous_backend = std::env::var("GSETTINGS_BACKEND").ok();
+        unsafe {
+            std::env::set_var("GSETTINGS_SCHEMA_DIR", schema_dir.path());
+            std::env::set_var("GSETTINGS_BACKEND", "memory");
+        }
+
+        let source =
+            gio::SettingsSchemaSource::from_directory(schema_dir.path(), None, true).unwrap();
+        let schema = source.lookup(crate::config::APP_ID, true).unwrap();
+        let settings = gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
+        let result = test(&settings);
+
+        match previous_schema_dir {
+            Some(value) => unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", value) },
+            None => unsafe { std::env::remove_var("GSETTINGS_SCHEMA_DIR") },
+        }
+        match previous_backend {
+            Some(value) => unsafe { std::env::set_var("GSETTINGS_BACKEND", value) },
+            None => unsafe { std::env::remove_var("GSETTINGS_BACKEND") },
+        }
+
+        result
+    }
 
     #[test]
     fn adding_a_granted_library_path_reports_new_paths_only() {
@@ -381,5 +436,129 @@ mod tests {
     #[test]
     fn detection_request_ids_wrap_safely() {
         assert_eq!(next_detection_request_id(u64::MAX), 0);
+    }
+
+    #[gtk::test]
+    fn window_handles_status_messages_and_detection_refresh() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+
+        window.show_status_message("A warning", true);
+        assert_eq!(window.imp().status_label.label().as_str(), "A warning");
+        assert!(
+            window
+                .imp()
+                .status_banner
+                .has_css_class("status-banner-error")
+        );
+        assert!(window.imp().status_revealer.reveals_child());
+
+        window.show_status_message("A note", false);
+        assert!(
+            !window
+                .imp()
+                .status_banner
+                .has_css_class("status-banner-error")
+        );
+
+        window.clear_status_message();
+        assert_eq!(window.imp().status_label.label().as_str(), "");
+        assert!(!window.imp().status_revealer.reveals_child());
+
+        while gtk::glib::MainContext::default().iteration(false) {}
+    }
+
+    #[gtk::test]
+    fn window_pushes_setup_page_and_accepts_granted_library_signal() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+        let game_dir = tempfile::tempdir().unwrap();
+
+        window.push_setup_page(Game {
+            kind: GameKind::SA2,
+            path: game_dir.path().to_path_buf(),
+        });
+
+        let navigation = window.navigation_view();
+        let visible_page = navigation.visible_page().unwrap();
+        assert_eq!(visible_page.title().as_str(), "Setup");
+
+        let granted = "/run/user/1000/doc/test-id/SteamLibrary";
+        window
+            .imp()
+            .welcome_page
+            .emit_by_name::<()>("library-access-granted", &[&granted]);
+        assert_eq!(
+            window.imp().extra_library_paths.borrow().as_slice(),
+            &[PathBuf::from(granted)]
+        );
+
+        while gtk::glib::MainContext::default().iteration(false) {}
+    }
+
+    #[gtk::test]
+    fn window_header_refresh_and_navigation_callbacks_are_wired() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+        window.imp().refresh_button.emit_clicked();
+
+        let navigation = window.navigation_view();
+        let page = adw::NavigationPage::builder()
+            .tag("synthetic")
+            .title("Synthetic")
+            .child(&gtk::Label::new(Some("Synthetic")))
+            .build();
+        navigation.push(&page);
+        while gtk::glib::MainContext::default().iteration(false) {}
+        navigation.pop();
+        while gtk::glib::MainContext::default().iteration(false) {}
+
+        window.imp().settings.replace(None);
+        window.save_extra_library_paths();
+    }
+
+    #[gtk::test]
+    fn window_loads_and_saves_settings_when_schema_is_available() {
+        init_resource_overlay();
+
+        with_test_settings(|settings| {
+            settings.set_int("window-width", 1111).unwrap();
+            settings.set_int("window-height", 777).unwrap();
+            settings.set_boolean("window-maximized", true).unwrap();
+            settings
+                .set_strv("extra-library-paths", ["/tmp/synthetic-steam"])
+                .unwrap();
+
+            let app = test_application();
+            let window = AdventureModsWindow::new(&app);
+
+            assert_eq!(window.default_width(), 1111);
+            assert_eq!(window.default_height(), 777);
+            assert!(window.is_maximized());
+            assert_eq!(
+                window.imp().extra_library_paths.borrow().as_slice(),
+                &[PathBuf::from("/tmp/synthetic-steam")]
+            );
+
+            window
+                .imp()
+                .extra_library_paths
+                .borrow_mut()
+                .push(PathBuf::from("/tmp/synthetic-extra"));
+            window.save_extra_library_paths();
+            assert_eq!(
+                settings.strv("extra-library-paths").as_slice(),
+                [
+                    "/tmp/synthetic-steam".to_string(),
+                    "/tmp/synthetic-extra".to_string()
+                ]
+            );
+        });
     }
 }

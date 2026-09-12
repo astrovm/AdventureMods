@@ -333,4 +333,9 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn step_ids_display_their_stable_identifiers() {
+        assert_eq!(StepId::Complete.to_string(), "complete");
+    }
 }

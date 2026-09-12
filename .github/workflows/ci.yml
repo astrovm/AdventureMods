@@ -24,6 +24,9 @@ permissions:
 
 jobs:
   test:
+    # Pull requests and release/manual runs validate the tree. A merge to main
+    # does not need to repeat the PR validation that already required it.
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -49,7 +52,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: clippy, llvm-tools-preview, rustfmt
 
       - name: Check formatting
         run: cargo fmt --check
@@ -58,14 +61,45 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Run tests
-        run: xvfb-run cargo test
+        run: xvfb-run cargo test --all-targets --no-fail-fast -- --test-threads=1
 
       - name: Test Cargo runner
         run: sh build-aux/test-cargo-test.sh
 
+  coverage:
+    # 95% coverage is a required PR signal; main is protected by PR-only changes.
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            curl \
+            pkg-config \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            xvfb
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: Check 95% line coverage
+        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 95 -- --test-threads=1
+
   flatpak:
     # Same packaging gates as AppImage: PR validation, release tags, manual runs.
-    # Skip ordinary pushes to main (tests still run there).
+    # Skip ordinary pushes to main; PRs already passed the validation gates.
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     needs: test
     strategy:

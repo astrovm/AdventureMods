@@ -5,7 +5,11 @@ use gtk::prelude::*;
 use gtk::{gio, glib};
 
 fn main() -> ExitCode {
-    match adventure_mods::cli::run_from_args(std::env::args().collect()) {
+    run_application(std::env::args().collect(), run_gui)
+}
+
+fn run_application(args: Vec<String>, launch_gui: impl FnOnce() -> ExitCode) -> ExitCode {
+    match adventure_mods::cli::run_from_args(args) {
         Ok(true) => return ExitCode::SUCCESS,
         Ok(false) => {}
         Err(error) => {
@@ -14,14 +18,28 @@ fn main() -> ExitCode {
         }
     }
 
+    launch_gui()
+}
+
+fn run_gui() -> ExitCode {
+    initialize_gui();
+
+    let app = AdventureModsApplication::new();
+    app.run()
+}
+
+fn initialize_gui() {
     // Install the ring TLS provider. If the CLI path already installed it,
     // install_default returns an error which we can safely ignore.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    tracing_subscriber::fmt::init();
+    let _ = tracing_subscriber::fmt::try_init();
 
     glib::set_application_name(config::APP_NAME);
+    load_resources();
+}
 
+fn load_resources() {
     let gresource_name = "adventure-mods.gresource";
 
     let pkgdatadir = std::env::var("ADVENTURE_MODS_PKGDATADIR")
@@ -48,7 +66,57 @@ fn main() -> ExitCode {
         Ok(res) => gio::resources_register(&res),
         Err(e) => eprintln!("Warning: failed to load GResources: {e}"),
     }
+}
 
-    let app = AdventureModsApplication::new();
-    app.run()
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn command_line_exit_codes_short_circuit_gui_startup() {
+        assert_eq!(
+            run_application(
+                vec!["adventure-mods".to_string(), "--version".to_string()],
+                || ExitCode::from(42),
+            ),
+            ExitCode::SUCCESS
+        );
+        assert_eq!(
+            run_application(
+                vec!["adventure-mods".to_string(), "--unknown".to_string()],
+                || ExitCode::from(42),
+            ),
+            ExitCode::FAILURE
+        );
+        assert_eq!(
+            run_application(vec!["adventure-mods".to_string()], || ExitCode::from(42)),
+            ExitCode::from(42)
+        );
+    }
+
+    #[test]
+    fn gui_initialization_handles_missing_resource_bundle() {
+        unsafe {
+            std::env::set_var("ADVENTURE_MODS_PKGDATADIR", "/previous/path");
+        }
+        let previous = std::env::var_os("ADVENTURE_MODS_PKGDATADIR");
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_PKGDATADIR",
+                "/definitely/missing/adventure-mods-data",
+            );
+        }
+
+        initialize_gui();
+
+        match previous {
+            Some(value) => unsafe { std::env::set_var("ADVENTURE_MODS_PKGDATADIR", value) },
+            None => unsafe { std::env::remove_var("ADVENTURE_MODS_PKGDATADIR") },
+        }
+
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_PKGDATADIR");
+        }
+        initialize_gui();
+    }
 }
