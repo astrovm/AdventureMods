@@ -306,7 +306,8 @@ pub fn run_in_prefix(
     let mut env = proton_env(game_path, app_id)?;
     map_env_paths_for_host_command(&mut env);
     let exe = host_command_path(exe);
-    let (program, command_args) = prefix_command(&host_proton_dir, &exe, extra_args, &mut env);
+    let (program, command_args) =
+        prefix_command(&proton_dir, &host_proton_dir, &exe, extra_args, &mut env);
     let args: Vec<&str> = command_args.iter().map(String::as_str).collect();
     let program_str = program.to_string_lossy().to_string();
 
@@ -322,12 +323,13 @@ pub fn run_in_prefix(
 }
 
 fn prefix_command(
-    proton_dir: &Path,
+    visible_proton_dir: &Path,
+    host_proton_dir: &Path,
     exe: &Path,
     extra_args: &[&str],
     env: &mut HashMap<String, String>,
 ) -> (PathBuf, Vec<String>) {
-    let proton_launcher = proton_dir.join("proton");
+    let proton_launcher = visible_proton_dir.join("proton");
     let use_launcher = proton_launcher.is_file();
     let mut args = Vec::with_capacity(extra_args.len() + 2);
 
@@ -336,16 +338,16 @@ fn prefix_command(
         // files before dispatching through its own compatible Wine loader.
         args.push("runinprefix".to_owned());
     } else {
-        configure_proton_runtime_env(env, proton_dir);
+        configure_proton_runtime_env(env, host_proton_dir);
     }
 
     args.push(exe.to_string_lossy().into_owned());
     args.extend(extra_args.iter().map(|arg| (*arg).to_owned()));
 
     let program = if use_launcher {
-        proton_launcher
+        host_command_path(&proton_launcher)
     } else {
-        wine_binary(proton_dir)
+        host_command_path(&wine_binary(visible_proton_dir))
     };
 
     (program, args)
@@ -1945,6 +1947,7 @@ mod tests {
 
         let (program, args) = prefix_command(
             &proton_dir,
+            &proton_dir,
             Path::new("/tmp/windowsdesktop-runtime.exe"),
             &["/install", "/quiet"],
             &mut env,
@@ -1958,6 +1961,41 @@ mod tests {
                 "/tmp/windowsdesktop-runtime.exe".to_owned(),
                 "/install".to_owned(),
                 "/quiet".to_owned(),
+            ]
+        );
+        assert!(env.is_empty());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_prefix_command_detects_launcher_from_portal_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let portal_dir = tmp.path().join("doc/abc123/Proton 10.0");
+        let host_dir = tmp.path().join("host/Proton 10.0");
+        std::fs::create_dir_all(&portal_dir).unwrap();
+        std::fs::write(portal_dir.join("proton"), "").unwrap();
+
+        if !try_set_host_path_xattr(&portal_dir, &host_dir) {
+            eprintln!("skipping xattr-backed Proton launcher test; filesystem has no user xattrs");
+            return;
+        }
+
+        let mut env = HashMap::new();
+        let (program, args) = prefix_command(
+            &portal_dir,
+            &host_dir,
+            Path::new("/tmp/windowsdesktop-runtime.exe"),
+            &["/install"],
+            &mut env,
+        );
+
+        assert_eq!(program, host_dir.join("proton"));
+        assert_eq!(
+            args,
+            vec![
+                "runinprefix".to_owned(),
+                "/tmp/windowsdesktop-runtime.exe".to_owned(),
+                "/install".to_owned(),
             ]
         );
         assert!(env.is_empty());
