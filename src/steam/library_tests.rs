@@ -1,6 +1,7 @@
 use super::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 /// Build a mock VDF structure for libraryfolders with one library.
 fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
@@ -25,6 +26,29 @@ fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
     vdf::VdfValue::Map(root)
 }
 
+fn with_environment<T>(name: &str, value: Option<&Path>, test: impl FnOnce() -> T) -> T {
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let _guard = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let previous = std::env::var_os(name);
+
+    match value {
+        Some(value) => unsafe { std::env::set_var(name, value) },
+        None => unsafe { std::env::remove_var(name) },
+    }
+
+    let result = test();
+
+    match previous {
+        Some(value) => unsafe { std::env::set_var(name, value) },
+        None => unsafe { std::env::remove_var(name) },
+    }
+
+    result
+}
+
 #[test]
 fn test_steam_roots_find_native_and_flatpak_steam() {
     let tmp = tempfile::tempdir().unwrap();
@@ -44,6 +68,54 @@ fn test_steam_roots_find_native_and_flatpak_steam() {
 fn test_steam_roots_skip_missing_installations() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(steam_roots_in(tmp.path()).is_empty());
+}
+
+#[test]
+fn test_detect_games_reads_synthetic_home_steam_libraries() {
+    let home = tempfile::tempdir().unwrap();
+    let native = home.path().join(".local/share/Steam");
+    let alternate = home
+        .path()
+        .join(".var/app/com.valvesoftware.Steam/.local/share/Steam");
+    std::fs::create_dir_all(home.path().join(".steam/steam/steamapps")).unwrap();
+    let stale = home.path().join("stale-library");
+    let inaccessible = home.path().join("missing-library");
+    let game_dir = make_steam_library(&native, GameKind::SADX);
+    std::fs::create_dir_all(
+        stale
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir()),
+    )
+    .unwrap();
+    std::fs::create_dir_all(alternate.join("steamapps")).unwrap();
+    std::fs::write(alternate.join("steamapps/libraryfolders.vdf"), "invalid {").unwrap();
+    std::fs::write(
+        native.join("steamapps/libraryfolders.vdf"),
+        format!(
+            "\"libraryfolders\" {{\n  \"0\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }}\n  \"1\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }}\n  \"2\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }}\n}}",
+            native.display(),
+            stale.display(),
+            inaccessible.display()
+        ),
+    )
+    .unwrap();
+
+    let result = with_environment("HOME", Some(home.path()), || {
+        detect_games_with_extra_libraries(&[])
+    });
+    assert!(result.games.iter().any(|game| game.path == game_dir));
+    assert!(
+        result
+            .inaccessible
+            .iter()
+            .any(|game| game.library_path == inaccessible)
+    );
+
+    let empty_home = tempfile::tempdir().unwrap();
+    let empty_result = with_environment("HOME", Some(empty_home.path()), || {
+        detect_games_with_extra_libraries(&[])
+    });
+    assert!(empty_result.games.is_empty());
 }
 
 #[test]
@@ -360,6 +432,80 @@ fn test_detect_games_from_vdf_corrupt() {
     let result = detect_games_from_vdf_with_extra_libraries(&vdf_path, &[]);
     assert!(result.games.is_empty());
     assert!(result.inaccessible.is_empty());
+}
+
+#[test]
+fn test_library_detection_handles_missing_fields_and_stale_entries() {
+    let mut folders = HashMap::new();
+    folders.insert(
+        "scalar".to_string(),
+        vdf::VdfValue::String("not-a-folder".to_string()),
+    );
+
+    let mut no_apps = HashMap::new();
+    no_apps.insert(
+        "path".to_string(),
+        vdf::VdfValue::String("/tmp/no-apps".to_string()),
+    );
+    folders.insert("no-apps".to_string(), vdf::VdfValue::Map(no_apps));
+
+    let mut missing_path_apps = HashMap::new();
+    missing_path_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut missing_path = HashMap::new();
+    missing_path.insert("apps".to_string(), vdf::VdfValue::Map(missing_path_apps));
+    folders.insert("missing-path".to_string(), vdf::VdfValue::Map(missing_path));
+
+    let mut empty_path_apps = HashMap::new();
+    empty_path_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut empty_path = HashMap::new();
+    empty_path.insert("path".to_string(), vdf::VdfValue::String("   ".to_string()));
+    empty_path.insert("apps".to_string(), vdf::VdfValue::Map(empty_path_apps));
+    folders.insert("empty-path".to_string(), vdf::VdfValue::Map(empty_path));
+
+    let inaccessible_path = "/definitely/missing/steam-library";
+    let mut inaccessible_apps = HashMap::new();
+    inaccessible_apps.insert("213610".to_string(), vdf::VdfValue::String("0".to_string()));
+    let mut inaccessible = HashMap::new();
+    inaccessible.insert(
+        "path".to_string(),
+        vdf::VdfValue::String(inaccessible_path.to_string()),
+    );
+    inaccessible.insert("apps".to_string(), vdf::VdfValue::Map(inaccessible_apps));
+    folders.insert("inaccessible".to_string(), vdf::VdfValue::Map(inaccessible));
+
+    let mut root = HashMap::new();
+    root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+    let result = detect_games_from_parsed_vdfs(&[vdf::VdfValue::Map(root)], &[]);
+    assert!(result.games.is_empty());
+    assert!(
+        result
+            .inaccessible
+            .iter()
+            .any(|game| game.library_path == Path::new(inaccessible_path))
+    );
+
+    let missing_vdf = PathBuf::from("/definitely/missing/libraryfolders.vdf");
+    assert!(
+        detect_games_from_vdf_with_extra_libraries(&missing_vdf, &[])
+            .games
+            .is_empty()
+    );
+    let _ = detect_games_with_extra_libraries(&[]);
+}
+
+#[test]
+fn test_library_detection_reports_stale_game_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let stale = tmp
+        .path()
+        .join("steamapps/common")
+        .join(GameKind::SA2.install_dir());
+    std::fs::create_dir_all(&stale).unwrap();
+
+    let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["213610"]);
+    let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SA2);
+    assert!(paths.is_empty());
+    assert!(inaccessible.is_empty());
 }
 
 #[test]
@@ -815,6 +961,67 @@ fn resolve_granted_library_accepts_matching_portal_path() {
 
     let resolved = resolve_granted_steam_library(&portal, &expected).unwrap();
     assert_eq!(resolved, portal);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn resolve_document_portal_path_maps_existing_nested_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = tmp.path().join("host/SteamLibrary");
+    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
+    let nested = portal.join("steamapps/common/Proton 10.0");
+    std::fs::create_dir_all(&nested).unwrap();
+
+    if !try_set_host_path_xattr(&portal, &host) {
+        eprintln!("skipping xattr-backed portal path test; filesystem has no user xattrs");
+        return;
+    }
+
+    assert_eq!(resolve_document_portal_path(&portal, &host), Some(portal));
+    assert_eq!(
+        resolve_document_portal_path(&nested, &host.join("steamapps/common/Proton 10.0")),
+        Some(nested)
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn resolve_granted_library_scans_document_portal_grants() {
+    let tmp = tempfile::tempdir().unwrap();
+    let runtime = tmp.path().join("runtime");
+    let doc = runtime.join("doc");
+    let expected = tmp.path().join("host/SteamLibrary");
+    let portal = doc.join("grant");
+    std::fs::create_dir_all(doc.join("by-app")).unwrap();
+    make_steam_library(&portal, GameKind::SADX);
+
+    if !try_set_host_path_xattr(&portal, &expected) {
+        eprintln!("skipping xattr-backed portal scan test; filesystem has no user xattrs");
+        return;
+    }
+
+    let selected = tmp.path().join("selected");
+    std::fs::create_dir_all(&selected).unwrap();
+    let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+        resolve_granted_steam_library(&selected, &expected)
+    });
+    assert_eq!(resolved, Some(portal.clone()));
+
+    let nested_expected = tmp.path().join("host/NestedLibrary");
+    let nested_grant = doc.join("nested-grant");
+    let nested_portal = nested_grant.join("NestedLibrary");
+    make_steam_library(&nested_portal, GameKind::SADX);
+    if !try_set_host_path_xattr(&nested_portal, &nested_expected) {
+        eprintln!("skipping nested xattr-backed portal scan test; filesystem has no user xattrs");
+        return;
+    }
+
+    let nested_selected = tmp.path().join("nested-selected");
+    std::fs::create_dir_all(&nested_selected).unwrap();
+    let nested_resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+        resolve_granted_steam_library(&nested_selected, &nested_expected)
+    });
+    assert_eq!(nested_resolved, Some(nested_portal));
 }
 
 #[cfg(target_os = "linux")]

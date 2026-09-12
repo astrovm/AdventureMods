@@ -686,6 +686,57 @@ fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
         .collect()
 }
 
+fn apply_install_progress(
+    progress: pipeline::InstallProgress<'_>,
+    cancel_flag: &AtomicBool,
+    tx: &async_channel::Sender<ProgressMsg>,
+    samples: &ProgressSamples,
+    total_count: usize,
+) -> anyhow::Result<()> {
+    match progress {
+        pipeline::InstallProgress::Started { mod_name } => {
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Err(anyhow::anyhow!("cancelled"));
+            }
+            let _ = tx.send_blocking(ProgressMsg::ModInstall {
+                mod_name: mod_name.to_string(),
+                total: total_count,
+            });
+        }
+        pipeline::InstallProgress::DownloadingMod {
+            mod_name,
+            downloaded,
+            total_bytes,
+        } => {
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Err(anyhow::anyhow!("cancelled"));
+            }
+            publish_mod_bytes(tx, samples, mod_name, total_count, downloaded, total_bytes);
+        }
+        pipeline::InstallProgress::Finished {
+            mod_name,
+            completed,
+            total,
+        } => {
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Err(anyhow::anyhow!("cancelled"));
+            }
+            samples.clear_mod(mod_name);
+            let _ = tx.send_blocking(ProgressMsg::ModFinished {
+                mod_name: mod_name.to_string(),
+                completed,
+                total,
+            });
+        }
+        pipeline::InstallProgress::GeneratingConfig => {
+            samples.clear();
+            let _ = tx.send_blocking(ProgressMsg::Configuring { total: total_count });
+        }
+    }
+
+    Ok(())
+}
+
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
@@ -1424,59 +1475,13 @@ impl AdventureModsSetupPage {
                                 height,
                                 language_selection,
                                 |progress| {
-                                    match progress {
-                                        pipeline::InstallProgress::Started { mod_name } => {
-                                            if cancel_during_install.load(Ordering::Relaxed) {
-                                                return Err(anyhow::anyhow!("cancelled"));
-                                            }
-                                            let _ = tx.send_blocking(ProgressMsg::ModInstall {
-                                                mod_name: mod_name.to_string(),
-                                                total: total_count,
-                                            });
-                                        }
-                                        pipeline::InstallProgress::DownloadingMod {
-                                            mod_name,
-                                            downloaded,
-                                            total_bytes,
-                                        } => {
-                                            if cancel_during_install.load(Ordering::Relaxed) {
-                                                return Err(anyhow::anyhow!("cancelled"));
-                                            }
-                                            publish_mod_bytes(
-                                                &tx,
-                                                &samples,
-                                                mod_name,
-                                                total_count,
-                                                downloaded,
-                                                total_bytes,
-                                            );
-                                        }
-                                        pipeline::InstallProgress::Finished {
-                                            mod_name,
-                                            completed,
-                                            total,
-                                        } => {
-                                            if cancel_during_install.load(Ordering::Relaxed) {
-                                                return Err(anyhow::anyhow!("cancelled"));
-                                            }
-                                            samples.clear_mod(mod_name);
-                                            let _ = tx.send_blocking(ProgressMsg::ModFinished {
-                                                mod_name: mod_name.to_string(),
-                                                completed,
-                                                total,
-                                            });
-                                        }
-                                        pipeline::InstallProgress::GeneratingConfig => {
-                                            // Do not honour cancel here: all mods are already
-                                            // installed. Aborting now would leave mods installed
-                                            // but no config written.
-                                            samples.clear();
-                                            let _ = tx.send_blocking(ProgressMsg::Configuring {
-                                                total: total_count,
-                                            });
-                                        }
-                                    }
-                                    Ok(())
+                                    apply_install_progress(
+                                        progress,
+                                        &cancel_during_install,
+                                        &tx,
+                                        &samples,
+                                        total_count,
+                                    )
                                 },
                             )
                         })
@@ -1738,13 +1743,17 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState, completed_mod_fraction,
-        drain_progress_updates, format_step_download_text, fraction_needs_update,
+        ModPreview, ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState,
+        apply_install_progress, completed_mod_fraction, drain_progress_updates,
+        format_download_bytes_text, format_step_download_text, fraction_needs_update,
         initial_preview_index, mod_download_finished_text, mod_download_fraction,
-        mod_download_progress_update, mod_download_start_text, subtitle_language_labels,
-        voice_language_labels,
+        mod_download_progress_update, mod_download_start_text, publish_mod_bytes,
+        publish_step_bytes, spawn_progress_receiver, subtitle_language_index,
+        subtitle_language_labels, voice_language_index, voice_language_labels,
     };
+    use crate::setup::config::{SubtitleLanguage, VoiceLanguage};
     use crate::setup::steps::StepId;
+    use crate::setup::{common, pipeline, steps};
     use crate::steam::game::Game;
     use crate::steam::game::GameKind;
     use crate::ui::test_util::init_resource_overlay;
@@ -1933,6 +1942,602 @@ mod tests {
         );
     }
 
+    #[test]
+    fn progress_state_handles_every_message_kind() {
+        let mut state = ProgressState::default();
+
+        state.apply(ProgressMsg::Refresh);
+        assert!(state.display.is_none());
+
+        state.apply(ProgressMsg::Bytes {
+            downloaded: 1_048_576,
+            total: Some(0),
+            status: String::new(),
+        });
+        assert_eq!(
+            state.display,
+            Some(ProgressDisplay {
+                fraction: None,
+                pulse: false,
+                text: "1.0 / 0.0 MB".to_string(),
+            })
+        );
+
+        state.apply(ProgressMsg::Bytes {
+            downloaded: 1_048_576,
+            total: None,
+            status: "Downloading".to_string(),
+        });
+        assert!(state.display.as_ref().unwrap().pulse);
+
+        state.apply(ProgressMsg::ModInstall {
+            mod_name: "Alpha".to_string(),
+            total: 2,
+        });
+        assert_eq!(state.display.as_ref().unwrap().text, "Starting Alpha...");
+
+        state
+            .active_downloads
+            .insert("Alpha".to_string(), (1, None));
+        state.apply(ProgressMsg::ModFinished {
+            mod_name: "Alpha".to_string(),
+            completed: 1,
+            total: 2,
+        });
+        assert!(state.active_downloads.is_empty());
+
+        state
+            .active_downloads
+            .insert("Beta".to_string(), (1, Some(2)));
+        state.apply(ProgressMsg::Configuring { total: 2 });
+        assert!(state.active_downloads.is_empty());
+        assert_eq!(state.display.as_ref().unwrap().fraction, Some(1.0));
+    }
+
+    #[test]
+    fn progress_samples_publish_latest_values_and_can_be_cleared() {
+        let samples = ProgressSamples::default();
+        let (sender, receiver) = async_channel::bounded(8);
+
+        publish_step_bytes(&sender, &samples, 1_048_576, Some(2_097_152), "Step");
+        publish_mod_bytes(&sender, &samples, "Alpha", 2, 1_048_576, Some(2_097_152));
+        publish_mod_bytes(&sender, &samples, "Beta", 2, 1_048_576, None);
+
+        assert!(receiver.try_recv().is_ok());
+        let mut state = ProgressState::default();
+        samples.apply_to(&mut state);
+        assert_eq!(state.active_downloads.len(), 2);
+        assert!(state.display.as_ref().unwrap().pulse);
+
+        samples.clear_mod("Alpha");
+        samples.clear();
+        let mut cleared = ProgressState::default();
+        samples.apply_to(&mut cleared);
+        assert!(cleared.display.is_none());
+    }
+
+    #[test]
+    fn progress_format_helpers_cover_empty_and_zero_cases() {
+        assert_eq!(format_download_bytes_text(1_048_576, None), "1.0 MB");
+        assert_eq!(
+            format_step_download_text("", 1_048_576, Some(2_097_152)),
+            "1.0 / 2.0 MB"
+        );
+        assert_eq!(completed_mod_fraction(0, 0), 0.0);
+        assert_eq!(mod_download_fraction(1, 0, 1, Some(100)), 0.0);
+        assert_eq!(mod_download_fraction(1, 2, 1, Some(0)), 0.5);
+        assert_eq!(
+            subtitle_language_index(GameKind::SADX, SubtitleLanguage::Italian),
+            0
+        );
+        assert_eq!(
+            subtitle_language_index(GameKind::SA2, SubtitleLanguage::Italian),
+            4
+        );
+        assert_eq!(voice_language_index(VoiceLanguage::Japanese), 0);
+        assert_eq!(voice_language_index(VoiceLanguage::English), 1);
+        assert!(fraction_needs_update(None, 0.5));
+        assert!(!fraction_needs_update(
+            Some(&ProgressDisplay {
+                fraction: Some(0.5),
+                pulse: false,
+                text: String::new(),
+            }),
+            0.5005
+        ));
+        assert!(fraction_needs_update(
+            Some(&ProgressDisplay {
+                fraction: None,
+                pulse: false,
+                text: String::new(),
+            }),
+            0.5
+        ));
+    }
+
+    #[gtk::test]
+    fn progress_render_updates_pulse_and_determinate_bars() {
+        init_resource_overlay();
+
+        let progress_bar = gtk::ProgressBar::new();
+        let mut previous = None;
+        let mut state = ProgressState {
+            display: Some(ProgressDisplay {
+                fraction: None,
+                pulse: true,
+                text: "Working".to_string(),
+            }),
+            ..ProgressState::default()
+        };
+        state.render(&progress_bar, &mut previous);
+        assert!(previous.is_some());
+
+        state.display = Some(ProgressDisplay {
+            fraction: Some(0.75),
+            pulse: false,
+            text: "Done".to_string(),
+        });
+        state.render(&progress_bar, &mut previous);
+        assert_eq!(progress_bar.fraction(), 0.75);
+
+        state.display = None;
+        state.render(&progress_bar, &mut previous);
+    }
+
+    #[test]
+    fn install_progress_helper_publishes_each_event_and_honors_cancel() {
+        let (sender, receiver) = async_channel::bounded(8);
+        let samples = ProgressSamples::default();
+        let cancel = std::sync::atomic::AtomicBool::new(false);
+
+        apply_install_progress(
+            pipeline::InstallProgress::Started { mod_name: "Alpha" },
+            &cancel,
+            &sender,
+            &samples,
+            2,
+        )
+        .unwrap();
+        apply_install_progress(
+            pipeline::InstallProgress::DownloadingMod {
+                mod_name: "Alpha",
+                downloaded: 10,
+                total_bytes: Some(20),
+            },
+            &cancel,
+            &sender,
+            &samples,
+            2,
+        )
+        .unwrap();
+        apply_install_progress(
+            pipeline::InstallProgress::Finished {
+                mod_name: "Alpha",
+                completed: 1,
+                total: 2,
+            },
+            &cancel,
+            &sender,
+            &samples,
+            2,
+        )
+        .unwrap();
+        apply_install_progress(
+            pipeline::InstallProgress::GeneratingConfig,
+            &cancel,
+            &sender,
+            &samples,
+            2,
+        )
+        .unwrap();
+
+        let mut state = ProgressState::default();
+        drain_progress_updates(&receiver, &mut state);
+        assert_eq!(state.completed_mods, 1);
+        assert_eq!(state.display.unwrap().fraction, Some(1.0));
+
+        cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        for progress in [
+            pipeline::InstallProgress::Started { mod_name: "Beta" },
+            pipeline::InstallProgress::DownloadingMod {
+                mod_name: "Beta",
+                downloaded: 1,
+                total_bytes: None,
+            },
+            pipeline::InstallProgress::Finished {
+                mod_name: "Beta",
+                completed: 2,
+                total: 2,
+            },
+        ] {
+            assert!(apply_install_progress(progress, &cancel, &sender, &samples, 2).is_err());
+        }
+
+        // Config generation is deliberately allowed through after cancellation.
+        apply_install_progress(
+            pipeline::InstallProgress::GeneratingConfig,
+            &cancel,
+            &sender,
+            &samples,
+            2,
+        )
+        .unwrap();
+    }
+
+    #[gtk::test]
+    fn progress_receiver_drains_messages_and_samples() {
+        init_resource_overlay();
+
+        let (sender, receiver) = async_channel::bounded(4);
+        let samples = std::sync::Arc::new(ProgressSamples::default());
+        let progress_bar = gtk::ProgressBar::new();
+        spawn_progress_receiver(progress_bar.clone(), receiver, samples.clone());
+        sender
+            .send_blocking(ProgressMsg::Bytes {
+                downloaded: 1,
+                total: Some(2),
+                status: "First".to_string(),
+            })
+            .unwrap();
+        samples.set_step_bytes(1_048_576, Some(2_097_152), "Latest");
+        sender.send_blocking(ProgressMsg::Refresh).unwrap();
+        drop(sender);
+
+        for _ in 0..100 {
+            while glib::MainContext::default().iteration(false) {}
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        assert!(progress_bar.text().is_some());
+    }
+
+    #[gtk::test]
+    fn mod_preview_handles_empty_cached_and_hover_states() {
+        init_resource_overlay();
+
+        let title = gtk::Label::new(None);
+        let carousel = adw::Carousel::new();
+        let carousel_frame = gtk::Frame::new(None);
+        let description = gtk::Label::new(None);
+        let links = gtk::FlowBox::new();
+        let preview = ModPreview::new(
+            GameKind::SADX,
+            &title,
+            &carousel,
+            &carousel_frame,
+            &description,
+            &links,
+        );
+        let mods = common::recommended_mods_for_game(GameKind::SADX);
+
+        preview.show_entry(Some(0), mods.first());
+        assert!(!carousel_frame.is_visible() || carousel.first_child().is_some());
+        assert_eq!(title.label().as_str(), mods[0].name);
+
+        preview.show_entry(Some(1), mods.get(1));
+        preview.show_entry(Some(0), mods.first());
+        preview.show_entry(None, None);
+        assert_eq!(title.label().as_str(), "");
+        assert!(!carousel_frame.is_visible());
+
+        preview.queue_hover(0);
+        preview.cancel_hover();
+        assert!(preview.hover_source.borrow().is_none());
+        preview.queue_hover(0);
+        std::thread::sleep(std::time::Duration::from_millis(70));
+        while glib::MainContext::default().iteration(false) {}
+        assert_eq!(preview.state.borrow().current_index, Some(0));
+    }
+
+    #[gtk::test]
+    fn setup_page_renders_info_language_and_download_controls() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let all_steps = page.imp().all_steps.borrow().clone();
+
+        let steam_step = all_steps
+            .iter()
+            .find(|step| step.id == StepId::SteamConfig)
+            .unwrap()
+            .clone();
+        let steam_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&steam_step, false, &steam_content);
+        assert_eq!(
+            page.imp().next_button.label().as_deref(),
+            Some("Check Again")
+        );
+
+        let language_step = all_steps
+            .iter()
+            .find(|step| step.id == StepId::LanguageOptions)
+            .unwrap()
+            .clone();
+        let language_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&language_step, false, &language_content);
+
+        let form = language_content
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let subtitle_box = form.first_child().unwrap().downcast::<gtk::Box>().unwrap();
+        let subtitle_dropdown = subtitle_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::DropDown>()
+            .unwrap();
+        subtitle_dropdown.set_selected(1);
+
+        let voice_box = form.last_child().unwrap().downcast::<gtk::Box>().unwrap();
+        let voice_dropdown = voice_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::DropDown>()
+            .unwrap();
+        voice_dropdown.set_selected(0);
+        voice_dropdown.set_selected(1);
+        assert_eq!(
+            page.imp().language_selection.borrow().unwrap().voice,
+            VoiceLanguage::English
+        );
+
+        page.imp().game.replace(None);
+        page.imp().language_selection.replace(None);
+        let fallback_language_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&language_step, false, &fallback_language_content);
+        assert_eq!(
+            fallback_language_content.first_child().unwrap().type_(),
+            gtk::Box::static_type()
+        );
+
+        let complete_step = all_steps
+            .iter()
+            .find(|step| step.id == StepId::Complete)
+            .unwrap()
+            .clone();
+        let complete_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&complete_step, true, &complete_content);
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Finish"));
+
+        let download_step = all_steps
+            .iter()
+            .find(|step| step.id == StepId::DownloadMods)
+            .unwrap()
+            .clone();
+        let download_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&download_step, false, &download_content);
+        assert_eq!(download_content.observe_children().n_items(), 2);
+        let cancel_button = download_content
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::Button>()
+            .unwrap();
+        cancel_button.emit_clicked();
+        assert_eq!(cancel_button.label().as_deref(), Some("Cancelling..."));
+        page.imp().task_running.set(false);
+        page.imp().current_step.set(
+            page.imp()
+                .all_steps
+                .borrow()
+                .iter()
+                .position(|step| step.id == StepId::Complete)
+                .unwrap(),
+        );
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        while glib::MainContext::default().iteration(false) {}
+    }
+
+    #[gtk::test]
+    fn no_game_auto_steps_complete_without_running_external_work() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        page.imp().game.replace(None);
+        page.imp().all_steps.replace(vec![
+            steps::SetupStep {
+                id: StepId::Dotnet,
+                title: "Runtime",
+                description: "Runtime",
+                kind: steps::StepKind::Auto,
+            },
+            steps::SetupStep {
+                id: StepId::Complete,
+                title: "Complete",
+                description: "Complete",
+                kind: steps::StepKind::Info,
+            },
+        ]);
+        page.imp().current_step.set(0);
+
+        page.run_auto_step(StepId::Dotnet);
+        while glib::MainContext::default().iteration(false) {}
+        assert_eq!(page.imp().current_step.get(), 1);
+
+        page.run_auto_step(StepId::ConvertSteam);
+        while glib::MainContext::default().iteration(false) {}
+        assert_eq!(page.imp().current_step.get(), 1);
+    }
+
+    #[gtk::test]
+    fn setup_page_navigation_handles_errors_and_backtracking() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let info = |id| steps::SetupStep {
+            id,
+            title: "Info",
+            description: "Info",
+            kind: steps::StepKind::Info,
+        };
+        let auto = steps::SetupStep {
+            id: StepId::Dotnet,
+            title: "Auto",
+            description: "Auto",
+            kind: steps::StepKind::Auto,
+        };
+
+        page.imp().all_steps.replace(vec![info(StepId::Complete)]);
+        page.imp().step_busy.set(true);
+        page.on_next_clicked();
+        page.imp().step_busy.set(false);
+        page.imp().is_error.set(true);
+        page.on_next_clicked();
+        page.imp().current_step.set(usize::MAX);
+        page.imp().is_error.set(false);
+        page.on_next_clicked();
+        assert!(page.imp().is_error.get());
+
+        page.imp()
+            .all_steps
+            .replace(vec![info(StepId::SteamConfig), info(StepId::Complete)]);
+        page.imp().current_step.set(0);
+        page.imp().is_error.set(false);
+        page.on_next_clicked();
+        assert_eq!(
+            page.imp().next_button.label().as_deref(),
+            Some("Check Again")
+        );
+
+        page.imp()
+            .all_steps
+            .replace(vec![info(StepId::LanguageOptions), info(StepId::Complete)]);
+        page.imp().current_step.set(0);
+        page.imp().game.replace(None);
+        page.on_next_clicked();
+        assert_eq!(page.imp().current_step.get(), 1);
+
+        page.imp()
+            .all_steps
+            .replace(vec![auto.clone(), info(StepId::Complete)]);
+        page.imp().current_step.set(1);
+        page.imp().game.replace(Some(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        }));
+        page.on_back_clicked();
+
+        page.imp().all_steps.replace(vec![
+            info(StepId::SteamConfig),
+            auto,
+            info(StepId::Complete),
+        ]);
+        page.imp().current_step.set(2);
+        page.on_back_clicked();
+        assert_eq!(page.imp().current_step.get(), 0);
+
+        page.imp()
+            .all_steps
+            .replace(vec![info(StepId::Complete), info(StepId::Complete)]);
+        page.imp().current_step.set(3);
+        page.on_back_clicked();
+        assert!(page.imp().is_error.get());
+
+        page.imp().all_steps.replace(Vec::new());
+        page.imp().current_step.set(1);
+        page.on_back_clicked();
+        assert!(page.imp().is_error.get());
+
+        page.imp().all_steps.replace(vec![info(StepId::Complete)]);
+        page.imp().current_step.set(0);
+        page.imp().cancel_flag.replace(Some(std::sync::Arc::new(
+            std::sync::atomic::AtomicBool::new(false),
+        )));
+        page.show_current_step();
+        assert!(page.imp().cancel_flag.borrow().is_none());
+        assert!(page.get_resolution().0 > 0);
+        page.imp().game.replace(None);
+        page.imp().language_selection.replace(None);
+        assert_eq!(
+            page.current_language_selection().voice,
+            VoiceLanguage::Japanese
+        );
+        page.persist_language_selection();
+        assert_eq!(page.skip_completed_steps(4), 4);
+
+        page.imp().game.replace(Some(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        }));
+        page.imp().all_steps.replace(Vec::new());
+        assert_eq!(page.skip_completed_steps(4), 4);
+
+        page.imp().all_steps.replace(vec![
+            info(StepId::Complete),
+            info(StepId::Complete),
+            info(StepId::Complete),
+        ]);
+        page.imp().current_step.set(2);
+        page.imp().is_error.set(false);
+        page.on_next_clicked();
+
+        page.imp().current_step.set(usize::MAX);
+        page.apply_step_chrome();
+        page.render_current_step_content();
+        page.show_current_step();
+
+        page.imp().all_steps.replace(vec![
+            info(StepId::Complete),
+            info(StepId::Complete),
+            info(StepId::Complete),
+        ]);
+        page.imp().current_step.set(2);
+        page.imp().is_error.set(false);
+        page.on_back_clicked();
+
+        let nav = adw::NavigationView::new();
+        let welcome = adw::NavigationPage::builder()
+            .title("Welcome")
+            .child(&gtk::Label::new(Some("Welcome")))
+            .build();
+        nav.push(&welcome);
+        let nav_page = adw::NavigationPage::builder().child(&page).build();
+        nav.push(&nav_page);
+        page.go_back_to_welcome();
+        assert_eq!(nav.visible_page().unwrap().title().as_str(), "Welcome");
+    }
+
+    #[gtk::test]
+    fn mapped_setup_page_uses_fade_transition() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let window = gtk::Window::builder()
+            .default_width(800)
+            .default_height(600)
+            .child(&page)
+            .build();
+        window.present();
+        while glib::MainContext::default().iteration(false) {}
+
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_enable_animations(false);
+            super::sync_content_fade_duration(&page.imp().content_revealer);
+            assert_eq!(page.imp().content_revealer.transition_duration(), 0);
+            settings.set_gtk_enable_animations(true);
+        }
+        page.imp().current_step.set(0);
+        page.show_current_step();
+        assert!(page.imp().content_revealer.reveals_child());
+        window.close();
+    }
+
     #[gtk::test]
     fn set_step_busy_disables_back_button() {
         init_resource_overlay();
@@ -1948,6 +2553,182 @@ mod tests {
         assert!(!page.imp().back_button.is_sensitive());
         page.set_step_busy(false);
         assert!(page.imp().back_button.is_sensitive());
+    }
+
+    #[gtk::test]
+    fn setup_button_panic_handlers_show_recoverable_errors() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        assert!(format!("{:?}", page).starts_with("AdventureModsSetupPage"));
+
+        let all_steps_guard = page.imp().all_steps.borrow_mut();
+        page.imp().next_button.emit_clicked();
+        drop(all_steps_guard);
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Retry"));
+        assert!(page.imp().is_error.get());
+
+        page.imp().is_error.set(false);
+        page.imp().current_step.set(1);
+        let all_steps_guard = page.imp().all_steps.borrow_mut();
+        page.imp().back_button.emit_clicked();
+        drop(all_steps_guard);
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Retry"));
+    }
+
+    #[gtk::test]
+    fn setup_page_covers_selector_callbacks_and_motion_handlers() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SADX,
+            path: tmp.path().to_path_buf(),
+        });
+        let select_mods_index = page
+            .imp()
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == StepId::SelectMods)
+            .unwrap();
+        page.imp().current_step.set(select_mods_index);
+        page.show_current_step();
+
+        let main_box = page
+            .imp()
+            .content_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let left_box = main_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let preset_box = left_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::Box>()
+            .unwrap();
+        let preset_dropdown = preset_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::DropDown>()
+            .unwrap();
+        preset_dropdown.set_selected(1);
+
+        let scrolled = left_box
+            .last_child()
+            .unwrap()
+            .downcast::<gtk::ScrolledWindow>()
+            .unwrap();
+        let list_box = scrolled
+            .child()
+            .unwrap()
+            .downcast::<gtk::Viewport>()
+            .unwrap()
+            .child()
+            .unwrap()
+            .downcast::<gtk::ListBox>()
+            .unwrap();
+        let row = list_box.row_at_index(0).unwrap();
+        let row_box = row.child().unwrap().downcast::<gtk::Box>().unwrap();
+        let check = row_box
+            .first_child()
+            .unwrap()
+            .downcast::<gtk::CheckButton>()
+            .unwrap();
+        check.set_active(false);
+        check.set_active(true);
+
+        let controllers = row.observe_controllers();
+        for index in 0..controllers.n_items() {
+            if let Some(controller) = controllers.item(index)
+                && let Ok(motion) = controller.downcast::<gtk::EventControllerMotion>()
+            {
+                motion.emit_by_name::<()>("enter", &[&0.0f64, &0.0f64]);
+                motion.emit_by_name::<()>("leave", &[]);
+            }
+        }
+        while glib::MainContext::default().iteration(false) {}
+        assert!(!page.imp().selected_mods.borrow().is_empty());
+    }
+
+    #[gtk::test]
+    fn run_download_steps_cover_conversion_manager_and_empty_mods() {
+        init_resource_overlay();
+
+        let sadx_dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(sadx_dir.path().join("system")).unwrap();
+        std::fs::write(sadx_dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SADX,
+            path: sadx_dir.path().to_path_buf(),
+        });
+        page.imp().all_steps.replace(Vec::new());
+
+        page.run_download_step(
+            StepId::ConvertSteam,
+            gtk::ProgressBar::new(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        for _ in 0..100 {
+            while glib::MainContext::default().iteration(false) {}
+            if !page.imp().task_running.get() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        std::fs::write(
+            sadx_dir.path().join("Sonic Adventure DX.exe.bak"),
+            b"backup",
+        )
+        .unwrap();
+        std::fs::create_dir_all(sadx_dir.path().join("mods/.modloader")).unwrap();
+        std::fs::write(
+            sadx_dir.path().join("mods/.modloader/SADXModLoader.dll"),
+            b"loader",
+        )
+        .unwrap();
+        page.run_download_step(
+            StepId::InstallModManager,
+            gtk::ProgressBar::new(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        for _ in 0..100 {
+            while glib::MainContext::default().iteration(false) {}
+            if !page.imp().task_running.get() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        let sa2_dir = tempfile::tempdir().unwrap();
+        let sa2_page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: sa2_dir.path().to_path_buf(),
+        });
+        sa2_page.imp().all_steps.replace(Vec::new());
+        sa2_page.run_download_step(
+            StepId::DownloadMods,
+            gtk::ProgressBar::new(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        for _ in 0..100 {
+            while glib::MainContext::default().iteration(false) {}
+            if !sa2_page.imp().task_running.get() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(!sa2_page.imp().task_running.get());
     }
 
     #[gtk::test]

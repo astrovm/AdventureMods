@@ -401,4 +401,12 @@ mod tests {
             subtitle_code(selection.subtitle)
         )));
     }
+
+    #[test]
+    fn subtitle_codes_cover_all_sa2_languages() {
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Spanish), 2);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::French), 3);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Italian), 4);
+        assert_eq!(subtitle_code(config::SubtitleLanguage::Japanese), 5);
+    }
 }

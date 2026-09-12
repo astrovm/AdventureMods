@@ -377,4 +377,115 @@ mod tests {
                 .contains("Duplicate mod install target")
         );
     }
+
+    #[test]
+    fn empty_selection_generates_config_and_reports_progress() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut events = Vec::new();
+
+        super::install_selected_mods_and_generate_config_with_progress(
+            dir.path(),
+            GameKind::SA2,
+            &[],
+            1280,
+            720,
+            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
+            |progress| {
+                if let super::InstallProgress::GeneratingConfig = progress {
+                    events.push("config");
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(events, vec!["config"]);
+    }
+
+    fn complete_mod_entry() -> super::ModEntry {
+        super::ModEntry {
+            name: "Ready Mod",
+            slug: "ready-mod",
+            dir_name: Some("ReadyMod"),
+            source: super::common::ModSource::DirectUrl {
+                url: "http://127.0.0.1:9/unused.zip",
+            },
+            description: "preinstalled synthetic mod",
+            full_description: None,
+            pictures: &[],
+            links: &[],
+        }
+    }
+
+    #[test]
+    fn preinstalled_mod_reports_started_finished_and_config_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let mod_dir = dir.path().join("mods/ReadyMod");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(mod_dir.join("mod.ini"), b"Name=Ready Mod\n").unwrap();
+        let entry = complete_mod_entry();
+        let selected = vec![&entry];
+        let mut events = Vec::new();
+
+        super::install_selected_mods_and_generate_config_with_progress(
+            dir.path(),
+            GameKind::SA2,
+            &selected,
+            1280,
+            720,
+            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
+            |progress| {
+                match progress {
+                    super::InstallProgress::Started { .. } => events.push("started"),
+                    super::InstallProgress::Finished { .. } => events.push("finished"),
+                    super::InstallProgress::GeneratingConfig => events.push("config"),
+                    super::InstallProgress::DownloadingMod { .. } => events.push("download"),
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(events, vec!["started", "finished", "config"]);
+    }
+
+    #[test]
+    fn progress_callback_errors_cancel_started_and_finished_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let mod_dir = dir.path().join("mods/ReadyMod");
+        std::fs::create_dir_all(&mod_dir).unwrap();
+        std::fs::write(mod_dir.join("mod.ini"), b"Name=Ready Mod\n").unwrap();
+        let entry = complete_mod_entry();
+        let selected = vec![&entry];
+
+        let started_error = super::install_selected_mods_and_generate_config_with_progress(
+            dir.path(),
+            GameKind::SA2,
+            &selected,
+            1280,
+            720,
+            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
+            |progress| match progress {
+                super::InstallProgress::Started { .. } => Err(anyhow::anyhow!("stop at start")),
+                _ => Ok(()),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(started_error.to_string(), "stop at start");
+
+        let finished_error = super::install_selected_mods_and_generate_config_with_progress(
+            dir.path(),
+            GameKind::SA2,
+            &selected,
+            1280,
+            720,
+            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
+            |progress| match progress {
+                super::InstallProgress::Finished { .. } => Err(anyhow::anyhow!("stop at finish")),
+                _ => Ok(()),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(finished_error.to_string(), "stop at finish");
+    }
 }

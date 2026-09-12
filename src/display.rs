@@ -50,3 +50,30 @@ pub fn resolution_from_display(
     );
     Some((width, height))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gtk::prelude::*;
+
+    #[gtk::test]
+    fn resolution_from_display_uses_the_default_monitor() {
+        let display = gdk::Display::default().expect("test display");
+        let resolution = resolution_from_display(&display, None);
+        assert!(resolution.is_some_and(|(width, height)| width > 0 && height > 0));
+    }
+
+    #[gtk::test]
+    fn resolution_from_display_uses_a_surface_monitor_when_available() {
+        let display = gdk::Display::default().expect("test display");
+        let window = gtk::Window::new();
+        window.set_default_size(320, 240);
+        window.present();
+        while gtk::glib::MainContext::default().iteration(false) {}
+
+        let surface = window.surface().expect("realized test window");
+        let resolution = resolution_from_display(&display, Some(&surface));
+        assert!(resolution.is_some_and(|(width, height)| width > 0 && height > 0));
+        window.close();
+    }
+}

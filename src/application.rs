@@ -102,3 +102,46 @@ impl AdventureModsApplication {
             .build()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use adw::prelude::*;
+    use gtk::gio;
+
+    use super::AdventureModsApplication;
+    use crate::config;
+    use crate::ui::test_util::init_resource_overlay;
+
+    #[gtk::test]
+    fn application_registers_actions_and_presents_a_window() {
+        init_resource_overlay();
+
+        let app = AdventureModsApplication::new();
+        assert_eq!(app.application_id().as_deref(), Some(config::APP_ID));
+
+        app.register(None::<&gio::Cancellable>).unwrap();
+
+        assert!(app.lookup_action("quit").is_some());
+        assert!(app.lookup_action("about").is_some());
+        assert_eq!(
+            app.accels_for_action("app.quit"),
+            vec!["<Control>q".to_string()]
+        );
+
+        app.activate_action("about", None);
+        app.activate();
+        while glib::MainContext::default().iteration(false) {}
+        assert!(app.active_window().is_some());
+
+        app.activate();
+        app.activate_action("about", None);
+        app.activate_action("quit", None);
+    }
+
+    #[test]
+    fn default_application_uses_the_configured_application_id() {
+        let app = AdventureModsApplication::default();
+
+        assert_eq!(app.application_id().as_deref(), Some(config::APP_ID));
+    }
+}

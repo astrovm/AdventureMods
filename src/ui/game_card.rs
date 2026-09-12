@@ -369,7 +369,9 @@ impl AdventureModsGameCard {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
     use std::path::PathBuf;
+    use std::rc::Rc;
 
     use super::*;
     use crate::steam::game::Game;
@@ -467,5 +469,59 @@ mod tests {
         );
 
         assert!(!card.has_css_class("game-card-clickable"));
+    }
+
+    #[gtk::test]
+    fn cards_dispatch_callbacks_and_update_selected_install_state() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::default();
+        assert!(format!("{:?}", card).starts_with("AdventureModsGameCard"));
+        assert!(card.selected_install_option().is_none());
+
+        card.set_install_options(
+            GameKind::SA2,
+            &[GameInstallOption::detected(PathBuf::from("/games/sa2"))],
+        );
+        let setup_calls = Rc::new(Cell::new(0));
+        let setup_calls_clone = setup_calls.clone();
+        card.connect_setup_clicked(move || {
+            setup_calls_clone.set(setup_calls_clone.get() + 1);
+        });
+        card.imp().setup_button.emit_clicked();
+        assert_eq!(setup_calls.get(), 1);
+
+        let secondary_calls = Rc::new(Cell::new(0));
+        let secondary_calls_clone = secondary_calls.clone();
+        card.connect_secondary_clicked(move || {
+            secondary_calls_clone.set(secondary_calls_clone.get() + 1);
+        });
+        card.imp().secondary_button.set_visible(true);
+        card.imp().secondary_button.emit_clicked();
+        assert_eq!(secondary_calls.get(), 1);
+
+        card.set_install_options(
+            GameKind::SA2,
+            &[
+                GameInstallOption::detected(PathBuf::from("/games/sa2")),
+                GameInstallOption::inaccessible(PathBuf::from("/mnt/steam")),
+            ],
+        );
+        card.imp().install_selector.set_selected(1);
+        assert!(matches!(
+            card.selected_install_option(),
+            Some(GameInstallOption::Inaccessible(_))
+        ));
+        assert_eq!(card.imp().badge_label.label().as_str(), "Needs access");
+
+        card.imp().install_selector.set_selected(0);
+        assert_eq!(card.imp().badge_label.label().as_str(), "Ready");
+
+        card.set_install_options(GameKind::SA2, &[]);
+        card.set_state_classes("custom", None);
+        assert_eq!(
+            card.imp().status_icon.icon_name().as_deref(),
+            Some("dialog-information-symbolic")
+        );
     }
 }

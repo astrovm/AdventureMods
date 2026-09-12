@@ -1146,15 +1146,24 @@ pub fn run_from_args_with_io(
 }
 
 fn detect_resolution() -> (u32, u32) {
+    detect_resolution_with(detect_resolution_via_gdk, || {
+        std::process::Command::new("xrandr")
+            .arg("--current")
+            .output()
+    })
+}
+
+fn detect_resolution_with(
+    detect_gdk: impl FnOnce() -> Option<(u32, u32)>,
+    run_xrandr: impl FnOnce() -> std::io::Result<std::process::Output>,
+) -> (u32, u32) {
     let fallback = (1920u32, 1080u32);
 
-    if let Some(res) = detect_resolution_via_gdk() {
+    if let Some(res) = detect_gdk() {
         return res;
     }
 
-    let output = std::process::Command::new("xrandr")
-        .arg("--current")
-        .output();
+    let output = run_xrandr();
 
     let output = match output {
         Ok(o) if o.status.success() => o,
