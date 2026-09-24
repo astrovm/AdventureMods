@@ -1,19 +1,13 @@
 project(
   'adventure-mods',
   'rust',
-  version: run_command(
-    'python3', '-c',
-    'import re, sys; t = open(sys.argv[1]).read(); pkg = re.search(r\'\\[package\\](.*?)(?=\\[|$)\', t, re.S).group(1); print(re.search(r\'version = "([^"]+)"\', pkg).group(1))',
-    'Cargo.toml',
-    check: true,
-  ).stdout().strip(),
+  version: run_command('sh', 'build-aux/cargo-version.sh', check: true).stdout().strip(),
   meson_version: '>= 1.2.0',
   license: 'MIT',
 )
 
 i18n = import('i18n')
 gnome = import('gnome')
-python = find_program('python3')
 
 base_id = 'io.github.astrovm.AdventureMods'
 
@@ -49,12 +43,6 @@ conf.set_quoted('GETTEXT_PACKAGE', 'adventure-mods')
 conf.set_quoted('LOCALEDIR', localedir)
 conf.set_quoted('PKGDATADIR', pkgdatadir)
 conf.set_quoted('PROFILE', profile)
-
-test(
-  'Validate offline Cargo sources',
-  python,
-  args: [meson.project_source_root() / 'build-aux' / 'check-cargo-sources.py'],
-)
 
 subdir('data')
 subdir('po')

@@ -1051,7 +1051,7 @@ fn resolve_document_portal_host_path_preserves_file_paths() {
     let host_file = tmp.path().join("host/Proton 10.0/proton");
     let portal_file = tmp.path().join("doc/d1a2b3c4/Proton 10.0/proton");
     std::fs::create_dir_all(portal_file.parent().unwrap()).unwrap();
-    std::fs::write(&portal_file, b"#!/usr/bin/env python3\n").unwrap();
+    std::fs::write(&portal_file, b"#!/bin/sh\n").unwrap();
 
     if !try_set_host_path_xattr(&portal_file, &host_file) {
         eprintln!("skipping xattr-backed portal file test; filesystem has no user xattrs");

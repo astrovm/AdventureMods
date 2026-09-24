@@ -16,7 +16,7 @@ podman run --rm \
 	bash -c '
 		apt-get update -qq
 		apt-get install -y -qq \
-			build-essential pkg-config meson gettext python3-pip python3-setuptools \
+			build-essential pkg-config meson gettext \
 			libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
 			libgraphene-1.0-dev libpango1.0-dev \
 			libcairo2-dev libgdk-pixbuf-2.0-dev libepoxy-dev \
