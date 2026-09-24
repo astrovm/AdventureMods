@@ -112,7 +112,8 @@ mod tests {
         assert!(script.contains("LINUXDEPLOY_ARCH=\"x86_64\""));
         assert!(script.contains("LINUXDEPLOY_ARCH=\"aarch64\""));
         assert!(script.contains("LDAI_UPDATE_INFORMATION="));
-        assert!(script.contains("*${APPIMAGE_ARCH}.AppImage.zsync"));
+        assert!(script.contains("AdventureMods-v*-${APPIMAGE_ARCH}.AppImage.zsync"));
+        assert!(script.contains("AdventureMods-v${version}-${APPIMAGE_ARCH}.AppImage"));
     }
 
     #[test]

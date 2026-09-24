@@ -44,6 +44,12 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.15" date="2026-09-24">
+      <description>
+        <p>Updated release downloads to include the version in every AppImage and Flatpak filename.</p>
+        <p>Updated application and packaging dependencies.</p>
+      </description>
+    </release>
     <release version="0.3.14" date="2026-09-11">
       <description>
         <p>Improved Steam library access and Proton detection in Flatpak.</p>
