@@ -136,8 +136,7 @@ make flatpak
 ```
 
 Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
-After updating Cargo dependencies, regenerate the offline Flatpak sources with
-`python3 build-aux/generate-cargo-sources.py`.
+The Flatpak build downloads the Cargo.lock dependencies during the build.
 
 **AppImage** (Podman + `debian:13`)
 

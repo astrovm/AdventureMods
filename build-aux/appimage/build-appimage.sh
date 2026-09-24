@@ -43,16 +43,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# GTK 4.20+ requires Meson >= 1.5.0. Install via pip if the system version is too old.
-REQUIRED_MESON="1.5.0"
-CURRENT_MESON="$(meson --version 2>/dev/null || echo 0)"
-if [ "$(printf '%s\n' "$REQUIRED_MESON" "$CURRENT_MESON" | sort -V | head -1)" != "$REQUIRED_MESON" ]; then
-	echo "==> Upgrading Meson (need >= ${REQUIRED_MESON}, have ${CURRENT_MESON})"
-	pip3 install --quiet --break-system-packages --force-reinstall meson
-	hash -r
-	echo "    Meson upgraded to $(meson --version)"
-fi
-
 echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
@@ -163,7 +153,7 @@ export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|A
 	--output appimage
 
 generated_name="Adventure_Mods-${APPIMAGE_ARCH}.AppImage"
-version="$(python3 -c 'import tomllib, sys; print(tomllib.load(open(sys.argv[1], "rb"))["package"]["version"])' "$PROJECT_DIR/Cargo.toml")"
+version="$(sh "$PROJECT_DIR/build-aux/cargo-version.sh")"
 appimage_name="AdventureMods-v${version}-${APPIMAGE_ARCH}.AppImage"
 
 if [ ! -f "$generated_name" ]; then

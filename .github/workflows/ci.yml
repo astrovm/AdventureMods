@@ -66,6 +66,9 @@ jobs:
       - name: Test Cargo runner
         run: sh build-aux/test-cargo-test.sh
 
+      - name: Test version lookup
+        run: sh build-aux/test-cargo-version.sh
+
   coverage:
     # 95% coverage is a required PR signal; main is protected by PR-only changes.
     if: github.event_name == 'pull_request'
@@ -120,14 +123,13 @@ jobs:
 
       - name: Validate manifest inputs
         run: |
-          build-aux/check-cargo-sources.py
           flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.json >/dev/null
           flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.Devel.json >/dev/null
 
       - name: Resolve release version
         id: version
         run: |
-          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          version=$(sh build-aux/cargo-version.sh)
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Build Flatpak
@@ -174,7 +176,7 @@ jobs:
         run: |
           apt update
           apt install -y \
-            build-essential pkg-config meson gettext python3-pip python3-setuptools \
+            build-essential pkg-config meson gettext \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
             libgdk-pixbuf-2.0-dev libepoxy-dev libwayland-dev \
@@ -218,14 +220,14 @@ jobs:
         run: |
           version="$RELEASE_TAG"
           version="${version#v}"
-          cargo_version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          cargo_version=$(sh build-aux/cargo-version.sh)
 
           if [ "$version" != "$cargo_version" ]; then
             echo "::error::Tag version $version does not match Cargo.toml version $cargo_version"
             exit 1
           fi
 
-          python3 build-aux/extract-release-notes.py "$version" >/dev/null
+          grep -Fq "<release version=\"$version\"" data/io.github.astrovm.AdventureMods.metainfo.xml.in
 
       - name: Create draft release
         env:
@@ -233,16 +235,14 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           tag="$RELEASE_TAG"
-          version="${tag#v}"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $tag already exists"
             exit 0
           fi
-          notes=$(python3 build-aux/extract-release-notes.py "$version")
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --notes "$notes" \
+            --generate-notes \
             --draft
 
   release:
