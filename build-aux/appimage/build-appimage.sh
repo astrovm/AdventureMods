@@ -35,7 +35,7 @@ SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-
 
 GTK4_VERSION="4.22.5"
 GTK4_URL="https://download.gnome.org/sources/gtk/4.22/gtk-${GTK4_VERSION}.tar.xz"
-LIBADWAITA_VERSION="1.9.3"
+LIBADWAITA_VERSION="1.9.4"
 LIBADWAITA_URL="https://download.gnome.org/sources/libadwaita/1.9/libadwaita-${LIBADWAITA_VERSION}.tar.xz"
 
 cleanup() {
