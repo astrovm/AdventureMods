@@ -59,8 +59,8 @@ and open it with Gear Lever.
 **AppImage manually**
 
 ```sh
-chmod +x AdventureMods-<arch>.AppImage
-./AdventureMods-<arch>.AppImage
+chmod +x AdventureMods-v<version>-<arch>.AppImage
+./AdventureMods-v<version>-<arch>.AppImage
 ```
 
 Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
@@ -143,5 +143,5 @@ Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.
 make appimage
 ```
 
-Output: `appimage-build/AdventureMods-<arch>.AppImage` and `.zsync`. Builds match the host
+Output: `appimage-build/AdventureMods-v<version>-<arch>.AppImage` and `.zsync`. Builds match the host
 architecture (x86_64 or aarch64). GitHub Releases publish both.

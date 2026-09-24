@@ -155,7 +155,7 @@ rm -f \
 rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
 
 # Second pass: produce the AppImage.
-export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*${APPIMAGE_ARCH}.AppImage.zsync"
+export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|AdventureMods-v*-${APPIMAGE_ARCH}.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
 	--exclude-library 'libvulkan.so.*' \
@@ -163,7 +163,8 @@ export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|*
 	--output appimage
 
 generated_name="Adventure_Mods-${APPIMAGE_ARCH}.AppImage"
-appimage_name="AdventureMods-${APPIMAGE_ARCH}.AppImage"
+version="$(python3 -c 'import tomllib, sys; print(tomllib.load(open(sys.argv[1], "rb"))["package"]["version"])' "$PROJECT_DIR/Cargo.toml")"
+appimage_name="AdventureMods-v${version}-${APPIMAGE_ARCH}.AppImage"
 
 if [ ! -f "$generated_name" ]; then
 	echo "Expected AppImage was not generated: $generated_name" >&2

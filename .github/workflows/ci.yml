@@ -124,6 +124,12 @@ jobs:
           flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.json >/dev/null
           flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.Devel.json >/dev/null
 
+      - name: Resolve release version
+        id: version
+        run: |
+          version=$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
       - name: Build Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
         with:
@@ -131,8 +137,7 @@ jobs:
           arch: ${{ matrix.variant.arch }}
           build-dir: flatpak-production
           build-bundle: ${{ startsWith(github.ref, 'refs/tags/') }}
-          # Arch-specific filename so multi-arch release downloads do not collide.
-          bundle: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          bundle: AdventureMods-${{ steps.version.outputs.tag }}-${{ matrix.variant.arch }}.flatpak
           repository-url: https://dl.flathub.org/repo/flathub.flatpakrepo
           upload-artifact: false
           run-tests: false
@@ -148,8 +153,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: AdventureMods-${{ matrix.variant.arch }}.flatpak
-          path: AdventureMods-${{ matrix.variant.arch }}.flatpak
+          name: AdventureMods-${{ steps.version.outputs.tag }}-${{ matrix.variant.arch }}.flatpak
+          path: AdventureMods-${{ steps.version.outputs.tag }}-${{ matrix.variant.arch }}.flatpak
 
   appimage:
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
@@ -268,6 +273,13 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           tag="$RELEASE_TAG"
+          for arch in x86_64 aarch64; do
+            for extension in AppImage AppImage.zsync; do
+              test -f "appimage-artifacts/AdventureMods-$tag-$arch.$extension"
+            done
+            test -f "flatpak-artifacts/AdventureMods-$tag-$arch.flatpak"
+          done
+          test "$(find appimage-artifacts flatpak-artifacts -maxdepth 1 -type f | wc -l)" -eq 6
           gh release upload "$tag" \
             appimage-artifacts/*.AppImage* \
             flatpak-artifacts/*.flatpak \
