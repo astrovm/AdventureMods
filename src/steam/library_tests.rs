@@ -986,7 +986,7 @@ fn resolve_document_portal_path_maps_existing_nested_path() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn resolve_granted_library_scans_document_portal_grants() {
+fn resolve_granted_library_scans_grants_only_for_the_selected_host_library() {
     let tmp = tempfile::tempdir().unwrap();
     let runtime = tmp.path().join("runtime");
     let doc = runtime.join("doc");
@@ -1005,6 +1005,13 @@ fn resolve_granted_library_scans_document_portal_grants() {
     let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
         resolve_granted_steam_library(&selected, &expected)
     });
+    assert_eq!(
+        resolved, None,
+        "an unrelated choice must not reuse an old grant"
+    );
+    let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+        resolve_granted_steam_library(&expected, &expected)
+    });
     assert_eq!(resolved, Some(portal.clone()));
 
     let nested_expected = tmp.path().join("host/NestedLibrary");
@@ -1020,6 +1027,10 @@ fn resolve_granted_library_scans_document_portal_grants() {
     std::fs::create_dir_all(&nested_selected).unwrap();
     let nested_resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
         resolve_granted_steam_library(&nested_selected, &nested_expected)
+    });
+    assert_eq!(nested_resolved, None);
+    let nested_resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+        resolve_granted_steam_library(&nested_expected, &nested_expected)
     });
     assert_eq!(nested_resolved, Some(nested_portal));
 }

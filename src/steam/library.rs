@@ -224,7 +224,14 @@ pub(crate) fn resolve_granted_steam_library(selected: &Path, expected: &Path) ->
         return granted_library_matches_expected(parent, expected).then(|| parent.to_path_buf());
     }
 
-    find_document_portal_library(expected)
+    // A chooser can return the expected host path while only its portal grant is
+    // readable in the sandbox. Do not reuse an old grant after a different folder
+    // was selected: that would make an unrelated selection appear successful.
+    if library_paths_equivalent(selected, expected) {
+        find_document_portal_library(expected)
+    } else {
+        None
+    }
 }
 
 fn granted_library_matches_expected(selected: &Path, expected: &Path) -> bool {
