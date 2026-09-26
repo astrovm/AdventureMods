@@ -49,6 +49,10 @@ mod imp {
                     glib::subclass::Signal::builder("library-access-granted")
                         .param_types([String::static_type()])
                         .build(),
+                    // Emitted with a status message after a game was restored.
+                    glib::subclass::Signal::builder("game-restored")
+                        .param_types([String::static_type()])
+                        .build(),
                 ]
             })
         }
@@ -107,6 +111,16 @@ impl AdventureModsWelcomePage {
                     let card_clone = card.clone();
                     let nav_view_clone = nav_view.clone();
                     let obj = self.clone();
+                    let restore_card = card.clone();
+                    let restore_page = self.clone();
+                    let kind = card_spec.kind;
+                    card.connect_secondary_clicked(move || {
+                        if let Some(GameInstallOption::Detected(path)) =
+                            restore_card.selected_install_option()
+                        {
+                            restore_page.confirm_restore(kind, path);
+                        }
+                    });
                     card.connect_setup_clicked(move || {
                         let Some(option) = card_clone.selected_install_option() else {
                             return;
@@ -199,6 +213,94 @@ impl AdventureModsWelcomePage {
         });
     }
 
+    fn confirm_restore(&self, kind: GameKind, path: std::path::PathBuf) {
+        self.restore_dialog(kind, path).present(Some(self));
+    }
+
+    fn restore_dialog(&self, kind: GameKind, path: std::path::PathBuf) -> adw::AlertDialog {
+        let dialog = adw::AlertDialog::builder()
+            .heading(format!("Restore the original {}?", kind.name()))
+            .body(
+                "This puts back the game's original launcher and removes the mod loader, \
+                 so Steam starts the unmodded game. Downloaded mods stay in the mods folder \
+                 and are reused if you set the game up again.",
+            )
+            .close_response("cancel")
+            .default_response("cancel")
+            .build();
+        dialog.add_responses(&[("cancel", "Cancel"), ("restore", "Restore")]);
+        dialog.set_response_appearance("restore", adw::ResponseAppearance::Destructive);
+
+        let obj = self.clone();
+        dialog.connect_response(Some("restore"), move |_, _| {
+            let _ = crate::ui::catch_ui_panic("restore original game", || {
+                obj.restore_game(kind, path.clone());
+            });
+        });
+        dialog
+    }
+
+    fn restore_game(&self, kind: GameKind, path: std::path::PathBuf) {
+        let obj = self.clone();
+        glib::spawn_future_local(async move {
+            let result = crate::blocking::flatten_spawn_result(
+                gio::spawn_blocking(move || {
+                    crate::setup::restore::restore_original_game(&path, kind)
+                })
+                .await,
+            );
+            match result {
+                Ok(report) => {
+                    let message = format!("{} was restored.", kind.name());
+                    obj.emit_by_name::<()>("game-restored", &[&message]);
+                    if report.needs_steam_verify {
+                        obj.offer_steam_verify(kind);
+                    }
+                }
+                Err(err) => {
+                    tracing::error!("Failed to restore {}: {err:#}", kind.name());
+                    obj.show_library_access_error(&format!(
+                        "Could not restore {}: {err}",
+                        kind.name()
+                    ));
+                }
+            }
+        });
+    }
+
+    /// The SADX 2004 conversion rewrote game files; Steam can put them back.
+    fn offer_steam_verify(&self, kind: GameKind) {
+        steam_verify_dialog(kind).present(Some(self));
+    }
+}
+
+/// Offers to open Steam's file verification for `kind`.
+fn steam_verify_dialog(kind: GameKind) -> adw::AlertDialog {
+    let dialog = adw::AlertDialog::builder()
+        .heading("Finish in Steam")
+        .body(format!(
+            "Setup converted {} to the 2004 version. Let Steam verify the game files to \
+             get the original Steam version back.",
+            kind.name()
+        ))
+        .close_response("later")
+        .default_response("verify")
+        .build();
+    dialog.add_responses(&[("later", "Later"), ("verify", "Verify in Steam")]);
+    dialog.set_response_appearance("verify", adw::ResponseAppearance::Suggested);
+    dialog.connect_response(Some("verify"), move |dialog, _| {
+        let uri = crate::setup::restore::steam_verify_uri(kind);
+        let window = dialog.root().and_downcast::<gtk::Window>();
+        gtk::UriLauncher::new(&uri).launch(window.as_ref(), gio::Cancellable::NONE, |result| {
+            if let Err(err) = result {
+                tracing::warn!("Could not open Steam: {err}");
+            }
+        });
+    });
+    dialog
+}
+
+impl AdventureModsWelcomePage {
     fn show_library_access_error(&self, message: &str) {
         if let Some(window) = self
             .root()
@@ -452,6 +554,94 @@ mod tests {
         page.set_detection_result(result, nav_view);
 
         assert!(page.imp().games_row.first_child().is_some());
+    }
+
+    fn respond(dialog: &adw::AlertDialog, response: &str) {
+        let signal =
+            glib::subclass::SignalId::lookup("response", adw::AlertDialog::static_type()).unwrap();
+        dialog.emit_with_details::<()>(signal, glib::Quark::from_str(response), &[&response]);
+    }
+
+    #[gtk::test]
+    fn modded_games_offer_restore_and_restoring_reports_back() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path().to_path_buf();
+        std::fs::write(game_path.join("sonic2app.exe"), "game").unwrap();
+        std::fs::write(game_path.join("Launcher.exe"), "manager").unwrap();
+        std::fs::write(game_path.join("Launcher.exe.bak"), "launcher").unwrap();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let window = gtk::Window::new();
+        window.set_child(Some(&page));
+        let restored = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
+        let restored_for_signal = restored.clone();
+        page.connect_local("game-restored", false, move |args| {
+            restored_for_signal.replace(args[1].get::<String>().ok());
+            None
+        });
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![Game {
+                    kind: GameKind::SA2,
+                    path: game_path.clone(),
+                }],
+                inaccessible: vec![],
+            },
+            adw::NavigationView::new(),
+        );
+
+        // Cards are ordered SADX, SA2.
+        let card = page
+            .imp()
+            .games_row
+            .last_child()
+            .and_downcast::<AdventureModsGameCard>()
+            .unwrap();
+        assert!(card.imp().secondary_button.get_visible());
+        assert_eq!(
+            card.imp().secondary_button.label().unwrap(),
+            "Restore Original"
+        );
+
+        card.imp().secondary_button.emit_clicked();
+        page.restore_game(GameKind::SA2, game_path.clone());
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while restored.borrow().is_none() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "restore did not finish"
+            );
+            glib::MainContext::default().iteration(false);
+        }
+
+        assert_eq!(
+            restored.borrow().as_deref(),
+            Some("Sonic Adventure 2 was restored.")
+        );
+        assert_eq!(
+            std::fs::read_to_string(game_path.join("Launcher.exe")).unwrap(),
+            "launcher"
+        );
+
+        // Confirming the dialog restores; a restore that fails is reported.
+        std::fs::write(game_path.join("Launcher.exe.bak"), "launcher").unwrap();
+        std::fs::remove_file(game_path.join("Launcher.exe")).unwrap();
+        std::fs::create_dir_all(game_path.join("Launcher.exe/blocker")).unwrap();
+        restored.replace(None);
+        let dialog = page.restore_dialog(GameKind::SA2, game_path.clone());
+        respond(&dialog, "restore");
+
+        page.offer_steam_verify(GameKind::SADX);
+        let verify = super::steam_verify_dialog(GameKind::SADX);
+        respond(&verify, "verify");
+        for _ in 0..100 {
+            glib::MainContext::default().iteration(false);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert!(restored.borrow().is_none());
+        assert!(game_path.join("Launcher.exe.bak").exists());
     }
 
     #[gtk::test]

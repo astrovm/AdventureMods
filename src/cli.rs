@@ -170,6 +170,21 @@ pub enum Command {
     },
     #[command(about = "Run game setup in interactive or fully specified CLI mode")]
     Setup(SetupArgs),
+    #[command(about = "Undo setup so Steam starts the unmodded game (downloaded mods are kept)")]
+    Restore(RestoreArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct RestoreArgs {
+    #[arg(long, help = "Game to restore: sadx or sa2")]
+    pub game: String,
+    #[arg(
+        long,
+        help = "Override Steam detection with an explicit game install path"
+    )]
+    pub game_path: Option<PathBuf>,
+    #[command(flatten)]
+    pub detect: DetectArgs,
 }
 
 #[derive(Debug, Args, Default)]
@@ -224,6 +239,7 @@ pub fn run_with_io(cli: Cli, use_color: bool, output: &mut impl Write) -> Result
         Some(Command::Detect(args)) => run_detect(args, &mut out),
         Some(Command::ListMods { game }) => run_list_mods(&game, &mut out),
         Some(Command::Setup(args)) => run_setup(args, &mut out),
+        Some(Command::Restore(args)) => run_restore(args, &mut out),
         None => Ok(()),
     }
 }
@@ -291,6 +307,33 @@ fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
         )?;
     }
 
+    Ok(())
+}
+
+fn run_restore(args: RestoreArgs, out: &mut CliOutput) -> Result<()> {
+    let game_kind = parse_game_kind(&args.game)?;
+    let game_path = resolve_game_path_from(args.game_path.as_ref(), &args.detect, game_kind)?;
+    banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
+    out.writeln(&format!(
+        "Restoring {} at {}",
+        game_kind.name(),
+        out.path(&display_path(&game_path))
+    ))?;
+
+    let report = crate::setup::restore::restore_original_game(&game_path, game_kind)?;
+    if report.changes.is_empty() {
+        out.writeln("Nothing to restore: this game was not modified by setup.")?;
+    }
+    for change in &report.changes {
+        out.writeln(&format!("  {change}"))?;
+    }
+    if report.needs_steam_verify {
+        out.writeln(&format!(
+            "The game was converted to the 2004 version. Verify its files in Steam to get the Steam version back: {}",
+            crate::setup::restore::steam_verify_uri(game_kind)
+        ))?;
+    }
+    out.success("Restore complete!")?;
     Ok(())
 }
 
@@ -979,12 +1022,20 @@ fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()>
 }
 
 fn resolve_game_path(args: &SetupArgs, game_kind: GameKind) -> Result<PathBuf> {
-    if let Some(path) = &args.game_path {
+    resolve_game_path_from(args.game_path.as_ref(), &args.detect, game_kind)
+}
+
+fn resolve_game_path_from(
+    game_path: Option<&PathBuf>,
+    detect: &DetectArgs,
+    game_kind: GameKind,
+) -> Result<PathBuf> {
+    if let Some(path) = game_path {
         validate_game_path(game_kind, path)?;
         return Ok(path.clone());
     }
 
-    let mut games: Vec<Game> = detect_games_strict(&args.detect)?
+    let mut games: Vec<Game> = detect_games_strict(detect)?
         .games
         .into_iter()
         .filter(|game| game.kind == game_kind)

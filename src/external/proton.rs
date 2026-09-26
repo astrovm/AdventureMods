@@ -134,7 +134,12 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
 }
 
 pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
-    match prefix_state(game_path, app_id)? {
+    ensure_state_ready(prefix_state(game_path, app_id))
+}
+
+/// Like [`ensure_prefix_ready`] for a state that was already inspected.
+pub fn ensure_state_ready(state: Result<PrefixState>) -> Result<()> {
+    match state? {
         // Unknown labels still allow installs (custom tools / test fixtures), but
         // steam_config_message warns the user to prefer Proton 10.0.
         PrefixState::Ready | PrefixState::UnknownProton { .. } => Ok(()),
@@ -170,7 +175,12 @@ pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
 }
 
 pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> String {
-    match prefix_state(game_path, app_id) {
+    steam_config_message_for_state(game_name, &prefix_state(game_path, app_id))
+}
+
+/// Like [`steam_config_message`] for a state that was already inspected.
+pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixState>) -> String {
+    match state {
         Ok(PrefixState::Ready) => {
             format!("The Proton prefix for {game_name} is ready. You can continue right away.")
         }

@@ -1,6 +1,7 @@
 pub mod common;
 pub mod config;
 pub mod pipeline;
+pub mod restore;
 pub mod sa2;
 mod sa2_catalog;
 pub mod sa2_config;

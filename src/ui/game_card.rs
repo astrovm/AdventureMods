@@ -35,6 +35,7 @@ mod imp {
         #[template_child]
         pub secondary_button: TemplateChild<gtk::Button>,
         pub(super) install_options: RefCell<Vec<super::GameInstallOption>>,
+        pub(super) kind: std::cell::Cell<Option<GameKind>>,
         pub setup_callback: RefCell<Option<Box<dyn Fn()>>>,
         pub secondary_callback: RefCell<Option<Box<dyn Fn()>>>,
     }
@@ -236,6 +237,7 @@ impl AdventureModsGameCard {
         imp.title_label.set_label(kind.name());
         self.set_cover(kind);
 
+        imp.kind.set(Some(kind));
         imp.install_options.replace(install_options.to_vec());
 
         let labels: Vec<String> = install_options
@@ -278,7 +280,15 @@ impl AdventureModsGameCard {
 
         imp.details_label.set_visible(true);
         imp.details_label.set_label(&display_path(option.path()));
-        imp.secondary_button.set_visible(false);
+        let modded = option.is_accessible()
+            && imp
+                .kind
+                .get()
+                .is_some_and(|kind| crate::setup::restore::is_modded(option.path(), kind));
+        imp.secondary_button.set_label("Restore Original");
+        imp.secondary_button
+            .set_tooltip_text(Some("Undo the setup so Steam starts the unmodded game"));
+        imp.secondary_button.set_visible(modded);
 
         if install_count > 1 {
             self.remove_css_class("game-card-clickable");
