@@ -166,16 +166,14 @@ jobs:
       matrix:
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
     runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
-    container:
-      image: debian:13
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: |
-          apt update
-          apt install -y \
+          sudo apt update
+          sudo apt install -y \
             build-essential pkg-config meson gettext \
             libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
             libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
@@ -185,7 +183,7 @@ jobs:
             libxfixes-dev libxinerama-dev libxcomposite-dev \
             wayland-protocols libcloudproviders-dev libsass-dev sassc \
             libappstream-dev desktop-file-utils appstream libxml2-utils \
-            wget unzip file libfuse2 curl git glslc libdrm-dev sudo gh zsync \
+            wget unzip file libfuse2t64 curl git glslc libdrm-dev zsync \
             librsvg2-dev libgirepository1.0-dev
 
       - name: Install Rust
