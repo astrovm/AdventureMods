@@ -1346,7 +1346,7 @@ fn test_install_mod_updates_changed_files_and_keeps_user_config() {
     let requests_before = log.lock().unwrap().len();
     install_mod_with_progress(&game, &mod_entry, None).unwrap();
     let new_requests: Vec<_> = log.lock().unwrap()[requests_before..].to_vec();
-    assert_eq!(new_requests, vec![format!("HEAD /update.7z")]);
+    assert_eq!(new_requests, vec!["HEAD /update.7z".to_string()]);
 
     // New version: replaced, stale files gone, user config kept.
     version.store(2, Ordering::SeqCst);
