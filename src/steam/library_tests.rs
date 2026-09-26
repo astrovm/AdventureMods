@@ -1145,3 +1145,96 @@ fn multiple_games_in_multiple_libraries_single_vdf() {
     assert!(result.games.iter().any(|g| g.kind == GameKind::SA2));
     assert!(result.inaccessible.is_empty());
 }
+
+/// Run `test` with a subscriber that records every log line it emits, so the
+/// diagnostics users see in the terminal can be asserted on.
+fn capture_logs<T>(test: impl FnOnce() -> T) -> (T, String) {
+    #[derive(Clone, Default)]
+    struct Buffer(std::sync::Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    let buffer = Buffer::default();
+    let writer = buffer.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::TRACE)
+        .with_ansi(false)
+        .with_writer(move || writer.clone())
+        .finish();
+    let result = tracing::subscriber::with_default(subscriber, test);
+    let logs = String::from_utf8(buffer.0.lock().unwrap().clone()).unwrap();
+    (result, logs)
+}
+
+#[test]
+fn library_detection_logs_found_stale_and_unmounted_libraries() {
+    let tmp = tempfile::tempdir().unwrap();
+    let found = tmp.path().join("found");
+    let stale = tmp.path().join("stale");
+    let unmounted = tmp.path().join("unmounted");
+    let game_dir = make_steam_library(&found, GameKind::SADX);
+    std::fs::create_dir_all(
+        stale
+            .join("steamapps/common")
+            .join(GameKind::SADX.install_dir()),
+    )
+    .unwrap();
+
+    let mut folders = HashMap::new();
+    for (key, path) in [("0", &found), ("1", &stale), ("2", &unmounted)] {
+        let mut apps = HashMap::new();
+        apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
+        let mut folder = HashMap::new();
+        folder.insert(
+            "path".to_string(),
+            vdf::VdfValue::String(path.to_string_lossy().into_owned()),
+        );
+        folder.insert("apps".to_string(), vdf::VdfValue::Map(apps));
+        folders.insert(key.to_string(), vdf::VdfValue::Map(folder));
+    }
+    let mut root = HashMap::new();
+    root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
+
+    let ((paths, inaccessible), logs) =
+        capture_logs(|| find_all_games_in_libraries(&vdf::VdfValue::Map(root), GameKind::SADX));
+
+    assert_eq!(paths, vec![game_dir.clone()]);
+    assert_eq!(inaccessible.len(), 1);
+    assert_eq!(inaccessible[0].library_path, unmounted);
+    assert!(logs.contains(&format!(
+        "Found {} at {}",
+        GameKind::SADX.name(),
+        game_dir.display()
+    )));
+    assert!(logs.contains("Likely a stale Steam library entry"));
+    assert!(logs.contains(&format!("at {} is inaccessible", unmounted.display())));
+}
+
+#[test]
+fn home_scan_logs_unreadable_library_file() {
+    let home = tempfile::tempdir().unwrap();
+    let steamapps = home.path().join(".local/share/Steam/steamapps");
+    std::fs::create_dir_all(&steamapps).unwrap();
+    let vdf_path = steamapps.join("libraryfolders.vdf");
+    // Not UTF-8, so the file exists but cannot be read as text.
+    std::fs::write(&vdf_path, [0xff, 0xfe, 0x00, 0x80]).unwrap();
+
+    let (result, logs) = capture_logs(|| {
+        with_environment("HOME", Some(home.path()), || {
+            detect_games_with_extra_libraries(&[])
+        })
+    });
+
+    assert!(result.games.is_empty());
+    assert!(logs.contains(&format!("Failed to read {}", vdf_path.display())));
+    assert!(logs.contains("libraryfolders.vdf"));
+}
