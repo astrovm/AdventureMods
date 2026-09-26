@@ -12,7 +12,7 @@ podman run --rm \
 	-e HOST_GID="$(id -g)" \
 	-v "$PROJECT_DIR:/src" \
 	-w /src \
-	debian:13 \
+	docker.io/library/ubuntu:26.04 \
 	bash -c '
 		apt-get update -qq
 		apt-get install -y -qq \
@@ -27,7 +27,7 @@ podman run --rm \
 			wayland-protocols libcloudproviders-dev \
 			libsass-dev sassc libappstream-dev \
 			desktop-file-utils appstream libxml2-utils \
-			wget unzip file libfuse2 curl git glslc libdrm-dev sudo zsync \
+			wget unzip file libfuse2t64 curl git glslc libdrm-dev sudo zsync \
 			librsvg2-dev libgirepository1.0-dev
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
 		export PATH="$HOME/.cargo/bin:$PATH"

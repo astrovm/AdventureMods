@@ -138,7 +138,7 @@ make flatpak
 Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
 The Flatpak build downloads the Cargo.lock dependencies during the build.
 
-**AppImage** (Podman + `debian:13`)
+**AppImage** (Podman + `ubuntu:26.04`, matching the CI runner)
 
 ```sh
 make appimage
