@@ -1607,3 +1607,51 @@ fn install_mod_replaces_incomplete_install() {
     );
     assert!(!mod_dir.join("leftover.bin").exists());
 }
+
+#[test]
+fn install_mod_forwards_download_progress_to_callback() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::{Arc, Mutex};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    let body = "Name=Progress Mod";
+    let (base, _log) = serve(move |_| Reply::ok(body));
+    let url: &'static str = Box::leak(format!("{base}/progress.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+
+    let updates = Arc::new(Mutex::new(Vec::new()));
+    let recorded = updates.clone();
+    let result = install_mod(
+        &game,
+        &update_test_mod(url),
+        Some(Box::new(move |downloaded, total| {
+            recorded.lock().unwrap().push((downloaded, total));
+        })),
+    );
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+    result.unwrap();
+
+    let updates = updates.lock().unwrap();
+    let total = body.len() as u64;
+    assert!(!updates.is_empty());
+    assert_eq!(updates.last(), Some(&(total, Some(total))));
+    assert!(updates.iter().all(|&(downloaded, _)| downloaded <= total));
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
+        body
+    );
+}
