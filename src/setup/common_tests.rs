@@ -228,6 +228,56 @@ fn test_move_dir_contents_flat_to_subdir() {
 }
 
 #[test]
+fn test_move_dir_contents_merges_existing_and_renames_new_dirs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let src = tmp.path().join("src");
+    let dest = tmp.path().join("dest");
+    std::fs::create_dir_all(src.join("existing")).unwrap();
+    std::fs::create_dir_all(src.join("new/nested")).unwrap();
+    std::fs::write(src.join("existing/updated.txt"), "new").unwrap();
+    std::fs::write(src.join("new/nested/file.txt"), "moved").unwrap();
+    std::fs::create_dir_all(dest.join("existing")).unwrap();
+    std::fs::write(dest.join("existing/kept.txt"), "kept").unwrap();
+    std::fs::write(dest.join("existing/updated.txt"), "old").unwrap();
+
+    move_dir_contents(&src, &dest).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(dest.join("existing/kept.txt")).unwrap(),
+        "kept"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dest.join("existing/updated.txt")).unwrap(),
+        "new"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dest.join("new/nested/file.txt")).unwrap(),
+        "moved"
+    );
+    assert!(!src.join("new").exists());
+}
+
+#[test]
+fn test_staging_tempdir_prefers_the_target_filesystem() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let staged = staging_tempdir(tmp.path()).unwrap();
+    assert_eq!(staged.path().parent(), Some(tmp.path()));
+    assert!(
+        staged
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with(".adventure-mods-")
+    );
+
+    let fallback = staging_tempdir(&tmp.path().join("missing")).unwrap();
+    assert!(fallback.path().is_dir());
+    assert_ne!(fallback.path().parent(), Some(tmp.path()));
+}
+
+#[test]
 fn test_find_mod_root_at_staging_root() {
     let tmp = tempfile::tempdir().unwrap();
     let staging = tmp.path().join("staging");
