@@ -224,7 +224,19 @@ pub(crate) fn resolve_granted_steam_library(selected: &Path, expected: &Path) ->
         return granted_library_matches_expected(parent, expected).then(|| parent.to_path_buf());
     }
 
-    find_document_portal_library(expected)
+    // Preserve the same supported selection shapes when only the portal grant
+    // is readable: the library root, its parent, or its steamapps directory.
+    // An unrelated choice must not silently reuse a previous grant.
+    let selects_expected_library = library_paths_equivalent(selected, expected)
+        || expected
+            .parent()
+            .is_some_and(|parent| library_paths_equivalent(selected, parent))
+        || library_paths_equivalent(selected, &expected.join("steamapps"));
+    if selects_expected_library {
+        find_document_portal_library(expected)
+    } else {
+        None
+    }
 }
 
 fn granted_library_matches_expected(selected: &Path, expected: &Path) -> bool {
