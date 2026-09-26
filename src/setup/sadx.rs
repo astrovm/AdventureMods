@@ -184,13 +184,13 @@ mod tests {
     crate::recommended_mods_tests!(29);
 
     #[test]
-    fn test_dcmods_base_url_valid() {
+    fn dcmods_base_url_valid() {
         assert!(DCMODS_BASE.starts_with("https://"));
         assert!(DCMODS_BASE.ends_with('/'));
     }
 
     #[test]
-    fn test_dcmods_urls_use_correct_base() {
+    fn dcmods_urls_use_correct_base() {
         for m in RECOMMENDED_MODS {
             if let ModSource::DirectUrl { url } = &m.source
                 && url.contains("dcmods.unreliable.network")
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sonic_new_tricks_uses_sadx_image_set() {
+    fn sonic_new_tricks_uses_sadx_image_set() {
         let new_tricks = RECOMMENDED_MODS
             .iter()
             .find(|m| m.name == "Sonic: New Tricks")
@@ -227,7 +227,7 @@ mod tests {
     // --- move_dir_contents() tests ---
 
     #[test]
-    fn test_move_dir_contents_basic() {
+    fn move_dir_contents_basic() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_nested() {
+    fn move_dir_contents_nested() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_overwrites() {
+    fn move_dir_contents_overwrites() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_file_replaces_dir() {
+    fn move_dir_contents_file_replaces_dir() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -312,7 +312,7 @@ mod tests {
     // --- convert_steam_to_2004() skip detection tests ---
 
     #[test]
-    fn test_convert_skips_if_chrmodels_orig_exists() {
+    fn convert_skips_if_chrmodels_orig_exists() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         std::fs::write(tmp.path().join("system/CHRMODELS_orig.dll"), "dummy").unwrap();
@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_skips_if_sadxmodloader_exists() {
+    fn convert_skips_if_sadxmodloader_exists() {
         let tmp = tempfile::tempdir().unwrap();
         let loader_dir = tmp.path().join("mods/.modloader");
         std::fs::create_dir_all(&loader_dir).unwrap();
@@ -332,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_skips_if_sonic_exe_exists() {
+    fn convert_skips_if_sonic_exe_exists() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("sonic.exe"), "dummy").unwrap();
 
@@ -340,7 +340,7 @@ mod tests {
     }
 
     #[test]
-    fn test_url_and_hpatchz_overrides_are_used() {
+    fn url_and_hpatchz_overrides_are_used() {
         static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
         let _guard = ENV_LOCK
             .get_or_init(|| std::sync::Mutex::new(()))
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_case_for_patch_renames_expected_directories() {
+    fn normalize_case_for_patch_renames_expected_directories() {
         let tmp = tempfile::tempdir().unwrap();
         for path in [
             "SoundData/VOICE_JP",

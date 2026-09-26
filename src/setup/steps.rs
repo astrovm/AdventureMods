@@ -171,31 +171,31 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn test_sadx_step_count() {
+    fn sadx_step_count() {
         assert_eq!(steps_for_game(GameKind::SADX).len(), 8);
     }
 
     #[test]
-    fn test_sa2_step_count() {
+    fn sa2_step_count() {
         assert_eq!(steps_for_game(GameKind::SA2).len(), 7);
     }
 
     #[test]
-    fn test_sadx_step_ids_unique() {
+    fn sadx_step_ids_unique() {
         let steps = steps_for_game(GameKind::SADX);
         let ids: HashSet<StepId> = steps.iter().map(|s| s.id).collect();
         assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SADX");
     }
 
     #[test]
-    fn test_sa2_step_ids_unique() {
+    fn sa2_step_ids_unique() {
         let steps = steps_for_game(GameKind::SA2);
         let ids: HashSet<StepId> = steps.iter().map(|s| s.id).collect();
         assert_eq!(ids.len(), steps.len(), "Duplicate step IDs in SA2");
     }
 
     #[test]
-    fn test_all_steps_have_nonempty_text() {
+    fn all_steps_have_nonempty_text() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             for step in steps_for_game(kind) {
                 assert!(!step.id.as_str().is_empty(), "Step has empty id");
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sadx_has_download_step() {
+    fn sadx_has_download_step() {
         let steps = steps_for_game(GameKind::SADX);
         assert!(
             steps.iter().any(|s| matches!(s.kind, StepKind::Download)),
@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sa2_has_mod_selection_step() {
+    fn sa2_has_mod_selection_step() {
         let steps = steps_for_game(GameKind::SA2);
         assert!(
             steps
@@ -230,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sa2_mod_selection_before_download_mods() {
+    fn sa2_mod_selection_before_download_mods() {
         let steps = steps_for_game(GameKind::SA2);
         let select_pos = steps.iter().position(|s| s.id == StepId::SelectMods);
         let download_pos = steps.iter().position(|s| s.id == StepId::DownloadMods);
@@ -245,7 +245,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dotnet_step_exists_for_both_games() {
+    fn dotnet_step_exists_for_both_games() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
             assert!(
@@ -257,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn test_step_sequences() {
+    fn step_sequences() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
             let first = steps.first().unwrap();
@@ -272,19 +272,19 @@ mod tests {
     }
 
     #[test]
-    fn test_sadx_has_convert_steam_step() {
+    fn sadx_has_convert_steam_step() {
         let steps = steps_for_game(GameKind::SADX);
         assert!(steps.iter().any(|s| s.id == StepId::ConvertSteam));
     }
 
     #[test]
-    fn test_sa2_has_no_convert_steam_step() {
+    fn sa2_has_no_convert_steam_step() {
         let steps = steps_for_game(GameKind::SA2);
         assert!(!steps.iter().any(|s| s.id == StepId::ConvertSteam));
     }
 
     #[test]
-    fn test_descriptions_contain_game_name() {
+    fn descriptions_contain_game_name() {
         for kind in [GameKind::SADX, GameKind::SA2] {
             let steps = steps_for_game(kind);
             let steam_step = steps.iter().find(|s| s.id == StepId::SteamConfig).unwrap();

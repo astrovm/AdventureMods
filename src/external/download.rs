@@ -481,25 +481,25 @@ mod tests {
     }
 
     #[test]
-    fn test_gamebanana_file_id_from_url() {
+    fn gamebanana_file_id_from_url_parses_dl_link() {
         let url = Url::parse("https://gamebanana.com/dl/1388911").unwrap();
         assert_eq!(gamebanana_file_id_from_url(&url), Some(1388911));
     }
 
     #[test]
-    fn test_gamebanana_file_id_from_url_rejects_non_dl() {
+    fn gamebanana_file_id_from_url_rejects_non_dl() {
         let url = Url::parse("https://gamebanana.com/mods/452445").unwrap();
         assert_eq!(gamebanana_file_id_from_url(&url), None);
     }
 
     #[test]
-    fn test_gamebanana_mod_id_from_url_is_not_supported() {
+    fn gamebanana_mod_id_from_url_is_not_supported() {
         let url = Url::parse("https://gamebanana.com/mods/download/452445").unwrap();
         assert_eq!(gamebanana_file_id_from_url(&url), None);
     }
 
     #[test]
-    fn test_gamebanana_file_download_is_unsupported() {
+    fn gamebanana_file_download_is_unsupported() {
         let err = unsupported_gamebanana_file_download::<()>(1388911)
             .unwrap_err()
             .to_string();

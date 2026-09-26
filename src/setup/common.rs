@@ -936,12 +936,12 @@ mod tests;
 macro_rules! recommended_mods_tests {
     ($count:expr) => {
         #[test]
-        fn test_recommended_mods_count() {
+        fn recommended_mods_count() {
             assert_eq!(RECOMMENDED_MODS.len(), $count);
         }
 
         #[test]
-        fn test_mod_sources_valid() {
+        fn mod_sources_valid() {
             for m in RECOMMENDED_MODS {
                 match &m.source {
                     ModSource::GameBananaItem { item_type, item_id } => {
@@ -965,7 +965,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_sources_unique() {
+        fn mod_sources_unique() {
             use std::collections::HashSet;
             let sources: HashSet<String> = RECOMMENDED_MODS
                 .iter()
@@ -984,7 +984,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_names_unique() {
+        fn mod_names_unique() {
             use std::collections::HashSet;
             let names: HashSet<&str> = RECOMMENDED_MODS.iter().map(|m| m.name).collect();
             assert_eq!(
@@ -995,7 +995,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_entries_have_names_and_descriptions() {
+        fn mod_entries_have_names_and_descriptions() {
             for m in RECOMMENDED_MODS {
                 assert!(!m.slug.is_empty(), "Mod '{}' has empty slug", m.name);
                 assert!(!m.name.is_empty(), "Mod has empty name");
@@ -1008,7 +1008,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_entries_define_install_directories() {
+        fn mod_entries_define_install_directories() {
             for m in RECOMMENDED_MODS {
                 assert!(
                     m.dir_name.is_some(),
@@ -1019,7 +1019,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_slugs_unique() {
+        fn mod_slugs_unique() {
             use std::collections::HashSet;
             let slugs: HashSet<&str> = RECOMMENDED_MODS.iter().map(|m| m.slug).collect();
             assert_eq!(
@@ -1030,7 +1030,7 @@ macro_rules! recommended_mods_tests {
         }
 
         #[test]
-        fn test_mod_names_safe_for_filesystem() {
+        fn mod_names_safe_for_filesystem() {
             for m in RECOMMENDED_MODS {
                 assert!(!m.name.contains('/'), "Mod name '{}' contains '/'", m.name);
                 assert!(

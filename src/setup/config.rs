@@ -403,7 +403,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_linux_to_wine_path() {
+    fn linux_to_wine_path_uses_z_drive_with_trailing_backslash() {
         let path = Path::new("/home/user/.steam/steamapps/common/Sonic Adventure DX");
         assert_eq!(
             linux_to_wine_path(path),
@@ -412,14 +412,14 @@ mod tests {
     }
 
     #[test]
-    fn test_system_dir_always_uses_lowercase() {
+    fn system_dir_always_uses_lowercase() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("System")).unwrap();
         assert_eq!(system_dir(tmp.path()), tmp.path().join("system"));
     }
 
     #[test]
-    fn test_write_manager_json_sadx() {
+    fn write_manager_json_sadx() {
         let tmp = tempfile::tempdir().unwrap();
         write_manager_json(tmp.path(), GameKind::SADX).unwrap();
 
@@ -431,7 +431,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_manager_json_sa2() {
+    fn write_manager_json_sa2() {
         let tmp = tempfile::tempdir().unwrap();
         write_manager_json(tmp.path(), GameKind::SA2).unwrap();
 
@@ -443,7 +443,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_profiles_json() {
+    fn write_profiles_json_creates_default_profile() {
         let tmp = tempfile::tempdir().unwrap();
         write_profiles_json(tmp.path(), "mods/.modloader/profiles").unwrap();
 
@@ -455,7 +455,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_samanager_txt() {
+    fn write_samanager_txt_writes_wine_game_path() {
         let tmp = tempfile::tempdir().unwrap();
         write_samanager_txt(tmp.path()).unwrap();
 
@@ -466,7 +466,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mod_dir_names() {
+    fn mod_dir_names_skips_mods_without_dir_name() {
         use crate::setup::common::{ModEntry, ModSource};
         let mods = [
             ModEntry {
@@ -496,7 +496,7 @@ mod tests {
     }
 
     #[test]
-    fn test_manager_json_field_names() {
+    fn manager_json_field_names() {
         let tmp = tempfile::tempdir().unwrap();
         write_manager_json(tmp.path(), GameKind::SADX).unwrap();
 

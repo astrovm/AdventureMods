@@ -8,7 +8,7 @@ mod tests {
     crate::recommended_mods_tests!(12);
 
     #[test]
-    fn test_sonic_new_tricks_uses_sa2_image_folder() {
+    fn sonic_new_tricks_uses_sa2_image_folder() {
         let new_tricks = RECOMMENDED_MODS
             .iter()
             .find(|m| m.name == "Sonic: New Tricks")
@@ -27,7 +27,7 @@ mod tests {
     }
 
     #[test]
-    fn test_stage_atmosphere_tweaks_not_in_recommended_mods() {
+    fn stage_atmosphere_tweaks_not_in_recommended_mods() {
         assert!(
             RECOMMENDED_MODS
                 .iter()
@@ -36,7 +36,7 @@ mod tests {
     }
 
     #[test]
-    fn test_render_fix_uses_github_direct_url() {
+    fn render_fix_uses_github_direct_url() {
         let mod_entry = RECOMMENDED_MODS
             .iter()
             .find(|m| m.name == "SA2 Render Fix")

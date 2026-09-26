@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_creates_all_files() {
+    fn generate_creates_all_files() {
         let tmp = tempfile::tempdir().unwrap();
         let game_path = tmp.path();
 
@@ -269,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_profile_mods_and_patches() {
+    fn default_profile_mods_and_patches() {
         let tmp = tempfile::tempdir().unwrap();
 
         let mods = test_mods();
@@ -305,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_sadx_specific_fields() {
+    fn no_sadx_specific_fields() {
         let tmp = tempfile::tempdir().unwrap();
         generate_sa2_config(
             tmp.path(),
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_user_config_xml() {
+    fn user_config_xml() {
         let tmp = tempfile::tempdir().unwrap();
         write_user_config(
             tmp.path(),
@@ -348,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_mod_selection() {
+    fn empty_mod_selection() {
         let tmp = tempfile::tempdir().unwrap();
         generate_sa2_config(
             tmp.path(),
@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn test_selected_languages_are_written_to_profile_and_user_config() {
+    fn selected_languages_are_written_to_profile_and_user_config() {
         let tmp = tempfile::tempdir().unwrap();
         let selection = config::LanguageSelection {
             subtitle: config::SubtitleLanguage::German,
