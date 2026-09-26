@@ -1013,6 +1013,22 @@ fn resolve_granted_library_scans_grants_only_for_the_selected_host_library() {
         resolve_granted_steam_library(&expected, &expected)
     });
     assert_eq!(resolved, Some(portal.clone()));
+    for selected in [
+        expected.parent().unwrap().to_path_buf(),
+        expected.join("steamapps"),
+    ] {
+        let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+            resolve_granted_steam_library(&selected, &expected)
+        });
+        assert_eq!(resolved, Some(portal.clone()));
+    }
+    let wrong_steamapps = tmp.path().join("other/steamapps");
+    assert_eq!(
+        with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+            resolve_granted_steam_library(&wrong_steamapps, &expected)
+        }),
+        None
+    );
 
     let nested_expected = tmp.path().join("host/NestedLibrary");
     let nested_grant = doc.join("nested-grant");
