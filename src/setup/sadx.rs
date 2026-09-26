@@ -341,11 +341,7 @@ mod tests {
 
     #[test]
     fn url_and_hpatchz_overrides_are_used() {
-        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-        let _guard = ENV_LOCK
-            .get_or_init(|| std::sync::Mutex::new(()))
-            .lock()
-            .unwrap();
+        let _guard = env_lock();
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -390,5 +386,115 @@ mod tests {
         ] {
             assert!(tmp.path().join(path).is_dir(), "missing {path}");
         }
+    }
+
+    // --- convert_steam_to_2004() failure tests ---
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        ENV_LOCK
+            .get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn write_script(path: &Path, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Run the conversion on an unconverted game against a local steam_tools
+    /// server, a fake 7zz running `extract_body` and hpatchz at `hpatchz`.
+    fn convert_with_fake_tools(extract_body: &str, hpatchz: &Path) -> anyhow::Error {
+        use crate::external::test_http::{Reply, serve};
+
+        let _guard = env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let game = tmp.path().join("game");
+        std::fs::create_dir_all(game.join("system")).unwrap();
+        let fake_7zz = tmp.path().join("7zz");
+        write_script(
+            &fake_7zz,
+            &format!(
+                "for arg in \"$@\"; do case \"$arg\" in -o*) dest=${{arg#-o}} ;; esac; done\nmkdir -p \"$dest\"\n{extract_body}"
+            ),
+        );
+        let (base, _) = serve(|_| Reply::ok("steam tools"));
+
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
+                format!("{base}/steam_tools.7z"),
+            );
+            std::env::set_var("ADVENTURE_MODS_7ZZ", fake_7zz);
+            std::env::set_var("ADVENTURE_MODS_HPATCHZ", hpatchz);
+        }
+        let result = convert_steam_to_2004(&game, None);
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS");
+            std::env::remove_var("ADVENTURE_MODS_7ZZ");
+            std::env::remove_var("ADVENTURE_MODS_HPATCHZ");
+        }
+
+        assert!(!game.join("sonic.exe").exists());
+        result.unwrap_err()
+    }
+
+    fn fake_hpatchz(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
+        let path = dir.path().join("hpatchz");
+        write_script(&path, body);
+        path
+    }
+
+    const EXTRACT_PATCH: &str = "touch \"$dest/patch_steam_inst.dat\"";
+
+    #[test]
+    fn convert_fails_when_steam_tools_has_no_patch() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "exit 0");
+
+        let err = convert_with_fake_tools("", &hpatchz);
+
+        assert!(
+            err.to_string().contains("patch_steam_inst.dat not found"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn convert_fails_when_hpatchz_is_missing() {
+        let tools = tempfile::tempdir().unwrap();
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &tools.path().join("missing"));
+
+        assert!(
+            err.to_string().contains("Is HDiffPatch installed?"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn convert_asks_to_verify_the_game_when_hpatchz_rejects_its_files() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "echo 'open oldFile ERROR!' >&2\nexit 1");
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &hpatchz);
+
+        assert!(err.to_string().contains("verify game integrity"), "{err}");
+        assert!(err.to_string().contains("open oldFile ERROR!"), "{err}");
+    }
+
+    #[test]
+    fn convert_reports_other_hpatchz_failures() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "echo patching >&1\necho 'disk full' >&2\nexit 1");
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &hpatchz);
+
+        assert_eq!(
+            err.to_string(),
+            "Steam-to-2004 conversion failed:\npatching\n\ndisk full\n"
+        );
     }
 }

@@ -194,4 +194,63 @@ mod tests {
         let report = restore_original_game(tmp.path(), GameKind::SA2).unwrap();
         assert_eq!(report, RestoreReport::default());
     }
+
+    #[test]
+    fn is_modded_detects_each_setup_marker_on_its_own() {
+        let loader = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(loader.path().join("mods/.modloader")).unwrap();
+        assert!(is_modded(loader.path(), GameKind::SA2));
+
+        let data_dll = tempfile::tempdir().unwrap();
+        write(
+            &data_dll
+                .path()
+                .join("resource/gd_PC/DLL/Win32/Data_DLL_orig.dll"),
+            "data",
+        );
+        assert!(is_modded(data_dll.path(), GameKind::SA2));
+
+        let converted = tempfile::tempdir().unwrap();
+        write(&converted.path().join("sonic.exe"), "2004");
+        assert!(is_modded(converted.path(), GameKind::SADX));
+        assert!(!is_modded(converted.path(), GameKind::SA2));
+    }
+
+    #[test]
+    fn restores_data_dll_when_the_loader_dll_is_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dll_dir = tmp.path().join("resource/gd_PC/DLL/Win32");
+        write(&dll_dir.join("data_dll_orig.DLL"), "data");
+
+        let report = restore_original_game(tmp.path(), GameKind::SA2).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dll_dir.join("Data_DLL.dll")).unwrap(),
+            "data"
+        );
+        assert_eq!(report.changes, ["Restored Data_DLL.dll"]);
+    }
+
+    #[test]
+    fn restore_fails_when_the_launcher_cannot_be_put_back() {
+        let tmp = tempfile::tempdir().unwrap();
+        write(&tmp.path().join("Launcher.exe.bak"), "launcher");
+        write(&tmp.path().join("Launcher.exe/blocker"), "not a file");
+
+        let err = restore_original_game(tmp.path(), GameKind::SA2).unwrap_err();
+
+        assert!(err.to_string().starts_with("Failed to restore"), "{err}");
+    }
+
+    #[test]
+    fn restore_fails_when_the_data_dll_cannot_be_put_back() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dll_dir = tmp.path().join("resource/gd_PC/DLL/Win32");
+        write(&dll_dir.join("Data_DLL_orig.dll"), "data");
+        write(&dll_dir.join("Data_DLL.dll/blocker"), "not a file");
+
+        let err = restore_original_game(tmp.path(), GameKind::SA2).unwrap_err();
+
+        assert!(err.to_string().contains("Data_DLL.dll"), "{err}");
+    }
 }
