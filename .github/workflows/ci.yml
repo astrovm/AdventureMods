@@ -106,7 +106,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Check 95% line coverage
-        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 95 -- --test-threads=1
+        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 95 --show-missing-lines -- --test-threads=1
 
   flatpak:
     # Same packaging gates as AppImage: PR validation, release tags, manual runs.
