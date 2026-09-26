@@ -52,7 +52,10 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, llvm-tools-preview, rustfmt
+          components: clippy, rustfmt
+
+      - name: Cache Cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Check formatting
         run: cargo fmt --check
@@ -71,8 +74,8 @@ jobs:
 
   coverage:
     # 95% coverage is a required PR signal; main is protected by PR-only changes.
+    # Runs alongside the test job instead of after it: it runs the same tests.
     if: github.event_name == 'pull_request'
-    needs: test
     runs-on: ubuntu-26.04
 
     steps:
@@ -94,8 +97,13 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      - name: Cache Cargo build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+        uses: taiki-e/install-action@9983c65e42da123ff25d1f78505eb6de315aa172 # v2.87.20
+        with:
+          tool: cargo-llvm-cov
 
       - name: Check 95% line coverage
         run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 95 -- --test-threads=1
@@ -103,8 +111,9 @@ jobs:
   flatpak:
     # Same packaging gates as AppImage: PR validation, release tags, manual runs.
     # Skip ordinary pushes to main; PRs already passed the validation gates.
+    # Packaging starts right away instead of waiting for the test job; the
+    # release job still requires tests to pass before anything is published.
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -160,7 +169,6 @@ jobs:
 
   appimage:
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -245,7 +253,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [appimage, flatpak, create-release]
+    needs: [test, appimage, flatpak, create-release]
     runs-on: ubuntu-26.04
     permissions:
       contents: write

@@ -50,7 +50,7 @@ fn with_environment<T>(name: &str, value: Option<&Path>, test: impl FnOnce() -> 
 }
 
 #[test]
-fn test_steam_roots_find_native_and_flatpak_steam() {
+fn steam_roots_find_native_and_flatpak_steam() {
     let tmp = tempfile::tempdir().unwrap();
     let native = tmp.path().join(".local/share/Steam");
     let flatpak = tmp
@@ -65,13 +65,13 @@ fn test_steam_roots_find_native_and_flatpak_steam() {
 }
 
 #[test]
-fn test_steam_roots_skip_missing_installations() {
+fn steam_roots_skip_missing_installations() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(steam_roots_in(tmp.path()).is_empty());
 }
 
 #[test]
-fn test_detect_games_reads_synthetic_home_steam_libraries() {
+fn detect_games_reads_synthetic_home_steam_libraries() {
     let home = tempfile::tempdir().unwrap();
     let native = home.path().join(".local/share/Steam");
     let alternate = home
@@ -119,7 +119,7 @@ fn test_detect_games_reads_synthetic_home_steam_libraries() {
 }
 
 #[test]
-fn test_find_sadx_in_libraries() {
+fn find_sadx_in_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
         .path()
@@ -135,7 +135,7 @@ fn test_find_sadx_in_libraries() {
 }
 
 #[test]
-fn test_find_sa2_in_libraries() {
+fn find_sa2_in_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
         .path()
@@ -151,7 +151,7 @@ fn test_find_sa2_in_libraries() {
 }
 
 #[test]
-fn test_detect_games_with_extra_library_finds_inaccessible_game() {
+fn detect_games_with_extra_library_finds_inaccessible_game() {
     let tmp = tempfile::tempdir().unwrap();
     let extra_lib = tmp.path().join("portable-library");
     let game_dir = extra_lib
@@ -174,7 +174,7 @@ fn test_detect_games_with_extra_library_finds_inaccessible_game() {
 }
 
 #[test]
-fn test_detect_games_keeps_inaccessible_alongside_detected() {
+fn detect_games_keeps_inaccessible_alongside_detected() {
     let tmp = tempfile::tempdir().unwrap();
     let accessible_lib = tmp.path().join("accessible");
     let game_dir = accessible_lib
@@ -194,7 +194,7 @@ fn test_detect_games_keeps_inaccessible_alongside_detected() {
 }
 
 #[test]
-fn test_game_not_in_libraries() {
+fn game_not_in_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["400", "500"]);
     let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
@@ -206,7 +206,7 @@ fn test_game_not_in_libraries() {
 }
 
 #[test]
-fn test_missing_libraryfolders_key() {
+fn missing_libraryfolders_key() {
     let root = vdf::VdfValue::Map(HashMap::new());
     let (paths, inaccessible) = find_all_games_in_libraries(&root, GameKind::SADX);
     assert!(paths.is_empty());
@@ -214,7 +214,7 @@ fn test_missing_libraryfolders_key() {
 }
 
 #[test]
-fn test_find_game_app_present_but_dir_missing() {
+fn find_game_app_present_but_dir_missing() {
     let tmp = tempfile::tempdir().unwrap();
     let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
     let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
@@ -223,7 +223,7 @@ fn test_find_game_app_present_but_dir_missing() {
 }
 
 #[test]
-fn test_find_game_missing_apps_key() {
+fn find_game_missing_apps_key() {
     let mut folder = HashMap::new();
     folder.insert(
         "path".to_string(),
@@ -243,7 +243,7 @@ fn test_find_game_missing_apps_key() {
 }
 
 #[test]
-fn test_find_game_missing_path_key() {
+fn find_game_missing_path_key() {
     let mut apps = HashMap::new();
     apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
 
@@ -263,7 +263,7 @@ fn test_find_game_missing_path_key() {
 }
 
 #[test]
-fn test_find_game_libraryfolders_is_string() {
+fn find_game_libraryfolders_is_string() {
     let mut root = HashMap::new();
     root.insert(
         "libraryfolders".to_string(),
@@ -276,7 +276,7 @@ fn test_find_game_libraryfolders_is_string() {
 }
 
 #[test]
-fn test_find_game_skips_non_map_library_entries() {
+fn find_game_skips_non_map_library_entries() {
     let tmp = tempfile::tempdir().unwrap();
     let mut folders = HashMap::new();
     folders.insert(
@@ -306,7 +306,7 @@ fn test_find_game_skips_non_map_library_entries() {
 }
 
 #[test]
-fn test_find_game_skips_non_map_apps() {
+fn find_game_skips_non_map_apps() {
     let tmp = tempfile::tempdir().unwrap();
     let mut folder = HashMap::new();
     folder.insert(
@@ -331,7 +331,7 @@ fn test_find_game_skips_non_map_apps() {
 }
 
 #[test]
-fn test_find_both_games_in_same_library() {
+fn find_both_games_in_same_library() {
     let tmp = tempfile::tempdir().unwrap();
     let sadx_dir = tmp
         .path()
@@ -356,7 +356,7 @@ fn test_find_both_games_in_same_library() {
 }
 
 #[test]
-fn test_detect_games_from_vdf_both_present() {
+fn detect_games_from_vdf_both_present() {
     let tmp = tempfile::tempdir().unwrap();
     let lib_path = tmp.path().join("lib");
 
@@ -397,7 +397,7 @@ fn test_detect_games_from_vdf_both_present() {
 }
 
 #[test]
-fn test_detect_games_from_vdf_none_present() {
+fn detect_games_from_vdf_none_present() {
     let tmp = tempfile::tempdir().unwrap();
 
     let vdf_path = tmp.path().join("libraryfolders.vdf");
@@ -424,7 +424,7 @@ fn test_detect_games_from_vdf_none_present() {
 }
 
 #[test]
-fn test_detect_games_from_vdf_corrupt() {
+fn detect_games_from_vdf_corrupt() {
     let tmp = tempfile::tempdir().unwrap();
     let vdf_path = tmp.path().join("libraryfolders.vdf");
     std::fs::write(&vdf_path, "this is not valid VDF content {{{").unwrap();
@@ -435,7 +435,7 @@ fn test_detect_games_from_vdf_corrupt() {
 }
 
 #[test]
-fn test_library_detection_handles_missing_fields_and_stale_entries() {
+fn library_detection_handles_missing_fields_and_stale_entries() {
     let mut folders = HashMap::new();
     folders.insert(
         "scalar".to_string(),
@@ -494,7 +494,7 @@ fn test_library_detection_handles_missing_fields_and_stale_entries() {
 }
 
 #[test]
-fn test_library_detection_reports_stale_game_directory() {
+fn library_detection_reports_stale_game_directory() {
     let tmp = tempfile::tempdir().unwrap();
     let stale = tmp
         .path()
@@ -509,7 +509,7 @@ fn test_library_detection_reports_stale_game_directory() {
 }
 
 #[test]
-fn test_multiple_libraries() {
+fn multiple_libraries() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
         .path()
@@ -550,7 +550,7 @@ fn test_multiple_libraries() {
 }
 
 #[test]
-fn test_inaccessible_library() {
+fn inaccessible_library() {
     let mut folder = HashMap::new();
     folder.insert(
         "path".to_string(),
@@ -576,7 +576,7 @@ fn test_inaccessible_library() {
 }
 
 #[test]
-fn test_duplicate_installations_across_steam_roots() {
+fn duplicate_installations_across_steam_roots() {
     let tmp = tempfile::tempdir().unwrap();
     let lib1 = tmp.path().join("lib1");
     let lib2 = tmp.path().join("lib2");
@@ -609,7 +609,7 @@ fn test_duplicate_installations_across_steam_roots() {
 }
 
 #[test]
-fn test_duplicate_installations_same_path_deduped() {
+fn duplicate_installations_same_path_deduped() {
     let tmp = tempfile::tempdir().unwrap();
     let lib = tmp.path().join("lib");
     let game_dir = lib
@@ -638,7 +638,7 @@ fn test_duplicate_installations_same_path_deduped() {
 }
 
 #[test]
-fn test_inaccessible_deduped_across_roots() {
+fn inaccessible_deduped_across_roots() {
     let mut folder = HashMap::new();
     folder.insert(
         "path".to_string(),
@@ -674,7 +674,7 @@ fn test_inaccessible_deduped_across_roots() {
 }
 
 #[test]
-fn test_no_vdf_roots_finds_game_via_extra_library() {
+fn no_vdf_roots_finds_game_via_extra_library() {
     let tmp = tempfile::tempdir().unwrap();
     let lib = tmp.path().join("lib");
     let game_dir = lib
@@ -691,7 +691,7 @@ fn test_no_vdf_roots_finds_game_via_extra_library() {
 }
 
 #[test]
-fn test_extra_libraries_duplicate_paths_deduped() {
+fn extra_libraries_duplicate_paths_deduped() {
     let tmp = tempfile::tempdir().unwrap();
     let lib = tmp.path().join("lib");
     let game_dir = lib
@@ -716,7 +716,7 @@ fn test_extra_libraries_duplicate_paths_deduped() {
 }
 
 #[test]
-fn test_game_in_vdf_and_extra_library_same_path_deduped() {
+fn game_in_vdf_and_extra_library_same_path_deduped() {
     let tmp = tempfile::tempdir().unwrap();
     let lib = tmp.path().join("lib");
     let game_dir = lib
@@ -742,7 +742,7 @@ fn test_game_in_vdf_and_extra_library_same_path_deduped() {
 }
 
 #[test]
-fn test_library_folder_exists_but_game_dir_missing() {
+fn library_folder_exists_but_game_dir_missing() {
     // Library path exists but the game subdirectory does not
     let tmp = tempfile::tempdir().unwrap();
     let vdf = mock_vdf(tmp.path().to_str().unwrap(), &["71250"]);
@@ -754,7 +754,7 @@ fn test_library_folder_exists_but_game_dir_missing() {
 }
 
 #[test]
-fn test_game_dir_exists_but_exe_missing() {
+fn game_dir_exists_but_exe_missing() {
     // Game directory exists but contains no recognized executable
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
@@ -771,7 +771,7 @@ fn test_game_dir_exists_but_exe_missing() {
 }
 
 #[test]
-fn test_sa2_alt_exe_sonic_exe_not_detected() {
+fn sa2_alt_exe_sonic_exe_not_detected() {
     // SA2 should require sonic2app.exe.
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
@@ -788,7 +788,7 @@ fn test_sa2_alt_exe_sonic_exe_not_detected() {
 }
 
 #[test]
-fn test_sadx_alt_exe_sonic_exe_not_detected() {
+fn sadx_alt_exe_sonic_exe_not_detected() {
     let tmp = tempfile::tempdir().unwrap();
     let game_dir = tmp
         .path()
@@ -804,7 +804,7 @@ fn test_sadx_alt_exe_sonic_exe_not_detected() {
 }
 
 #[test]
-fn test_skips_whitespace_only_library_path() {
+fn skips_whitespace_only_library_path() {
     let mut apps = HashMap::new();
     apps.insert("71250".to_string(), vdf::VdfValue::String("0".to_string()));
 
@@ -825,7 +825,7 @@ fn test_skips_whitespace_only_library_path() {
 
 #[cfg(unix)]
 #[test]
-fn test_detect_games_dedupes_symlinked_library_paths() {
+fn detect_games_dedupes_symlinked_library_paths() {
     use std::os::unix::fs::symlink;
 
     let tmp = tempfile::tempdir().unwrap();
@@ -1090,14 +1090,14 @@ fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
 }
 
 #[test]
-fn test_empty_vdf_roots_and_empty_extra_libraries() {
+fn empty_vdf_roots_and_empty_extra_libraries() {
     let result = detect_games_from_parsed_vdfs(&[], &[]);
     assert!(result.games.is_empty());
     assert!(result.inaccessible.is_empty());
 }
 
 #[test]
-fn test_multiple_games_in_multiple_libraries_single_vdf() {
+fn multiple_games_in_multiple_libraries_single_vdf() {
     // SADX in lib1, SA2 in lib2 — both in the same VDF
     let tmp = tempfile::tempdir().unwrap();
     let lib1 = tmp.path().join("lib1");

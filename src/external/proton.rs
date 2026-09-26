@@ -842,7 +842,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_proton_major_from_text() {
+    fn proton_major_from_text_parses_leading_version() {
         assert_eq!(proton_major_from_text("10.1000-105"), Some(10));
         assert_eq!(proton_major_from_text("11.0-100"), Some(11));
         assert_eq!(proton_major_from_text("CachyOS-11.0-100"), Some(11));
@@ -852,7 +852,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proton_major_from_labels_uses_directory_name() {
+    fn proton_major_from_labels_uses_directory_name() {
         let dir = PathBuf::from("/steam/steamapps/common/Proton 10.0");
         assert_eq!(
             proton_major_from_labels("Proton - Experimental", &dir),
@@ -861,7 +861,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proton_major_from_labels_uses_tool_version_file() {
+    fn proton_major_from_labels_uses_tool_version_file() {
         let tmp = tempfile::tempdir().unwrap();
         let proton_dir = tmp.path().join("Proton-CachyOS Latest");
         std::fs::create_dir_all(&proton_dir).unwrap();
@@ -878,7 +878,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_rejects_proton_11() {
+    fn prefix_state_rejects_proton_11() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -938,7 +938,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_accepts_proton_10() {
+    fn prefix_state_accepts_proton_10() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -987,7 +987,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_proton_numbered() {
+    fn parse_proton_numbered() {
         assert_eq!(
             parse_proton_dir_name("Proton 9.0"),
             Some(ProtonVersion::Numbered(9, 0))
@@ -1015,7 +1015,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_proton_experimental() {
+    fn parse_proton_experimental() {
         assert_eq!(
             parse_proton_dir_name("Proton - Experimental"),
             Some(ProtonVersion::Experimental)
@@ -1027,7 +1027,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_proton_other() {
+    fn parse_proton_other() {
         assert_eq!(
             parse_proton_dir_name("Proton Hotfix"),
             Some(ProtonVersion::Other("Proton Hotfix".to_string()))
@@ -1035,13 +1035,13 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_non_proton() {
+    fn parse_non_proton() {
         assert_eq!(parse_proton_dir_name("Sonic Adventure DX"), None);
         assert_eq!(parse_proton_dir_name("SteamLinuxRuntime"), None);
     }
 
     #[test]
-    fn test_version_ordering() {
+    fn version_ordering() {
         let v9 = ProtonVersion::Numbered(9, 0);
         let v8 = ProtonVersion::Numbered(8, 0);
         let exp = ProtonVersion::Experimental;
@@ -1068,7 +1068,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_proton_for_app_uses_prefix_metadata() {
+    fn find_proton_for_app_uses_prefix_metadata() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1147,7 +1147,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_find_proton_for_app_maps_host_metadata_into_document_portal() {
+    fn find_proton_for_app_maps_host_metadata_into_document_portal() {
         let tmp = tempfile::tempdir().unwrap();
         let portal_root = tmp.path().join("doc/abc123/SteamLibrary");
         let portal_common = portal_root.join("steamapps/common");
@@ -1202,7 +1202,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_host_command_paths_map_document_portal_paths() {
+    fn host_command_paths_map_document_portal_paths() {
         let tmp = tempfile::tempdir().unwrap();
         let host_root = tmp.path().join("host/SteamLibrary");
         let portal_root = tmp.path().join("doc/abc123/SteamLibrary");
@@ -1252,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn test_steam_client_root_finds_custom_sibling_steam_root_for_extra_library_game() {
+    fn steam_client_root_finds_custom_sibling_steam_root_for_extra_library_game() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path().join("custom-steam");
         let library_root = tmp.path().join("extra-library");
@@ -1280,7 +1280,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_steam_root_references_document_portal_library() {
+    fn steam_root_references_document_portal_library() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path().join("steam-root");
         let host_library = tmp.path().join("host/SteamLibrary");
@@ -1308,7 +1308,7 @@ mod tests {
     }
 
     #[test]
-    fn test_failure_priority_ordering() {
+    fn failure_priority_ordering() {
         let tool = ConfiguredTool {
             name: "Proton 10".to_owned(),
             proton_dir: PathBuf::from("/steam/Proton 10"),
@@ -1329,7 +1329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compat_tool_name_invalid_vdf_returns_invalid_config() {
+    fn compat_tool_name_invalid_vdf_returns_invalid_config() {
         let tmp = tempfile::tempdir().unwrap();
         let config_dir = tmp.path().join("config");
         std::fs::create_dir_all(&config_dir).unwrap();
@@ -1340,7 +1340,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_missing_prefix() {
+    fn prefix_state_missing_prefix() {
         let tmp = tempfile::tempdir().unwrap();
         let common = tmp.path().join("steamapps/common");
         let game_path = common.join("Sonic Adventure DX");
@@ -1359,7 +1359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_missing_metadata() {
+    fn prefix_state_missing_metadata() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1378,7 +1378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_reports_missing_proton_installation() {
+    fn prefix_state_reports_missing_proton_installation() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
@@ -1409,7 +1409,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_missing_config() {
+    fn prefix_state_missing_config() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1438,7 +1438,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_invalid_config() {
+    fn prefix_state_invalid_config() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1465,7 +1465,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_missing_configured_tool() {
+    fn prefix_state_missing_configured_tool() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1507,7 +1507,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_configured_tool_unavailable() {
+    fn prefix_state_configured_tool_unavailable() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1556,7 +1556,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_warns_on_unknown_proton_label() {
+    fn prefix_state_warns_on_unknown_proton_label() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1615,7 +1615,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_detects_config_mismatch() {
+    fn prefix_state_detects_config_mismatch() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1678,7 +1678,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_rejects_unsupported_configured_tool_before_prefix_update() {
+    fn prefix_state_rejects_unsupported_configured_tool_before_prefix_update() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1743,7 +1743,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_detects_mismatch_when_old_proton_is_missing() {
+    fn prefix_state_detects_mismatch_when_old_proton_is_missing() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1797,7 +1797,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_state_accepts_resolved_internal_version_mapping() {
+    fn prefix_state_accepts_resolved_internal_version_mapping() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1846,7 +1846,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_proton_for_app_uses_prefix_config_info_first() {
+    fn find_proton_for_app_uses_prefix_config_info_first() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let common = steam_root.join("steamapps/common");
@@ -1901,7 +1901,7 @@ mod tests {
     }
 
     #[test]
-    fn test_proton_env_paths() {
+    fn proton_env_paths() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
@@ -1935,7 +1935,7 @@ mod tests {
     }
 
     #[test]
-    fn test_configure_proton_runtime_env_sets_loader_paths() {
+    fn configure_proton_runtime_env_sets_loader_paths() {
         let tmp = tempfile::tempdir().unwrap();
         let proton_dir = tmp.path().join("Proton 10.0");
         std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
@@ -1967,7 +1967,7 @@ mod tests {
     }
 
     #[test]
-    fn test_configure_proton_runtime_env_preserves_inherited_path() {
+    fn configure_proton_runtime_env_preserves_inherited_path() {
         let tmp = tempfile::tempdir().unwrap();
         let proton_dir = tmp.path().join("Proton 10.0");
         let mut env = HashMap::new();
@@ -1982,7 +1982,7 @@ mod tests {
     }
 
     #[test]
-    fn test_wine_binary_prefers_compatible_loader() {
+    fn wine_binary_prefers_compatible_loader() {
         let tmp = tempfile::tempdir().unwrap();
         let wine_dir = tmp.path().join("files/bin");
         std::fs::create_dir_all(&wine_dir).unwrap();
@@ -1993,7 +1993,7 @@ mod tests {
     }
 
     #[test]
-    fn test_prefix_command_prefers_proton_launcher() {
+    fn prefix_command_prefers_proton_launcher() {
         let tmp = tempfile::tempdir().unwrap();
         let proton_dir = tmp.path().join("Proton 10.0");
         std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
@@ -2024,7 +2024,7 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     #[test]
-    fn test_prefix_command_detects_launcher_from_portal_path() {
+    fn prefix_command_detects_launcher_from_portal_path() {
         let tmp = tempfile::tempdir().unwrap();
         let portal_dir = tmp.path().join("doc/abc123/Proton 10.0");
         let host_dir = tmp.path().join("host/Proton 10.0");
@@ -2058,14 +2058,14 @@ mod tests {
     }
 
     #[test]
-    fn test_steamapps_dir_derivation() {
+    fn steamapps_dir_derivation() {
         let game_path = Path::new("/mnt/games/SteamLibrary/steamapps/common/Sonic Adventure 2");
         let result = steamapps_dir(game_path).unwrap();
         assert_eq!(result, PathBuf::from("/mnt/games/SteamLibrary/steamapps"));
     }
 
     #[test]
-    fn test_steamapps_dir_fails_for_root() {
+    fn steamapps_dir_fails_for_root() {
         let game_path = Path::new("/");
         assert!(steamapps_dir(game_path).is_err());
     }

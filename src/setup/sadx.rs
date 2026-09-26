@@ -184,13 +184,13 @@ mod tests {
     crate::recommended_mods_tests!(29);
 
     #[test]
-    fn test_dcmods_base_url_valid() {
+    fn dcmods_base_url_valid() {
         assert!(DCMODS_BASE.starts_with("https://"));
         assert!(DCMODS_BASE.ends_with('/'));
     }
 
     #[test]
-    fn test_dcmods_urls_use_correct_base() {
+    fn dcmods_urls_use_correct_base() {
         for m in RECOMMENDED_MODS {
             if let ModSource::DirectUrl { url } = &m.source
                 && url.contains("dcmods.unreliable.network")
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sonic_new_tricks_uses_sadx_image_set() {
+    fn sonic_new_tricks_uses_sadx_image_set() {
         let new_tricks = RECOMMENDED_MODS
             .iter()
             .find(|m| m.name == "Sonic: New Tricks")
@@ -227,7 +227,7 @@ mod tests {
     // --- move_dir_contents() tests ---
 
     #[test]
-    fn test_move_dir_contents_basic() {
+    fn move_dir_contents_basic() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -244,7 +244,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_nested() {
+    fn move_dir_contents_nested() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_overwrites() {
+    fn move_dir_contents_overwrites() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    fn test_move_dir_contents_file_replaces_dir() {
+    fn move_dir_contents_file_replaces_dir() {
         let tmp = tempfile::tempdir().unwrap();
         let src = tmp.path().join("src");
         let dst = tmp.path().join("dst");
@@ -312,7 +312,7 @@ mod tests {
     // --- convert_steam_to_2004() skip detection tests ---
 
     #[test]
-    fn test_convert_skips_if_chrmodels_orig_exists() {
+    fn convert_skips_if_chrmodels_orig_exists() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         std::fs::write(tmp.path().join("system/CHRMODELS_orig.dll"), "dummy").unwrap();
@@ -322,7 +322,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_skips_if_sadxmodloader_exists() {
+    fn convert_skips_if_sadxmodloader_exists() {
         let tmp = tempfile::tempdir().unwrap();
         let loader_dir = tmp.path().join("mods/.modloader");
         std::fs::create_dir_all(&loader_dir).unwrap();
@@ -332,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_skips_if_sonic_exe_exists() {
+    fn convert_skips_if_sonic_exe_exists() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(tmp.path().join("sonic.exe"), "dummy").unwrap();
 
@@ -340,12 +340,8 @@ mod tests {
     }
 
     #[test]
-    fn test_url_and_hpatchz_overrides_are_used() {
-        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-        let _guard = ENV_LOCK
-            .get_or_init(|| std::sync::Mutex::new(()))
-            .lock()
-            .unwrap();
+    fn url_and_hpatchz_overrides_are_used() {
+        let _guard = env_lock();
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -367,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_case_for_patch_renames_expected_directories() {
+    fn normalize_case_for_patch_renames_expected_directories() {
         let tmp = tempfile::tempdir().unwrap();
         for path in [
             "SoundData/VOICE_JP",
@@ -390,5 +386,115 @@ mod tests {
         ] {
             assert!(tmp.path().join(path).is_dir(), "missing {path}");
         }
+    }
+
+    // --- convert_steam_to_2004() failure tests ---
+
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        ENV_LOCK
+            .get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn write_script(path: &Path, body: &str) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Run the conversion on an unconverted game against a local steam_tools
+    /// server, a fake 7zz running `extract_body` and hpatchz at `hpatchz`.
+    fn convert_with_fake_tools(extract_body: &str, hpatchz: &Path) -> anyhow::Error {
+        use crate::external::test_http::{Reply, serve};
+
+        let _guard = env_lock();
+        let tmp = tempfile::tempdir().unwrap();
+        let game = tmp.path().join("game");
+        std::fs::create_dir_all(game.join("system")).unwrap();
+        let fake_7zz = tmp.path().join("7zz");
+        write_script(
+            &fake_7zz,
+            &format!(
+                "for arg in \"$@\"; do case \"$arg\" in -o*) dest=${{arg#-o}} ;; esac; done\nmkdir -p \"$dest\"\n{extract_body}"
+            ),
+        );
+        let (base, _) = serve(|_| Reply::ok("steam tools"));
+
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
+                format!("{base}/steam_tools.7z"),
+            );
+            std::env::set_var("ADVENTURE_MODS_7ZZ", fake_7zz);
+            std::env::set_var("ADVENTURE_MODS_HPATCHZ", hpatchz);
+        }
+        let result = convert_steam_to_2004(&game, None);
+        unsafe {
+            std::env::remove_var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS");
+            std::env::remove_var("ADVENTURE_MODS_7ZZ");
+            std::env::remove_var("ADVENTURE_MODS_HPATCHZ");
+        }
+
+        assert!(!game.join("sonic.exe").exists());
+        result.unwrap_err()
+    }
+
+    fn fake_hpatchz(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
+        let path = dir.path().join("hpatchz");
+        write_script(&path, body);
+        path
+    }
+
+    const EXTRACT_PATCH: &str = "touch \"$dest/patch_steam_inst.dat\"";
+
+    #[test]
+    fn convert_fails_when_steam_tools_has_no_patch() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "exit 0");
+
+        let err = convert_with_fake_tools("", &hpatchz);
+
+        assert!(
+            err.to_string().contains("patch_steam_inst.dat not found"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn convert_fails_when_hpatchz_is_missing() {
+        let tools = tempfile::tempdir().unwrap();
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &tools.path().join("missing"));
+
+        assert!(
+            err.to_string().contains("Is HDiffPatch installed?"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn convert_asks_to_verify_the_game_when_hpatchz_rejects_its_files() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "echo 'open oldFile ERROR!' >&2\nexit 1");
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &hpatchz);
+
+        assert!(err.to_string().contains("verify game integrity"), "{err}");
+        assert!(err.to_string().contains("open oldFile ERROR!"), "{err}");
+    }
+
+    #[test]
+    fn convert_reports_other_hpatchz_failures() {
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "echo patching >&1\necho 'disk full' >&2\nexit 1");
+
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &hpatchz);
+
+        assert_eq!(
+            err.to_string(),
+            "Steam-to-2004 conversion failed:\npatching\n\ndisk full\n"
+        );
     }
 }

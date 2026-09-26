@@ -120,7 +120,7 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
-    fn test_is_dotnet_installed_true_for_10() {
+    fn is_dotnet_installed_true_for_10() {
         let tmp = tempfile::tempdir().unwrap();
         let dotnet_path = windows_desktop_app_dir(tmp.path()).join("10.0.0");
         std::fs::create_dir_all(&dotnet_path).unwrap();
@@ -129,7 +129,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_dotnet_installed_true_for_newer_major() {
+    fn is_dotnet_installed_true_for_newer_major() {
         let tmp = tempfile::tempdir().unwrap();
         let dotnet_path = windows_desktop_app_dir(tmp.path()).join("11.0.0");
         std::fs::create_dir_all(&dotnet_path).unwrap();
@@ -138,13 +138,13 @@ mod tests {
     }
 
     #[test]
-    fn test_is_dotnet_installed_false_when_missing() {
+    fn is_dotnet_installed_false_when_missing() {
         let tmp = tempfile::tempdir().unwrap();
         assert!(!is_dotnet_installed(tmp.path()));
     }
 
     #[test]
-    fn test_is_dotnet_installed_false_for_only_8() {
+    fn is_dotnet_installed_false_for_only_8() {
         let tmp = tempfile::tempdir().unwrap();
         let dotnet_path = windows_desktop_app_dir(tmp.path()).join("8.0.0");
         std::fs::create_dir_all(&dotnet_path).unwrap();
@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_dotnet_installed_ignores_files_and_invalid_version_names() {
+    fn is_dotnet_installed_ignores_files_and_invalid_version_names() {
         let tmp = tempfile::tempdir().unwrap();
         let desktop_app = windows_desktop_app_dir(tmp.path());
         std::fs::create_dir_all(&desktop_app).unwrap();
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_success_or_reboot_code() {
+    fn is_success_or_reboot_code_accepts_success_and_reboot() {
         assert!(is_success_or_reboot_code(0));
         assert!(is_success_or_reboot_code(3010));
         assert!(is_success_or_reboot_code(3010 & 0xff));
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_installer_staging_dir_uses_compatdata() {
+    fn installer_staging_dir_uses_compatdata() {
         let tmp = tempfile::tempdir().unwrap();
         let compatdata = tmp.path().join("compatdata/213610");
 
@@ -184,7 +184,7 @@ mod tests {
     }
 
     #[test]
-    fn test_install_runtimes_skips_when_dotnet_is_already_present() {
+    fn install_runtimes_skips_when_dotnet_is_already_present() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
         let game_path = steam_root.join("steamapps/common/Sonic Adventure 2");
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dotnet_url_uses_override() {
+    fn dotnet_url_uses_override() {
         let _lock = ENV_LOCK.lock().unwrap();
         unsafe {
             std::env::set_var(

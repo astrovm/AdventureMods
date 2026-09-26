@@ -48,38 +48,49 @@ rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
 echo "==> Building ${APPIMAGE_ARCH} AppImage"
 
-# Build GTK4 and libadwaita from source for smooth animations (GTK 4.20+),
-# while linking against the host glibc for broad compatibility.
-echo "==> Building GTK4 ${GTK4_VERSION} from source"
-wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
-tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
-meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
-	--prefix=/usr --buildtype=release \
-	-Dmedia-gstreamer=disabled \
-	-Dprint-cups=disabled \
-	-Dbuild-demos=false \
-	-Dbuild-examples=false \
-	-Dbuild-tests=false \
-	-Dbuild-testsuite=false \
-	-Dintrospection=disabled \
-	-Ddocumentation=false
-meson compile -C "$BUILD_DIR/tmp/gtk4-build"
-sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
-sudo ldconfig
+build_gtk_from_source() {
+	echo "==> Building GTK4 ${GTK4_VERSION} from source"
+	wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
+	tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
+	meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
+		--prefix=/usr --buildtype=release \
+		-Dmedia-gstreamer=disabled \
+		-Dprint-cups=disabled \
+		-Dbuild-demos=false \
+		-Dbuild-examples=false \
+		-Dbuild-tests=false \
+		-Dbuild-testsuite=false \
+		-Dintrospection=disabled \
+		-Ddocumentation=false
+	meson compile -C "$BUILD_DIR/tmp/gtk4-build"
+	sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
+	sudo ldconfig
 
-echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
-wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
-tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
-meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
-	--prefix=/usr --buildtype=release \
-	-Dintrospection=disabled \
-	-Ddocumentation=false \
-	-Dtests=false \
-	-Dexamples=false \
-	-Dvapi=false
-meson compile -C "$BUILD_DIR/tmp/adw-build"
-sudo meson install -C "$BUILD_DIR/tmp/adw-build"
-sudo ldconfig
+	echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
+	wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
+	tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
+	meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
+		--prefix=/usr --buildtype=release \
+		-Dintrospection=disabled \
+		-Ddocumentation=false \
+		-Dtests=false \
+		-Dexamples=false \
+		-Dvapi=false
+	meson compile -C "$BUILD_DIR/tmp/adw-build"
+	sudo meson install -C "$BUILD_DIR/tmp/adw-build"
+	sudo ldconfig
+}
+
+# The app needs GTK 4.22 and libadwaita 1.9 (see Cargo.toml features). Ubuntu
+# 26.04 ships both, so use the distro builds there; on older build hosts,
+# build them from source while linking against the host glibc for broad
+# compatibility.
+if pkg-config --atleast-version=4.22 gtk4 &&
+	pkg-config --atleast-version=1.9 libadwaita-1; then
+	echo "==> Using system GTK4 $(pkg-config --modversion gtk4) and libadwaita $(pkg-config --modversion libadwaita-1)"
+else
+	build_gtk_from_source
+fi
 
 echo "==> Configuring Meson"
 meson setup "$BUILD_DIR/meson" "$PROJECT_DIR" \

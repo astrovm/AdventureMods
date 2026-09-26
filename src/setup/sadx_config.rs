@@ -338,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_creates_all_files() {
+    fn generate_creates_all_files() {
         let tmp = tempfile::tempdir().unwrap();
         let game_path = tmp.path();
         std::fs::create_dir_all(game_path.join("system")).unwrap();
@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_profile_mods_and_patches() {
+    fn default_profile_mods_and_patches() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_profiles_match_across_locations() {
+    fn profiles_match_across_locations() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sonic_dx_ini_content() {
+    fn sonic_dx_ini_content() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         write_sonic_dx_ini(tmp.path()).unwrap();
@@ -464,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_mod_selection() {
+    fn empty_mod_selection() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
@@ -490,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn test_json_field_names_match_sa_mod_manager() {
+    fn json_field_names_match_sa_mod_manager() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         generate_sadx_config(
@@ -526,7 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn test_game_path_in_profile() {
+    fn game_path_in_profile() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
 
@@ -549,7 +549,7 @@ mod tests {
     }
 
     #[test]
-    fn test_selected_languages_are_written_to_profile() {
+    fn selected_languages_are_written_to_profile() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         let selection = config::LanguageSelection {
@@ -575,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unsupported_sadx_subtitle_language_returns_error() {
+    fn unsupported_sadx_subtitle_language_returns_error() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();
         let selection = config::LanguageSelection {
