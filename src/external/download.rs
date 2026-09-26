@@ -1,4 +1,6 @@
+use std::future::Future;
 use std::path::Path;
+use std::sync::OnceLock;
 
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
@@ -7,10 +9,40 @@ use reqwest::{Client, Response, Url};
 /// Progress callback: (downloaded_bytes, total_bytes_if_known)
 pub type ProgressFn = Box<dyn Fn(u64, Option<u64>) + Send>;
 
+/// Run HTTP work to completion from a blocking thread.
+///
+/// Every download shares one small runtime and one [`Client`], so parallel mod
+/// installs reuse pooled connections and TLS sessions instead of paying a new
+/// handshake (and a new runtime) per request. Must be called from a blocking
+/// thread (e.g. `gio::spawn_blocking`), NOT from an async context.
+pub(crate) fn block_on<F: Future>(future: F) -> Result<F::Output> {
+    static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+
+    let runtime = match RUNTIME.get() {
+        Some(runtime) => runtime,
+        None => {
+            let runtime = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_name("adventure-mods-http")
+                .enable_all()
+                .build()
+                .context("Failed to create tokio runtime")?;
+            RUNTIME.get_or_init(|| runtime)
+        }
+    };
+
+    Ok(runtime.block_on(future))
+}
+
+/// The shared HTTP client. Only use it inside [`block_on`].
+pub(crate) fn client() -> &'static Client {
+    static CLIENT: OnceLock<Client> = OnceLock::new();
+    CLIENT.get_or_init(Client::new)
+}
+
 /// Download a file from a URL with progress reporting.
 ///
-/// This function creates its own tokio runtime internally,
-/// so it must be called from a blocking thread (e.g. `gio::spawn_blocking`),
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`),
 /// NOT from an async context.
 pub fn download_file(url: &str, dest: &Path, progress: Option<ProgressFn>) -> Result<()> {
     let mut cb = progress.map(|f| {
@@ -34,12 +66,7 @@ pub fn download_file_with(
     dest: &Path,
     progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("Failed to create tokio runtime")?;
-
-    rt.block_on(download_file_async(url, dest, progress))
+    block_on(download_file_async(url, dest, progress))?
 }
 
 async fn download_file_async(
@@ -47,8 +74,7 @@ async fn download_file_async(
     dest: &Path,
     mut progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
-    let client = Client::new();
-    let response = fetch_download_response(&client, url).await?;
+    let response = fetch_download_response(client(), url).await?;
 
     let total = response.content_length();
 

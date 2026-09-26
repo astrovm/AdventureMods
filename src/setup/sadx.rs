@@ -63,7 +63,10 @@ pub fn convert_steam_to_2004(
         return Ok(());
     }
 
-    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+    // hpatchz writes a full copy of the game, so stage it on the game's
+    // filesystem (outside the game directory it reads from) to move it back
+    // with renames instead of copying every file.
+    let temp_dir = super::common::staging_tempdir(game_path.parent().unwrap_or(game_path))?;
     let archive_path = temp_dir.path().join("steam_tools.7z");
 
     let steam_tools_url = steam_tools_url();

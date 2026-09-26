@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -17,6 +17,9 @@ use crate::steam::game::Game;
 const MOD_PREVIEW_DESCRIPTION_HEIGHT: i32 = 150;
 const MOD_PREVIEW_TEXT_WIDTH_CHARS: i32 = 42;
 const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
+/// Mods whose preview pages (and decoded screenshots) stay cached. Each decoded
+/// screenshot is a few MB, so the cache is bounded instead of growing per hover.
+const MOD_PREVIEW_CACHE_LIMIT: usize = 6;
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
 /// Fade-in only duration for step body swaps. Kept short so Continue/Back feel snappy.
 const CONTENT_FADE_MS: u32 = 100;
@@ -515,10 +518,42 @@ fn voice_language_index(language: config::VoiceLanguage) -> u32 {
         .unwrap_or(0) as u32
 }
 
+#[derive(Clone)]
+struct ModPreviewPage {
+    widget: gtk::Widget,
+    picture: gtk::Picture,
+    resource: &'static str,
+}
+
 #[derive(Default)]
 struct ModPreviewState {
     current_index: Option<usize>,
-    pages: HashMap<usize, Vec<gtk::Widget>>,
+    pages: HashMap<usize, Vec<ModPreviewPage>>,
+    // Least recently shown first.
+    recent: VecDeque<usize>,
+}
+
+impl ModPreviewState {
+    fn cached_pages(&mut self, index: usize) -> Option<Vec<ModPreviewPage>> {
+        let pages = self.pages.get(&index)?.clone();
+        self.touch(index);
+        Some(pages)
+    }
+
+    fn insert_pages(&mut self, index: usize, pages: Vec<ModPreviewPage>) {
+        self.pages.insert(index, pages);
+        self.touch(index);
+        while self.recent.len() > MOD_PREVIEW_CACHE_LIMIT {
+            if let Some(evicted) = self.recent.pop_front() {
+                self.pages.remove(&evicted);
+            }
+        }
+    }
+
+    fn touch(&mut self, index: usize) {
+        self.recent.retain(|&cached| cached != index);
+        self.recent.push_back(index);
+    }
 }
 
 #[derive(Clone)]
@@ -531,6 +566,8 @@ struct ModPreview {
     links_box: gtk::FlowBox,
     state: Rc<RefCell<ModPreviewState>>,
     hover_source: Rc<RefCell<Option<glib::SourceId>>>,
+    // Bumped whenever another mod is shown so stale texture loads stop early.
+    load_generation: Rc<Cell<u64>>,
 }
 
 impl ModPreview {
@@ -551,6 +588,7 @@ impl ModPreview {
             links_box: links_box.clone(),
             state: Rc::new(RefCell::new(ModPreviewState::default())),
             hover_source: Rc::new(RefCell::new(None)),
+            load_generation: Rc::new(Cell::new(0)),
         }
     }
 
@@ -577,12 +615,12 @@ impl ModPreview {
 
         let pages = match (index, mod_entry) {
             (Some(index), Some(mod_entry)) => {
-                let cached_pages = self.state.borrow().pages.get(&index).cloned();
+                let cached_pages = self.state.borrow_mut().cached_pages(index);
                 if let Some(pages) = cached_pages {
                     pages
                 } else {
                     let pages = build_mod_preview_pages(mod_entry);
-                    self.state.borrow_mut().pages.insert(index, pages.clone());
+                    self.state.borrow_mut().insert_pages(index, pages.clone());
                     pages
                 }
             }
@@ -591,9 +629,10 @@ impl ModPreview {
 
         self.title_label.set_label(name);
         self.carousel_frame.set_visible(!pages.is_empty());
-        for page in pages {
-            self.carousel.append(&page);
+        for page in &pages {
+            self.carousel.append(&page.widget);
         }
+        self.load_textures(&pages);
         self.description_label.set_label(description);
 
         while let Some(child) = self.links_box.first_child() {
@@ -628,6 +667,56 @@ impl ModPreview {
             source_id.remove();
         }
     }
+
+    /// Decode the shown mod's screenshots off the UI thread, first page first.
+    /// Hovering through the list stays responsive because only the visible mod
+    /// keeps decoding; pages already decoded are reused from the cache.
+    fn load_textures(&self, pages: &[ModPreviewPage]) {
+        let generation = self.load_generation.get().wrapping_add(1);
+        self.load_generation.set(generation);
+
+        let pending: Vec<_> = pages
+            .iter()
+            .filter(|page| page.picture.paintable().is_none())
+            .map(|page| (page.picture.clone(), page.resource))
+            .collect();
+        if pending.is_empty() {
+            return;
+        }
+
+        let current_generation = self.load_generation.clone();
+        glib::spawn_future_local(async move {
+            for (picture, resource) in pending {
+                if current_generation.get() != generation {
+                    return;
+                }
+                match blocking::flatten_spawn_result(
+                    gio::spawn_blocking(move || load_preview_texture(resource)).await,
+                ) {
+                    Ok(texture) => picture.set_paintable(Some(&texture)),
+                    Err(err) => tracing::warn!("Failed to load mod preview {resource}: {err}"),
+                }
+            }
+        });
+    }
+}
+
+/// Decode a bundled screenshot. Safe to call from a worker thread.
+fn load_preview_texture(resource: &str) -> anyhow::Result<gdk::Texture> {
+    use glib::translate::{FromGlibPtrFull, ToGlibPtr};
+
+    let bytes = gio::resources_lookup_data(resource, gio::ResourceLookupFlags::NONE)?;
+    let mut error = std::ptr::null_mut();
+    // SAFETY: gdk_texture_new_from_bytes is documented as threadsafe so images can
+    // be decoded off the main thread; the gtk-rs wrapper only asserts the main
+    // thread as a blanket rule. Ownership of the returned texture/error is full.
+    let texture =
+        unsafe { gdk::ffi::gdk_texture_new_from_bytes(bytes.to_glib_none().0, &mut error) };
+    if error.is_null() {
+        Ok(unsafe { gdk::Texture::from_glib_full(texture) })
+    } else {
+        Err(unsafe { glib::Error::from_glib_full(error) }.into())
+    }
 }
 
 fn clear_carousel(carousel: &adw::Carousel) {
@@ -642,19 +731,17 @@ fn clear_carousel(carousel: &adw::Carousel) {
     }
 }
 
-fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
+fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<ModPreviewPage> {
     mod_entry
         .pictures
         .iter()
         .map(|pic| {
-            let texture = gdk::Texture::from_resource(pic);
             let image = gtk::Picture::builder()
                 .can_shrink(true)
                 .content_fit(gtk::ContentFit::Contain)
                 .hexpand(true)
                 .vexpand(true)
                 .build();
-            image.set_paintable(Some(&texture));
 
             let badge_text = if pic.contains("_before") {
                 Some("Before")
@@ -664,7 +751,7 @@ fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
                 None
             };
 
-            if let Some(text) = badge_text {
+            let widget = if let Some(text) = badge_text {
                 let badge = gtk::Label::builder()
                     .label(text)
                     .halign(gtk::Align::Center)
@@ -680,7 +767,13 @@ fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<gtk::Widget> {
                 overlay.add_overlay(&badge);
                 overlay.upcast::<gtk::Widget>()
             } else {
-                image.upcast::<gtk::Widget>()
+                image.clone().upcast::<gtk::Widget>()
+            };
+
+            ModPreviewPage {
+                widget,
+                picture: image,
+                resource: pic,
             }
         })
         .collect()
@@ -1743,12 +1836,12 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        ModPreview, ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState,
-        apply_install_progress, completed_mod_fraction, drain_progress_updates,
+        MOD_PREVIEW_CACHE_LIMIT, ModPreview, ProgressDisplay, ProgressMsg, ProgressSamples,
+        ProgressState, apply_install_progress, completed_mod_fraction, drain_progress_updates,
         format_download_bytes_text, format_step_download_text, fraction_needs_update,
-        initial_preview_index, mod_download_finished_text, mod_download_fraction,
-        mod_download_progress_update, mod_download_start_text, publish_mod_bytes,
-        publish_step_bytes, spawn_progress_receiver, subtitle_language_index,
+        initial_preview_index, load_preview_texture, mod_download_finished_text,
+        mod_download_fraction, mod_download_progress_update, mod_download_start_text,
+        publish_mod_bytes, publish_step_bytes, spawn_progress_receiver, subtitle_language_index,
         subtitle_language_labels, voice_language_index, voice_language_labels,
     };
     use crate::setup::config::{SubtitleLanguage, VoiceLanguage};
@@ -2189,6 +2282,90 @@ mod tests {
         }
 
         assert!(progress_bar.text().is_some());
+    }
+
+    #[gtk::test]
+    fn mod_preview_decodes_screenshots_off_the_ui_thread() {
+        init_resource_overlay();
+
+        let carousel = adw::Carousel::new();
+        let preview = ModPreview::new(
+            GameKind::SADX,
+            &gtk::Label::new(None),
+            &carousel,
+            &gtk::Frame::new(None),
+            &gtk::Label::new(None),
+            &gtk::FlowBox::new(),
+        );
+        let mods = common::recommended_mods_for_game(GameKind::SADX);
+        let (index, mod_entry) = mods
+            .iter()
+            .enumerate()
+            .find(|(_, entry)| !entry.pictures.is_empty())
+            .expect("a SADX mod with screenshots");
+
+        preview.show_entry(Some(index), Some(mod_entry));
+        let pages = preview.state.borrow().pages[&index].clone();
+        assert_eq!(pages.len(), mod_entry.pictures.len());
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while pages.iter().any(|page| page.picture.paintable().is_none()) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "screenshots did not load"
+            );
+            glib::MainContext::default().iteration(false);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        // Showing another mod and coming back reuses the decoded textures.
+        preview.show_entry(None, None);
+        preview.show_entry(Some(index), Some(mod_entry));
+        let cached = preview.state.borrow().pages[&index].clone();
+        assert!(cached[0].picture.paintable().is_some());
+        assert_eq!(cached[0].picture, pages[0].picture);
+    }
+
+    #[gtk::test]
+    fn mod_preview_cache_is_bounded() {
+        init_resource_overlay();
+
+        let preview = ModPreview::new(
+            GameKind::SADX,
+            &gtk::Label::new(None),
+            &adw::Carousel::new(),
+            &gtk::Frame::new(None),
+            &gtk::Label::new(None),
+            &gtk::FlowBox::new(),
+        );
+        let mods = common::recommended_mods_for_game(GameKind::SADX);
+        assert!(mods.len() > MOD_PREVIEW_CACHE_LIMIT + 1);
+
+        for (index, mod_entry) in mods.iter().enumerate().take(MOD_PREVIEW_CACHE_LIMIT + 1) {
+            preview.show_entry(Some(index), Some(mod_entry));
+        }
+        // Revisit the oldest so it becomes the most recently used entry.
+        preview.show_entry(Some(1), mods.get(1));
+        preview.show_entry(Some(0), mods.first());
+
+        let state = preview.state.borrow();
+        assert_eq!(state.pages.len(), MOD_PREVIEW_CACHE_LIMIT);
+        assert_eq!(state.recent.len(), MOD_PREVIEW_CACHE_LIMIT);
+        assert!(state.pages.contains_key(&0));
+        assert!(state.pages.contains_key(&1));
+        assert!(!state.pages.contains_key(&2));
+        assert_eq!(state.recent.back(), Some(&0));
+    }
+
+    #[gtk::test]
+    fn load_preview_texture_reports_missing_and_invalid_resources() {
+        init_resource_overlay();
+
+        assert!(load_preview_texture("/io/github/astrovm/AdventureMods/missing.jpg").is_err());
+        assert!(
+            load_preview_texture("/io/github/astrovm/AdventureMods/resources/ui/window.ui")
+                .is_err()
+        );
     }
 
     #[gtk::test]

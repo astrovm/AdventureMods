@@ -68,14 +68,8 @@ fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> 
     let dl_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_DL_BASE")
         .unwrap_or_else(|_| "https://gamebanana.com/dl/".to_string());
 
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("Failed to create tokio runtime")?;
-
-    rt.block_on(async {
-        let client = reqwest::Client::new();
-        let body = client
+    download::block_on(async {
+        let body = download::client()
             .get(&url)
             .send()
             .await
@@ -105,7 +99,7 @@ fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> 
             })?;
 
         Ok(format!("{dl_base}{latest_id}"))
-    })
+    })?
 }
 
 fn sa_mod_manager_url() -> String {
@@ -247,7 +241,7 @@ pub fn install_mod_manager(
         return Ok(());
     }
 
-    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+    let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("SAModManager.zip");
 
     let manager_url = sa_mod_manager_url();
@@ -320,7 +314,7 @@ pub fn install_mod_loader(
 
     let url = mod_loader_url(game_kind);
 
-    let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
+    let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("ModLoader.7z");
 
     download::download_file(&url, &archive_path, progress)?;
@@ -484,7 +478,8 @@ pub fn install_mod_with_progress(
 
     let url = resolve_download_url(&mod_entry.source)?;
 
-    let temp_dir = tempfile::tempdir()?;
+    // Stage next to the game so the extracted mod is renamed into place.
+    let temp_dir = staging_tempdir(game_path)?;
 
     // Download: the mmdl endpoint redirects, and the filename comes from
     // the Content-Disposition header. We just save to a generic name.
@@ -635,6 +630,24 @@ fn has_update_metadata(mod_ini: &str) -> bool {
     has_gamebanana_type && has_gamebanana_id
 }
 
+/// Create a scratch directory on the same filesystem as `near` (falling back to
+/// the system temp directory) so staged files can be moved into place with a
+/// rename instead of being copied. Inside Flatpak the system temp directory is
+/// usually RAM-backed, so large downloads staged there also cost memory.
+pub(super) fn staging_tempdir(near: &Path) -> Result<tempfile::TempDir> {
+    tempfile::Builder::new()
+        .prefix(".adventure-mods-")
+        .tempdir_in(near)
+        .or_else(|err| {
+            tracing::debug!(
+                "Could not stage in {}: {err}; using the system temp directory",
+                near.display()
+            );
+            tempfile::tempdir()
+        })
+        .context("Failed to create temp directory")
+}
+
 /// Recursively move all entries from `src` into `dest`, creating `dest` if needed.
 pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
     std::fs::create_dir_all(dest)?;
@@ -647,6 +660,10 @@ pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
         if path.is_dir() {
             if target.exists() && !target.is_dir() {
                 std::fs::remove_file(&target)?;
+            }
+            // A new directory moves with one rename instead of one per file.
+            if !target.exists() && std::fs::rename(&path, &target).is_ok() {
+                continue;
             }
             if !target.exists() {
                 std::fs::create_dir_all(&target)?;
