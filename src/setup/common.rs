@@ -62,6 +62,30 @@ pub(crate) fn env_or_default(var: &str, default: &'static str) -> String {
 
 /// Query the GameBanana Core API for the latest file of an item and return its download URL.
 fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> {
+    resolve_gamebanana_item(item_type, item_id).map(|(url, _)| url)
+}
+
+/// How many bytes installing `mod_entry` downloads, if the source says.
+///
+/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+pub fn mod_download_size(mod_entry: &ModEntry) -> Result<Option<u64>> {
+    match &mod_entry.source {
+        ModSource::GameBananaItem { item_type, item_id } => {
+            resolve_gamebanana_item(item_type, *item_id).map(|(_, size)| size)
+        }
+        ModSource::DirectUrl { url } => download::remote_size(&rewrite_direct_url(url)),
+    }
+}
+
+/// Whether `mod_entry` is already installed in the game's mods folder.
+pub fn is_mod_installed(game_path: &Path, mod_entry: &ModEntry) -> bool {
+    mod_entry
+        .dir_name
+        .is_some_and(|dir_name| mod_install_is_complete(&game_path.join("mods").join(dir_name)))
+}
+
+/// The latest file of a GameBanana item: its download URL and size in bytes.
+fn resolve_gamebanana_item(item_type: &str, item_id: u32) -> Result<(String, Option<u64>)> {
     let api_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_API_BASE")
         .unwrap_or_else(|_| GAMEBANANA_API_BASE.to_string());
     let url = format!("{api_base}&itemtype={item_type}&itemid={item_id}");
@@ -90,15 +114,18 @@ fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> 
             .next()
             .with_context(|| format!("Empty GameBanana API response for {item_type}/{item_id}"))?;
 
-        let latest_id = files
+        let (latest_id, size) = files
             .values()
-            .filter_map(|v| v.get("_idRow").and_then(|id| id.as_u64()))
-            .max()
+            .filter_map(|v| {
+                let id = v.get("_idRow").and_then(|id| id.as_u64())?;
+                Some((id, v.get("_nFilesize").and_then(|size| size.as_u64())))
+            })
+            .max_by_key(|(id, _)| *id)
             .with_context(|| {
                 format!("No files found in GameBanana API response for {item_type}/{item_id}")
             })?;
 
-        Ok(format!("{dl_base}{latest_id}"))
+        Ok((format!("{dl_base}{latest_id}"), size))
     })?
 }
 
@@ -164,6 +191,22 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
         StepId::SelectMods | StepId::LanguageOptions | StepId::DownloadMods | StepId::Complete => {
             false
         }
+    }
+}
+
+/// What the Steam configuration step shows, from a single inspection of Steam's
+/// config and the Proton prefix (both can be slow to read).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SteamConfigStatus {
+    pub message: String,
+    pub ready: bool,
+}
+
+pub fn steam_config_status(game: &Game) -> SteamConfigStatus {
+    let state = proton::prefix_state(&game.path, game.kind.app_id());
+    SteamConfigStatus {
+        message: proton::steam_config_message_for_state(game.kind.name(), &state),
+        ready: proton::ensure_state_ready(state).is_ok(),
     }
 }
 
@@ -454,56 +497,237 @@ pub fn install_mod_with_progress(
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    if let Some(dir_name) = mod_entry.dir_name {
-        let dest = mods_dir.join(dir_name);
-        if dest.is_dir() {
-            if mod_install_is_complete(&dest) {
-                normalize_mod_version(&dest)?;
-                tracing::info!(
-                    "Mod '{}' already installed, skipping download",
-                    mod_entry.name
-                );
-                return Ok(());
-            }
+    let installed_dir = mod_entry
+        .dir_name
+        .map(|dir_name| mods_dir.join(dir_name))
+        .filter(|dest| dest.is_dir());
+    let installed_complete = installed_dir
+        .as_deref()
+        .is_some_and(mod_install_is_complete);
 
+    let url = match resolve_download_url(&mod_entry.source) {
+        Ok(url) => url,
+        Err(err) if installed_complete => {
+            tracing::warn!(
+                "Could not check '{}' for updates, keeping the installed copy: {err:#}",
+                mod_entry.name
+            );
+            return keep_installed_mod(installed_dir.as_deref(), mod_entry);
+        }
+        Err(err) => return Err(err),
+    };
+    let check_remote_validator = matches!(mod_entry.source, ModSource::DirectUrl { .. });
+
+    if let Some(dest) = installed_dir.as_deref() {
+        if installed_complete {
+            match installed_mod_is_current(dest, &url, check_remote_validator) {
+                Ok(true) => return keep_installed_mod(Some(dest), mod_entry),
+                Ok(false) => {
+                    tracing::info!("Updating mod '{}'", mod_entry.name);
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "Could not check '{}' for updates, keeping the installed copy: {err:#}",
+                        mod_entry.name
+                    );
+                    return keep_installed_mod(Some(dest), mod_entry);
+                }
+            }
+        } else {
             tracing::warn!(
                 "Mod '{}' exists but is incomplete, reinstalling",
                 mod_entry.name
             );
-            std::fs::remove_dir_all(&dest).with_context(|| {
-                format!("Failed to remove incomplete mod at {}", dest.display())
-            })?;
         }
     }
 
-    let url = resolve_download_url(&mod_entry.source)?;
+    // Archives live in the download cache until the mod is installed, so a
+    // retry after a failure resumes (or skips) the download instead of
+    // starting over.
+    let archive_path = cached_archive_path(&url);
+    discard_stale_archive(&archive_path);
+    if archive_path.is_file() {
+        tracing::info!("Reusing downloaded archive for '{}'", mod_entry.name);
+        if let Some(progress) = progress {
+            let len = std::fs::metadata(&archive_path)?.len();
+            progress(len, Some(len))?;
+        }
+    } else {
+        download::download_file_resumable(&url, &archive_path, progress)?;
+    }
 
     // Stage next to the game so the extracted mod is renamed into place.
     let temp_dir = staging_tempdir(game_path)?;
-
-    // Download: the mmdl endpoint redirects, and the filename comes from
-    // the Content-Disposition header. We just save to a generic name.
-    let archive_path = temp_dir.path().join("mod_download");
-    download::download_file_with(&url, &archive_path, progress)?;
-
-    // Extract to a staging directory first so we can determine the layout.
     let staging_dir = temp_dir.path().join("staging");
-    archive::extract(&archive_path, &staging_dir)?;
+    if let Err(err) = archive::extract(&archive_path, &staging_dir) {
+        // A download that does not extract is not worth keeping for a retry.
+        download::remove_download(&archive_path);
+        return Err(err);
+    }
 
     if let Some(dir_name) = mod_entry.dir_name {
         // We know the target directory name. Find mod.ini in the staging
         // tree to locate the mod's content root, then move it into place.
         let dest = mods_dir.join(dir_name);
         let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
-        move_dir_contents(&content_root, &dest)?;
+        replace_mod_dir(&content_root, &dest)?;
         normalize_mod_version(&dest)?;
+        record_mod_source(&dest, &url, check_remote_validator);
     } else {
         let installed_dir = install_passthrough_mod(&staging_dir, &mods_dir)?;
         normalize_mod_version(&installed_dir)?;
     }
 
+    download::remove_download(&archive_path);
     tracing::info!("Installed mod: {}", mod_entry.name);
     Ok(())
+}
+
+fn keep_installed_mod(dest: Option<&Path>, mod_entry: &ModEntry) -> Result<()> {
+    if let Some(dest) = dest {
+        normalize_mod_version(dest)?;
+    }
+    tracing::info!(
+        "Mod '{}' already installed and up to date, skipping download",
+        mod_entry.name
+    );
+    Ok(())
+}
+
+/// Records where an installed mod came from, so a later run can tell whether
+/// a newer file was published.
+const MOD_SOURCE_FILE: &str = ".adventure-mods-source";
+/// Settings the user changed in SA Mod Manager, kept across mod updates.
+const MOD_USER_CONFIG_FILE: &str = "config.ini";
+/// Completed downloads older than this are fetched again rather than reused.
+const MAX_CACHED_ARCHIVE_AGE: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct ModSourceRecord {
+    url: String,
+    validator: Option<String>,
+}
+
+impl ModSourceRecord {
+    fn read(mod_dir: &Path) -> Option<Self> {
+        let content = std::fs::read_to_string(mod_dir.join(MOD_SOURCE_FILE)).ok()?;
+        let mut record = Self::default();
+        for line in content.lines() {
+            match line.split_once('=') {
+                Some(("url", value)) => record.url = value.to_owned(),
+                Some(("validator", value)) if !value.is_empty() => {
+                    record.validator = Some(value.to_owned())
+                }
+                _ => {}
+            }
+        }
+        (!record.url.is_empty()).then_some(record)
+    }
+
+    fn write(&self, mod_dir: &Path) -> std::io::Result<()> {
+        let content = format!(
+            "url={}\nvalidator={}\n",
+            self.url,
+            self.validator.as_deref().unwrap_or_default()
+        );
+        std::fs::write(mod_dir.join(MOD_SOURCE_FILE), content)
+    }
+}
+
+/// Whether the installed copy in `mod_dir` still matches what `url` serves.
+///
+/// GameBanana URLs name the exact file, so a new upload changes the URL. Fixed
+/// URLs (such as "latest release" links) are compared by the server's ETag or
+/// Last-Modified header. Mods installed before this was tracked are adopted as
+/// current.
+fn installed_mod_is_current(mod_dir: &Path, url: &str, check_validator: bool) -> Result<bool> {
+    let Some(record) = ModSourceRecord::read(mod_dir) else {
+        record_mod_source(mod_dir, url, check_validator);
+        return Ok(true);
+    };
+    if record.url != url {
+        return Ok(false);
+    }
+    if !check_validator {
+        return Ok(true);
+    }
+    let Some(installed) = record.validator else {
+        return Ok(true);
+    };
+    Ok(match download::remote_validator(url)? {
+        Some(remote) => remote == installed,
+        None => true,
+    })
+}
+
+fn record_mod_source(mod_dir: &Path, url: &str, check_validator: bool) {
+    let validator = if check_validator {
+        download::remote_validator(url).unwrap_or_else(|err| {
+            tracing::debug!("Could not read the version of {url}: {err:#}");
+            None
+        })
+    } else {
+        None
+    };
+    let record = ModSourceRecord {
+        url: url.to_owned(),
+        validator,
+    };
+    if let Err(err) = record.write(mod_dir) {
+        tracing::warn!(
+            "Failed to record the source of {}: {err}",
+            mod_dir.display()
+        );
+    }
+}
+
+/// Put freshly extracted mod files in `dest`, replacing any previous version
+/// (so files the new version dropped are gone) while keeping the user's
+/// SA Mod Manager settings for the mod.
+fn replace_mod_dir(content_root: &Path, dest: &Path) -> Result<()> {
+    let user_config = find_file_icase(dest, MOD_USER_CONFIG_FILE)
+        .and_then(|path| Some((path.file_name()?.to_owned(), std::fs::read(&path).ok()?)));
+
+    if dest.exists() {
+        std::fs::remove_dir_all(dest)
+            .with_context(|| format!("Failed to remove old mod files at {}", dest.display()))?;
+    }
+    move_dir_contents(content_root, dest)?;
+
+    if let Some((name, bytes)) = user_config {
+        if let Some(shipped) = find_file_icase(dest, MOD_USER_CONFIG_FILE) {
+            std::fs::remove_file(shipped)?;
+        }
+        std::fs::write(dest.join(name), bytes)?;
+    }
+    Ok(())
+}
+
+fn download_cache_dir() -> std::path::PathBuf {
+    std::env::var_os("ADVENTURE_MODS_CACHE_DIR")
+        .map(std::path::PathBuf::from)
+        .or_else(|| dirs::cache_dir().map(|dir| dir.join("adventure-mods")))
+        .unwrap_or_else(std::env::temp_dir)
+        .join("downloads")
+}
+
+fn cached_archive_path(url: &str) -> std::path::PathBuf {
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    url.hash(&mut hasher);
+    download_cache_dir().join(format!("{:016x}.archive", hasher.finish()))
+}
+
+fn discard_stale_archive(archive_path: &Path) {
+    let is_stale = std::fs::metadata(archive_path)
+        .and_then(|meta| meta.modified())
+        .ok()
+        .and_then(|modified| modified.elapsed().ok())
+        .is_some_and(|age| age > MAX_CACHED_ARCHIVE_AGE);
+    if is_stale {
+        download::remove_download(archive_path);
+    }
 }
 
 /// Find the directory containing `mod.ini` within a staging tree.

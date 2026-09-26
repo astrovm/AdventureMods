@@ -34,6 +34,8 @@ mod imp {
         pub navigation_view: TemplateChild<adw::NavigationView>,
         #[template_child]
         pub welcome_page: TemplateChild<AdventureModsWelcomePage>,
+        #[template_child]
+        pub toast_overlay: TemplateChild<adw::ToastOverlay>,
         pub extra_library_paths: RefCell<Vec<std::path::PathBuf>>,
         pub latest_detection_request_id: Cell<u64>,
         pub settings: RefCell<Option<gio::Settings>>,
@@ -68,6 +70,7 @@ mod imp {
             obj.setup_settings();
             obj.setup_header_actions();
             obj.setup_welcome_page_signals();
+            obj.setup_restore_signal();
             obj.detect_games();
         }
     }
@@ -107,6 +110,21 @@ impl AdventureModsWindow {
                         || obj.save_extra_library_paths(),
                         || obj.detect_games(),
                     );
+                });
+                None
+            }
+        });
+    }
+
+    fn setup_restore_signal(&self) {
+        let welcome_page = self.imp().welcome_page.clone();
+        welcome_page.connect_local("game-restored", true, {
+            let obj = self.clone();
+            move |args| {
+                let _ = crate::ui::catch_ui_panic("game restored signal", || {
+                    let message = args[1].get::<String>().unwrap_or_default();
+                    obj.detect_games();
+                    obj.imp().toast_overlay.add_toast(adw::Toast::new(&message));
                 });
                 None
             }
@@ -507,6 +525,10 @@ mod tests {
         let app = test_application();
         let window = AdventureModsWindow::new(&app);
         window.imp().refresh_button.emit_clicked();
+        window
+            .imp()
+            .welcome_page
+            .emit_by_name::<()>("game-restored", &[&"Sonic Adventure 2 was restored."]);
 
         let navigation = window.navigation_view();
         let page = adw::NavigationPage::builder()

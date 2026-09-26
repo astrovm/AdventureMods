@@ -50,6 +50,13 @@ mod imp {
         pub all_steps: RefCell<Vec<steps::SetupStep>>,
         pub selected_mods: RefCell<Vec<usize>>,
         pub language_selection: RefCell<Option<config::LanguageSelection>>,
+        // Steam/Proton status for the current visit to the Steam step. Refreshed
+        // whenever the user navigates or asks to check again.
+        pub steam_config_status: RefCell<Option<common::SteamConfigStatus>>,
+        // Per-mod download sizes for the mod list, fetched once in the background.
+        pub(super) download_estimates: RefCell<Option<Rc<Vec<ModDownloadEstimate>>>>,
+        pub download_estimates_requested: Cell<bool>,
+        pub download_size_label: RefCell<Option<gtk::Label>>,
         pub cancel_flag: RefCell<Option<Arc<AtomicBool>>>,
         pub is_error: Cell<bool>,
         pub step_busy: Cell<bool>,
@@ -779,6 +786,108 @@ fn build_mod_preview_pages(mod_entry: &common::ModEntry) -> Vec<ModPreviewPage> 
         .collect()
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ModDownloadEstimate {
+    size: Option<u64>,
+    installed: bool,
+}
+
+/// Look up every mod's download size (in parallel) and whether it is installed.
+fn estimate_mod_downloads(
+    game_path: &std::path::Path,
+    mods: &[common::ModEntry],
+    size_of: impl Fn(&common::ModEntry) -> Option<u64> + Sync,
+) -> Vec<ModDownloadEstimate> {
+    const WORKERS: usize = 4;
+    let next = AtomicUsize::new(0);
+    let estimates = Mutex::new(vec![ModDownloadEstimate::default(); mods.len()]);
+
+    std::thread::scope(|scope| {
+        for _ in 0..WORKERS.min(mods.len()) {
+            scope.spawn(|| {
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(mod_entry) = mods.get(index) else {
+                        break;
+                    };
+                    let installed = common::is_mod_installed(game_path, mod_entry);
+                    let size = if installed { None } else { size_of(mod_entry) };
+                    estimates.lock().expect("download estimates lock")[index] =
+                        ModDownloadEstimate { size, installed };
+                }
+            });
+        }
+    });
+
+    estimates.into_inner().expect("download estimates lock")
+}
+
+fn remote_mod_download_size(mod_entry: &common::ModEntry) -> Option<u64> {
+    // Unit tests render this page without a network.
+    if cfg!(test) {
+        return None;
+    }
+    common::mod_download_size(mod_entry).unwrap_or_else(|err| {
+        tracing::debug!("No download size for {}: {err:#}", mod_entry.name);
+        None
+    })
+}
+
+fn format_download_size(bytes: u64) -> String {
+    if bytes >= 1_000_000_000 {
+        format!("{:.1} GB", bytes as f64 / 1_000_000_000.0)
+    } else {
+        format!("{} MB", (bytes as f64 / 1_000_000.0).ceil().max(1.0) as u64)
+    }
+}
+
+/// The line under the mod list saying how much the selection will download.
+fn download_size_text(estimates: Option<&[ModDownloadEstimate]>, selected: &[usize]) -> String {
+    if selected.is_empty() {
+        return "No mods selected".to_owned();
+    }
+    let Some(estimates) = estimates else {
+        return "Checking download size…".to_owned();
+    };
+
+    let chosen: Vec<_> = selected
+        .iter()
+        .filter_map(|&index| estimates.get(index))
+        .collect();
+    let installed = chosen.iter().filter(|estimate| estimate.installed).count();
+    let to_download: Vec<_> = chosen
+        .iter()
+        .filter(|estimate| !estimate.installed)
+        .collect();
+    let known: u64 = to_download
+        .iter()
+        .filter_map(|estimate| estimate.size)
+        .sum();
+    let unknown = to_download.iter().any(|estimate| estimate.size.is_none());
+
+    let installed_note = match installed {
+        0 => String::new(),
+        1 => ", 1 already installed".to_owned(),
+        n => format!(", {n} already installed"),
+    };
+
+    if to_download.is_empty() {
+        "Everything selected is already installed".to_owned()
+    } else if known == 0 {
+        format!("Download size unknown{installed_note}")
+    } else if unknown {
+        format!(
+            "At least {} to download{installed_note}",
+            format_download_size(known)
+        )
+    } else {
+        format!(
+            "{} to download{installed_note}",
+            format_download_size(known)
+        )
+    }
+}
+
 fn apply_install_progress(
     progress: pipeline::InstallProgress<'_>,
     cancel_flag: &AtomicBool,
@@ -945,10 +1054,8 @@ impl AdventureModsSetupPage {
 
         imp.step_title.set_label(step.title);
         let step_description = if step.id == StepId::SteamConfig {
-            imp.game
-                .borrow()
-                .as_ref()
-                .map(common::steam_config_message)
+            self.steam_config_status()
+                .map(|status| status.message)
                 .unwrap_or_else(|| step.description.to_string())
         } else {
             step.description.to_string()
@@ -1241,6 +1348,8 @@ impl AdventureModsSetupPage {
                                 }
                             }
                         }
+                        drop(sel);
+                        obj_clone.update_download_size_label();
                     }
                 });
             });
@@ -1412,7 +1521,11 @@ impl AdventureModsSetupPage {
                         } else {
                             sel.retain(|&x| x != idx);
                         }
+                    } else {
+                        // A preset is being applied; it refreshes the size once done.
+                        return;
                     }
+                    obj_clone.update_download_size_label();
                 });
             });
 
@@ -1455,9 +1568,66 @@ impl AdventureModsSetupPage {
 
         scrolled.set_child(Some(&list_box));
         left_box.append(&scrolled);
+
+        let download_size_label = gtk::Label::builder()
+            .halign(gtk::Align::Start)
+            .wrap(true)
+            .css_classes(vec!["caption".to_string(), "dim-label".to_string()])
+            .build();
+        left_box.append(&download_size_label);
+        imp.download_size_label.replace(Some(download_size_label));
+        self.update_download_size_label();
+        self.request_download_estimates();
+
         main_box.append(&left_box);
         main_box.append(&preview_box);
         content_box.append(&main_box);
+    }
+
+    fn update_download_size_label(&self) {
+        let imp = self.imp();
+        let Some(label) = imp.download_size_label.borrow().clone() else {
+            return;
+        };
+        let estimates = imp.download_estimates.borrow().clone();
+        label.set_label(&download_size_text(
+            estimates.as_deref().map(Vec::as_slice),
+            &imp.selected_mods.borrow(),
+        ));
+    }
+
+    fn request_download_estimates(&self) {
+        let imp = self.imp();
+        if imp.download_estimates_requested.replace(true) {
+            return;
+        }
+        let Some(game) = imp.game.borrow().clone() else {
+            return;
+        };
+
+        let obj = self.clone();
+        glib::spawn_future_local(async move {
+            let mods = common::recommended_mods_for_game(game.kind);
+            match blocking::spawn_result(
+                gio::spawn_blocking(move || {
+                    estimate_mod_downloads(&game.path, mods, remote_mod_download_size)
+                })
+                .await,
+            ) {
+                Ok(estimates) => {
+                    obj.imp()
+                        .download_estimates
+                        .replace(Some(Rc::new(estimates)));
+                }
+                Err(err) => {
+                    tracing::warn!("Failed to estimate mod downloads: {err}");
+                    obj.imp()
+                        .download_estimates
+                        .replace(Some(Rc::new(Vec::new())));
+                }
+            }
+            obj.update_download_size_label();
+        });
     }
 
     fn run_auto_step(&self, step_id: StepId) {
@@ -1632,11 +1802,26 @@ impl AdventureModsSetupPage {
     }
 
     fn steam_config_ready(&self) -> bool {
-        self.imp()
+        self.steam_config_status()
+            .is_some_and(|status| status.ready)
+    }
+
+    fn steam_config_status(&self) -> Option<common::SteamConfigStatus> {
+        let imp = self.imp();
+        if let Some(status) = imp.steam_config_status.borrow().clone() {
+            return Some(status);
+        }
+        let status = imp
             .game
             .borrow()
             .as_ref()
-            .is_some_and(common::can_continue_from_steam_config)
+            .map(common::steam_config_status)?;
+        imp.steam_config_status.replace(Some(status.clone()));
+        Some(status)
+    }
+
+    fn invalidate_steam_config_status(&self) {
+        self.imp().steam_config_status.replace(None);
     }
 
     fn advance_step(&self) {
@@ -1684,6 +1869,8 @@ impl AdventureModsSetupPage {
         if imp.step_busy.get() {
             return;
         }
+        // Continue / Check Again should see what Steam looks like right now.
+        self.invalidate_steam_config_status();
 
         if imp.is_error.get() {
             // Retry: re-run the current step
@@ -1747,6 +1934,7 @@ impl AdventureModsSetupPage {
     }
 
     fn on_back_clicked(&self) {
+        self.invalidate_steam_config_status();
         let imp = self.imp();
         let current = imp.current_step.get();
         if current == 0 {
@@ -1836,13 +2024,15 @@ mod tests {
 
     use super::AdventureModsSetupPage;
     use super::{
-        MOD_PREVIEW_CACHE_LIMIT, ModPreview, ProgressDisplay, ProgressMsg, ProgressSamples,
-        ProgressState, apply_install_progress, completed_mod_fraction, drain_progress_updates,
-        format_download_bytes_text, format_step_download_text, fraction_needs_update,
-        initial_preview_index, load_preview_texture, mod_download_finished_text,
-        mod_download_fraction, mod_download_progress_update, mod_download_start_text,
-        publish_mod_bytes, publish_step_bytes, spawn_progress_receiver, subtitle_language_index,
-        subtitle_language_labels, voice_language_index, voice_language_labels,
+        MOD_PREVIEW_CACHE_LIMIT, ModDownloadEstimate, ModPreview, ProgressDisplay, ProgressMsg,
+        ProgressSamples, ProgressState, apply_install_progress, completed_mod_fraction,
+        download_size_text, drain_progress_updates, estimate_mod_downloads,
+        format_download_bytes_text, format_download_size, format_step_download_text,
+        fraction_needs_update, initial_preview_index, load_preview_texture,
+        mod_download_finished_text, mod_download_fraction, mod_download_progress_update,
+        mod_download_start_text, publish_mod_bytes, publish_step_bytes, spawn_progress_receiver,
+        subtitle_language_index, subtitle_language_labels, voice_language_index,
+        voice_language_labels,
     };
     use crate::setup::config::{SubtitleLanguage, VoiceLanguage};
     use crate::setup::steps::StepId;
@@ -2282,6 +2472,76 @@ mod tests {
         }
 
         assert!(progress_bar.text().is_some());
+    }
+
+    #[test]
+    fn download_size_text_summarizes_the_selection() {
+        let estimate = |size, installed| ModDownloadEstimate { size, installed };
+        let estimates = [
+            estimate(Some(150_000_000), false),
+            estimate(Some(1_000_000_000), false),
+            estimate(None, false),
+            estimate(None, true),
+            estimate(None, true),
+        ];
+
+        assert_eq!(
+            download_size_text(Some(&estimates), &[]),
+            "No mods selected"
+        );
+        assert_eq!(download_size_text(None, &[0]), "Checking download size…");
+        assert_eq!(
+            download_size_text(Some(&estimates), &[0]),
+            "150 MB to download"
+        );
+        assert_eq!(
+            download_size_text(Some(&estimates), &[1, 3]),
+            "1.0 GB to download, 1 already installed"
+        );
+        assert_eq!(
+            download_size_text(Some(&estimates), &[0, 2, 3, 4]),
+            "At least 150 MB to download, 2 already installed"
+        );
+        assert_eq!(
+            download_size_text(Some(&estimates), &[2]),
+            "Download size unknown"
+        );
+        assert_eq!(
+            download_size_text(Some(&estimates), &[3, 4]),
+            "Everything selected is already installed"
+        );
+        assert_eq!(format_download_size(1), "1 MB");
+    }
+
+    #[test]
+    fn estimate_mod_downloads_skips_installed_mods() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mods = common::recommended_mods_for_game(GameKind::SA2);
+        let installed = mods[1].dir_name.unwrap();
+        std::fs::create_dir_all(tmp.path().join("mods").join(installed)).unwrap();
+        std::fs::write(
+            tmp.path().join("mods").join(installed).join("mod.ini"),
+            "[mod]",
+        )
+        .unwrap();
+
+        let estimates = estimate_mod_downloads(tmp.path(), mods, |_| Some(42));
+
+        assert_eq!(estimates.len(), mods.len());
+        assert_eq!(
+            estimates[1],
+            ModDownloadEstimate {
+                size: None,
+                installed: true
+            }
+        );
+        assert_eq!(
+            estimates[0],
+            ModDownloadEstimate {
+                size: Some(42),
+                installed: false
+            }
+        );
     }
 
     #[gtk::test]
@@ -2802,6 +3062,7 @@ mod tests {
 
         let scrolled = left_box
             .last_child()
+            .and_then(|size_label| size_label.prev_sibling())
             .unwrap()
             .downcast::<gtk::ScrolledWindow>()
             .unwrap();
@@ -3019,6 +3280,7 @@ mod tests {
             .unwrap();
         let scrolled = left_box
             .last_child()
+            .and_then(|size_label| size_label.prev_sibling())
             .unwrap()
             .downcast::<gtk::ScrolledWindow>()
             .unwrap();

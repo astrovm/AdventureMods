@@ -1183,3 +1183,47 @@ fn setup_bails_without_game_in_noninteractive_mode() {
     let error = result.unwrap_err();
     assert!(error.to_string().contains("--game"));
 }
+
+#[test]
+fn restore_command_puts_back_the_original_launcher() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path();
+    std::fs::write(game.join("sonic2app.exe"), "game").unwrap();
+    std::fs::write(game.join("Launcher.exe"), "manager").unwrap();
+    std::fs::write(game.join("Launcher.exe.bak"), "launcher").unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "restore",
+        "--game",
+        "sa2",
+        "--game-path",
+        game.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+    run_with_io(cli, false, &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(game.join("Launcher.exe")).unwrap(),
+        "launcher"
+    );
+    assert!(output.contains("Restored Launcher.exe"));
+    assert!(output.contains("Restore complete!"));
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "restore",
+        "--game",
+        "sa2",
+        "--game-path",
+        game.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+    run_with_io(cli, false, &mut output).unwrap();
+    assert!(
+        String::from_utf8(output)
+            .unwrap()
+            .contains("Nothing to restore")
+    );
+}

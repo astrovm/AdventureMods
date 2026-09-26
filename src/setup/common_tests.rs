@@ -1258,3 +1258,352 @@ esac
         b"loader"
     );
 }
+
+fn update_test_mod(url: &'static str) -> ModEntry {
+    ModEntry {
+        name: "Update Mod",
+        slug: "update-mod",
+        source: ModSource::DirectUrl { url },
+        description: "test",
+        full_description: None,
+        pictures: &[],
+        dir_name: Some("UpdateMod"),
+        links: &[],
+    }
+}
+
+/// A fake 7zz that "extracts" whatever text the archive holds into mod.ini.
+fn install_echo_7zz(dir: &std::path::Path) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fake_7zz = dir.join("fake-7zz");
+    std::fs::write(
+        &fake_7zz,
+        r##"#!/bin/sh
+dest=""
+archive=""
+for arg in "$@"; do
+    case "$arg" in
+        -o*) dest="${arg#-o}" ;;
+        x|-y) ;;
+        *) archive="$arg" ;;
+    esac
+done
+if grep -q broken "$archive"; then exit 2; fi
+mkdir -p "$dest/UpdateMod"
+cp "$archive" "$dest/UpdateMod/mod.ini"
+printf 'defaults' > "$dest/UpdateMod/config.ini"
+"##,
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&fake_7zz).unwrap().permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(&fake_7zz, permissions).unwrap();
+    fake_7zz
+}
+
+#[test]
+fn test_install_mod_updates_changed_files_and_keeps_user_config() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    // The served file changes version once `version` is bumped.
+    let version = Arc::new(AtomicUsize::new(1));
+    let served = version.clone();
+    let (base, log) = serve(move |_| {
+        let v = served.load(Ordering::SeqCst);
+        Reply::ok(format!("Name=Update Mod v{v}")).header("ETag", format!("\"v{v}\""))
+    });
+    let url: &'static str = Box::leak(format!("{base}/update.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let mod_entry = update_test_mod(url);
+    let mod_dir = game.join("mods/UpdateMod");
+
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(mod_dir.join("mod.ini")).unwrap(),
+        "Name=Update Mod v1"
+    );
+    let record = ModSourceRecord::read(&mod_dir).unwrap();
+    assert_eq!(record.url, url);
+    assert_eq!(record.validator.as_deref(), Some("\"v1\""));
+
+    // Same version: nothing is downloaded again.
+    std::fs::write(mod_dir.join("config.ini"), "user settings").unwrap();
+    std::fs::write(mod_dir.join("old-only.dll"), "stale").unwrap();
+    let requests_before = log.lock().unwrap().len();
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    let new_requests: Vec<_> = log.lock().unwrap()[requests_before..].to_vec();
+    assert_eq!(new_requests, vec![format!("HEAD /update.7z")]);
+
+    // New version: replaced, stale files gone, user config kept.
+    version.store(2, Ordering::SeqCst);
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(mod_dir.join("mod.ini")).unwrap(),
+        "Name=Update Mod v2"
+    );
+    assert_eq!(
+        std::fs::read_to_string(mod_dir.join("config.ini")).unwrap(),
+        "user settings"
+    );
+    assert!(!mod_dir.join("old-only.dll").exists());
+    assert_eq!(
+        ModSourceRecord::read(&mod_dir)
+            .unwrap()
+            .validator
+            .as_deref(),
+        Some("\"v2\"")
+    );
+    // The archive is removed from the cache once installed.
+    assert_eq!(
+        std::fs::read_dir(tmp.path().join("cache/downloads"))
+            .unwrap()
+            .count(),
+        0
+    );
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
+fn test_install_mod_reuses_cached_archive_and_drops_broken_ones() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    let (base, log) = serve(|_| Reply::ok("broken"));
+    let url: &'static str = Box::leak(format!("{base}/cached.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let mod_entry = update_test_mod(url);
+
+    // A cached archive from an earlier attempt is used without downloading.
+    let cached = cached_archive_path(url);
+    std::fs::create_dir_all(cached.parent().unwrap()).unwrap();
+    std::fs::write(&cached, "Name=Cached").unwrap();
+    let mut reported = Vec::new();
+    let mut progress = |downloaded: u64, total: Option<u64>| {
+        reported.push((downloaded, total));
+        Ok(())
+    };
+    install_mod_with_progress(&game, &mod_entry, Some(&mut progress)).unwrap();
+    assert_eq!(reported, vec![(11, Some(11))]);
+    assert!(
+        log.lock()
+            .unwrap()
+            .iter()
+            .all(|request| request.starts_with("HEAD"))
+    );
+    assert!(!cached.exists());
+
+    // An archive that fails to extract is not kept for the next attempt.
+    std::fs::remove_dir_all(game.join("mods/UpdateMod")).unwrap();
+    assert!(install_mod_with_progress(&game, &mod_entry, None).is_err());
+    assert!(!cached.exists());
+
+    // Archives older than a day are downloaded again.
+    std::fs::write(&cached, "Name=Old").unwrap();
+    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 24 * 60 * 60);
+    std::fs::File::options()
+        .write(true)
+        .open(&cached)
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    discard_stale_archive(&cached);
+    assert!(!cached.exists());
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
+fn test_installed_mod_is_current_by_url_and_validator() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mod_dir = tmp.path();
+
+    // Legacy installs are adopted without a network check for GameBanana URLs.
+    assert!(installed_mod_is_current(mod_dir, "https://gb.test/dl/1", false).unwrap());
+    assert_eq!(
+        ModSourceRecord::read(mod_dir).unwrap(),
+        ModSourceRecord {
+            url: "https://gb.test/dl/1".to_owned(),
+            validator: None,
+        }
+    );
+    // A new GameBanana upload changes the URL.
+    assert!(!installed_mod_is_current(mod_dir, "https://gb.test/dl/2", false).unwrap());
+    assert!(installed_mod_is_current(mod_dir, "https://gb.test/dl/1", false).unwrap());
+    // No recorded validator means nothing to compare.
+    assert!(installed_mod_is_current(mod_dir, "https://gb.test/dl/1", true).unwrap());
+
+    std::fs::write(mod_dir.join(MOD_SOURCE_FILE), "garbage\n").unwrap();
+    assert!(ModSourceRecord::read(mod_dir).is_none());
+}
+
+#[test]
+fn test_mod_download_size_and_installed_state() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    let (base, _) = serve(|request| {
+        if request.path.starts_with("/gbapi") {
+            Reply::ok(r#"[{"5":{"_idRow":5,"_nFilesize":100},"7":{"_idRow":7,"_nFilesize":2048}}]"#)
+        } else {
+            Reply::ok(vec![0u8; 4096])
+        }
+    });
+    unsafe {
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            format!("{base}/gbapi?fields=Files().aFiles()"),
+        );
+    }
+
+    let gamebanana = ModEntry {
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 1,
+        },
+        ..update_test_mod("unused")
+    };
+    assert_eq!(mod_download_size(&gamebanana).unwrap(), Some(2048));
+    let direct = update_test_mod(Box::leak(format!("{base}/file.7z").into_boxed_str()));
+    assert_eq!(mod_download_size(&direct).unwrap(), Some(4096));
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+    }
+
+    let tmp = tempfile::tempdir().unwrap();
+    assert!(!is_mod_installed(tmp.path(), &direct));
+    std::fs::create_dir_all(tmp.path().join("mods/UpdateMod")).unwrap();
+    std::fs::write(tmp.path().join("mods/UpdateMod/mod.ini"), "[mod]").unwrap();
+    assert!(is_mod_installed(tmp.path(), &direct));
+}
+
+#[test]
+fn test_steam_config_status_reports_missing_prefix() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game_path = tmp.path().join("steamapps/common/Sonic Adventure 2");
+    std::fs::create_dir_all(&game_path).unwrap();
+    let game = Game {
+        kind: GameKind::SA2,
+        path: game_path,
+    };
+
+    let status = steam_config_status(&game);
+    assert!(!status.ready);
+    assert_eq!(status.message, steam_config_message(&game));
+    assert_eq!(status.ready, can_continue_from_steam_config(&game));
+}
+
+#[test]
+fn test_install_mod_keeps_installed_copy_when_update_checks_fail() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path();
+    let mod_dir = game.join("mods/UpdateMod");
+    std::fs::create_dir_all(&mod_dir).unwrap();
+    std::fs::write(mod_dir.join("mod.ini"), "Name=Installed").unwrap();
+
+    // GameBanana unreachable: keep what is installed.
+    unsafe {
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            "http://127.0.0.1:9/gbapi?fields=Files().aFiles()",
+        );
+    }
+    let gamebanana = ModEntry {
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 1,
+        },
+        ..update_test_mod("unused")
+    };
+    install_mod_with_progress(game, &gamebanana, None).unwrap();
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+    }
+
+    // The version check fails: keep what is installed.
+    let (base, _) = serve(|_| Reply::ok(Vec::new()).status("500 Internal Server Error"));
+    let url: &'static str = Box::leak(format!("{base}/mod.7z").into_boxed_str());
+    ModSourceRecord {
+        url: url.to_owned(),
+        validator: Some("\"v1\"".to_owned()),
+    }
+    .write(&mod_dir)
+    .unwrap();
+    install_mod_with_progress(game, &update_test_mod(url), None).unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(mod_dir.join("mod.ini")).unwrap(),
+        "Name=Installed"
+    );
+}
+
+#[test]
+fn test_install_mod_replaces_incomplete_install() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+
+    let (base, _) = serve(|_| Reply::ok("Name=Fresh"));
+    let url: &'static str = Box::leak(format!("{base}/fresh.7z").into_boxed_str());
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    let mod_dir = game.join("mods/UpdateMod");
+    std::fs::create_dir_all(&mod_dir).unwrap();
+    std::fs::write(mod_dir.join("leftover.bin"), "partial").unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+
+    install_mod_with_progress(&game, &update_test_mod(url), None).unwrap();
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+    assert_eq!(
+        std::fs::read_to_string(mod_dir.join("mod.ini")).unwrap(),
+        "Name=Fresh"
+    );
+    assert!(!mod_dir.join("leftover.bin").exists());
+}
