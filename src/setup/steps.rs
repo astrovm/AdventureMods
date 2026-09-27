@@ -82,35 +82,57 @@ pub enum StepKind {
     ModSelection,
 }
 
+impl StepKind {
+    /// Steps that do work rather than ask the user something.
+    pub fn is_work(&self) -> bool {
+        matches!(self, Self::Auto | Self::Download)
+    }
+}
+
+/// The setup flow: every choice first, then all the work in one go.
+///
+/// The GUI shows the consecutive Auto/Download steps as a single install
+/// screen, so their titles and descriptions are task names and statuses.
 pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     let mut steps = vec![
         SetupStep {
             id: StepId::SteamConfig,
-            title: "Steam Configuration",
+            title: "Set Up Proton",
             description: match kind {
                 GameKind::SADX => {
-                    "Force Proton 10.0 for Sonic Adventure DX in Steam (Properties → Compatibility). Proton 11, Hotfix, Experimental, and many custom builds cannot run SA Mod Manager. Launch the game once so the Proton prefix is created, then close it."
+                    "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
                 }
                 GameKind::SA2 => {
-                    "Force Proton 10.0 for Sonic Adventure 2 in Steam (Properties → Compatibility). Proton 11, Hotfix, Experimental, and many custom builds cannot run SA Mod Manager. Launch the game once so the Proton prefix is created, then close it."
+                    "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
                 }
             },
             kind: StepKind::Info,
         },
         SetupStep {
+            id: StepId::SelectMods,
+            title: "Choose Mods",
+            description: "Pick a preset or choose mods one by one.",
+            kind: StepKind::ModSelection,
+        },
+        SetupStep {
+            id: StepId::LanguageOptions,
+            title: "Languages",
+            description: "Choose the languages for subtitles and voices.",
+            kind: StepKind::Info,
+        },
+        SetupStep {
             id: StepId::Dotnet,
             title: "Install .NET Runtime",
-            description: "Installing .NET Desktop Runtime 10.0. This may take several minutes...",
+            description: "Needed by the mod manager",
             kind: StepKind::Auto,
         },
     ];
 
-    // SADX-only: Steam-to-2004 conversion
     if kind == GameKind::SADX {
         steps.push(SetupStep {
             id: StepId::ConvertSteam,
-            title: "Convert Steam to 2004",
-            description: "Downloading conversion tools and patching the Steam version to the 2004 version required by the mod loader...",
+            title: "Convert to the 2004 Version",
+            description: "Needed by the mod loader",
             kind: StepKind::Download,
         });
     }
@@ -118,38 +140,26 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     steps.extend([
         SetupStep {
             id: StepId::InstallModManager,
-            title: "Install Mod Manager & Loader",
-            description: "Downloading and installing SA Mod Manager and the mod loader...",
+            title: "Install Mod Manager",
+            description: "SA Mod Manager and the mod loader",
             kind: StepKind::Download,
         },
         SetupStep {
-            id: StepId::SelectMods,
-            title: "Select Mods",
-            description: match kind {
-                GameKind::SADX => "Choose which recommended mods to install for Sonic Adventure DX:",
-                GameKind::SA2 => "Choose which recommended mods to install for Sonic Adventure 2:",
-            },
-            kind: StepKind::ModSelection,
-        },
-        SetupStep {
-            id: StepId::LanguageOptions,
-            title: "Language Options",
-            description: "Choose subtitle and voice languages for the generated mod manager profile:",
-            kind: StepKind::Info,
-        },
-        SetupStep {
             id: StepId::DownloadMods,
-            title: "Download Mods",
-            description: "Downloading and installing selected mods...",
+            title: "Install Mods",
+            description: "Download the selected mods and set them up",
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::Complete,
-            title: "Setup Complete",
-            description: if kind == GameKind::SADX {
-                "Sonic Adventure DX mods are installed! Launch the game through Steam. The mod manager will appear before the game starts, letting you enable or disable mods."
-            } else {
-                "Sonic Adventure 2 mods are installed! Launch the game through Steam. The mod manager will appear before the game starts, letting you enable or disable mods."
+            title: "Ready to Play",
+            description: match kind {
+                GameKind::SADX => {
+                    "Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+                }
+                GameKind::SA2 => {
+                    "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+                }
             },
             kind: StepKind::Info,
         },
@@ -268,6 +278,27 @@ mod tests {
 
             assert_eq!(last.id, StepId::Complete);
             assert!(matches!(last.kind, StepKind::Info));
+        }
+    }
+
+    #[test]
+    fn every_choice_comes_before_the_work() {
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let steps = steps_for_game(kind);
+            let first_work = steps.iter().position(|s| s.kind.is_work()).unwrap();
+            let last_work = steps.iter().rposition(|s| s.kind.is_work()).unwrap();
+
+            assert!(
+                steps[first_work..=last_work]
+                    .iter()
+                    .all(|s| s.kind.is_work())
+            );
+            assert!(
+                steps[..first_work]
+                    .iter()
+                    .any(|s| s.id == StepId::LanguageOptions)
+            );
+            assert_eq!(steps[last_work + 1].id, StepId::Complete);
         }
     }
 

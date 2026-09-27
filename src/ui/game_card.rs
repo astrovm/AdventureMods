@@ -19,6 +19,8 @@ mod imp {
         #[template_child]
         pub cover_picture: TemplateChild<gtk::Picture>,
         #[template_child]
+        pub status_row: TemplateChild<gtk::Box>,
+        #[template_child]
         pub status_icon: TemplateChild<gtk::Image>,
         #[template_child]
         pub badge_label: TemplateChild<gtk::Label>,
@@ -120,6 +122,14 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget;
 }
 
+/// Resource path of a game's Steam header image.
+pub(crate) fn cover_resource(kind: GameKind) -> &'static str {
+    match kind {
+        GameKind::SADX => "/io/github/astrovm/AdventureMods/resources/covers/sadx.jpg",
+        GameKind::SA2 => "/io/github/astrovm/AdventureMods/resources/covers/sa2.jpg",
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum GameInstallOption {
     Detected(std::path::PathBuf),
@@ -181,11 +191,11 @@ impl AdventureModsGameCard {
         let show_status = installation_total > 1;
 
         imp.title_label.set_label(game.kind.name());
-        imp.badge_label.set_label("Ready");
+        imp.badge_label.set_label("Ready to set up");
         imp.status_label.set_visible(show_status);
         imp.status_label.set_label(&status_text);
-        imp.details_label.set_visible(true);
         imp.details_label.set_label(&display_path(&game.path));
+        self.set_tooltip_text(Some(&display_path(&game.path)));
         imp.setup_button.set_visible(true);
         imp.secondary_button.set_visible(false);
         self.add_css_class("game-card-clickable");
@@ -205,14 +215,12 @@ impl AdventureModsGameCard {
         let imp = self.imp();
 
         imp.title_label.set_label(kind.name());
-        imp.badge_label.set_label("Not found");
+        imp.badge_label.set_label("Not installed");
         imp.status_label.set_visible(true);
         imp.status_label
-            .set_label("Install it through Steam to enable setup.");
-        imp.details_label.set_visible(false);
-        imp.details_label.set_label(
-            "If it is already installed, refresh after Steam finishes detecting the library.",
-        );
+            .set_label("Install it in Steam, then scan again.");
+        imp.details_label.set_label("");
+        self.set_tooltip_text(None);
         imp.install_selector.set_visible(false);
         imp.setup_button.set_visible(false);
         imp.secondary_button.set_visible(false);
@@ -278,16 +286,16 @@ impl AdventureModsGameCard {
             return;
         };
 
-        imp.details_label.set_visible(true);
         imp.details_label.set_label(&display_path(option.path()));
+        self.set_tooltip_text(Some(&display_path(option.path())));
         let modded = option.is_accessible()
             && imp
                 .kind
                 .get()
                 .is_some_and(|kind| crate::setup::restore::is_modded(option.path(), kind));
-        imp.secondary_button.set_label("Restore Original");
+        imp.secondary_button.set_label("Restore");
         imp.secondary_button
-            .set_tooltip_text(Some("Undo the setup so Steam starts the unmodded game"));
+            .set_tooltip_text(Some("Undo the setup so Steam starts the original game"));
         imp.secondary_button.set_visible(modded);
 
         if install_count > 1 {
@@ -299,68 +307,49 @@ impl AdventureModsGameCard {
         }
 
         if option.is_accessible() {
-            imp.badge_label.set_label("Ready");
             imp.status_label.set_visible(install_count > 1);
             if install_count > 1 {
                 imp.status_label
-                    .set_label("Choose which install to use for setup.");
+                    .set_label("Choose which install to set up.");
             }
-            imp.setup_button.set_label("Set Up");
-            self.set_state_classes("installed", None);
+            if modded {
+                imp.badge_label.set_label("Mods installed");
+                imp.setup_button.set_label("Change Mods");
+                self.set_state_classes("modded", None);
+            } else {
+                imp.badge_label.set_label("Ready to set up");
+                imp.setup_button.set_label("Set Up");
+                self.set_state_classes("installed", None);
+            }
         } else {
             imp.badge_label.set_label("Needs access");
             imp.status_label.set_visible(true);
             imp.status_label
-                .set_label("Grant access to the selected Steam library to continue.");
+                .set_label("Allow access to this Steam library to set it up.");
             imp.setup_button.set_label("Grant Access");
             self.set_state_classes("inaccessible", Some("game-card-inaccessible"));
         }
     }
 
     fn set_cover(&self, kind: GameKind) {
-        let resource = match kind {
-            GameKind::SADX => "/io/github/astrovm/AdventureMods/resources/covers/sadx.jpg",
-            GameKind::SA2 => "/io/github/astrovm/AdventureMods/resources/covers/sa2.jpg",
-        };
-        self.imp().cover_picture.set_resource(Some(resource));
+        self.imp()
+            .cover_picture
+            .set_resource(Some(cover_resource(kind)));
     }
 
     fn set_state_classes(&self, status_suffix: &str, extra_card_class: Option<&str>) {
         let imp = self.imp();
 
-        for class_name in [
-            "game-card-status-installed",
-            "game-card-status-missing",
-            "game-card-status-inaccessible",
-            "game-card-badge-installed",
-            "game-card-badge-missing",
-            "game-card-badge-inaccessible",
-            "game-card-status-icon-installed",
-            "game-card-status-icon-missing",
-            "game-card-status-icon-inaccessible",
-            "game-card-missing",
-            "game-card-inaccessible",
-        ] {
-            imp.status_label.remove_css_class(class_name);
-            imp.badge_label.remove_css_class(class_name);
-            imp.status_icon.remove_css_class(class_name);
-            self.remove_css_class(class_name);
+        for state in ["installed", "modded", "missing", "inaccessible"] {
+            self.remove_css_class(&format!("game-card-{state}"));
+            imp.status_row
+                .remove_css_class(&format!("game-card-status-{state}"));
         }
 
-        let status_class = format!("game-card-status-{status_suffix}");
-        let badge_class = format!("game-card-badge-{status_suffix}");
-        let icon_class = format!("game-card-status-icon-{status_suffix}");
-        let icon_name = match status_suffix {
-            "installed" => "emblem-ok-symbolic",
-            "missing" => "dialog-warning-symbolic",
-            "inaccessible" => "folder-open-symbolic",
-            _ => "dialog-information-symbolic",
-        };
-
-        imp.status_icon.set_icon_name(Some(icon_name));
-        imp.status_label.add_css_class(&status_class);
-        imp.badge_label.add_css_class(&badge_class);
-        imp.status_icon.add_css_class(&icon_class);
+        // A colored dot and short label, so the state reads at a glance.
+        imp.status_icon.set_icon_name(Some("media-record-symbolic"));
+        imp.status_row
+            .add_css_class(&format!("game-card-status-{status_suffix}"));
         if let Some(card_class) = extra_card_class {
             self.add_css_class(card_class);
         }
@@ -524,14 +513,32 @@ mod tests {
         ));
         assert_eq!(card.imp().badge_label.label().as_str(), "Needs access");
 
+        assert!(card.has_css_class("game-card-inaccessible"));
+        assert!(
+            card.imp()
+                .status_row
+                .has_css_class("game-card-status-inaccessible")
+        );
+
         card.imp().install_selector.set_selected(0);
-        assert_eq!(card.imp().badge_label.label().as_str(), "Ready");
+        assert_eq!(card.imp().badge_label.label().as_str(), "Ready to set up");
+        assert!(!card.has_css_class("game-card-inaccessible"));
+        assert!(
+            card.imp()
+                .status_row
+                .has_css_class("game-card-status-installed")
+        );
 
         card.set_install_options(GameKind::SA2, &[]);
         card.set_state_classes("custom", None);
+        assert!(
+            card.imp()
+                .status_row
+                .has_css_class("game-card-status-custom")
+        );
         assert_eq!(
             card.imp().status_icon.icon_name().as_deref(),
-            Some("dialog-information-symbolic")
+            Some("media-record-symbolic")
         );
     }
 }

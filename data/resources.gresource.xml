@@ -5,7 +5,6 @@
     <file preprocess="xml-stripblanks">resources/ui/welcome_page.ui</file>
     <file preprocess="xml-stripblanks">resources/ui/game_card.ui</file>
     <file preprocess="xml-stripblanks">resources/ui/setup_page.ui</file>
-    <file preprocess="xml-stripblanks">resources/ui/progress_page.ui</file>
     <file>resources/style.css</file>
     <file alias="resources/covers/sadx.jpg">covers/sadx.jpg</file>
     <file alias="resources/covers/sa2.jpg">covers/sa2.jpg</file>

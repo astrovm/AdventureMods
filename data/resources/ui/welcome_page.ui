@@ -2,57 +2,29 @@
 <interface>
   <template class="AdventureModsWelcomePage" parent="AdwBin">
     <property name="child">
-      <object class="GtkBox">
-        <property name="orientation">vertical</property>
-        <property name="hexpand">true</property>
-        <property name="vexpand">true</property>
-        <property name="halign">fill</property>
-        <property name="valign">fill</property>
-        <child>
+      <object class="GtkScrolledWindow">
+        <property name="hscrollbar-policy">never</property>
+        <property name="child">
           <object class="AdwClamp">
-            <property name="maximum-size">1080</property>
+            <property name="maximum-size">720</property>
             <property name="tightening-threshold">640</property>
-            <property name="width-request">640</property>
-            <property name="hexpand">true</property>
-            <property name="vexpand">true</property>
             <property name="valign">center</property>
             <property name="child">
               <object class="GtkBox">
                 <property name="orientation">vertical</property>
-                <property name="spacing">16</property>
-                <property name="valign">center</property>
+                <property name="spacing">24</property>
                 <property name="margin-start">24</property>
                 <property name="margin-end">24</property>
                 <property name="margin-top">24</property>
-                <property name="margin-bottom">24</property>
+                <property name="margin-bottom">32</property>
                 <child>
-                  <object class="GtkBox">
-                    <property name="orientation">vertical</property>
-                    <property name="spacing">8</property>
-                    <property name="halign">center</property>
-                    <property name="margin-bottom">4</property>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="label" translatable="yes">Game Selection</property>
-                        <property name="justify">center</property>
-                        <property name="wrap">true</property>
-                        <style>
-                          <class name="title-1"/>
-                          <class name="welcome-section-title"/>
-                        </style>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="label" translatable="yes">Choose which game to set up:</property>
-                        <property name="justify">center</property>
-                        <property name="wrap">true</property>
-                        <style>
-                          <class name="dim-label"/>
-                          <class name="welcome-subtitle"/>
-                        </style>
-                      </object>
-                    </child>
+                  <object class="GtkLabel">
+                    <property name="label" translatable="yes">Choose a Game</property>
+                    <property name="wrap">true</property>
+                    <property name="justify">center</property>
+                    <style>
+                      <class name="title-2"/>
+                    </style>
                   </object>
                 </child>
                 <child>
@@ -63,17 +35,16 @@
                   </object>
                 </child>
                 <child>
-                  <object class="GtkBox" id="games_row">
-                    <property name="orientation">horizontal</property>
-                    <property name="spacing">16</property>
-                    <property name="halign">center</property>
-                    <property name="valign">start</property>
+                  <object class="AdwWrapBox" id="games_row">
+                    <property name="child-spacing">18</property>
+                    <property name="line-spacing">18</property>
+                    <property name="align">0.5</property>
                   </object>
                 </child>
               </object>
             </property>
           </object>
-        </child>
+        </property>
       </object>
     </property>
   </template>

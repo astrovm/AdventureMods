@@ -8,6 +8,16 @@ pub mod test_util;
 pub const WIZARD_DEFAULT_WIDTH: i32 = 872;
 pub const WIZARD_DEFAULT_HEIGHT: i32 = 666;
 
+/// Open `uri` with the default handler, such as Steam for `steam://` links.
+pub(crate) fn launch_uri(window: Option<&gtk::Window>, uri: &str) {
+    let target = uri.to_owned();
+    gtk::UriLauncher::new(uri).launch(window, gtk::gio::Cancellable::NONE, move |result| {
+        if let Err(err) = result {
+            tracing::warn!("Could not open {target}: {err}");
+        }
+    });
+}
+
 pub(crate) fn catch_ui_panic(label: &'static str, action: impl FnOnce()) -> Result<(), String> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(action)).map_err(|payload| {
         let message = panic_message(payload.as_ref());

@@ -17,7 +17,7 @@ mod imp {
         #[template_child]
         pub alerts_box: TemplateChild<gtk::Box>,
         #[template_child]
-        pub games_row: TemplateChild<gtk::Box>,
+        pub games_row: TemplateChild<adw::WrapBox>,
     }
 
     #[glib::object_subclass]
@@ -88,15 +88,25 @@ impl AdventureModsWelcomePage {
                     inaccessible_names.push(name);
                 }
             }
-            let alert = gtk::Label::builder()
-                .label(format!(
-                    "Some Steam libraries still need access: {}.",
-                    inaccessible_names.join(", ")
-                ))
-                .wrap(true)
-                .justify(gtk::Justification::Center)
-                .build();
+            let alert = gtk::Box::builder().spacing(12).build();
             alert.add_css_class("welcome-alert");
+            alert.append(
+                &gtk::Image::builder()
+                    .icon_name("folder-open-symbolic")
+                    .valign(gtk::Align::Start)
+                    .build(),
+            );
+            alert.append(
+                &gtk::Label::builder()
+                    .label(format!(
+                        "Adventure Mods needs access to the Steam library with {}. Use Grant Access on the game below.",
+                        inaccessible_names.join(" and ")
+                    ))
+                    .wrap(true)
+                    .xalign(0.0)
+                    .hexpand(true)
+                    .build(),
+            );
             alerts_box.append(&alert);
         }
 
@@ -132,14 +142,9 @@ impl AdventureModsWelcomePage {
                                     kind: card_spec.kind,
                                     path,
                                 };
-                                let setup_page = crate::ui::setup_page::AdventureModsSetupPage::new(
-                                    game.clone(),
-                                );
-                                let nav_page = adw::NavigationPage::builder()
-                                    .title(game.kind.name())
-                                    .child(&setup_page)
-                                    .build();
-                                nav_view_clone.push(&nav_page);
+                                let setup_page =
+                                    crate::ui::setup_page::AdventureModsSetupPage::new(game);
+                                nav_view_clone.push(&setup_page.navigation_page());
                             }
                             GameInstallOption::Inaccessible(path) => {
                                 obj.request_library_access(path);
@@ -270,7 +275,7 @@ impl AdventureModsWelcomePage {
 
     /// The SADX 2004 conversion rewrote game files; Steam can put them back.
     fn offer_steam_verify(&self, kind: GameKind) {
-        steam_verify_dialog(kind, launch_uri).present(Some(self));
+        steam_verify_dialog(kind, crate::ui::launch_uri).present(Some(self));
     }
 }
 
@@ -297,14 +302,6 @@ fn steam_verify_dialog(
         open_uri(window.as_ref(), &uri);
     });
     dialog
-}
-
-fn launch_uri(window: Option<&gtk::Window>, uri: &str) {
-    gtk::UriLauncher::new(uri).launch(window, gio::Cancellable::NONE, |result| {
-        if let Err(err) = result {
-            tracing::warn!("Could not open Steam: {err}");
-        }
-    });
 }
 
 impl AdventureModsWelcomePage {
@@ -479,17 +476,21 @@ mod tests {
 
         page.set_detection_result(result, nav_view);
 
-        let alert = page
-            .imp()
+        assert_eq!(
+            alert_text(&page),
+            "Adventure Mods needs access to the Steam library with Sonic Adventure DX. Use Grant Access on the game below."
+        );
+    }
+
+    fn alert_text(page: &AdventureModsWelcomePage) -> String {
+        page.imp()
             .alerts_box
             .first_child()
+            .and_then(|alert| alert.last_child())
             .and_downcast::<gtk::Label>()
-            .unwrap();
-
-        assert_eq!(
-            alert.label().as_str(),
-            "Some Steam libraries still need access: Sonic Adventure DX."
-        );
+            .unwrap()
+            .label()
+            .to_string()
     }
 
     #[gtk::test]
@@ -518,16 +519,9 @@ mod tests {
 
         page.set_detection_result(result, nav_view);
 
-        let alert = page
-            .imp()
-            .alerts_box
-            .first_child()
-            .and_downcast::<gtk::Label>()
-            .unwrap();
-
         assert_eq!(
-            alert.label().as_str(),
-            "Some Steam libraries still need access: Sonic Adventure DX, Sonic Adventure 2."
+            alert_text(&page),
+            "Adventure Mods needs access to the Steam library with Sonic Adventure DX and Sonic Adventure 2. Use Grant Access on the game below."
         );
     }
 
@@ -607,10 +601,9 @@ mod tests {
             .and_downcast::<AdventureModsGameCard>()
             .unwrap();
         assert!(card.imp().secondary_button.get_visible());
-        assert_eq!(
-            card.imp().secondary_button.label().unwrap(),
-            "Restore Original"
-        );
+        assert_eq!(card.imp().secondary_button.label().unwrap(), "Restore");
+        assert_eq!(card.imp().setup_button.label().unwrap(), "Change Mods");
+        assert_eq!(card.imp().badge_label.label().as_str(), "Mods installed");
 
         card.imp().secondary_button.emit_clicked();
         page.restore_game(GameKind::SA2, game_path.clone());
