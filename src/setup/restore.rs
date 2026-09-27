@@ -76,7 +76,14 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         report.changes.push("Removed the mod loader".to_owned());
     }
 
-    report.needs_steam_verify = is_converted_to_2004(game_path, game_kind);
+    // Steam verification brings back the Steam files but leaves sonic.exe,
+    // which setup and is_modded() read as "already converted". Remove it so
+    // the verified game counts as unmodded and a later setup converts again.
+    if is_converted_to_2004(game_path, game_kind) {
+        std::fs::remove_file(game_path.join("sonic.exe")).context("Failed to remove sonic.exe")?;
+        report.changes.push("Removed sonic.exe".to_owned());
+        report.needs_steam_verify = true;
+    }
     tracing::info!(
         "Restored {} at {}: {:?}",
         game_kind.name(),
@@ -182,6 +189,8 @@ mod tests {
             "chr"
         );
         assert!(report.needs_steam_verify);
+        assert!(!game.join("sonic.exe").exists());
+        assert!(!is_modded(game, GameKind::SADX));
         assert_eq!(steam_verify_uri(GameKind::SADX), "steam://validate/71250");
     }
 
