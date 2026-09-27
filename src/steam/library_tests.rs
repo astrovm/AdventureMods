@@ -1,7 +1,7 @@
 use super::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 /// Build a mock VDF structure for libraryfolders with one library.
 fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
@@ -27,11 +27,7 @@ fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
 }
 
 fn with_environment<T>(name: &str, value: Option<&Path>, test: impl FnOnce() -> T) -> T {
-    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    let _guard = ENV_LOCK
-        .get_or_init(|| Mutex::new(()))
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
+    let _guard = crate::test_env::lock();
     let previous = std::env::var_os(name);
 
     match value {
@@ -1095,7 +1091,8 @@ fn resolve_document_portal_host_path_preserves_file_paths() {
 #[test]
 fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
     let tmp = tempfile::tempdir().unwrap();
-    let host_library = PathBuf::from("/data/SteamLibrary");
+    // Unmounted from the sandbox's view; never a real library on the host.
+    let host_library = tmp.path().join("unmounted/SteamLibrary");
     let portal = tmp.path().join("run-user-doc").join("abc123");
     make_steam_library(&portal, GameKind::SADX);
 
@@ -1105,7 +1102,8 @@ fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
     }
 
     let root = mock_vdf(host_library.to_str().unwrap(), &["71250"]);
-    let result = detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&portal));
+    let (result, logs) =
+        capture_logs(|| detect_games_from_parsed_vdfs(&[root], std::slice::from_ref(&portal)));
 
     assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
     assert!(
@@ -1114,6 +1112,9 @@ fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
             .iter()
             .all(|game| game.library_path != host_library)
     );
+    // A granted library is neither reported as inaccessible nor found twice.
+    assert!(!logs.contains("is inaccessible"), "{logs}");
+    assert_eq!(logs.matches("Found ").count(), 1, "{logs}");
 }
 
 #[test]
@@ -1231,12 +1232,13 @@ fn library_detection_logs_found_stale_and_unmounted_libraries() {
     let mut root = HashMap::new();
     root.insert("libraryfolders".to_string(), vdf::VdfValue::Map(folders));
 
-    let ((paths, inaccessible), logs) =
-        capture_logs(|| find_all_games_in_libraries(&vdf::VdfValue::Map(root), GameKind::SADX));
+    let (result, logs) =
+        capture_logs(|| detect_games_from_parsed_vdfs(&[vdf::VdfValue::Map(root)], &[]));
 
+    let paths: Vec<_> = result.games.iter().map(|game| game.path.clone()).collect();
     assert_eq!(paths, vec![game_dir.clone()]);
-    assert_eq!(inaccessible.len(), 1);
-    assert_eq!(inaccessible[0].library_path, unmounted);
+    assert_eq!(result.inaccessible.len(), 1);
+    assert_eq!(result.inaccessible[0].library_path, unmounted);
     assert!(logs.contains(&format!(
         "Found {} at {}",
         GameKind::SADX.name(),
