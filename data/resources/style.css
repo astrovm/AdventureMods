@@ -2,17 +2,6 @@
 
 .game-card {
     border-radius: 18px;
-    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
-                box-shadow 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.game-card-clickable:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px alpha(black, 0.22), 0 0 0 1px alpha(currentColor, 0.06);
-}
-
-.game-card-clickable:active {
-    transform: translateY(-1px) scale(0.99);
 }
 
 .game-card-missing .game-card-cover {
@@ -78,15 +67,4 @@
 
 .setup-complete-cover {
     border-radius: 18px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .game-card {
-        transition: none;
-    }
-
-    .game-card-clickable:hover,
-    .game-card-clickable:active {
-        transform: none;
-    }
 }
