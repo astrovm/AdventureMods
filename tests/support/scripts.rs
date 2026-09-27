@@ -12,7 +12,7 @@ pub fn install_fake_wine(path: &Path, log_path: &Path) {
     write_script(
         path,
         &format!(
-            "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$@\" > \"{}\"\nversion=10.0.0\nfor arg in \"$@\"; do case \"$arg\" in *runtime-8-*) version=8.0.0 ;; esac; done\nmkdir -p \"$WINEPREFIX/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/$version\"\n",
+            "#!/bin/sh\nset -eu\nprintf '%s\\n' \"$@\" > \"{}\"\nmkdir -p \"$WINEPREFIX/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0\"\n",
             log_path.display()
         ),
     );

@@ -5,19 +5,19 @@ use anyhow::{Context, Result};
 use super::download;
 use super::proton;
 
-/// .NET Desktop Runtime majors installed into the prefix. SA Mod Manager
-/// 1.3.7 targets .NET 8 (it will not roll forward to 10), while its update
-/// check already asks for .NET 10 ahead of the next release.
-const DOTNET_DESKTOP_MAJORS: [u32; 2] = [8, 10];
+/// .NET Desktop Runtime major SA Mod Manager needs. The latest release
+/// (1.3.7) targets net8.0 and does not roll forward to newer majors.
+const DOTNET_DESKTOP_MAJOR: u32 = 8;
 
-/// .NET Desktop Runtime x64 offline installer for `major`.
+/// Latest .NET Desktop Runtime 8 x64 offline installer.
 ///
-/// Use the stable aka.ms redirect so Microsoft can rotate the underlying build
-/// without breaking downloads when old patch-specific URLs expire.
-fn dotnet_desktop_url(major: u32) -> String {
-    std::env::var(format!("ADVENTURE_MODS_URL_DOTNET_DESKTOP_{major}")).unwrap_or_else(|_| {
-        format!("https://aka.ms/dotnet/{major}.0/windowsdesktop-runtime-win-x64.exe")
-    })
+/// The aka.ms channel link always points at the newest 8.0.x build, so
+/// patches arrive without changing this URL.
+const DOTNET_DESKTOP_8_URL: &str = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe";
+
+fn dotnet_desktop_url() -> String {
+    std::env::var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8")
+        .unwrap_or_else(|_| DOTNET_DESKTOP_8_URL.to_string())
 }
 
 fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
@@ -59,21 +59,13 @@ fn installed_dotnet_majors(prefix: &Path) -> Vec<u32> {
         .collect()
 }
 
-/// .NET Desktop Runtime majors SA Mod Manager needs that the prefix lacks.
-fn missing_dotnet_majors(prefix: &Path) -> Vec<u32> {
-    let installed = installed_dotnet_majors(prefix);
-    DOTNET_DESKTOP_MAJORS
-        .into_iter()
-        .filter(|major| !installed.contains(major))
-        .collect()
-}
-
-/// Check whether every .NET Desktop Runtime SA Mod Manager needs is installed.
+/// Check whether the .NET Desktop Runtime SA Mod Manager needs is installed.
+/// Other majors do not count: .NET does not run an app on a newer major.
 pub fn is_dotnet_installed(prefix: &Path) -> bool {
-    missing_dotnet_majors(prefix).is_empty()
+    installed_dotnet_majors(prefix).contains(&DOTNET_DESKTOP_MAJOR)
 }
 
-/// Download and install the .NET Desktop Runtimes into the game's
+/// Download and install .NET Desktop Runtime 8 into the game's
 /// Proton prefix using the game's own Proton/Wine installation.
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
@@ -92,10 +84,13 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
         );
     }
 
-    for major in missing_dotnet_majors(&prefix) {
+    if is_dotnet_installed(&prefix) {
+        tracing::info!(".NET Desktop Runtime {DOTNET_DESKTOP_MAJOR} already installed, skipping");
+    } else {
+        let major = DOTNET_DESKTOP_MAJOR;
         tracing::info!("Installing .NET Desktop Runtime {major}...");
         let dotnet_path = installer_dir.join(format!("windowsdesktop-runtime-{major}-win-x64.exe"));
-        download::download_file(&dotnet_desktop_url(major), &dotnet_path, None)?;
+        download::download_file(&dotnet_desktop_url(), &dotnet_path, None)?;
 
         let output = proton::run_in_prefix(
             game_path,
@@ -131,35 +126,24 @@ mod tests {
     }
 
     #[test]
-    fn is_dotnet_installed_needs_both_8_and_10() {
+    fn is_dotnet_installed_needs_8() {
         let tmp = tempfile::tempdir().unwrap();
+        // .NET 10 alone is what stopped SA Mod Manager 1.3.7 from starting.
         add_runtime(tmp.path(), "10.0.12");
-        // Only 10 is what broke SA Mod Manager 1.3.7, which targets .NET 8.
+        add_runtime(tmp.path(), "11.0.0");
         assert!(!is_dotnet_installed(tmp.path()));
-        assert_eq!(missing_dotnet_majors(tmp.path()), vec![8]);
 
         add_runtime(tmp.path(), "8.0.20");
         assert!(is_dotnet_installed(tmp.path()));
-        assert!(missing_dotnet_majors(tmp.path()).is_empty());
     }
 
     #[test]
-    fn newer_majors_do_not_replace_8_or_10() {
-        let tmp = tempfile::tempdir().unwrap();
-        add_runtime(tmp.path(), "11.0.0");
-        assert_eq!(missing_dotnet_majors(tmp.path()), vec![8, 10]);
-    }
-
-    #[test]
-    fn dotnet_urls_follow_the_major_and_allow_overrides() {
+    fn dotnet_url_tracks_the_latest_8_patch() {
         let _lock = crate::test_env::lock();
         assert_eq!(
-            dotnet_desktop_url(8),
+            dotnet_desktop_url(),
             "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
         );
-        unsafe { std::env::set_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10", "http://local/10") };
-        assert_eq!(dotnet_desktop_url(10), "http://local/10");
-        unsafe { std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10") };
     }
 
     #[test]
@@ -169,19 +153,11 @@ mod tests {
     }
 
     #[test]
-    fn is_dotnet_installed_false_for_only_8() {
-        let tmp = tempfile::tempdir().unwrap();
-        add_runtime(tmp.path(), "8.0.0");
-
-        assert!(!is_dotnet_installed(tmp.path()));
-    }
-
-    #[test]
     fn is_dotnet_installed_ignores_files_and_invalid_version_names() {
         let tmp = tempfile::tempdir().unwrap();
         let desktop_app = windows_desktop_app_dir(tmp.path());
         std::fs::create_dir_all(&desktop_app).unwrap();
-        std::fs::write(desktop_app.join("10.0.0-file"), b"not a directory").unwrap();
+        std::fs::write(desktop_app.join("8.0.0-file"), b"not a directory").unwrap();
         std::fs::create_dir_all(desktop_app.join("runtime")).unwrap();
 
         assert!(!is_dotnet_installed(tmp.path()));
@@ -217,12 +193,6 @@ mod tests {
         std::fs::create_dir_all(&game_path).unwrap();
         std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
         std::fs::write(proton_dir.join("files/bin/wine64"), b"").unwrap();
-        std::fs::create_dir_all(
-            compatdata.join(
-                "pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0",
-            ),
-        )
-        .unwrap();
         std::fs::create_dir_all(
             compatdata
                 .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0"),
@@ -265,15 +235,15 @@ mod tests {
         let _lock = crate::test_env::lock();
         unsafe {
             std::env::set_var(
-                "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+                "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
                 "http://127.0.0.1:4010/dotnet.exe",
             );
         }
 
-        assert_eq!(dotnet_desktop_url(10), "http://127.0.0.1:4010/dotnet.exe");
+        assert_eq!(dotnet_desktop_url(), "http://127.0.0.1:4010/dotnet.exe");
 
         unsafe {
-            std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10");
+            std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_8");
         }
     }
 }

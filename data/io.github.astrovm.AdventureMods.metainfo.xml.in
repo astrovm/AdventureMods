@@ -51,7 +51,7 @@
           <li>Made every choice up front, then installed everything in one step with a live checklist</li>
           <li>Showed on each game whether its mods are installed, with Change Mods and Restore</li>
           <li>Added Restore to undo setup, keeping downloaded mods for later</li>
-          <li>Installed .NET Desktop Runtime 8 again next to 10, which SA Mod Manager 1.3.7 needs to start</li>
+          <li>Installed .NET Desktop Runtime 8 instead of 10, which the latest SA Mod Manager (1.3.7) needs to start</li>
           <li>Updated installed mods when a newer file is available, keeping their settings</li>
           <li>Resumed interrupted downloads instead of starting over</li>
           <li>Showed the total download size while choosing mods</li>

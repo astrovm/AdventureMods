@@ -90,10 +90,6 @@ fn sadx_setup_completes_against_fake_steam_install() {
             server.url("/sadx-loader.7z"),
         ),
         (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
-        ),
-        (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
@@ -247,10 +243,6 @@ fn sadx_setup_can_rerun_on_existing_installation() {
         (
             "ADVENTURE_MODS_URL_SADX_MOD_LOADER",
             server.url("/sadx-loader.7z"),
-        ),
-        (
-            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
