@@ -182,11 +182,7 @@ impl AdventureModsWindow {
     }
 
     fn load_extra_library_paths(&self, settings: &gio::Settings) {
-        let paths = settings
-            .strv("extra-library-paths")
-            .into_iter()
-            .map(std::path::PathBuf::from)
-            .collect();
+        let paths = crate::setup::config::load_extra_library_paths(Some(settings));
         self.imp().extra_library_paths.replace(paths);
     }
 
