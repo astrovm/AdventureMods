@@ -5,6 +5,9 @@ use gtk::{gio, glib};
 use crate::config;
 use crate::window::AdventureModsWindow;
 
+/// libadwaita loads `style.css` (and the app icons) from under this path.
+const RESOURCE_BASE_PATH: &str = "/io/github/astrovm/AdventureMods";
+
 mod imp {
     use super::*;
 
@@ -98,7 +101,7 @@ impl AdventureModsApplication {
         glib::Object::builder()
             .property("application-id", config::APP_ID)
             .property("flags", gio::ApplicationFlags::default())
-            .property("resource-base-path", "/io/github/astrovm/AdventureMods")
+            .property("resource-base-path", RESOURCE_BASE_PATH)
             .build()
     }
 }
@@ -111,6 +114,34 @@ mod tests {
     use super::AdventureModsApplication;
     use crate::config;
     use crate::ui::test_util::init_resource_overlay;
+
+    #[test]
+    fn stylesheet_is_bundled_where_libadwaita_loads_it() {
+        let out = tempfile::tempdir().unwrap();
+        let bundle = out.path().join("app.gresource");
+        let status = std::process::Command::new("glib-compile-resources")
+            .arg(format!("--sourcedir={}/data", env!("CARGO_MANIFEST_DIR")))
+            .arg(format!("--target={}", bundle.display()))
+            .arg(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/data/resources.gresource.xml"
+            ))
+            .status()
+            .unwrap();
+        assert!(status.success(), "glib-compile-resources failed");
+
+        let resource = gio::Resource::load(&bundle).unwrap();
+        let stylesheet = resource
+            .lookup_data(
+                &format!("{}/style.css", super::RESOURCE_BASE_PATH),
+                gio::ResourceLookupFlags::NONE,
+            )
+            .expect("style.css must sit at the resource base path");
+        assert_eq!(
+            stylesheet.as_ref(),
+            include_bytes!("../data/resources/style.css")
+        );
+    }
 
     #[gtk::test]
     fn application_registers_actions_and_presents_a_window() {

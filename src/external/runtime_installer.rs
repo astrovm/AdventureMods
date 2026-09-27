@@ -5,15 +5,20 @@ use anyhow::{Context, Result};
 use super::download;
 use super::proton;
 
-/// .NET Desktop Runtime 10.0 x64 offline installer.
+/// .NET Desktop Runtime majors installed into the prefix. SA Mod Manager
+/// 1.3.7 targets .NET 8 (it will not roll forward to 10) and needs it to
+/// start, while its update check shows a warning on every start until .NET
+/// 10 is installed, which its next release will need anyway.
+const DOTNET_DESKTOP_MAJORS: [u32; 2] = [8, 10];
+
+/// .NET Desktop Runtime x64 offline installer for `major`.
 ///
 /// Use the stable aka.ms redirect so Microsoft can rotate the underlying build
 /// without breaking downloads when old patch-specific URLs expire.
-const DOTNET_DESKTOP_10_URL: &str = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe";
-
-fn dotnet_desktop_10_url() -> String {
-    std::env::var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10")
-        .unwrap_or_else(|_| DOTNET_DESKTOP_10_URL.to_string())
+fn dotnet_desktop_url(major: u32) -> String {
+    std::env::var(format!("ADVENTURE_MODS_URL_DOTNET_DESKTOP_{major}")).unwrap_or_else(|_| {
+        format!("https://aka.ms/dotnet/{major}.0/windowsdesktop-runtime-win-x64.exe")
+    })
 }
 
 fn installer_staging_dir(compat_data: &Path) -> Result<std::path::PathBuf> {
@@ -34,33 +39,99 @@ pub fn windows_desktop_app_dir(prefix: &Path) -> std::path::PathBuf {
     prefix.join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App")
 }
 
-/// Check whether .NET Desktop Runtime 10 (or newer major) is installed in the prefix.
-///
-/// SA Mod Manager requires at least 10.0.0; presence of an older runtime (e.g. 8.x)
-/// alone is not enough.
-pub fn is_dotnet_installed(prefix: &Path) -> bool {
-    let desktop_app = windows_desktop_app_dir(prefix);
-    let Ok(entries) = std::fs::read_dir(&desktop_app) else {
-        return false;
-    };
+/// A .NET release version, such as 10.0.12. Preview suffixes are ignored.
+type DotnetVersion = (u32, u32, u32);
 
-    entries.filter_map(|e| e.ok()).any(|entry| {
-        if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-            return false;
-        }
-        let name = entry.file_name();
-        let Some(name) = name.to_str() else {
-            return false;
-        };
-        // Version folders look like "10.0.0", "10.0.10", etc.
-        name.split('.')
-            .next()
-            .and_then(|major| major.parse::<u32>().ok())
-            .is_some_and(|major| major >= 10)
+fn parse_dotnet_version(text: &str) -> Option<DotnetVersion> {
+    let release = text.split('-').next()?;
+    let mut parts = release.split('.').map(|part| part.parse::<u32>().ok());
+    Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
+/// Versions of .NET Desktop Runtime installed in the prefix.
+fn installed_dotnet_versions(prefix: &Path) -> Vec<DotnetVersion> {
+    let Ok(entries) = std::fs::read_dir(windows_desktop_app_dir(prefix)) else {
+        return Vec::new();
+    };
+    entries
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        // Version folders look like "8.0.20", "10.0.12", etc.
+        .filter_map(|entry| parse_dotnet_version(entry.file_name().to_str()?))
+        .collect()
+}
+
+/// .NET Desktop Runtime majors SA Mod Manager needs that the prefix lacks.
+fn missing_dotnet_majors(prefix: &Path) -> Vec<u32> {
+    let installed = installed_dotnet_versions(prefix);
+    DOTNET_DESKTOP_MAJORS
+        .into_iter()
+        .filter(|major| !installed.iter().any(|version| version.0 == *major))
+        .collect()
+}
+
+/// Majors to install: those missing, plus those whose newest installed patch
+/// is older than `latest` reports. When the latest version is unknown (for
+/// example offline), an installed runtime is kept.
+fn dotnet_majors_to_install(
+    prefix: &Path,
+    latest: impl Fn(u32) -> Option<DotnetVersion>,
+) -> Vec<u32> {
+    let installed = installed_dotnet_versions(prefix);
+    DOTNET_DESKTOP_MAJORS
+        .into_iter()
+        .filter(|major| {
+            let newest = installed
+                .iter()
+                .filter(|version| version.0 == *major)
+                .max()
+                .copied();
+            match newest {
+                None => true,
+                Some(newest) => latest(*major).is_some_and(|latest| latest > newest),
+            }
+        })
+        .collect()
+}
+
+/// Microsoft's release metadata for a .NET major, listing its latest patch.
+fn dotnet_release_metadata_url(major: u32) -> String {
+    std::env::var(format!("ADVENTURE_MODS_URL_DOTNET_RELEASES_{major}")).unwrap_or_else(|_| {
+        format!(
+            "https://builds.dotnet.microsoft.com/dotnet/release-metadata/{major}.0/releases.json"
+        )
     })
 }
 
-/// Download and install .NET Desktop Runtime 10 into the game's
+/// The latest .NET Desktop Runtime version for `major`, from Microsoft.
+fn latest_dotnet_version(major: u32) -> Result<DotnetVersion> {
+    let url = dotnet_release_metadata_url(major);
+    let body = download::block_on(async {
+        download::client()
+            .get(&url)
+            .send()
+            .await
+            .with_context(|| format!("Failed to fetch {url}"))?
+            .error_for_status()
+            .with_context(|| format!("Failed to fetch {url}"))?
+            .text()
+            .await
+            .with_context(|| format!("Failed to read {url}"))
+    })??;
+    let metadata: serde_json::Value =
+        serde_json::from_str(&body).with_context(|| format!("Failed to parse {url}"))?;
+    metadata["releases"][0]["windowsdesktop"]["version"]
+        .as_str()
+        .and_then(parse_dotnet_version)
+        .with_context(|| format!("No Windows Desktop version in {url}"))
+}
+
+/// Check whether every .NET Desktop Runtime SA Mod Manager needs is installed.
+pub fn is_dotnet_installed(prefix: &Path) -> bool {
+    missing_dotnet_majors(prefix).is_empty()
+}
+
+/// Download and install the .NET Desktop Runtimes into the game's
 /// Proton prefix using the game's own Proton/Wine installation.
 ///
 /// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
@@ -79,11 +150,17 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
         );
     }
 
-    if !is_dotnet_installed(&prefix) {
-        tracing::info!("Installing .NET Desktop Runtime 10...");
-        let dotnet_path = installer_dir.join("windowsdesktop-runtime-10-win-x64.exe");
-        let dotnet_url = dotnet_desktop_10_url();
-        download::download_file(&dotnet_url, &dotnet_path, None)?;
+    let latest = |major| {
+        latest_dotnet_version(major)
+            .inspect_err(|err| {
+                tracing::warn!("Could not check .NET {major} for updates: {err:#}");
+            })
+            .ok()
+    };
+    for major in dotnet_majors_to_install(&prefix, latest) {
+        tracing::info!("Installing the latest .NET Desktop Runtime {major}...");
+        let dotnet_path = installer_dir.join(format!("windowsdesktop-runtime-{major}-win-x64.exe"));
+        download::download_file(&dotnet_desktop_url(major), &dotnet_path, None)?;
 
         let output = proton::run_in_prefix(
             game_path,
@@ -97,14 +174,12 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             let code = output.status.code().unwrap_or(-1);
             if !is_success_or_reboot_code(code) {
                 anyhow::bail!(
-                    ".NET Desktop Runtime 10 installation failed (code {code}): {stderr}"
+                    ".NET Desktop Runtime {major} installation failed (code {code}): {stderr}"
                 );
             }
         }
-        tracing::info!(".NET Desktop Runtime 10 installed");
+        tracing::info!(".NET Desktop Runtime {major} installed");
         let _ = std::fs::remove_file(&dotnet_path);
-    } else {
-        tracing::info!(".NET Desktop Runtime 10 already installed, skipping");
     }
 
     let _ = std::fs::remove_dir(&installer_dir);
@@ -116,22 +191,40 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn is_dotnet_installed_true_for_10() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("10.0.0");
-        std::fs::create_dir_all(&dotnet_path).unwrap();
-
-        assert!(is_dotnet_installed(tmp.path()));
+    fn add_runtime(prefix: &Path, version: &str) {
+        std::fs::create_dir_all(windows_desktop_app_dir(prefix).join(version)).unwrap();
     }
 
     #[test]
-    fn is_dotnet_installed_true_for_newer_major() {
+    fn is_dotnet_installed_needs_both_8_and_10() {
         let tmp = tempfile::tempdir().unwrap();
-        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("11.0.0");
-        std::fs::create_dir_all(&dotnet_path).unwrap();
+        add_runtime(tmp.path(), "10.0.12");
+        // Only 10 is what broke SA Mod Manager 1.3.7, which targets .NET 8.
+        assert!(!is_dotnet_installed(tmp.path()));
+        assert_eq!(missing_dotnet_majors(tmp.path()), vec![8]);
 
+        add_runtime(tmp.path(), "8.0.20");
         assert!(is_dotnet_installed(tmp.path()));
+        assert!(missing_dotnet_majors(tmp.path()).is_empty());
+    }
+
+    #[test]
+    fn newer_majors_do_not_replace_8_or_10() {
+        let tmp = tempfile::tempdir().unwrap();
+        add_runtime(tmp.path(), "11.0.0");
+        assert_eq!(missing_dotnet_majors(tmp.path()), vec![8, 10]);
+    }
+
+    #[test]
+    fn dotnet_urls_follow_the_major_and_allow_overrides() {
+        let _lock = crate::test_env::lock();
+        assert_eq!(
+            dotnet_desktop_url(8),
+            "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
+        );
+        unsafe { std::env::set_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10", "http://local/10") };
+        assert_eq!(dotnet_desktop_url(10), "http://local/10");
+        unsafe { std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10") };
     }
 
     #[test]
@@ -143,8 +236,7 @@ mod tests {
     #[test]
     fn is_dotnet_installed_false_for_only_8() {
         let tmp = tempfile::tempdir().unwrap();
-        let dotnet_path = windows_desktop_app_dir(tmp.path()).join("8.0.0");
-        std::fs::create_dir_all(&dotnet_path).unwrap();
+        add_runtime(tmp.path(), "8.0.0");
 
         assert!(!is_dotnet_installed(tmp.path()));
     }
@@ -196,6 +288,11 @@ mod tests {
             ),
         )
         .unwrap();
+        std::fs::create_dir_all(
+            compatdata
+                .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0"),
+        )
+        .unwrap();
         std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
         std::fs::write(
             compatdata.join("config_info"),
@@ -224,8 +321,99 @@ mod tests {
         )
         .unwrap();
 
+        let _lock = crate::test_env::lock();
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        // Microsoft reports 8.0.0 and 10.0.0 as latest, which is what is here.
+        let (base, log) = crate::external::test_http::serve(|request| {
+            let version = if request.path.contains("/8") {
+                "8.0.0"
+            } else {
+                "10.0.0"
+            };
+            crate::external::test_http::Reply::ok(format!(
+                r#"{{"releases":[{{"windowsdesktop":{{"version":"{version}"}}}}]}}"#
+            ))
+        });
+        for major in [8, 10] {
+            unsafe {
+                std::env::set_var(
+                    format!("ADVENTURE_MODS_URL_DOTNET_RELEASES_{major}"),
+                    format!("{base}/{major}"),
+                );
+            }
+        }
+
         install_runtimes(&game_path, 213610).unwrap();
         assert!(!compatdata.join("adventure-mods-installers").exists());
+        assert_eq!(log.lock().unwrap().len(), 2);
+
+        for major in [8, 10] {
+            unsafe { std::env::remove_var(format!("ADVENTURE_MODS_URL_DOTNET_RELEASES_{major}")) };
+        }
+    }
+
+    #[test]
+    fn newer_patches_are_installed_and_unknown_latest_keeps_what_is_there() {
+        let tmp = tempfile::tempdir().unwrap();
+        add_runtime(tmp.path(), "8.0.31");
+        add_runtime(tmp.path(), "10.0.10");
+        add_runtime(tmp.path(), "10.0.9");
+
+        let latest = |major| match major {
+            8 => Some((8, 0, 31)),
+            _ => Some((10, 0, 12)),
+        };
+        // 10.0.12 is newer than the newest installed 10.x; 8 is current.
+        assert_eq!(dotnet_majors_to_install(tmp.path(), latest), vec![10]);
+        // Offline: keep what is installed.
+        assert!(dotnet_majors_to_install(tmp.path(), |_| None).is_empty());
+        // A missing major is installed without asking.
+        let empty = tempfile::tempdir().unwrap();
+        add_runtime(empty.path(), "10.0.12");
+        assert_eq!(dotnet_majors_to_install(empty.path(), |_| None), vec![8]);
+    }
+
+    #[test]
+    fn dotnet_versions_parse_releases_and_previews() {
+        assert_eq!(parse_dotnet_version("10.0.12"), Some((10, 0, 12)));
+        assert_eq!(
+            parse_dotnet_version("11.0.0-rc.1.25451.107"),
+            Some((11, 0, 0))
+        );
+        assert_eq!(parse_dotnet_version("10.0"), None);
+        assert_eq!(parse_dotnet_version("runtime"), None);
+    }
+
+    #[test]
+    fn latest_dotnet_version_reads_microsoft_release_metadata() {
+        let _lock = crate::test_env::lock();
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let (base, _) = crate::external::test_http::serve(|request| {
+            crate::external::test_http::Reply::ok(if request.path == "/good" {
+                r#"{"latest-release":"10.0.12","releases":[{"windowsdesktop":{"version":"10.0.12"}}]}"#
+            } else {
+                r#"{"releases":[]}"#
+            })
+        });
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
+                format!("{base}/good"),
+            )
+        };
+        assert_eq!(latest_dotnet_version(10).unwrap(), (10, 0, 12));
+        unsafe {
+            std::env::set_var(
+                "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
+                format!("{base}/empty"),
+            )
+        };
+        assert!(latest_dotnet_version(10).is_err());
+        unsafe { std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_RELEASES_10") };
+        assert_eq!(
+            dotnet_release_metadata_url(8),
+            "https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json"
+        );
     }
 
     #[test]
@@ -238,7 +426,7 @@ mod tests {
             );
         }
 
-        assert_eq!(dotnet_desktop_10_url(), "http://127.0.0.1:4010/dotnet.exe");
+        assert_eq!(dotnet_desktop_url(10), "http://127.0.0.1:4010/dotnet.exe");
 
         unsafe {
             std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_DESKTOP_10");

@@ -167,26 +167,23 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
             .map(|state| matches!(state, proton::PrefixState::Ready))
             .unwrap_or(false),
 
-        StepId::Dotnet => {
-            let Ok(prefix) = proton_prefix(p, game.kind.app_id()) else {
-                return false;
-            };
-            matches!(
-                proton::prefix_state(p, game.kind.app_id()),
-                Ok(proton::PrefixState::Ready)
-            ) && runtime_installer::is_dotnet_installed(&prefix)
-        }
+        StepId::Dotnet => false,
 
+        // A restore waiting for Steam to repair the files needs a fresh
+        // conversion, whatever older setups left behind.
         StepId::ConvertSteam => {
-            sadx_data_dir(p)
-                .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
-                .is_some()
-                || p.join("SADXModLoader.dll").exists()
-                || p.join("mods/.modloader/SADXModLoader.dll").exists()
-                || p.join("sonic.exe").exists()
+            !super::restore::needs_steam_repair(p)
+                && (sadx_data_dir(p)
+                    .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
+                    .is_some()
+                    || p.join("SADXModLoader.dll").exists()
+                    || p.join("mods/.modloader/SADXModLoader.dll").exists()
+                    || p.join("sonic.exe").exists())
         }
 
-        StepId::InstallModManager => is_mod_manager_fully_installed(p, game.kind),
+        // These run every time to bring the runtimes, manager and loader up
+        // to date; they only download when something changed.
+        StepId::InstallModManager => false,
 
         StepId::SelectMods | StepId::LanguageOptions | StepId::DownloadMods | StepId::Complete => {
             false
@@ -239,27 +236,7 @@ fn is_mod_manager_fully_installed(game_path: &Path, game_kind: GameKind) -> bool
     exe_backed_up && loader_extracted && dll_swapped
 }
 
-/// Derive the Proton prefix path from a game's install directory and app ID.
-///
-/// Game path is typically `.../steamapps/common/<game>/`, and the prefix lives
-/// at `.../steamapps/compatdata/<appid>/pfx/`.
-fn proton_prefix(game_path: &Path, app_id: u32) -> Result<std::path::PathBuf> {
-    game_path
-        .parent() // common/
-        .and_then(|p| p.parent()) // steamapps/
-        .map(|steamapps| {
-            steamapps
-                .join("compatdata")
-                .join(app_id.to_string())
-                .join("pfx")
-        })
-        .context(format!(
-            "Cannot derive Proton prefix from game path: {}",
-            game_path.display()
-        ))
-}
-
-/// Install .NET Desktop Runtime 10.0 into the game's Proton prefix
+/// Install the .NET Desktop Runtimes SA Mod Manager needs (8 and 10) into the game's Proton prefix
 /// using the game's own Proton/Wine.
 pub async fn install_runtimes(game_path: std::path::PathBuf, app_id: u32) -> Result<()> {
     blocking::flatten_spawn_result(
@@ -279,16 +256,32 @@ pub fn install_mod_manager(
     game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    if is_mod_manager_fully_installed(game_path, game_kind) {
-        tracing::info!("SA Mod Manager and loader already present, skipping installation");
-        return Ok(());
+    let manager_url = sa_mod_manager_url();
+    let manager_record = game_path.join(MANAGER_SOURCE_FILE);
+    if is_mod_manager_fully_installed(game_path, game_kind)
+        && component_is_current(&manager_record, &manager_url)
+    {
+        tracing::info!("SA Mod Manager is up to date");
+    } else {
+        install_manager_release(game_path, &manager_url, progress)?;
+        record_component_source(&manager_record, &manager_url);
     }
 
+    // The loader has its own releases, so it is checked separately.
+    install_mod_loader(game_path, game_kind, None)?;
+    Ok(())
+}
+
+/// Download the SA Mod Manager release at `manager_url` and put it in place of
+/// the game's Steam launch executable, backing that up the first time.
+fn install_manager_release(
+    game_path: &Path,
+    manager_url: &str,
+    progress: Option<download::ProgressFn>,
+) -> Result<()> {
     let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("SAModManager.zip");
-
-    let manager_url = sa_mod_manager_url();
-    download::download_file(&manager_url, &archive_path, progress)?;
+    download::download_file(manager_url, &archive_path, progress)?;
 
     let extract_dir = temp_dir.path().join("extracted");
     archive::extract(&archive_path, &extract_dir)?;
@@ -327,12 +320,7 @@ pub fn install_mod_manager(
         ))?;
     }
 
-    install_mod_loader(game_path, game_kind, None)?;
-
-    tracing::info!(
-        "SA Mod Manager and loader installed to {}",
-        game_path.display()
-    );
+    tracing::info!("SA Mod Manager installed to {}", game_path.display());
     Ok(())
 }
 
@@ -349,23 +337,25 @@ pub fn install_mod_loader(
         GameKind::SA2 => "SA2ModLoader.dll",
     };
 
-    if game_path.join("mods/.modloader").join(loader_dll).exists() {
-        tracing::info!("Mod loader already present, refreshing DLL replacement");
+    let url = mod_loader_url(game_kind);
+    let loader_dir = game_path.join("mods").join(".modloader");
+    let loader_record = loader_dir.join(MOD_SOURCE_FILE);
+    if loader_dir.join(loader_dll).exists() && component_is_current(&loader_record, &url) {
+        tracing::info!("Mod loader is up to date, refreshing DLL replacement");
         install_loader_dll(game_path, game_kind)?;
         return Ok(());
     }
-
-    let url = mod_loader_url(game_kind);
 
     let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("ModLoader.7z");
 
     download::download_file(&url, &archive_path, progress)?;
 
-    // The x64 manager discovers loaders only in this directory.
-    let loader_dir = game_path.join("mods").join(".modloader");
+    // The x64 manager discovers loaders only in this directory. Extracting
+    // over an older loader updates its files and keeps the manager's settings.
     std::fs::create_dir_all(&loader_dir).context("Failed to create mods/.modloader directory")?;
     archive::extract(&archive_path, &loader_dir)?;
+    record_component_source(&loader_record, &url);
 
     tracing::info!("Mod loader installed to {}", loader_dir.display());
 
@@ -487,16 +477,20 @@ pub fn install_mod(
     install_mod_with_progress(game_path, mod_entry, Some(&mut cb))
 }
 
-/// Like `install_mod` but accepts any `FnMut` without `Send` or `'static` bounds.
-/// Use from pipeline callbacks that capture non-Send state.
-pub fn install_mod_with_progress(
-    game_path: &Path,
-    mod_entry: &ModEntry,
-    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
-) -> Result<()> {
-    let mods_dir = game_path.join("mods");
-    std::fs::create_dir_all(&mods_dir)?;
+/// What installing a mod needs: nothing (the installed copy is current) or
+/// the archive at `url`.
+enum ModArchiveNeed {
+    Keep(Option<std::path::PathBuf>),
+    Fetch {
+        url: String,
+        check_remote_validator: bool,
+    },
+}
 
+/// Decide whether `mod_entry` must be downloaded, checking an installed copy
+/// against its source so updates are fetched and current mods are kept.
+fn mod_archive_need(game_path: &Path, mod_entry: &ModEntry) -> Result<ModArchiveNeed> {
+    let mods_dir = game_path.join("mods");
     let installed_dir = mod_entry
         .dir_name
         .map(|dir_name| mods_dir.join(dir_name))
@@ -512,7 +506,7 @@ pub fn install_mod_with_progress(
                 "Could not check '{}' for updates, keeping the installed copy: {err:#}",
                 mod_entry.name
             );
-            return keep_installed_mod(installed_dir.as_deref(), mod_entry);
+            return Ok(ModArchiveNeed::Keep(installed_dir));
         }
         Err(err) => return Err(err),
     };
@@ -521,7 +515,7 @@ pub fn install_mod_with_progress(
     if let Some(dest) = installed_dir.as_deref() {
         if installed_complete {
             match installed_mod_is_current(dest, &url, check_remote_validator) {
-                Ok(true) => return keep_installed_mod(Some(dest), mod_entry),
+                Ok(true) => return Ok(ModArchiveNeed::Keep(installed_dir)),
                 Ok(false) => {
                     tracing::info!("Updating mod '{}'", mod_entry.name);
                 }
@@ -530,7 +524,7 @@ pub fn install_mod_with_progress(
                         "Could not check '{}' for updates, keeping the installed copy: {err:#}",
                         mod_entry.name
                     );
-                    return keep_installed_mod(Some(dest), mod_entry);
+                    return Ok(ModArchiveNeed::Keep(installed_dir));
                 }
             }
         } else {
@@ -541,10 +535,22 @@ pub fn install_mod_with_progress(
         }
     }
 
+    Ok(ModArchiveNeed::Fetch {
+        url,
+        check_remote_validator,
+    })
+}
+
+/// Download `url` into the download cache unless a fresh copy is there.
+fn fetch_cached_archive(
+    url: &str,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<std::path::PathBuf> {
     // Archives live in the download cache until the mod is installed, so a
     // retry after a failure resumes (or skips) the download instead of
     // starting over.
-    let archive_path = cached_archive_path(&url);
+    let archive_path = cached_archive_path(url);
     discard_stale_archive(&archive_path);
     if archive_path.is_file() {
         tracing::info!("Reusing downloaded archive for '{}'", mod_entry.name);
@@ -553,8 +559,78 @@ pub fn install_mod_with_progress(
             progress(len, Some(len))?;
         }
     } else {
-        download::download_file_resumable(&url, &archive_path, progress)?;
+        download::download_file_resumable(url, &archive_path, progress)?;
     }
+    Ok(archive_path)
+}
+
+/// Archives the prefetch finished, by game folder and mod slug, with the URL
+/// they came from and whether the install records a remote validator.
+type PrefetchedArchives =
+    std::collections::HashMap<(std::path::PathBuf, &'static str), (String, bool)>;
+
+fn prefetched_archives() -> &'static std::sync::Mutex<PrefetchedArchives> {
+    static PREFETCHED: std::sync::OnceLock<std::sync::Mutex<PrefetchedArchives>> =
+        std::sync::OnceLock::new();
+    PREFETCHED.get_or_init(Default::default)
+}
+
+/// The prefetched archive for `mod_entry`, if it is still in the cache. The
+/// install then uses it without asking the source again, so a lookup that
+/// fails the second time cannot undo a finished download.
+fn take_prefetched_archive(game_path: &Path, mod_entry: &ModEntry) -> Option<(String, bool)> {
+    prefetched_archives()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&(game_path.to_path_buf(), mod_entry.slug))
+        .filter(|(url, _)| cached_archive_path(url).is_file())
+}
+
+/// Download a mod's archive ahead of installing it, so the install only has
+/// to extract. Mods that are installed and current are skipped.
+pub fn prefetch_mod_archive(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<()> {
+    if let ModArchiveNeed::Fetch {
+        url,
+        check_remote_validator,
+    } = mod_archive_need(game_path, mod_entry)?
+    {
+        fetch_cached_archive(&url, mod_entry, progress)?;
+        prefetched_archives()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(
+                (game_path.to_path_buf(), mod_entry.slug),
+                (url, check_remote_validator),
+            );
+    }
+    Ok(())
+}
+
+/// Like `install_mod` but accepts any `FnMut` without `Send` or `'static` bounds.
+/// Use from pipeline callbacks that capture non-Send state.
+pub fn install_mod_with_progress(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<()> {
+    let mods_dir = game_path.join("mods");
+    std::fs::create_dir_all(&mods_dir)?;
+
+    let (url, check_remote_validator) = match take_prefetched_archive(game_path, mod_entry) {
+        Some(prefetched) => prefetched,
+        None => match mod_archive_need(game_path, mod_entry)? {
+            ModArchiveNeed::Keep(dest) => return keep_installed_mod(dest.as_deref(), mod_entry),
+            ModArchiveNeed::Fetch {
+                url,
+                check_remote_validator,
+            } => (url, check_remote_validator),
+        },
+    };
+    let archive_path = fetch_cached_archive(&url, mod_entry, progress)?;
 
     // Stage next to the game so the extracted mod is renamed into place.
     let temp_dir = staging_tempdir(game_path)?;
@@ -610,7 +686,11 @@ struct ModSourceRecord {
 
 impl ModSourceRecord {
     fn read(mod_dir: &Path) -> Option<Self> {
-        let content = std::fs::read_to_string(mod_dir.join(MOD_SOURCE_FILE)).ok()?;
+        Self::read_file(&mod_dir.join(MOD_SOURCE_FILE))
+    }
+
+    fn read_file(path: &Path) -> Option<Self> {
+        let content = std::fs::read_to_string(path).ok()?;
         let mut record = Self::default();
         for line in content.lines() {
             match line.split_once('=') {
@@ -625,12 +705,16 @@ impl ModSourceRecord {
     }
 
     fn write(&self, mod_dir: &Path) -> std::io::Result<()> {
+        self.write_file(&mod_dir.join(MOD_SOURCE_FILE))
+    }
+
+    fn write_file(&self, path: &Path) -> std::io::Result<()> {
         let content = format!(
             "url={}\nvalidator={}\n",
             self.url,
             self.validator.as_deref().unwrap_or_default()
         );
-        std::fs::write(mod_dir.join(MOD_SOURCE_FILE), content)
+        std::fs::write(path, content)
     }
 }
 
@@ -681,6 +765,47 @@ fn record_mod_source(mod_dir: &Path, url: &str, check_validator: bool) {
     }
 }
 
+/// Where setup records which SA Mod Manager release it installed.
+pub(crate) const MANAGER_SOURCE_FILE: &str = ".adventure-mods-manager-source";
+
+/// Whether the component recorded in `record_path` still matches what `url`
+/// serves, by the version tag (ETag or Last-Modified) recorded at install.
+///
+/// An unknown installed version (no record, a record for another URL, or no
+/// tag because it could not be read at the time) is updated, which records
+/// it. When the source cannot be reached, or does not publish a tag, the
+/// installed copy is kept, so setup still works offline.
+fn component_is_current(record_path: &Path, url: &str) -> bool {
+    let installed = ModSourceRecord::read_file(record_path)
+        .filter(|record| record.url == url)
+        .and_then(|record| record.validator);
+    match (installed, download::remote_validator(url)) {
+        (_, Err(err)) => {
+            tracing::warn!(
+                "Could not check {url} for updates, keeping the installed copy: {err:#}"
+            );
+            true
+        }
+        (Some(installed), Ok(Some(remote))) => installed == remote,
+        (None, Ok(Some(_))) => false,
+        (_, Ok(None)) => true,
+    }
+}
+
+fn record_component_source(record_path: &Path, url: &str) {
+    let validator = download::remote_validator(url).unwrap_or_else(|err| {
+        tracing::debug!("Could not read the version of {url}: {err:#}");
+        None
+    });
+    let record = ModSourceRecord {
+        url: url.to_owned(),
+        validator,
+    };
+    if let Err(err) = record.write_file(record_path) {
+        tracing::warn!("Failed to record {}: {err}", record_path.display());
+    }
+}
+
 /// Put freshly extracted mod files in `dest`, replacing any previous version
 /// (so files the new version dropped are gone) while keeping the user's
 /// SA Mod Manager settings for the mod.
@@ -704,9 +829,15 @@ fn replace_mod_dir(content_root: &Path, dest: &Path) -> Result<()> {
 }
 
 fn download_cache_dir() -> std::path::PathBuf {
+    // Tests must not write to the user's real download cache.
+    let default_cache_dir = if cfg!(test) {
+        Some(std::env::temp_dir().join("adventure-mods-tests"))
+    } else {
+        dirs::cache_dir().map(|dir| dir.join("adventure-mods"))
+    };
     std::env::var_os("ADVENTURE_MODS_CACHE_DIR")
         .map(std::path::PathBuf::from)
-        .or_else(|| dirs::cache_dir().map(|dir| dir.join("adventure-mods")))
+        .or(default_cache_dir)
         .unwrap_or_else(std::env::temp_dir)
         .join("downloads")
 }

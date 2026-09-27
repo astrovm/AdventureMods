@@ -1,128 +1,70 @@
+/* Game cards */
+
 .game-card {
-    min-width: 280px;
-    max-width: 280px;
-    border-radius: 16px;
-    overflow: hidden;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+    border-radius: 18px;
 }
 
-.welcome-title {
-    letter-spacing: 0.02em;
-}
-
-.welcome-section-title {
-    font-weight: 800;
-    letter-spacing: 0.01em;
-}
-
-.welcome-subtitle {
-    font-size: 1em;
-}
-
-.welcome-refresh-button {
-    border-radius: 999px;
-    min-width: 32px;
-    min-height: 32px;
-    padding: 0;
-    background: alpha(@accent_color, 0.10);
-}
-
-.game-card-cover {
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.game-card-clickable {
-    transition: box-shadow 160ms ease-out;
-}
-
-.game-card-clickable:hover {
-    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .game-card-clickable {
-        transition: none;
-    }
-}
-
-.game-card-title {
-    font-weight: bold;
-    font-size: 0.95em;
-}
-
-.game-card-badge {
-    padding: 2px 6px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.72em;
-}
-
-.game-card-status {
-    font-weight: 600;
-    font-size: 0.84em;
-}
-
-.game-card-status-icon {
-    margin-top: 1px;
-}
-
-.game-card-status-icon-installed {
-    color: @success_color;
-}
-
-.game-card-status-icon-missing {
-    color: @warning_color;
-}
-
-.game-card-status-icon-inaccessible {
-    color: @accent_color;
-}
-
-.game-card-status-installed,
-.game-card-badge-installed {
-    color: @success_color;
-}
-
-.game-card-status-missing,
-.game-card-badge-missing {
-    color: @warning_color;
-}
-
-.game-card-status-inaccessible,
-.game-card-badge-inaccessible {
-    color: @accent_color;
-}
-
-.game-card-missing {
-    opacity: 0.8;
+.game-card-missing .game-card-cover {
+    filter: grayscale(1) opacity(0.55);
 }
 
 .game-card-inaccessible {
-    border: 1px solid alpha(@accent_color, 0.24);
+    box-shadow: inset 0 0 0 1px alpha(@warning_color, 0.35);
 }
 
+.game-card-badge {
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.game-card-status-installed {
+    color: @accent_color;
+}
+
+.game-card-status-modded {
+    color: @success_color;
+}
+
+.game-card-status-inaccessible,
+.game-card-status-repair {
+    color: @warning_color;
+}
+
+.game-card-status-missing {
+    color: alpha(currentColor, 0.55);
+}
+
+/* Banners */
+
+.status-banner,
 .welcome-alert {
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: alpha(@accent_color, 0.10);
+    padding: 12px 16px;
+    border-radius: 12px;
 }
 
 .status-banner {
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: alpha(@accent_color, 0.10);
+    margin: 6px 12px 0 12px;
+    background: alpha(@accent_bg_color, 0.14);
 }
 
 .status-banner-error {
-    background: alpha(@error_color, 0.12);
-    color: @error_color;
+    background: alpha(@error_bg_color, 0.16);
 }
 
-.setup-step-current {
-    font-weight: bold;
+.welcome-alert {
+    background: alpha(@warning_bg_color, 0.14);
 }
 
-.progress-bar {
-    min-height: 8px;
+/* Setup */
+
+.mod-preview-frame {
+    border-radius: 12px;
+}
+
+.mod-link {
+    padding: 6px 12px;
+}
+
+.setup-complete-cover {
+    border-radius: 18px;
 }

@@ -321,7 +321,7 @@ fn run_restore(args: RestoreArgs, out: &mut CliOutput) -> Result<()> {
     ))?;
 
     let report = crate::setup::restore::restore_original_game(&game_path, game_kind)?;
-    if report.changes.is_empty() {
+    if report.changes.is_empty() && !report.needs_steam_verify {
         out.writeln("Nothing to restore: this game was not modified by setup.")?;
     }
     for change in &report.changes {
@@ -419,30 +419,48 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let actions = steps::actions_for_game(game_kind);
     let total_steps = actions.len();
 
-    for (offset, action) in actions.into_iter().enumerate() {
-        let step_index = offset + 1;
-        let label = action.cli_title();
-        match action {
-            SetupAction::InstallDotnet => {
-                run_setup_step(out, step_index, total_steps, label, || {
-                    runtime_installer::install_runtimes(&game_path, game_kind.app_id())
-                })?;
+    // Download the mods while the runtime, conversion and mod manager install;
+    // the mod step waits for these downloads before installing.
+    let stop_prefetch = std::sync::atomic::AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let mut prefetch =
+            Some(scope.spawn(|| {
+                pipeline::prefetch_mod_archives(&game_path, &selected_mods, &stop_prefetch)
+            }));
+        let result = (|| -> Result<()> {
+            for (offset, action) in actions.into_iter().enumerate() {
+                let step_index = offset + 1;
+                let label = action.cli_title();
+                match action {
+                    SetupAction::InstallDotnet => {
+                        run_setup_step(out, step_index, total_steps, label, || {
+                            runtime_installer::install_runtimes(&game_path, game_kind.app_id())
+                        })?;
+                    }
+                    SetupAction::ConvertSteam => {
+                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                            sadx::convert_steam_to_2004(&game_path, progress_fn)
+                        })?;
+                    }
+                    SetupAction::InstallModManager => {
+                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                            common::install_mod_manager(&game_path, game_kind, progress_fn)
+                        })?;
+                    }
+                    SetupAction::InstallMods => {
+                        if let Some(prefetch) = prefetch.take() {
+                            let _ = prefetch.join();
+                        }
+                        run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
+                    }
+                }
             }
-            SetupAction::ConvertSteam => {
-                run_download_step(out, step_index, total_steps, label, |progress_fn| {
-                    sadx::convert_steam_to_2004(&game_path, progress_fn)
-                })?;
-            }
-            SetupAction::InstallModManager => {
-                run_download_step(out, step_index, total_steps, label, |progress_fn| {
-                    common::install_mod_manager(&game_path, game_kind, progress_fn)
-                })?;
-            }
-            SetupAction::InstallMods => {
-                run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
-            }
-        }
-    }
+            Ok(())
+        })();
+        // A failed step ends setup; stop the downloads instead of waiting.
+        stop_prefetch.store(true, std::sync::atomic::Ordering::Relaxed);
+        result
+    })?;
     persist_cli_language_selection(game_kind, language_selection);
 
     out.success("Setup complete!")?;
@@ -768,22 +786,23 @@ fn resolve_game_path_rich(
         return Ok(path.clone());
     }
 
-    let mut games: Vec<Game> = match detected {
-        Some(r) => r
-            .games
-            .iter()
-            .filter(|g| g.kind == game_kind)
-            .cloned()
-            .collect(),
-        None => detect_games_strict(&args.detect)?
-            .games
-            .into_iter()
-            .filter(|game| game.kind == game_kind)
-            .collect(),
+    let detected_now;
+    let detected = match detected {
+        Some(result) => result,
+        None => {
+            detected_now = detect_games_strict(&args.detect)?;
+            &detected_now
+        }
     };
+    let mut games: Vec<Game> = detected
+        .games
+        .iter()
+        .filter(|game| game.kind == game_kind)
+        .cloned()
+        .collect();
 
     match games.len() {
-        0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
+        0 => Err(not_detected_error(game_kind, detected)),
         1 => Ok(games.remove(0).path),
         _ => {
             let items: Vec<String> = games.iter().map(|game| display_path(&game.path)).collect();
@@ -1035,14 +1054,16 @@ fn resolve_game_path_from(
         return Ok(path.clone());
     }
 
-    let mut games: Vec<Game> = detect_games_strict(detect)?
+    let detected = detect_games_strict(detect)?;
+    let mut games: Vec<Game> = detected
         .games
-        .into_iter()
+        .iter()
         .filter(|game| game.kind == game_kind)
+        .cloned()
         .collect();
 
     match games.len() {
-        0 => bail!("{} was not detected. Pass --game-path.", game_kind.name()),
+        0 => Err(not_detected_error(game_kind, &detected)),
         1 => Ok(games.remove(0).path),
         _ => bail!(
             "Multiple {} installations detected. Pass --game-path to select one.",
@@ -1067,6 +1088,21 @@ fn resolve_setup_mods(
 }
 
 fn detect_games_strict(args: &DetectArgs) -> Result<DetectionResult> {
+    let saved = match args.libraryfolders_vdf {
+        Some(_) => Vec::new(),
+        None => setup_config::load_extra_library_paths(setup_config::app_settings().as_ref()),
+    };
+    detect_games_with_saved_libraries(args, &saved)
+}
+
+/// Detect games using the CLI flags plus `saved` library grants from the app.
+///
+/// An explicit libraryfolders.vdf keeps detection to exactly what was passed,
+/// so saved grants only apply to the default Steam scan.
+fn detect_games_with_saved_libraries(
+    args: &DetectArgs,
+    saved: &[PathBuf],
+) -> Result<DetectionResult> {
     match &args.libraryfolders_vdf {
         Some(path) => {
             anyhow::ensure!(
@@ -1076,10 +1112,32 @@ fn detect_games_strict(args: &DetectArgs) -> Result<DetectionResult> {
             );
             library::detect_games_from_vdf_strict(path, &args.steam_libraries)
         }
-        None => Ok(library::detect_games_with_extra_libraries(
-            &args.steam_libraries,
-        )),
+        None => {
+            let libraries: Vec<PathBuf> =
+                args.steam_libraries.iter().chain(saved).cloned().collect();
+            Ok(library::detect_games_with_extra_libraries(&libraries))
+        }
     }
+}
+
+/// Explain why `game_kind` was not found, naming any Steam library that lists
+/// it but cannot be read.
+fn not_detected_error(game_kind: GameKind, result: &DetectionResult) -> anyhow::Error {
+    let inaccessible: Vec<String> = result
+        .inaccessible
+        .iter()
+        .filter(|game| game.kind == game_kind)
+        .map(|game| display_path(&game.library_path))
+        .collect();
+    if inaccessible.is_empty() {
+        return anyhow!("{} was not detected. Pass --game-path.", game_kind.name());
+    }
+    anyhow!(
+        "{} is in a Steam library that cannot be accessed: {}. Mount the drive, or grant \
+         access to it in the Adventure Mods window, or pass --steam-library or --game-path.",
+        game_kind.name(),
+        inaccessible.join(", ")
+    )
 }
 
 fn parse_game_kind(raw: &str) -> Result<GameKind> {

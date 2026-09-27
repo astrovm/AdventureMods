@@ -32,11 +32,11 @@
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/welcome.png</image>
-      <caption>Welcome screen with automatic game detection</caption>
+      <caption>Detected games and whether they are modded</caption>
     </screenshot>
     <screenshot>
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/mod-selection.png</image>
-      <caption>Mod selection with preview and preset configurations</caption>
+      <caption>Mod selection with previews and presets</caption>
     </screenshot>
   </screenshots>
   <branding>
@@ -44,6 +44,24 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.16" date="2026-09-27">
+      <description>
+        <p>Redesigned setup, and added restoring the original game, mod updates and resumable downloads.</p>
+        <ul>
+          <li>Made every choice up front, then installed everything in one step with a live checklist</li>
+          <li>Showed on each game whether its mods are installed, with Change Mods and Restore</li>
+          <li>Added Restore to undo setup, keeping downloaded mods for later</li>
+          <li>Installed .NET Desktop Runtime 8 next to 10: SA Mod Manager 1.3.7 needs 8 to start and warns until 10 is installed</li>
+          <li>Updated installed mods when a newer file is available, keeping their settings</li>
+          <li>Resumed interrupted downloads instead of starting over</li>
+          <li>Showed the total download size while choosing mods</li>
+          <li>Kept the mod list responsive while screenshots load</li>
+          <li>Used Steam libraries granted in the app from the command line too</li>
+          <li>Explained when a game is in a Steam library that cannot be accessed</li>
+          <li>Moved the Flatpak to the GNOME 51 runtime</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.15" date="2026-09-24">
       <description>
         <p>Updated release downloads to include the version in every AppImage and Flatpak filename.</p>

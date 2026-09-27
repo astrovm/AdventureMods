@@ -94,6 +94,10 @@ fn sadx_setup_completes_against_fake_steam_install() {
             server.url("/dotnet.exe"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
             server.url("/steam_tools.7z"),
         ),
@@ -117,7 +121,18 @@ fn sadx_setup_completes_against_fake_steam_install() {
     assert_eq!(detection.games[0].kind, GameKind::SADX);
 
     runtime_installer::install_runtimes(&fixture.game_path, GameKind::SADX.app_id()).unwrap();
+    // A restore that waited for Steam to repair the files is done once the
+    // conversion applies cleanly.
+    std::fs::write(fixture.game_path.join(".adventure-mods-steam-repair"), "").unwrap();
+    // Leftovers that usually mean "already converted" must not skip it.
+    std::fs::write(fixture.game_path.join("sonic.exe"), "stale").unwrap();
+    assert!(adventure_mods::setup::restore::needs_steam_repair(
+        &fixture.game_path
+    ));
     sadx::convert_steam_to_2004(&fixture.game_path, None).unwrap();
+    assert!(!adventure_mods::setup::restore::needs_steam_repair(
+        &fixture.game_path
+    ));
     common::install_mod_manager(&fixture.game_path, GameKind::SADX, None).unwrap();
     pipeline::install_selected_mods_and_generate_config_with_progress(
         &fixture.game_path,
@@ -237,6 +252,10 @@ fn sadx_setup_can_rerun_on_existing_installation() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (

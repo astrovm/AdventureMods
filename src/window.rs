@@ -21,13 +21,17 @@ mod imp {
         #[template_child]
         pub refresh_button: TemplateChild<gtk::Button>,
         #[template_child]
+        pub refresh_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
         pub refresh_icon: TemplateChild<gtk::Image>,
         #[template_child]
-        pub refresh_spinner: TemplateChild<gtk::Spinner>,
+        pub refresh_spinner: TemplateChild<adw::Spinner>,
         #[template_child]
         pub status_revealer: TemplateChild<gtk::Revealer>,
         #[template_child]
         pub status_banner: TemplateChild<gtk::Box>,
+        #[template_child]
+        pub status_icon: TemplateChild<gtk::Image>,
         #[template_child]
         pub status_label: TemplateChild<gtk::Label>,
         #[template_child]
@@ -140,16 +144,14 @@ impl AdventureModsWindow {
             });
         });
 
-        let nav_view = self.imp().navigation_view.clone();
-        let refresh_button_clone = refresh_button.clone();
-        nav_view.connect_visible_page_notify(move |nav| {
-            let _ = crate::ui::catch_ui_panic("visible page change", || {
-                let is_welcome = nav
-                    .visible_page()
-                    .map(|page| page.tag() == Some("welcome".into()))
-                    .unwrap_or(false);
-                refresh_button_clone.set_visible(is_welcome);
-            });
+        // Setup changes what each game card shows, so scan again on return.
+        let obj = self.clone();
+        self.imp().navigation_view.connect_popped(move |_, page| {
+            if page.tag().as_deref() == Some("setup") {
+                let _ = crate::ui::catch_ui_panic("setup page closed", || {
+                    obj.detect_games();
+                });
+            }
         });
     }
 
@@ -182,11 +184,7 @@ impl AdventureModsWindow {
     }
 
     fn load_extra_library_paths(&self, settings: &gio::Settings) {
-        let paths = settings
-            .strv("extra-library-paths")
-            .into_iter()
-            .map(std::path::PathBuf::from)
-            .collect();
+        let paths = crate::setup::config::load_extra_library_paths(Some(settings));
         self.imp().extra_library_paths.replace(paths);
     }
 
@@ -257,15 +255,23 @@ impl AdventureModsWindow {
     fn set_refresh_busy(&self, busy: bool) {
         let imp = self.imp();
         imp.refresh_button.set_sensitive(!busy);
-        imp.refresh_icon.set_visible(!busy);
-        imp.refresh_spinner.set_visible(busy);
-        imp.refresh_spinner.set_spinning(busy);
+        let child: &gtk::Widget = if busy {
+            imp.refresh_spinner.upcast_ref()
+        } else {
+            imp.refresh_icon.upcast_ref()
+        };
+        imp.refresh_stack.set_visible_child(child);
     }
 
     pub(crate) fn show_status_message(&self, message: &str, is_error: bool) {
         let imp = self.imp();
         imp.status_label.set_label(message);
         imp.status_banner.remove_css_class("status-banner-error");
+        imp.status_icon.set_icon_name(Some(if is_error {
+            "dialog-warning-symbolic"
+        } else {
+            "dialog-information-symbolic"
+        }));
         if is_error {
             imp.status_banner.add_css_class("status-banner-error");
         }
@@ -285,11 +291,9 @@ impl AdventureModsWindow {
 
     pub fn push_setup_page(&self, game: steam::game::Game) {
         let setup_page = AdventureModsSetupPage::new(game);
-        let nav_page = adw::NavigationPage::builder()
-            .title("Setup")
-            .child(&setup_page)
-            .build();
-        self.imp().navigation_view.push(&nav_page);
+        self.imp()
+            .navigation_view
+            .push(&setup_page.navigation_page());
     }
 }
 
@@ -503,7 +507,18 @@ mod tests {
 
         let navigation = window.navigation_view();
         let visible_page = navigation.visible_page().unwrap();
-        assert_eq!(visible_page.title().as_str(), "Setup");
+        assert_eq!(visible_page.title().as_str(), "Sonic Adventure 2");
+        assert_eq!(visible_page.tag().as_deref(), Some("setup"));
+
+        // Leaving setup scans again so the cards show what changed.
+        let before = window.imp().latest_detection_request_id.get();
+        navigation.pop();
+        while gtk::glib::MainContext::default().iteration(false) {}
+        assert!(window.imp().latest_detection_request_id.get() > before);
+        window.push_setup_page(Game {
+            kind: GameKind::SA2,
+            path: game_dir.path().to_path_buf(),
+        });
 
         let granted = "/run/user/1000/doc/test-id/SteamLibrary";
         window

@@ -21,8 +21,6 @@ const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
 /// screenshot is a few MB, so the cache is bounded instead of growing per hover.
 const MOD_PREVIEW_CACHE_LIMIT: usize = 6;
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
-/// Fade-in only duration for step body swaps. Kept short so Continue/Back feel snappy.
-const CONTENT_FADE_MS: u32 = 100;
 
 mod imp {
     use super::*;
@@ -31,19 +29,27 @@ mod imp {
     #[template(resource = "/io/github/astrovm/AdventureMods/resources/ui/setup_page.ui")]
     pub struct AdventureModsSetupPage {
         #[template_child]
-        pub body_box: TemplateChild<gtk::Box>,
+        pub window_title: TemplateChild<adw::WindowTitle>,
         #[template_child]
-        pub step_title: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub step_description: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub content_revealer: TemplateChild<gtk::Revealer>,
-        #[template_child]
-        pub content_box: TemplateChild<gtk::Box>,
+        pub content_stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub back_button: TemplateChild<gtk::Button>,
         #[template_child]
+        pub secondary_button: TemplateChild<gtk::Button>,
+        #[template_child]
         pub next_button: TemplateChild<gtk::Button>,
+
+        /// Body of the step on screen. Work steps share one install view.
+        pub content_box: RefCell<gtk::Box>,
+        pub(super) install_view: RefCell<Option<InstallView>>,
+        /// Mod downloads running alongside the other install tasks.
+        pub(super) prefetch: RefCell<Option<Prefetch>>,
+        /// Step index the content was last built for, to pick a slide direction.
+        pub shown_step: Cell<Option<usize>>,
+        /// The Proton check is only part of the flow when it was needed.
+        pub steam_check_needed: Cell<bool>,
+        pub secondary_action: RefCell<Option<Rc<dyn Fn()>>>,
+        pub(crate) open_uri: crate::ui::UriOpenerSlot,
 
         pub game: RefCell<Option<Game>>,
         pub current_step: Cell<usize>,
@@ -93,13 +99,15 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
 
-            sync_content_fade_duration(&self.content_revealer);
-            if let Some(settings) = gtk::Settings::default() {
-                let revealer = self.content_revealer.get();
-                settings.connect_gtk_enable_animations_notify(move |_| {
-                    sync_content_fade_duration(&revealer);
-                });
-            }
+            let obj = self.obj().clone();
+            self.secondary_button.connect_clicked(move |_| {
+                let action = obj.imp().secondary_action.borrow().clone();
+                if let Some(action) = action
+                    && crate::ui::catch_ui_panic("setup secondary button", || action()).is_err()
+                {
+                    obj.show_error("Something went wrong. Please try again.");
+                }
+            });
 
             let obj = self.obj().clone();
             self.next_button.connect_clicked(move |_| {
@@ -252,20 +260,6 @@ fn publish_mod_bytes(
 ) {
     samples.set_mod_bytes(mod_name, downloaded, total_bytes, total_mods);
     wake_progress_ui(tx);
-}
-
-fn content_animations_enabled() -> bool {
-    gtk::Settings::default()
-        .map(|settings| settings.is_gtk_enable_animations())
-        .unwrap_or(true)
-}
-
-fn sync_content_fade_duration(revealer: &gtk::Revealer) {
-    revealer.set_transition_duration(if content_animations_enabled() {
-        CONTENT_FADE_MS
-    } else {
-        0
-    });
 }
 
 glib::wrapper! {
@@ -647,9 +641,16 @@ impl ModPreview {
         }
         for link in links {
             let button = gtk::LinkButton::builder()
-                .label(link.label)
                 .uri(link.url)
                 .halign(gtk::Align::Start)
+                .tooltip_text(link.url)
+                .css_classes(["mod-link"])
+                .child(
+                    &adw::ButtonContent::builder()
+                        .label(link.label)
+                        .icon_name("adw-external-link-symbolic")
+                        .build(),
+                )
                 .build();
             self.links_box.insert(&button, -1);
         }
@@ -939,6 +940,250 @@ fn apply_install_progress(
     Ok(())
 }
 
+/// A centered status screen: icon, title and description.
+fn status_page(icon: &str, title: &str, description: &str) -> adw::StatusPage {
+    adw::StatusPage::builder()
+        .icon_name(icon)
+        .title(title)
+        .description(glib::markup_escape_text(description).as_str())
+        .vexpand(true)
+        .build()
+}
+
+/// Center `child` in a readable column that scrolls when the window is short.
+fn page_clamp(child: &impl IsA<gtk::Widget>, maximum_size: i32) -> gtk::ScrolledWindow {
+    let clamp = adw::Clamp::builder()
+        .maximum_size(maximum_size)
+        .valign(gtk::Align::Center)
+        .margin_top(24)
+        .margin_bottom(24)
+        .margin_start(12)
+        .margin_end(12)
+        .child(child)
+        .build();
+    gtk::ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vexpand(true)
+        .child(&clamp)
+        .build()
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TaskState {
+    Pending,
+    Running,
+    Done,
+    Failed,
+}
+
+impl TaskState {
+    fn page_name(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Running => "running",
+            Self::Done => "done",
+            Self::Failed => "failed",
+        }
+    }
+}
+
+/// Background download of the selected mods' archives. `done` closes when
+/// the downloads stop, finished or cancelled.
+pub(super) struct Prefetch {
+    cancel: Arc<AtomicBool>,
+    done: async_channel::Receiver<()>,
+}
+
+fn prefetch_worker(
+    game_path: &std::path::Path,
+    selected_mods: &[&common::ModEntry],
+    cancelled: &AtomicBool,
+) {
+    // Unit tests render this page without a network.
+    if cfg!(test) {
+        return;
+    }
+    pipeline::prefetch_mod_archives(game_path, selected_mods, cancelled);
+}
+
+/// One checklist row for a work step.
+#[derive(Clone)]
+struct InstallTask {
+    step: usize,
+    row: adw::ActionRow,
+    state: gtk::Stack,
+    description: &'static str,
+    /// Shown instead of the description while the task waits its turn.
+    pending_note: Rc<Cell<Option<&'static str>>>,
+}
+
+/// The install screen: a checklist of every work step, the current step's
+/// progress, and the error if one failed.
+#[derive(Clone)]
+pub(super) struct InstallView {
+    root: gtk::ScrolledWindow,
+    tasks: Vec<InstallTask>,
+    progress_bar: gtk::ProgressBar,
+    error_box: gtk::Box,
+    error_label: gtk::Label,
+}
+
+impl InstallView {
+    fn new(all_steps: &[steps::SetupStep]) -> Self {
+        let list = gtk::ListBox::builder()
+            .selection_mode(gtk::SelectionMode::None)
+            .css_classes(["boxed-list"])
+            .build();
+
+        let tasks = all_steps
+            .iter()
+            .enumerate()
+            .filter(|(_, step)| step.kind.is_work())
+            .map(|(idx, step)| {
+                let state = gtk::Stack::builder()
+                    .transition_type(gtk::StackTransitionType::Crossfade)
+                    .hhomogeneous(true)
+                    .vhomogeneous(true)
+                    .build();
+                state.add_named(&gtk::Box::default(), Some(TaskState::Pending.page_name()));
+                state.add_named(&adw::Spinner::new(), Some(TaskState::Running.page_name()));
+                let done = gtk::Image::from_icon_name("object-select-symbolic");
+                done.add_css_class("success");
+                state.add_named(&done, Some(TaskState::Done.page_name()));
+                let failed = gtk::Image::from_icon_name("dialog-error-symbolic");
+                failed.add_css_class("error");
+                state.add_named(&failed, Some(TaskState::Failed.page_name()));
+
+                let row = adw::ActionRow::builder()
+                    .title(step.title)
+                    .subtitle(step.description)
+                    .build();
+                row.add_suffix(&state);
+                list.append(&row);
+                InstallTask {
+                    step: idx,
+                    row,
+                    state,
+                    description: step.description,
+                    pending_note: Rc::new(Cell::new(None)),
+                }
+            })
+            .collect();
+
+        let progress_bar = gtk::ProgressBar::builder()
+            .show_text(true)
+            .visible(false)
+            .build();
+        // A short summary first; the full error stays one click away.
+        let error_label = gtk::Label::builder()
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::WordChar)
+            .selectable(true)
+            .xalign(0.0)
+            .css_classes(["dim-label", "caption"])
+            .build();
+        let error_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(6)
+            .visible(false)
+            .build();
+        error_box.append(
+            &gtk::Label::builder()
+                .label("Setup Didn't Finish")
+                .xalign(0.0)
+                .css_classes(["heading", "error"])
+                .build(),
+        );
+        error_box.append(
+            &gtk::Label::builder()
+                .label("Try again, or go back to change your choices.")
+                .wrap(true)
+                .xalign(0.0)
+                .build(),
+        );
+        error_box.append(
+            &gtk::Expander::builder()
+                .label("Details")
+                .child(&error_label)
+                .margin_top(6)
+                .build(),
+        );
+
+        let column = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(18)
+            .build();
+        column.append(&list);
+        column.append(&progress_bar);
+        column.append(&error_box);
+
+        Self {
+            root: page_clamp(&column, 520),
+            tasks,
+            progress_bar,
+            error_box,
+            error_label,
+        }
+    }
+
+    /// Mark tasks before `current` done, `current` running and the rest pending.
+    fn show_step(&self, all_steps: &[steps::SetupStep], current: usize) {
+        for task in &self.tasks {
+            let state = match task.step.cmp(&current) {
+                std::cmp::Ordering::Less => TaskState::Done,
+                std::cmp::Ordering::Equal => TaskState::Running,
+                std::cmp::Ordering::Greater => TaskState::Pending,
+            };
+            Self::set_task_state(task, state);
+        }
+        self.error_box.set_visible(false);
+        let downloads = all_steps
+            .get(current)
+            .is_some_and(|step| matches!(step.kind, steps::StepKind::Download));
+        self.progress_bar.set_visible(downloads);
+        self.progress_bar.set_fraction(0.0);
+        self.progress_bar.set_text(None);
+    }
+
+    fn show_error(&self, current: usize, message: &str) {
+        if let Some(task) = self.tasks.iter().find(|task| task.step == current) {
+            Self::set_task_state(task, TaskState::Failed);
+        }
+        self.progress_bar.set_visible(false);
+        self.error_label.set_label(message);
+        self.error_box.set_visible(true);
+    }
+
+    fn set_task_state(task: &InstallTask, state: TaskState) {
+        task.state.set_visible_child_name(state.page_name());
+        task.row.set_subtitle(match state {
+            TaskState::Done => "Done",
+            TaskState::Failed => "Failed",
+            TaskState::Pending => task.pending_note.get().unwrap_or(task.description),
+            TaskState::Running => task.description,
+        });
+    }
+
+    /// Say what a waiting task is already doing in the background.
+    fn set_pending_note(&self, step: usize, note: &'static str) {
+        if let Some(task) = self.tasks.iter().find(|task| task.step == step) {
+            task.pending_note.set(Some(note));
+            if task.state.visible_child_name().as_deref() == Some(TaskState::Pending.page_name()) {
+                task.row.set_subtitle(note);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn task_state(&self, step: usize) -> Option<String> {
+        self.tasks
+            .iter()
+            .find(|task| task.step == step)
+            .and_then(|task| task.state.visible_child_name())
+            .map(String::from)
+    }
+}
+
 impl AdventureModsSetupPage {
     pub fn new(game: Game) -> Self {
         let obj: Self = glib::Object::builder().build();
@@ -954,9 +1199,26 @@ impl AdventureModsSetupPage {
             )));
 
         let initial_step = obj.skip_completed_steps(0);
+        obj.imp().steam_check_needed.set(initial_step == 0);
         obj.imp().current_step.set(initial_step);
         obj.show_current_step();
         obj
+    }
+
+    /// Wrap the page for the window's navigation view.
+    pub fn navigation_page(&self) -> adw::NavigationPage {
+        let title = self
+            .imp()
+            .game
+            .borrow()
+            .as_ref()
+            .map(|game| game.kind.name())
+            .unwrap_or("Setup");
+        adw::NavigationPage::builder()
+            .tag("setup")
+            .title(title)
+            .child(self)
+            .build()
     }
 
     fn show_current_step(&self) {
@@ -976,7 +1238,7 @@ impl AdventureModsSetupPage {
         };
 
         // Gate navigation immediately for steps that start work as soon as they render.
-        if matches!(step.kind, steps::StepKind::Auto | steps::StepKind::Download) {
+        if step.kind.is_work() {
             imp.next_button.set_sensitive(false);
         }
 
@@ -989,78 +1251,110 @@ impl AdventureModsSetupPage {
         self.transition_step_content();
     }
 
-    fn current_step_prefers_instant_transition(&self) -> bool {
-        let imp = self.imp();
-        imp.all_steps
-            .borrow()
-            .get(imp.current_step.get())
-            .is_some_and(|step| {
-                matches!(step.kind, steps::StepKind::Auto | steps::StepKind::Download)
-            })
-    }
-
-    /// Swap step body with a short fade-in. Work steps (Auto/Download) skip motion
-    /// so progress UI appears immediately.
+    /// Build the current step's body and slide it in, forward or back. Work
+    /// steps reuse the install view already on screen so the checklist stays put.
     fn transition_step_content(&self) {
         let imp = self.imp();
-        let revealer = &imp.content_revealer;
+        let step_idx = imp.current_step.get();
+        let previous = imp.shown_step.replace(Some(step_idx));
+        let is_work = self.current_step().is_some_and(|step| step.kind.is_work());
 
-        let instant = self.current_step_prefers_instant_transition()
-            || !self.is_mapped()
-            || !content_animations_enabled();
-
-        if instant {
-            revealer.set_transition_duration(0);
+        if is_work && imp.install_view.borrow().is_some() {
             self.render_current_step_content();
-            revealer.set_reveal_child(true);
-            sync_content_fade_duration(revealer);
             return;
         }
+        imp.install_view.replace(None);
 
-        // Fade-in only: hide without animating, rebuild, then crossfade in (~100 ms).
-        revealer.set_transition_duration(0);
-        revealer.set_reveal_child(false);
+        let stack = &imp.content_stack;
+        // Keep only the page on screen; it slides out while the new one slides in.
+        let visible = stack.visible_child();
+        let mut child = stack.first_child();
+        while let Some(widget) = child {
+            child = widget.next_sibling();
+            if Some(&widget) != visible.as_ref() {
+                stack.remove(&widget);
+            }
+        }
+
+        let content_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .hexpand(true)
+            .vexpand(true)
+            .build();
+        imp.content_box.replace(content_box.clone());
         self.render_current_step_content();
-        sync_content_fade_duration(revealer);
-        revealer.set_reveal_child(true);
+
+        let backwards = previous.is_some_and(|previous| previous > step_idx);
+        stack.set_transition_type(match previous {
+            None => gtk::StackTransitionType::None,
+            Some(_) if backwards => gtk::StackTransitionType::SlideRight,
+            Some(_) => gtk::StackTransitionType::SlideLeft,
+        });
+        stack.add_child(&content_box);
+        stack.set_visible_child(&content_box);
     }
 
-    /// Title, description, and layout stay in sync with the step body.
+    /// The step on screen. Never panics, so error paths can call it while the
+    /// step list is being changed.
+    fn current_step(&self) -> Option<steps::SetupStep> {
+        let imp = self.imp();
+        let all_steps = imp.all_steps.try_borrow().ok()?;
+        all_steps.get(imp.current_step.get()).cloned()
+    }
+
+    /// Position of the current screen among the screens the user moves
+    /// through, counting all work steps as one install screen.
+    fn screen_position(&self) -> Option<(usize, usize)> {
+        let imp = self.imp();
+        let all_steps = imp.all_steps.borrow();
+        let current = imp.current_step.get();
+        let mut screens = 0;
+        let mut position = None;
+        let mut previous_was_work = false;
+        for (idx, step) in all_steps.iter().enumerate() {
+            let counted = match step.id {
+                StepId::SteamConfig => imp.steam_check_needed.get(),
+                StepId::Complete => false,
+                _ => !(step.kind.is_work() && previous_was_work),
+            };
+            previous_was_work = step.kind.is_work();
+            if counted {
+                screens += 1;
+            }
+            if idx == current && step.id != StepId::Complete {
+                position = Some(screens);
+            }
+        }
+        position.map(|position| (position, screens))
+    }
+
+    /// Header title and subtitle for the current step.
     fn apply_step_chrome(&self) {
         let imp = self.imp();
-        let step_idx = imp.current_step.get();
-        let all_steps = imp.all_steps.borrow();
-        let Some(step) = all_steps.get(step_idx) else {
+        let Some(step) = self.current_step() else {
             return;
         };
+        let game_name = imp
+            .game
+            .borrow()
+            .as_ref()
+            .map(|game| game.kind.name())
+            .unwrap_or_default();
 
-        let centered_layout = !matches!(step.kind, steps::StepKind::ModSelection);
-        imp.body_box.set_valign(if centered_layout {
-            gtk::Align::Center
-        } else {
-            gtk::Align::Fill
-        });
-        imp.content_box.set_halign(if centered_layout {
-            gtk::Align::Center
-        } else {
-            gtk::Align::Fill
-        });
-        imp.content_box.set_valign(if centered_layout {
-            gtk::Align::Center
-        } else {
-            gtk::Align::Fill
-        });
-        imp.content_box.set_vexpand(!centered_layout);
-
-        imp.step_title.set_label(step.title);
-        let step_description = if step.id == StepId::SteamConfig {
-            self.steam_config_status()
-                .map(|status| status.message)
-                .unwrap_or_else(|| step.description.to_string())
-        } else {
-            step.description.to_string()
+        let title = match step.id {
+            StepId::Complete => game_name,
+            _ if step.kind.is_work() => "Installing",
+            _ => step.title,
         };
-        imp.step_description.set_label(&step_description);
+        imp.window_title.set_title(title);
+        imp.window_title
+            .set_subtitle(&match self.screen_position() {
+                Some((position, total)) => format!("{game_name} · Step {position} of {total}"),
+                None => String::new(),
+            });
+
+        imp.next_button.set_visible(true);
+        self.set_secondary_action(None, None);
     }
 
     fn render_current_step_content(&self) {
@@ -1068,193 +1362,354 @@ impl AdventureModsSetupPage {
 
         let imp = self.imp();
         let step_idx = imp.current_step.get();
-        let all_steps = imp.all_steps.borrow();
+        let all_steps = imp.all_steps.borrow().clone();
         let Some(step) = all_steps.get(step_idx) else {
             return;
         };
         let is_last_step = step_idx + 1 >= all_steps.len();
 
-        while let Some(child) = imp.content_box.first_child() {
-            imp.content_box.remove(&child);
+        let content_box = imp.content_box.borrow().clone();
+        if !(step.kind.is_work() && imp.install_view.borrow().is_some()) {
+            while let Some(child) = content_box.first_child() {
+                content_box.remove(&child);
+            }
         }
-        self.render_step(step, is_last_step, &imp.content_box);
+        self.render_step(step, is_last_step, &content_box);
+    }
+
+    /// Show `label` as a secondary button that runs `action`, or hide it.
+    fn set_secondary_action(&self, label: Option<&str>, action: Option<Rc<dyn Fn()>>) {
+        let imp = self.imp();
+        imp.secondary_button.set_visible(label.is_some());
+        imp.secondary_button.set_sensitive(true);
+        imp.secondary_button.remove_css_class("destructive-action");
+        if let Some(label) = label {
+            imp.secondary_button.set_label(label);
+        }
+        imp.secondary_action.replace(action);
     }
 
     fn render_step(&self, step: &steps::SetupStep, is_last_step: bool, content_box: &gtk::Box) {
         let imp = self.imp();
         match &step.kind {
             steps::StepKind::Auto => {
-                imp.next_button.set_label("Continue");
-                imp.next_button.set_sensitive(false);
-
-                let spinner = gtk::Spinner::builder()
-                    .spinning(true)
-                    .halign(gtk::Align::Center)
-                    .build();
-                content_box.append(&spinner);
+                let view = self.install_view(content_box);
+                view.show_step(&imp.all_steps.borrow(), imp.current_step.get());
+                imp.next_button.set_visible(false);
 
                 self.set_step_busy(true);
                 self.run_auto_step(step.id);
             }
+            steps::StepKind::Info if step.id == StepId::SteamConfig => {
+                let ready = self.steam_config_ready();
+                let message = self
+                    .steam_config_status()
+                    .map(|status| status.message)
+                    .unwrap_or_else(|| step.description.to_string());
+                content_box.append(&status_page(
+                    if ready {
+                        "object-select-symbolic"
+                    } else {
+                        "dialog-warning-symbolic"
+                    },
+                    if ready {
+                        "Proton Is Ready"
+                    } else {
+                        "Proton 10 Needed"
+                    },
+                    &message,
+                ));
+                imp.next_button
+                    .set_label(if ready { "Continue" } else { "Check Again" });
+                imp.next_button.set_sensitive(true);
+            }
+            steps::StepKind::Info if is_last_step => {
+                content_box.append(&self.complete_view(step));
+                imp.next_button.set_label("Done");
+                imp.next_button.set_sensitive(true);
+
+                let obj = self.clone();
+                self.set_secondary_action(
+                    Some("Play in Steam"),
+                    Some(Rc::new(move || obj.play_in_steam())),
+                );
+            }
             steps::StepKind::Info => {
-                let steam_config_ready =
-                    step.id == StepId::SteamConfig && self.steam_config_ready();
-                imp.next_button.set_label(
-                    if step.id == StepId::SteamConfig && !steam_config_ready {
-                        "Check Again"
-                    } else if is_last_step {
-                        "Finish"
+                imp.next_button
+                    .set_label(if self.next_screen_is_work(step.id) {
+                        "Install"
                     } else {
                         "Continue"
-                    },
-                );
+                    });
                 imp.next_button.set_sensitive(true);
 
                 if step.id == StepId::LanguageOptions {
-                    let selection = self.current_language_selection();
-                    let game_kind = imp.game.borrow().as_ref().map(|game| game.kind);
-                    let subtitle_languages = game_kind
-                        .map(config::SubtitleLanguage::supported_for)
-                        .unwrap_or(config::SubtitleLanguage::supported_for(
-                            crate::steam::game::GameKind::SADX,
-                        ));
-
-                    let form_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Vertical)
-                        .spacing(12)
-                        .hexpand(true)
-                        .build();
-                    let subtitle_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Horizontal)
-                        .spacing(12)
-                        .build();
-                    let subtitle_dropdown = gtk::DropDown::from_strings(&subtitle_language_labels(
-                        game_kind.unwrap_or(crate::steam::game::GameKind::SADX),
-                    ));
-                    subtitle_dropdown.set_selected(subtitle_language_index(
-                        game_kind.unwrap_or(crate::steam::game::GameKind::SADX),
-                        selection.subtitle,
-                    ));
-                    subtitle_box.append(
-                        &gtk::Label::builder()
-                            .label("Subtitles")
-                            .halign(gtk::Align::Start)
-                            .hexpand(true)
-                            .build(),
-                    );
-                    subtitle_box.append(&subtitle_dropdown);
-
-                    let voice_box = gtk::Box::builder()
-                        .orientation(gtk::Orientation::Horizontal)
-                        .spacing(12)
-                        .build();
-                    let voice_dropdown = gtk::DropDown::from_strings(&voice_language_labels());
-                    voice_dropdown.set_selected(voice_language_index(selection.voice));
-                    voice_box.append(
-                        &gtk::Label::builder()
-                            .label("Voice Language")
-                            .halign(gtk::Align::Start)
-                            .hexpand(true)
-                            .build(),
-                    );
-                    voice_box.append(&voice_dropdown);
-
-                    let obj = self.clone();
-                    let subtitle_languages = subtitle_languages.to_vec();
-                    subtitle_dropdown.connect_selected_notify(move |dropdown| {
-                        let _ = crate::ui::catch_ui_panic("subtitle language selector", || {
-                            let language = subtitle_languages
-                                .get(dropdown.selected() as usize)
-                                .copied()
-                                .unwrap_or(config::SubtitleLanguage::English);
-                            let mut selection = obj.current_language_selection();
-                            selection.subtitle = language;
-                            obj.imp().language_selection.replace(Some(selection));
-                        });
-                    });
-
-                    let obj = self.clone();
-                    voice_dropdown.connect_selected_notify(move |dropdown| {
-                        let _ = crate::ui::catch_ui_panic("voice language selector", || {
-                            let language = config::VoiceLanguage::all()
-                                .get(dropdown.selected() as usize)
-                                .copied()
-                                .unwrap_or(config::VoiceLanguage::English);
-                            let mut selection = obj.current_language_selection();
-                            selection.voice = language;
-                            obj.imp().language_selection.replace(Some(selection));
-                        });
-                    });
-
-                    form_box.append(&subtitle_box);
-                    form_box.append(&voice_box);
-                    content_box.append(&form_box);
+                    content_box.append(&self.language_form(step.description));
                 }
             }
             steps::StepKind::Download => {
-                imp.next_button.set_label("Continue");
-                imp.next_button.set_sensitive(false);
-
-                let progress_bar = gtk::ProgressBar::builder()
-                    .show_text(true)
-                    .hexpand(true)
-                    .build();
+                let view = self.install_view(content_box);
+                view.show_step(&imp.all_steps.borrow(), imp.current_step.get());
+                imp.next_button.set_visible(false);
 
                 let cancel_flag = Arc::new(AtomicBool::new(false));
                 imp.cancel_flag.replace(Some(cancel_flag.clone()));
 
-                content_box.append(&progress_bar);
-
                 if step.id == StepId::DownloadMods {
-                    let cancel_button = gtk::Button::builder()
-                        .label("Cancel")
-                        .halign(gtk::Align::Center)
-                        .css_classes(vec!["destructive-action".to_string()])
-                        .build();
-
                     let flag = cancel_flag.clone();
                     let obj = self.clone();
-                    cancel_button.connect_clicked(move |btn| {
-                        if crate::ui::catch_ui_panic("download cancel button", || {
-                            flag.store(true, Ordering::Relaxed);
-                            btn.set_sensitive(false);
-                            btn.set_label("Cancelling...");
-                            // Poll until the blocking task has finished before re-showing
-                            // the step, so we don't start a new task while the old one is
-                            // still writing to disk.
-                            let obj2 = obj.clone();
-                            let source_id =
-                                glib::timeout_add_local(Duration::from_millis(50), move || {
-                                    if obj2.imp().task_running.get() {
-                                        return glib::ControlFlow::Continue;
-                                    }
-                                    obj2.imp().poll_source.borrow_mut().take();
-                                    obj2.show_current_step();
-                                    glib::ControlFlow::Break
-                                });
-                            obj.imp().poll_source.replace(Some(source_id));
-                        })
-                        .is_err()
-                        {
-                            obj.show_error(
-                                "Something went wrong while cancelling. Please try again.",
-                            );
-                        }
-                    });
-
-                    content_box.append(&cancel_button);
+                    self.set_secondary_action(
+                        Some("Cancel"),
+                        Some(Rc::new(move || obj.cancel_download(&flag))),
+                    );
                 }
 
                 self.set_step_busy(true);
-                self.run_download_step(step.id, progress_bar, cancel_flag);
+                self.run_download_step(step.id, view.progress_bar.clone(), cancel_flag);
             }
             steps::StepKind::ModSelection => self.render_mod_selection(content_box),
         }
     }
 
+    /// The finish screen: the game's cover with a short "ready" message.
+    fn complete_view(&self, step: &steps::SetupStep) -> gtk::Widget {
+        let column = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .css_classes(["setup-complete"])
+            .build();
+        if let Some(game) = self.imp().game.borrow().as_ref() {
+            let cover = gtk::Picture::builder()
+                .file(&gio::File::for_uri(&format!(
+                    "resource://{}",
+                    crate::ui::game_card::cover_resource(game.kind)
+                )))
+                .content_fit(gtk::ContentFit::Cover)
+                .height_request(150)
+                .overflow(gtk::Overflow::Hidden)
+                .margin_bottom(12)
+                .css_classes(["card", "setup-complete-cover"])
+                .build();
+            column.append(
+                &adw::Clamp::builder()
+                    .maximum_size(320)
+                    .child(&cover)
+                    .build(),
+            );
+        }
+        column.append(
+            &gtk::Label::builder()
+                .label(step.title)
+                .wrap(true)
+                .justify(gtk::Justification::Center)
+                .css_classes(["title-1"])
+                .build(),
+        );
+        column.append(
+            &gtk::Label::builder()
+                .label(step.description)
+                .wrap(true)
+                .justify(gtk::Justification::Center)
+                .build(),
+        );
+        page_clamp(&column, 440).upcast()
+    }
+
+    /// Whether the screen after `step_id` starts installing.
+    fn next_screen_is_work(&self, step_id: StepId) -> bool {
+        let all_steps = self.imp().all_steps.borrow();
+        all_steps
+            .iter()
+            .position(|step| step.id == step_id)
+            .and_then(|index| all_steps.get(index + 1))
+            .is_some_and(|step| step.kind.is_work())
+    }
+
+    /// The install checklist on screen, created on the first work step.
+    fn install_view(&self, content_box: &gtk::Box) -> InstallView {
+        let imp = self.imp();
+        if let Some(view) = imp.install_view.borrow().clone() {
+            return view;
+        }
+        let view = InstallView::new(&imp.all_steps.borrow());
+        content_box.append(&view.root);
+        imp.install_view.replace(Some(view.clone()));
+        self.start_prefetch(&view);
+        view
+    }
+
+    /// Start downloading the selected mods now, so they arrive while the
+    /// runtime, conversion and mod manager install.
+    fn start_prefetch(&self, view: &InstallView) {
+        let imp = self.imp();
+        if imp
+            .prefetch
+            .borrow()
+            .as_ref()
+            .is_some_and(|prefetch| !prefetch.cancel.load(Ordering::Relaxed))
+        {
+            return;
+        }
+        let Some(game) = imp.game.borrow().clone() else {
+            return;
+        };
+        let mods_list = common::recommended_mods_for_game(game.kind);
+        let selected: Vec<&'static common::ModEntry> = imp
+            .selected_mods
+            .borrow()
+            .iter()
+            .filter_map(|index| mods_list.get(*index))
+            .collect();
+        if selected.is_empty() {
+            return;
+        }
+
+        let previous = imp.prefetch.take();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (done_tx, done) = async_channel::bounded::<()>(1);
+        let worker_cancel = cancel.clone();
+        std::thread::spawn(move || {
+            // Never two writers for one archive: let a cancelled run stop first.
+            if let Some(previous) = previous {
+                let _ = previous.done.recv_blocking();
+            }
+            prefetch_worker(&game.path, &selected, &worker_cancel);
+            drop(done_tx);
+        });
+        imp.prefetch.replace(Some(Prefetch { cancel, done }));
+
+        if let Some(mods_step) = imp
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == StepId::DownloadMods)
+        {
+            view.set_pending_note(mods_step, "Downloading in the background");
+        }
+    }
+
+    fn cancel_prefetch(&self) {
+        if let Some(prefetch) = self.imp().prefetch.borrow().as_ref() {
+            prefetch.cancel.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Wait for background downloads so the install never writes an archive
+    /// the prefetch is still writing.
+    fn prefetch_done(&self) -> Option<async_channel::Receiver<()>> {
+        self.imp()
+            .prefetch
+            .borrow()
+            .as_ref()
+            .map(|prefetch| prefetch.done.clone())
+    }
+
+    fn cancel_download(&self, flag: &Arc<AtomicBool>) {
+        let imp = self.imp();
+        flag.store(true, Ordering::Relaxed);
+        self.cancel_prefetch();
+        imp.secondary_button.set_sensitive(false);
+        imp.secondary_button.set_label("Cancelling…");
+        // Poll until the blocking task has finished before re-showing the step,
+        // so we don't start a new task while the old one is still writing to disk.
+        let obj = self.clone();
+        let source_id = glib::timeout_add_local(Duration::from_millis(50), move || {
+            if obj.imp().task_running.get() {
+                return glib::ControlFlow::Continue;
+            }
+            obj.imp().poll_source.borrow_mut().take();
+            obj.go_back_to_choices();
+            glib::ControlFlow::Break
+        });
+        imp.poll_source.replace(Some(source_id));
+    }
+
+    /// Leave the install screen for the last screen that asked something.
+    fn go_back_to_choices(&self) {
+        // The choices may change, so stop downloading the current ones.
+        self.cancel_prefetch();
+        let imp = self.imp();
+        let last_choice = imp.all_steps.borrow()[..imp.current_step.get()]
+            .iter()
+            .rposition(|step| !step.kind.is_work());
+        match last_choice {
+            Some(idx) => {
+                imp.current_step.set(idx);
+                self.show_current_step();
+            }
+            None => self.go_back_to_welcome(),
+        }
+    }
+
+    fn play_in_steam(&self) {
+        let Some(game) = self.imp().game.borrow().clone() else {
+            return;
+        };
+        let uri = format!("steam://rungameid/{}", game.kind.app_id());
+        let window = self.root().and_downcast::<gtk::Window>();
+        self.imp().open_uri.open(window.as_ref(), &uri);
+    }
+
+    fn language_form(&self, description: &str) -> gtk::Widget {
+        let imp = self.imp();
+        let selection = self.current_language_selection();
+        let game_kind = imp
+            .game
+            .borrow()
+            .as_ref()
+            .map(|game| game.kind)
+            .unwrap_or(crate::steam::game::GameKind::SADX);
+
+        let group = adw::PreferencesGroup::builder()
+            .description(description)
+            .build();
+
+        let subtitle_row = adw::ComboRow::builder()
+            .title("Subtitles")
+            .model(&gtk::StringList::new(&subtitle_language_labels(game_kind)))
+            .selected(subtitle_language_index(game_kind, selection.subtitle))
+            .build();
+        let voice_row = adw::ComboRow::builder()
+            .title("Voices")
+            .model(&gtk::StringList::new(&voice_language_labels()))
+            .selected(voice_language_index(selection.voice))
+            .build();
+
+        let obj = self.clone();
+        let subtitle_languages = config::SubtitleLanguage::supported_for(game_kind).to_vec();
+        subtitle_row.connect_selected_notify(move |row| {
+            let _ = crate::ui::catch_ui_panic("subtitle language selector", || {
+                let language = subtitle_languages
+                    .get(row.selected() as usize)
+                    .copied()
+                    .unwrap_or(config::SubtitleLanguage::English);
+                let mut selection = obj.current_language_selection();
+                selection.subtitle = language;
+                obj.imp().language_selection.replace(Some(selection));
+            });
+        });
+
+        let obj = self.clone();
+        voice_row.connect_selected_notify(move |row| {
+            let _ = crate::ui::catch_ui_panic("voice language selector", || {
+                let language = config::VoiceLanguage::all()
+                    .get(row.selected() as usize)
+                    .copied()
+                    .unwrap_or(config::VoiceLanguage::English);
+                let mut selection = obj.current_language_selection();
+                selection.voice = language;
+                obj.imp().language_selection.replace(Some(selection));
+            });
+        });
+
+        group.add(&subtitle_row);
+        group.add(&voice_row);
+        page_clamp(&group, 480).upcast()
+    }
+
     fn render_mod_selection(&self, content_box: &gtk::Box) {
         let imp = self.imp();
-        imp.next_button.set_label("Install Selected");
+        imp.next_button.set_label("Continue");
         imp.next_button.set_sensitive(true);
 
         let game_kind = imp.game.borrow().as_ref().map(|g| g.kind);
@@ -1268,6 +1723,9 @@ impl AdventureModsSetupPage {
             .vexpand(true)
             .valign(gtk::Align::Fill)
             .halign(gtk::Align::Fill)
+            .margin_top(12)
+            .margin_start(24)
+            .margin_end(24)
             .build();
 
         let left_box = gtk::Box::builder()
@@ -1293,31 +1751,26 @@ impl AdventureModsSetupPage {
 
         let checks: Rc<RefCell<Vec<gtk::CheckButton>>> = Rc::new(RefCell::new(Vec::new()));
         if !presets.is_empty() {
-            let preset_box = gtk::Box::builder()
-                .orientation(gtk::Orientation::Horizontal)
-                .spacing(12)
-                .margin_bottom(6)
-                .build();
-
-            let preset_label = gtk::Label::builder()
-                .label("Preset:")
-                .css_classes(vec!["heading".to_string()])
-                .build();
-
             let preset_names: Vec<&str> = presets.iter().map(|p| p.name).collect();
-            let dropdown = gtk::DropDown::from_strings(&preset_names);
-            dropdown.set_hexpand(true);
-
-            preset_box.append(&preset_label);
-            preset_box.append(&dropdown);
-            left_box.append(&preset_box);
+            let dropdown = adw::ComboRow::builder()
+                .title("Preset")
+                .model(&gtk::StringList::new(&preset_names))
+                .build();
+            let preset_list = gtk::ListBox::builder()
+                .selection_mode(gtk::SelectionMode::None)
+                .css_classes(["boxed-list"])
+                .build();
+            preset_list.append(&dropdown);
+            left_box.append(&preset_list);
 
             let preset_desc_label = gtk::Label::builder()
                 .label(presets[0].description)
                 .wrap(true)
-                .halign(gtk::Align::Start)
-                .css_classes(vec!["caption".to_string()])
-                .margin_bottom(12)
+                .xalign(0.0)
+                .margin_start(6)
+                .margin_end(6)
+                .margin_bottom(6)
+                .css_classes(["caption", "dim-label"])
                 .build();
             left_box.append(&preset_desc_label);
 
@@ -1397,6 +1850,8 @@ impl AdventureModsSetupPage {
             .child(&carousel_aspect)
             .hexpand(true)
             .vexpand(true)
+            .css_classes(["mod-preview-frame"])
+            .overflow(gtk::Overflow::Hidden)
             .build();
 
         let full_desc_label = gtk::Label::builder()
@@ -1465,49 +1920,23 @@ impl AdventureModsSetupPage {
         let default_preset = presets.first();
 
         for (i, mod_entry) in mods_list.iter().enumerate() {
-            let row_box = gtk::Box::builder()
-                .orientation(gtk::Orientation::Horizontal)
-                .spacing(12)
-                .margin_start(12)
-                .margin_end(12)
-                .margin_top(12)
-                .margin_bottom(12)
-                .hexpand(true)
-                .build();
-
             let is_active = default_preset
                 .map(|preset| preset.mod_names.contains(&mod_entry.name))
                 .unwrap_or(true);
 
-            let check = gtk::CheckButton::builder().active(is_active).build();
+            let check = gtk::CheckButton::builder()
+                .active(is_active)
+                .valign(gtk::Align::Center)
+                .tooltip_text("Install this mod")
+                .build();
             checks.borrow_mut().push(check.clone());
 
-            let text_box = gtk::Box::builder()
-                .orientation(gtk::Orientation::Vertical)
-                .spacing(2)
-                .hexpand(true)
+            let list_row = adw::ActionRow::builder()
+                .title(mod_entry.name)
+                .subtitle(mod_entry.description)
+                .use_markup(false)
                 .build();
-
-            let name_label = gtk::Label::builder()
-                .label(mod_entry.name)
-                .halign(gtk::Align::Start)
-                .css_classes(vec!["heading".to_string()])
-                .build();
-
-            let desc_label = gtk::Label::builder()
-                .label(mod_entry.description)
-                .halign(gtk::Align::Start)
-                .wrap(true)
-                .css_classes(vec!["caption".to_string()])
-                .build();
-
-            text_box.append(&name_label);
-            text_box.append(&desc_label);
-
-            row_box.append(&check);
-            row_box.append(&text_box);
-
-            let list_row = gtk::ListBoxRow::builder().child(&row_box).build();
+            list_row.add_prefix(&check);
 
             let obj_clone = self.clone();
             let idx = i;
@@ -1581,7 +2010,22 @@ impl AdventureModsSetupPage {
 
         main_box.append(&left_box);
         main_box.append(&preview_box);
-        content_box.append(&main_box);
+
+        // Narrow windows drop the preview so the list gets the full width.
+        let breakpoint_bin = adw::BreakpointBin::builder()
+            .width_request(300)
+            .height_request(240)
+            .child(&main_box)
+            .build();
+        let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
+            adw::BreakpointConditionLengthType::MaxWidth,
+            640.0,
+            adw::LengthUnit::Sp,
+        ));
+        narrow.add_setter(&preview_box, "visible", Some(&false.to_value()));
+        narrow.add_setter(&main_box, "homogeneous", Some(&false.to_value()));
+        breakpoint_bin.add_breakpoint(narrow);
+        content_box.append(&breakpoint_bin);
     }
 
     fn update_download_size_label(&self) {
@@ -1717,6 +2161,16 @@ impl AdventureModsSetupPage {
                     )
                 }
                 StepId::DownloadMods => {
+                    if let Some(done) = obj.prefetch_done() {
+                        progress_bar.set_text(Some("Finishing downloads…"));
+                        let _ = done.recv().await;
+                    }
+                    // Cancel may have ended the wait; install nothing then.
+                    if cancel_flag.load(Ordering::Relaxed) {
+                        obj.set_step_busy(false);
+                        obj.imp().task_running.set(false);
+                        return;
+                    }
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total_count = selected.len();
                     let game_path = game.path.clone();
@@ -1766,6 +2220,11 @@ impl AdventureModsSetupPage {
 
             obj.set_step_busy(false);
             obj.imp().task_running.set(false);
+            // A cancelled task never moves setup on, even if it finished; the
+            // cancel poll takes the user back instead.
+            if cancel_flag.load(Ordering::Relaxed) {
+                return;
+            }
             // If the task finished without cancellation, stop the cancel poll so
             // it doesn't re-run the current step after advance_step() has already
             // moved on.
@@ -1936,6 +2395,13 @@ impl AdventureModsSetupPage {
     fn on_back_clicked(&self) {
         self.invalidate_steam_config_status();
         let imp = self.imp();
+        if imp.step_busy.get() {
+            return;
+        }
+        if self.current_step().is_some_and(|step| step.kind.is_work()) {
+            self.go_back_to_choices();
+            return;
+        }
         let current = imp.current_step.get();
         if current == 0 {
             self.go_back_to_welcome();
@@ -1982,6 +2448,7 @@ impl AdventureModsSetupPage {
     }
 
     fn go_back_to_welcome(&self) {
+        self.cancel_prefetch();
         if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
             if let Ok(nav_view) = nav_view.downcast::<adw::NavigationView>() {
                 nav_view.pop();
@@ -1995,24 +2462,30 @@ impl AdventureModsSetupPage {
         let imp = self.imp();
         imp.is_error.set(true);
 
-        // Show errors immediately; do not wait on the step fade-in.
-        imp.content_revealer.set_transition_duration(0);
-        imp.content_revealer.set_reveal_child(true);
-        sync_content_fade_duration(&imp.content_revealer);
-
-        let content_box = &imp.content_box;
-        while let Some(child) = content_box.first_child() {
-            content_box.remove(&child);
+        let is_work = self.current_step().is_some_and(|step| step.kind.is_work());
+        let install_view = imp.install_view.borrow().clone();
+        match install_view {
+            Some(view) if is_work => view.show_error(imp.current_step.get(), message),
+            _ => {
+                let content_box = imp.content_box.borrow().clone();
+                while let Some(child) = content_box.first_child() {
+                    content_box.remove(&child);
+                }
+                content_box.append(&status_page(
+                    "dialog-error-symbolic",
+                    "Something Went Wrong",
+                    message,
+                ));
+            }
         }
-        let label = gtk::Label::builder()
-            .label(message)
-            .wrap(true)
-            .css_classes(vec!["error".to_string()])
-            .build();
-        content_box.append(&label);
 
-        imp.next_button.set_label("Retry");
+        self.set_secondary_action(None, None);
+        imp.next_button.set_visible(true);
+        imp.next_button.set_label("Try Again");
         imp.next_button.set_sensitive(true);
+        if imp.back_button.is_visible() {
+            imp.back_button.set_sensitive(true);
+        }
     }
 }
 
@@ -2666,6 +3139,32 @@ mod tests {
         assert_eq!(preview.state.borrow().current_index, Some(0));
     }
 
+    /// Every widget of type `T` under `root`, depth first.
+    fn descendants<T: IsA<gtk::Widget>>(root: &gtk::Widget) -> Vec<T> {
+        let mut found = Vec::new();
+        let mut child = root.first_child();
+        while let Some(widget) = child {
+            if let Ok(matching) = widget.clone().downcast::<T>() {
+                found.push(matching);
+            }
+            found.extend(descendants::<T>(&widget));
+            child = widget.next_sibling();
+        }
+        found
+    }
+
+    /// The two-column box of the mod selection step.
+    fn mod_selection_main_box(page: &AdventureModsSetupPage) -> gtk::Box {
+        page.imp()
+            .content_box
+            .borrow()
+            .first_child()
+            .and_downcast::<adw::BreakpointBin>()
+            .and_then(|bin| bin.child())
+            .and_downcast::<gtk::Box>()
+            .unwrap()
+    }
+
     #[gtk::test]
     fn setup_page_renders_info_language_and_download_controls() {
         init_resource_overlay();
@@ -2697,39 +3196,26 @@ mod tests {
         let language_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         page.render_step(&language_step, false, &language_content);
 
-        let form = language_content
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
-        let subtitle_box = form.first_child().unwrap().downcast::<gtk::Box>().unwrap();
-        let subtitle_dropdown = subtitle_box
-            .last_child()
-            .unwrap()
-            .downcast::<gtk::DropDown>()
-            .unwrap();
-        subtitle_dropdown.set_selected(1);
-
-        let voice_box = form.last_child().unwrap().downcast::<gtk::Box>().unwrap();
-        let voice_dropdown = voice_box
-            .last_child()
-            .unwrap()
-            .downcast::<gtk::DropDown>()
-            .unwrap();
-        voice_dropdown.set_selected(0);
-        voice_dropdown.set_selected(1);
+        let combos = descendants::<adw::ComboRow>(language_content.upcast_ref());
+        let [subtitle_row, voice_row] = combos.as_slice() else {
+            panic!("expected subtitle and voice rows, got {}", combos.len());
+        };
+        subtitle_row.set_selected(1);
+        voice_row.set_selected(0);
+        voice_row.set_selected(1);
         assert_eq!(
             page.imp().language_selection.borrow().unwrap().voice,
             VoiceLanguage::English
         );
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Install"));
 
         page.imp().game.replace(None);
         page.imp().language_selection.replace(None);
         let fallback_language_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         page.render_step(&language_step, false, &fallback_language_content);
         assert_eq!(
-            fallback_language_content.first_child().unwrap().type_(),
-            gtk::Box::static_type()
+            descendants::<adw::ComboRow>(fallback_language_content.upcast_ref()).len(),
+            2
         );
 
         let complete_step = all_steps
@@ -2739,34 +3225,74 @@ mod tests {
             .clone();
         let complete_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         page.render_step(&complete_step, true, &complete_content);
-        assert_eq!(page.imp().next_button.label().as_deref(), Some("Finish"));
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Done"));
+        assert!(page.imp().secondary_button.is_visible());
+        assert_eq!(
+            page.imp().secondary_button.label().as_deref(),
+            Some("Play in Steam")
+        );
+        // Without a game there is nothing to launch.
+        page.imp().secondary_button.emit_clicked();
+
+        page.imp().game.replace(Some(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        }));
+        // Never launch the real URI: it would start the user's game.
+        let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
+        page.imp().open_uri.replace(std::rc::Rc::new({
+            let opened = opened.clone();
+            move |_: Option<&gtk::Window>, uri: &str| {
+                opened.replace(Some(uri.to_owned()));
+            }
+        }));
+        page.imp().secondary_button.emit_clicked();
+        assert_eq!(opened.borrow().as_deref(), Some("steam://rungameid/213610"));
+        assert!(descendants::<gtk::Picture>(complete_content.upcast_ref()).is_empty());
+        let complete_with_game = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        page.render_step(&complete_step, true, &complete_with_game);
+        assert_eq!(
+            descendants::<gtk::Picture>(complete_with_game.upcast_ref()).len(),
+            1
+        );
 
         let download_step = all_steps
             .iter()
             .find(|step| step.id == StepId::DownloadMods)
             .unwrap()
             .clone();
+        let download_index = all_steps
+            .iter()
+            .position(|step| step.id == StepId::DownloadMods)
+            .unwrap();
+        page.imp().current_step.set(download_index);
         let download_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         page.render_step(&download_step, false, &download_content);
-        assert_eq!(download_content.observe_children().n_items(), 2);
-        let cancel_button = download_content
-            .last_child()
-            .unwrap()
-            .downcast::<gtk::Button>()
-            .unwrap();
-        cancel_button.emit_clicked();
-        assert_eq!(cancel_button.label().as_deref(), Some("Cancelling..."));
-        page.imp().task_running.set(false);
-        page.imp().current_step.set(
-            page.imp()
-                .all_steps
-                .borrow()
-                .iter()
-                .position(|step| step.id == StepId::Complete)
-                .unwrap(),
+        let view = page.imp().install_view.borrow().clone().unwrap();
+        assert_eq!(view.task_state(download_index).as_deref(), Some("running"));
+        assert!(!page.imp().next_button.is_visible());
+        assert_eq!(
+            page.imp().secondary_button.label().as_deref(),
+            Some("Cancel")
         );
+        page.imp().secondary_button.emit_clicked();
+        assert_eq!(
+            page.imp().secondary_button.label().as_deref(),
+            Some("Cancelling…")
+        );
+        assert!(!page.imp().secondary_button.is_sensitive());
+        // The poll keeps waiting while the task is still running.
+        page.imp().task_running.set(true);
         std::thread::sleep(std::time::Duration::from_millis(60));
         while glib::MainContext::default().iteration(false) {}
+        page.imp().task_running.set(false);
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        while glib::MainContext::default().iteration(false) {}
+        // Cancelling returns to the last screen that asked something.
+        assert_eq!(
+            page.current_step().map(|step| step.id),
+            Some(StepId::LanguageOptions)
+        );
     }
 
     #[gtk::test]
@@ -2802,6 +3328,215 @@ mod tests {
         page.run_auto_step(StepId::ConvertSteam);
         while glib::MainContext::default().iteration(false) {}
         assert_eq!(page.imp().current_step.get(), 1);
+    }
+
+    #[gtk::test]
+    fn install_screen_walks_every_task_and_reports_failures() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let window = gtk::Window::builder()
+            .default_width(800)
+            .default_height(600)
+            .child(&page)
+            .build();
+        window.present();
+        let index_of = |id| {
+            page.imp()
+                .all_steps
+                .borrow()
+                .iter()
+                .position(|step: &steps::SetupStep| step.id == id)
+                .unwrap()
+        };
+        let (languages, dotnet, manager, mods) = (
+            index_of(StepId::LanguageOptions),
+            index_of(StepId::Dotnet),
+            index_of(StepId::InstallModManager),
+            index_of(StepId::DownloadMods),
+        );
+
+        // Screens count the Proton check only when it was needed, and all work
+        // steps as one install screen.
+        page.imp().current_step.set(languages);
+        page.show_current_step();
+        assert_eq!(page.imp().window_title.title(), "Languages");
+        assert_eq!(
+            page.imp().window_title.subtitle(),
+            "Sonic Adventure 2 · Step 3 of 4"
+        );
+        page.imp().steam_check_needed.set(false);
+        page.show_current_step();
+        assert_eq!(
+            page.imp().window_title.subtitle(),
+            "Sonic Adventure 2 · Step 2 of 3"
+        );
+
+        // Without a game the work steps finish without touching anything real.
+        page.imp().game.replace(None);
+        page.imp().current_step.set(dotnet);
+        page.show_current_step();
+        let view = page.imp().install_view.borrow().clone().unwrap();
+        assert_eq!(page.imp().window_title.title(), "Installing");
+        assert_eq!(view.task_state(dotnet).as_deref(), Some("running"));
+        assert_eq!(view.task_state(mods).as_deref(), Some("pending"));
+        assert!(!page.imp().next_button.is_visible());
+
+        // The runtime finishes and the same checklist moves on to the next task.
+        while glib::MainContext::default().iteration(false) {}
+        assert_eq!(page.imp().current_step.get(), manager);
+        let same_view = page.imp().install_view.borrow().clone().unwrap();
+        assert_eq!(same_view.root, view.root);
+        assert_eq!(view.task_state(dotnet).as_deref(), Some("done"));
+        assert_eq!(view.task_state(manager).as_deref(), Some("running"));
+
+        // A failure marks the task and offers to try again.
+        page.show_error("network down");
+        assert_eq!(view.task_state(manager).as_deref(), Some("failed"));
+        assert!(view.error_box.is_visible());
+        assert_eq!(view.error_label.label(), "network down");
+        assert!(page.imp().next_button.is_visible());
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Try Again"));
+
+        // Back leaves the install screen for the last question.
+        page.imp().back_button.emit_clicked();
+        assert_eq!(page.imp().current_step.get(), languages);
+        assert!(page.imp().install_view.borrow().is_none());
+
+        // Errors outside the install screen replace the step with a status page.
+        page.show_error("oops");
+        let status = descendants::<adw::StatusPage>(page.imp().content_box.borrow().upcast_ref());
+        assert_eq!(status[0].description().as_deref(), Some("oops"));
+
+        // With nothing but work left, going back leaves setup.
+        page.imp().all_steps.replace(vec![steps::SetupStep {
+            id: StepId::Dotnet,
+            title: "Runtime",
+            description: "Runtime",
+            kind: steps::StepKind::Auto,
+        }]);
+        page.imp().current_step.set(0);
+        page.go_back_to_choices();
+        window.close();
+    }
+
+    #[gtk::test]
+    fn install_screen_downloads_mods_in_the_background() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let all_steps = page.imp().all_steps.borrow().clone();
+        let mods = all_steps
+            .iter()
+            .position(|step| step.id == StepId::DownloadMods)
+            .unwrap();
+        let view = super::InstallView::new(&all_steps);
+        let mods_row_subtitle = || {
+            view.tasks
+                .iter()
+                .find(|task| task.step == mods)
+                .and_then(|task| task.row.subtitle())
+                .unwrap()
+                .to_string()
+        };
+
+        // Nothing selected, nothing to download.
+        page.imp().selected_mods.replace(Vec::new());
+        page.start_prefetch(&view);
+        assert!(page.imp().prefetch.borrow().is_none());
+
+        page.imp().selected_mods.replace(vec![0, 1]);
+        page.start_prefetch(&view);
+        assert!(page.imp().prefetch.borrow().is_some());
+        assert_eq!(mods_row_subtitle(), "Downloading in the background");
+        // The note stays while the task waits and goes once it runs.
+        view.show_step(&all_steps, 0);
+        assert_eq!(mods_row_subtitle(), "Downloading in the background");
+        view.show_step(&all_steps, mods);
+        assert_ne!(mods_row_subtitle(), "Downloading in the background");
+
+        // A running prefetch is kept; a cancelled one is replaced.
+        let first = page.prefetch_done().unwrap();
+        page.start_prefetch(&view);
+        assert!(page.prefetch_done().unwrap().same_channel(&first));
+        page.cancel_prefetch();
+        page.start_prefetch(&view);
+        let second = page.prefetch_done().unwrap();
+        assert!(!second.same_channel(&first));
+        glib::MainContext::default().block_on(async {
+            assert!(first.recv().await.is_err());
+            assert!(second.recv().await.is_err());
+        });
+
+        let run_mods_step = |cancelled: bool| {
+            page.run_download_step(
+                StepId::DownloadMods,
+                gtk::ProgressBar::new(),
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(cancelled)),
+            );
+            for _ in 0..200 {
+                while glib::MainContext::default().iteration(false) {}
+                if !page.imp().task_running.get() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            assert!(!page.imp().task_running.get());
+        };
+        page.imp().selected_mods.replace(Vec::new());
+        page.imp().current_step.set(mods);
+        let manager_config = tmp.path().join("SAManager/Manager.json");
+
+        // Cancelling while waiting for the downloads installs nothing.
+        run_mods_step(true);
+        assert!(!manager_config.exists());
+
+        // Otherwise the mods step waits for the prefetch, then installs.
+        run_mods_step(false);
+        assert!(manager_config.exists());
+
+        // Leaving setup stops the downloads.
+        page.go_back_to_welcome();
+        assert!(
+            page.imp()
+                .prefetch
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .cancel
+                .load(std::sync::atomic::Ordering::Relaxed)
+        );
+    }
+
+    #[gtk::test]
+    fn steam_step_says_when_proton_is_ready() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        page.imp()
+            .steam_config_status
+            .replace(Some(common::SteamConfigStatus {
+                message: "Proton 10.0 is set up.".to_owned(),
+                ready: true,
+            }));
+        page.imp().current_step.set(0);
+        page.show_current_step();
+
+        let status = descendants::<adw::StatusPage>(page.imp().content_box.borrow().upcast_ref());
+        assert_eq!(status[0].title(), "Proton Is Ready");
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Continue"));
     }
 
     #[gtk::test]
@@ -2963,15 +3698,22 @@ mod tests {
         window.present();
         while glib::MainContext::default().iteration(false) {}
 
-        if let Some(settings) = gtk::Settings::default() {
-            settings.set_gtk_enable_animations(false);
-            super::sync_content_fade_duration(&page.imp().content_revealer);
-            assert_eq!(page.imp().content_revealer.transition_duration(), 0);
-            settings.set_gtk_enable_animations(true);
-        }
-        page.imp().current_step.set(0);
+        // Forward slides left, back slides right; old steps leave the stack.
+        let stack = page.imp().content_stack.get();
+        page.imp().current_step.set(2);
         page.show_current_step();
-        assert!(page.imp().content_revealer.reveals_child());
+        assert_eq!(stack.transition_type(), gtk::StackTransitionType::SlideLeft);
+        page.imp().current_step.set(1);
+        page.show_current_step();
+        assert_eq!(
+            stack.transition_type(),
+            gtk::StackTransitionType::SlideRight
+        );
+        assert!(stack.observe_children().n_items() <= 2);
+        assert_eq!(
+            stack.visible_child().as_ref(),
+            Some(page.imp().content_box.borrow().upcast_ref())
+        );
         window.close();
     }
 
@@ -3006,7 +3748,7 @@ mod tests {
         let all_steps_guard = page.imp().all_steps.borrow_mut();
         page.imp().next_button.emit_clicked();
         drop(all_steps_guard);
-        assert_eq!(page.imp().next_button.label().as_deref(), Some("Retry"));
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Try Again"));
         assert!(page.imp().is_error.get());
 
         page.imp().is_error.set(false);
@@ -3014,7 +3756,7 @@ mod tests {
         let all_steps_guard = page.imp().all_steps.borrow_mut();
         page.imp().back_button.emit_clicked();
         drop(all_steps_guard);
-        assert_eq!(page.imp().next_button.label().as_deref(), Some("Retry"));
+        assert_eq!(page.imp().next_button.label().as_deref(), Some("Try Again"));
     }
 
     #[gtk::test]
@@ -3036,51 +3778,26 @@ mod tests {
         page.imp().current_step.set(select_mods_index);
         page.show_current_step();
 
-        let main_box = page
-            .imp()
-            .content_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
+        let main_box = mod_selection_main_box(&page);
+        let presets = descendants::<adw::ComboRow>(main_box.upcast_ref());
+        let preset_description = descendants::<gtk::Label>(main_box.upcast_ref())
+            .into_iter()
+            .find(|label| label.label() == common::presets_for_game(GameKind::SADX)[0].description)
             .unwrap();
-        let left_box = main_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
-        let preset_box = left_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
-        let preset_dropdown = preset_box
-            .last_child()
-            .unwrap()
-            .downcast::<gtk::DropDown>()
-            .unwrap();
-        preset_dropdown.set_selected(1);
+        presets[0].set_selected(1);
+        assert_eq!(
+            preset_description.label(),
+            common::presets_for_game(GameKind::SADX)[1].description
+        );
 
-        let scrolled = left_box
-            .last_child()
-            .and_then(|size_label| size_label.prev_sibling())
-            .unwrap()
-            .downcast::<gtk::ScrolledWindow>()
-            .unwrap();
-        let list_box = scrolled
-            .child()
-            .unwrap()
-            .downcast::<gtk::Viewport>()
-            .unwrap()
-            .child()
-            .unwrap()
-            .downcast::<gtk::ListBox>()
+        let list_box = descendants::<gtk::ListBox>(main_box.upcast_ref())
+            .into_iter()
+            .find(|list| list.selection_mode() == gtk::SelectionMode::Single)
             .unwrap();
         let row = list_box.row_at_index(0).unwrap();
-        let row_box = row.child().unwrap().downcast::<gtk::Box>().unwrap();
-        let check = row_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::CheckButton>()
+        let check = descendants::<gtk::CheckButton>(row.upcast_ref())
+            .into_iter()
+            .next()
             .unwrap();
         check.set_active(false);
         check.set_active(true);
@@ -3189,13 +3906,7 @@ mod tests {
         page.imp().current_step.set(select_mods_index);
         page.show_current_step();
 
-        let main_box = page
-            .imp()
-            .content_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
+        let main_box = mod_selection_main_box(&page);
         while glib::MainContext::default().iteration(false) {}
         let left_box = main_box
             .first_child()
@@ -3266,13 +3977,7 @@ mod tests {
         window.present();
         while glib::MainContext::default().iteration(false) {}
 
-        let main_box = page
-            .imp()
-            .content_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
+        let main_box = mod_selection_main_box(&page);
         let left_box = main_box
             .first_child()
             .unwrap()
@@ -3347,13 +4052,7 @@ mod tests {
         window.present();
         while glib::MainContext::default().iteration(false) {}
 
-        let main_box = page
-            .imp()
-            .content_box
-            .first_child()
-            .unwrap()
-            .downcast::<gtk::Box>()
-            .unwrap();
+        let main_box = mod_selection_main_box(&page);
 
         assert_eq!(main_box.orientation(), gtk::Orientation::Horizontal);
         assert!(main_box.is_homogeneous());

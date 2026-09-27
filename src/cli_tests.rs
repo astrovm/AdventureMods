@@ -4,19 +4,22 @@ use std::process::Command as ProcessCommand;
 
 use clap::Parser;
 use gio::Settings;
-use gio::prelude::SettingsExt;
+use gio::prelude::{SettingsExt, SettingsExtManual};
 
 use super::{
     Cli, CliOutput, Command, DetectArgs, Prompt, SetupArgs, TerminalPrompt,
-    parse_xrandr_resolution, persist_cli_language_selection, resolve_game_kind_rich,
-    resolve_game_path_rich, resolve_mods_flag, resolve_setup_languages, resolve_setup_mods,
-    resolve_setup_mods_rich, run_from_args_with_io, run_with_io, setup_is_fully_specified,
+    detect_games_with_saved_libraries, not_detected_error, parse_xrandr_resolution,
+    persist_cli_language_selection, resolve_game_kind_rich, resolve_game_path_rich,
+    resolve_mods_flag, resolve_setup_languages, resolve_setup_mods, resolve_setup_mods_rich,
+    run_from_args_with_io, run_with_io, setup_is_fully_specified,
 };
 use crate::config::APP_ID;
 use crate::setup::common;
-use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
+use crate::setup::config::{
+    LanguageSelection, SubtitleLanguage, VoiceLanguage, load_extra_library_paths,
+};
 use crate::steam::game::{Game, GameKind};
-use crate::steam::library::DetectionResult;
+use crate::steam::library::{DetectionResult, InaccessibleGame};
 
 fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
     let _guard = crate::test_env::lock();
@@ -225,6 +228,89 @@ fn resolve_game_kind_rich_prompts_for_multiple_detected_games() {
         resolve_game_kind_rich(&args, Some(&detected), &prompt).unwrap(),
         GameKind::SA2
     );
+}
+
+#[test]
+fn missing_game_error_names_inaccessible_libraries() {
+    let result = DetectionResult {
+        games: vec![],
+        inaccessible: vec![InaccessibleGame {
+            kind: GameKind::SADX,
+            library_path: PathBuf::from("/data/SteamLibrary"),
+        }],
+    };
+
+    let sadx = not_detected_error(GameKind::SADX, &result).to_string();
+    assert!(sadx.contains("/data/SteamLibrary"), "{sadx}");
+    assert!(sadx.contains("grant access"), "{sadx}");
+    assert_eq!(
+        not_detected_error(GameKind::SA2, &result).to_string(),
+        "Sonic Adventure 2 was not detected. Pass --game-path."
+    );
+}
+
+#[test]
+fn saved_library_grants_are_read_from_settings() {
+    assert!(load_extra_library_paths(None).is_empty());
+    with_test_settings(|settings| {
+        settings
+            .set_strv(
+                "extra-library-paths",
+                ["/run/user/1000/doc/abc/SteamLibrary"],
+            )
+            .unwrap();
+        assert_eq!(
+            load_extra_library_paths(Some(settings)),
+            vec![PathBuf::from("/run/user/1000/doc/abc/SteamLibrary")]
+        );
+    });
+}
+
+#[test]
+fn saved_library_grants_join_the_default_steam_scan_only() {
+    let library = tempfile::tempdir().unwrap();
+    let game = library
+        .path()
+        .join("steamapps/common")
+        .join(GameKind::SA2.install_dir());
+    std::fs::create_dir_all(&game).unwrap();
+    std::fs::File::create(game.join("sonic2app.exe")).unwrap();
+    let saved = [library.path().to_path_buf()];
+
+    // Scan a home without Steam so only the saved grant can find the game.
+    let default_scan = {
+        let _guard = crate::test_env::lock();
+        let home = tempfile::tempdir().unwrap();
+        let previous_home = std::env::var_os("HOME");
+        unsafe { std::env::set_var("HOME", home.path()) };
+        let result = detect_games_with_saved_libraries(
+            &DetectArgs {
+                libraryfolders_vdf: None,
+                steam_libraries: vec![],
+            },
+            &saved,
+        );
+        match previous_home {
+            Some(value) => unsafe { std::env::set_var("HOME", value) },
+            None => unsafe { std::env::remove_var("HOME") },
+        }
+        result.unwrap()
+    };
+    let paths: Vec<_> = default_scan.games.iter().map(|g| g.path.clone()).collect();
+    assert_eq!(paths, vec![game]);
+
+    // An explicit libraryfolders.vdf is used exactly as given.
+    let vdf_path = library.path().join("libraryfolders.vdf");
+    std::fs::write(&vdf_path, "\"libraryfolders\" {}").unwrap();
+    let explicit = detect_games_with_saved_libraries(
+        &DetectArgs {
+            libraryfolders_vdf: Some(vdf_path),
+            steam_libraries: vec![],
+        },
+        &saved,
+    )
+    .unwrap();
+    assert!(explicit.games.is_empty());
 }
 
 #[test]

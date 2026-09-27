@@ -19,9 +19,34 @@ pub struct EnvGuard {
 }
 
 impl EnvGuard {
+    /// Set `pairs` until the guard drops. Downloads are always cached in a
+    /// temporary directory so tests never write to the user's real cache, and
+    /// .NET update checks never reach Microsoft.
     pub fn set(pairs: &[(&'static str, String)]) -> Self {
-        let mut vars = Vec::with_capacity(pairs.len());
-        for (key, value) in pairs {
+        let cache_dir = (
+            "ADVENTURE_MODS_CACHE_DIR",
+            std::env::temp_dir()
+                .join("adventure-mods-tests")
+                .display()
+                .to_string(),
+        );
+        // Never ask Microsoft for the latest .NET: an unreachable address makes
+        // setup keep the runtimes it finds, as it does offline.
+        let dotnet_releases = [
+            (
+                "ADVENTURE_MODS_URL_DOTNET_RELEASES_8",
+                "http://127.0.0.1:9/".to_owned(),
+            ),
+            (
+                "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
+                "http://127.0.0.1:9/".to_owned(),
+            ),
+        ];
+        let mut vars = Vec::with_capacity(pairs.len() + 3);
+        for (key, value) in std::iter::once(&cache_dir)
+            .chain(&dotnet_releases)
+            .chain(pairs)
+        {
             vars.push((*key, std::env::var(key).ok()));
             unsafe {
                 std::env::set_var(key, value);

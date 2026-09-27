@@ -8,6 +8,44 @@ pub mod test_util;
 pub const WIZARD_DEFAULT_WIDTH: i32 = 872;
 pub const WIZARD_DEFAULT_HEIGHT: i32 = 666;
 
+/// Opens a URI; replaced in tests so links are checked, never launched.
+pub(crate) type UriOpener = std::rc::Rc<dyn Fn(Option<&gtk::Window>, &str)>;
+
+/// Where a page opens links: the system handler unless a test swapped it.
+#[derive(Default)]
+pub(crate) struct UriOpenerSlot(std::cell::RefCell<Option<UriOpener>>);
+
+impl std::fmt::Debug for UriOpenerSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("UriOpenerSlot")
+    }
+}
+
+impl UriOpenerSlot {
+    pub(crate) fn open(&self, window: Option<&gtk::Window>, uri: &str) {
+        let opener = self.0.borrow().clone();
+        match opener {
+            Some(open) => open(window, uri),
+            None => launch_uri(window, uri),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replace(&self, opener: UriOpener) {
+        self.0.replace(Some(opener));
+    }
+}
+
+/// Open `uri` with the default handler, such as Steam for `steam://` links.
+pub(crate) fn launch_uri(window: Option<&gtk::Window>, uri: &str) {
+    let target = uri.to_owned();
+    gtk::UriLauncher::new(uri).launch(window, gtk::gio::Cancellable::NONE, move |result| {
+        if let Err(err) = result {
+            tracing::warn!("Could not open {target}: {err}");
+        }
+    });
+}
+
 pub(crate) fn catch_ui_panic(label: &'static str, action: impl FnOnce()) -> Result<(), String> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(action)).map_err(|payload| {
         let message = panic_message(payload.as_ref());

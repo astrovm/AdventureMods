@@ -21,6 +21,27 @@ pub struct RestoreReport {
     pub needs_steam_verify: bool,
 }
 
+/// Left by a restore that needs Steam to repair the converted game files.
+/// Steam does not report when a verification finishes, so the next successful
+/// 2004 conversion clears it instead.
+const STEAM_REPAIR_MARKER: &str = ".adventure-mods-steam-repair";
+
+/// Whether the game still waits for Steam to repair files a restore could
+/// not put back, so it must not be treated as an untouched Steam install.
+pub fn needs_steam_repair(game_path: &Path) -> bool {
+    game_path.join(STEAM_REPAIR_MARKER).is_file()
+}
+
+/// Forget a pending Steam repair once the game files are known to be good.
+pub fn clear_steam_repair(game_path: &Path) -> Result<()> {
+    match std::fs::remove_file(game_path.join(STEAM_REPAIR_MARKER)) {
+        Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+            Err(err).context("Failed to clear the Steam repair marker")
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Whether setup has modified this game folder.
 pub fn is_modded(game_path: &Path, game_kind: GameKind) -> bool {
     LAUNCH_EXECUTABLES
@@ -69,6 +90,9 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         ));
     }
 
+    // Without the manager, its recorded release means nothing.
+    let _ = std::fs::remove_file(game_path.join(super::common::MANAGER_SOURCE_FILE));
+
     let loader_dir = game_path.join("mods/.modloader");
     if loader_dir.is_dir() {
         std::fs::remove_dir_all(&loader_dir)
@@ -76,7 +100,19 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         report.changes.push("Removed the mod loader".to_owned());
     }
 
-    report.needs_steam_verify = is_converted_to_2004(game_path, game_kind);
+    // Steam verification brings back the Steam files but leaves sonic.exe,
+    // which setup and is_modded() read as "already converted". Remove it so
+    // a later setup converts again, and mark the game as waiting for Steam
+    // to repair the other converted files.
+    if is_converted_to_2004(game_path, game_kind) {
+        std::fs::write(game_path.join(STEAM_REPAIR_MARKER), "")
+            .context("Failed to mark the game as waiting for a Steam repair")?;
+        std::fs::remove_file(game_path.join("sonic.exe")).context("Failed to remove sonic.exe")?;
+        report.changes.push("Removed sonic.exe".to_owned());
+    }
+    // Also true when an earlier restore already removed sonic.exe but Steam
+    // has not repaired the files yet.
+    report.needs_steam_verify = needs_steam_repair(game_path);
     tracing::info!(
         "Restored {} at {}: {:?}",
         game_kind.name(),
@@ -138,6 +174,7 @@ mod tests {
         write(&dll_dir.join("Data_DLL_orig.dll"), "data");
         write(&game.join("mods/.modloader/SA2ModLoader.dll"), "loader");
         write(&game.join("mods/SomeMod/mod.ini"), "[mod]");
+        write(&game.join(".adventure-mods-manager-source"), "url=x");
 
         assert!(is_modded(game, GameKind::SA2));
         let report = restore_original_game(game, GameKind::SA2).unwrap();
@@ -153,6 +190,7 @@ mod tests {
         assert!(!dll_dir.join("Data_DLL_orig.dll").exists());
         assert!(!game.join("mods/.modloader").exists());
         assert!(game.join("mods/SomeMod/mod.ini").exists());
+        assert!(!game.join(".adventure-mods-manager-source").exists());
         assert!(!report.needs_steam_verify);
         assert_eq!(report.changes.len(), 3);
         assert!(!is_modded(game, GameKind::SA2));
@@ -182,6 +220,22 @@ mod tests {
             "chr"
         );
         assert!(report.needs_steam_verify);
+        assert!(!game.join("sonic.exe").exists());
+        assert!(!is_modded(game, GameKind::SADX));
+        // Until a conversion succeeds again, the files still need Steam.
+        assert!(needs_steam_repair(game));
+        // Restoring again still asks for the Steam repair.
+        let again = restore_original_game(game, GameKind::SADX).unwrap();
+        assert!(again.changes.is_empty());
+        assert!(again.needs_steam_verify);
+
+        clear_steam_repair(game).unwrap();
+        assert!(!needs_steam_repair(game));
+        clear_steam_repair(game).unwrap();
+        assert_eq!(
+            restore_original_game(game, GameKind::SADX).unwrap(),
+            RestoreReport::default()
+        );
         assert_eq!(steam_verify_uri(GameKind::SADX), "steam://validate/71250");
     }
 

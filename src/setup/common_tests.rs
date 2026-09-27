@@ -803,33 +803,6 @@ fn move_dir_contents_nested_subdirectory() {
 }
 
 #[test]
-fn proton_prefix_standard_path() {
-    let game_path =
-        std::path::Path::new("/home/user/.local/share/Steam/steamapps/common/Sonic Adventure DX");
-    let prefix = proton_prefix(game_path, 71250).unwrap();
-    assert_eq!(
-        prefix,
-        std::path::PathBuf::from("/home/user/.local/share/Steam/steamapps/compatdata/71250/pfx")
-    );
-}
-
-#[test]
-fn proton_prefix_shallow_path_fails() {
-    let game_path = std::path::Path::new("/game");
-    assert!(proton_prefix(game_path, 71250).is_err());
-}
-
-#[test]
-fn proton_prefix_sa2_app_id() {
-    let game_path = std::path::Path::new("/mnt/steam/steamapps/common/Sonic Adventure 2");
-    let prefix = proton_prefix(game_path, 213610).unwrap();
-    assert_eq!(
-        prefix,
-        std::path::PathBuf::from("/mnt/steam/steamapps/compatdata/213610/pfx")
-    );
-}
-
-#[test]
 fn find_file_icase_finds_uppercase_variant() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join("CHRMODELS.DLL"), b"").unwrap();
@@ -957,6 +930,10 @@ fn step_completion_detects_conversion_and_manager_markers() {
     std::fs::remove_file(dir.path().join("system/CHRMODELS_orig.dll")).unwrap();
     std::fs::write(dir.path().join("SADXModLoader.dll"), b"loader").unwrap();
     assert!(is_step_complete(StepId::ConvertSteam, &game));
+    // A restore waiting for a Steam repair converts again despite leftovers.
+    std::fs::write(dir.path().join(".adventure-mods-steam-repair"), b"").unwrap();
+    assert!(!is_step_complete(StepId::ConvertSteam, &game));
+    std::fs::remove_file(dir.path().join(".adventure-mods-steam-repair")).unwrap();
 
     std::fs::remove_file(dir.path().join("SADXModLoader.dll")).unwrap();
     std::fs::create_dir_all(dir.path().join("mods/.modloader")).unwrap();
@@ -979,7 +956,8 @@ fn step_completion_detects_conversion_and_manager_markers() {
     .unwrap();
     std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
     assert!(is_mod_manager_fully_installed(dir.path(), GameKind::SADX));
-    assert!(is_step_complete(StepId::InstallModManager, &game));
+    // Always runs, so the manager and loader are checked for updates.
+    assert!(!is_step_complete(StepId::InstallModManager, &game));
 
     let sa2_dir = tempfile::tempdir().unwrap();
     let sa2 = Game {
@@ -1005,11 +983,11 @@ fn step_completion_detects_conversion_and_manager_markers() {
         sa2_dir.path(),
         GameKind::SA2
     ));
-    assert!(is_step_complete(StepId::InstallModManager, &sa2));
+    assert!(!is_step_complete(StepId::InstallModManager, &sa2));
 }
 
 #[test]
-fn dotnet_step_is_complete_for_a_ready_prefix_with_runtime() {
+fn dotnet_step_runs_even_when_the_runtimes_are_installed() {
     let tmp = tempfile::tempdir().unwrap();
     let steam_root = tmp.path();
     let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
@@ -1021,6 +999,11 @@ fn dotnet_step_is_complete_for_a_ready_prefix_with_runtime() {
     std::fs::create_dir_all(
         compatdata
             .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0"),
+    )
+    .unwrap();
+    std::fs::create_dir_all(
+        compatdata
+            .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0"),
     )
     .unwrap();
     std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
@@ -1045,7 +1028,8 @@ fn dotnet_step_is_complete_for_a_ready_prefix_with_runtime() {
         kind: GameKind::SADX,
         path: game_path,
     };
-    assert!(is_step_complete(StepId::Dotnet, &game));
+    // Even with both runtimes present the step runs, to install newer patches.
+    assert!(!is_step_complete(StepId::Dotnet, &game));
 }
 
 #[test]
@@ -1091,23 +1075,6 @@ fn install_loader_refreshes_existing_and_reports_missing_loader() {
     )
     .unwrap();
     install_loader_dll(no_data.path(), GameKind::SADX).unwrap();
-}
-
-#[test]
-fn install_manager_and_loader_skip_existing_installations() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join("system")).unwrap();
-    std::fs::create_dir_all(dir.path().join("mods/.modloader")).unwrap();
-    std::fs::write(dir.path().join("Sonic Adventure DX.exe.bak"), b"backup").unwrap();
-    std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
-    std::fs::write(
-        dir.path().join("mods/.modloader/SADXModLoader.dll"),
-        b"loader",
-    )
-    .unwrap();
-
-    install_mod_manager(dir.path(), GameKind::SADX, None).unwrap();
-    install_mod_loader(dir.path(), GameKind::SADX, None).unwrap();
 }
 
 #[test]
@@ -1167,91 +1134,6 @@ fn move_dir_contents_cross_filesystem_fallback_when_available() {
         b"copied"
     );
 }
-#[test]
-fn install_manager_and_loader_from_synthetic_downloads() {
-    use std::io::{Read, Write};
-    use std::net::TcpListener;
-    use std::os::unix::fs::PermissionsExt;
-
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = crate::test_env::lock();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port();
-    let server = std::thread::spawn(move || {
-        for _ in 0..2 {
-            let (mut stream, _) = listener.accept().unwrap();
-            let mut request = [0u8; 4096];
-            let _ = stream.read(&mut request);
-            let body = b"synthetic archive";
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                body.len()
-            );
-            stream.write_all(response.as_bytes()).unwrap();
-            stream.write_all(body).unwrap();
-        }
-    });
-
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(dir.path().join("system")).unwrap();
-    std::fs::write(dir.path().join("system/CHRMODELS.dll"), b"original").unwrap();
-
-    let fake_7zz = dir.path().join("fake-7zz");
-    std::fs::write(
-        &fake_7zz,
-        r##"#!/bin/sh
-dest=""
-for arg in "$@"; do
-    case "$arg" in
-        -o*) dest="${arg#-o}" ;;
-    esac
-done
-mkdir -p "$dest"
-case "$dest" in
-    */extracted) printf manager > "$dest/SAModManager.exe" ;;
-    *) printf loader > "$dest/SADXModLoader.dll" ;;
-esac
-"##,
-    )
-    .unwrap();
-    let mut permissions = std::fs::metadata(&fake_7zz).unwrap().permissions();
-    permissions.set_mode(0o755);
-    std::fs::set_permissions(&fake_7zz, permissions).unwrap();
-
-    unsafe {
-        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
-        std::env::set_var(
-            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
-            format!("http://127.0.0.1:{port}/manager"),
-        );
-        std::env::set_var(
-            "ADVENTURE_MODS_URL_SADX_MOD_LOADER",
-            format!("http://127.0.0.1:{port}/loader"),
-        );
-    }
-
-    install_mod_manager(dir.path(), GameKind::SADX, Some(Box::new(|_, _| {}))).unwrap();
-
-    unsafe {
-        std::env::remove_var("ADVENTURE_MODS_7ZZ");
-        std::env::remove_var("ADVENTURE_MODS_URL_SA_MOD_MANAGER");
-        std::env::remove_var("ADVENTURE_MODS_URL_SADX_MOD_LOADER");
-    }
-    server.join().unwrap();
-
-    assert!(dir.path().join("SAModManager.exe").is_file());
-    assert!(
-        dir.path()
-            .join("mods/.modloader/SADXModLoader.dll")
-            .is_file()
-    );
-    assert!(dir.path().join("system/CHRMODELS_orig.dll").is_file());
-    assert_eq!(
-        std::fs::read(dir.path().join("system/CHRMODELS.dll")).unwrap(),
-        b"loader"
-    );
-}
-
 fn update_test_mod(url: &'static str) -> ModEntry {
     ModEntry {
         name: "Update Mod",
@@ -1293,6 +1175,146 @@ printf 'defaults' > "$dest/UpdateMod/config.ini"
     permissions.set_mode(0o755);
     std::fs::set_permissions(&fake_7zz, permissions).unwrap();
     fake_7zz
+}
+
+#[test]
+fn manager_and_loader_update_only_when_their_release_changes() {
+    use crate::external::test_http::{Reply, serve};
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    // Each release has its own ETag; HEAD can be made to fail like a flaky server.
+    let release = std::sync::Arc::new(AtomicUsize::new(1));
+    let head_fails = std::sync::Arc::new(AtomicBool::new(false));
+    let (base, log) = serve({
+        let release = release.clone();
+        let head_fails = head_fails.clone();
+        move |request| {
+            if request.method == "HEAD" && head_fails.load(Ordering::SeqCst) {
+                return Reply::ok("").status("500 Internal Server Error");
+            }
+            let version = release.load(Ordering::SeqCst);
+            Reply::ok(format!("release {version}")).header("ETag", format!("\"v{version}\""))
+        }
+    });
+
+    let dir = tempfile::tempdir().unwrap();
+    let game = dir.path();
+    std::fs::create_dir_all(game.join("system")).unwrap();
+    std::fs::write(game.join("system/CHRMODELS.dll"), b"original").unwrap();
+    std::fs::write(game.join("Sonic Adventure DX.exe"), b"steam launcher").unwrap();
+
+    // Extracts the downloaded release text into the manager or loader file.
+    let fake_7zz = dir.path().join("fake-7zz");
+    std::fs::write(
+        &fake_7zz,
+        r##"#!/bin/sh
+dest=""
+archive=""
+for arg in "$@"; do
+    case "$arg" in
+        -o*) dest="${arg#-o}" ;;
+        x|-y) ;;
+        *) archive="$arg" ;;
+    esac
+done
+mkdir -p "$dest"
+case "$dest" in
+    */extracted) cp "$archive" "$dest/SAModManager.exe" ;;
+    *) cp "$archive" "$dest/SADXModLoader.dll" ;;
+esac
+"##,
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake_7zz, std::fs::Permissions::from_mode(0o755)).unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var(
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            format!("{base}/manager"),
+        );
+        std::env::set_var(
+            "ADVENTURE_MODS_URL_SADX_MOD_LOADER",
+            format!("{base}/loader"),
+        );
+    }
+    let downloads = || {
+        log.lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.starts_with("GET"))
+            .count()
+    };
+    let read = |path: &str| std::fs::read_to_string(game.join(path)).unwrap();
+
+    // First install puts the manager in place of the launcher and adds the loader.
+    install_mod_manager(game, GameKind::SADX, Some(Box::new(|_, _| {}))).unwrap();
+    assert_eq!(downloads(), 2);
+    assert_eq!(read("Sonic Adventure DX.exe"), "release 1");
+    assert_eq!(read("Sonic Adventure DX.exe.bak"), "steam launcher");
+    assert_eq!(read("mods/.modloader/SADXModLoader.dll"), "release 1");
+    assert_eq!(read("system/CHRMODELS.dll"), "release 1");
+
+    // Nothing changed upstream: nothing is downloaded again.
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 2);
+
+    // A new release is installed; the launcher backup stays the original.
+    release.store(2, Ordering::SeqCst);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 4);
+    assert_eq!(read("Sonic Adventure DX.exe"), "release 2");
+    assert_eq!(read("Sonic Adventure DX.exe.bak"), "steam launcher");
+    assert_eq!(read("mods/.modloader/SADXModLoader.dll"), "release 2");
+    assert_eq!(read("system/CHRMODELS.dll"), "release 2");
+
+    // When the server cannot say, the installed copies are kept.
+    release.store(3, Ordering::SeqCst);
+    head_fails.store(true, Ordering::SeqCst);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 4);
+
+    // Installs from before versions were recorded are kept while offline...
+    std::fs::remove_file(game.join(".adventure-mods-manager-source")).unwrap();
+    std::fs::remove_file(game.join("mods/.modloader/.adventure-mods-source")).unwrap();
+    head_fails.store(true, Ordering::SeqCst);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 4);
+    assert_eq!(read("Sonic Adventure DX.exe"), "release 2");
+    head_fails.store(false, Ordering::SeqCst);
+
+    // ...and updated once the source can be reached.
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 6);
+    assert_eq!(read("Sonic Adventure DX.exe"), "release 3");
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 6);
+
+    // A version tag that could not be read at install is checked again later.
+    for record in [
+        ".adventure-mods-manager-source",
+        "mods/.modloader/.adventure-mods-source",
+    ] {
+        let url = if record.contains("manager") {
+            "manager"
+        } else {
+            "loader"
+        };
+        std::fs::write(game.join(record), format!("url={base}/{url}\nvalidator=\n")).unwrap();
+    }
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 8);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 8);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_URL_SA_MOD_MANAGER");
+        std::env::remove_var("ADVENTURE_MODS_URL_SADX_MOD_LOADER");
+    }
 }
 
 #[test]
@@ -1371,6 +1393,146 @@ fn install_mod_updates_changed_files_and_keeps_user_config() {
     unsafe {
         std::env::remove_var("ADVENTURE_MODS_7ZZ");
         std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
+fn prefetched_archives_install_without_downloading_again() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::atomic::AtomicBool;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    let (base, log) = serve(|_| Reply::ok("Name=Prefetched"));
+    let url: &'static str = Box::leak(format!("{base}/prefetch.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let mod_entry = update_test_mod(url);
+    let gets = || {
+        log.lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.starts_with("GET"))
+            .count()
+    };
+
+    // A cancelled prefetch fetches nothing.
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(true));
+    assert_eq!(gets(), 0);
+
+    // Prefetching downloads the archive but does not install it.
+    let running = AtomicBool::new(false);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    assert!(cached_archive_path(url).is_file());
+    assert!(!game.join("mods/UpdateMod").exists());
+    assert_eq!(gets(), 1);
+
+    // The install extracts the prefetched archive without a second download.
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(gets(), 1);
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
+        "Name=Prefetched"
+    );
+    assert!(!cached_archive_path(url).exists());
+
+    // Installed and current mods are not fetched again.
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    assert_eq!(gets(), 1);
+    assert!(!cached_archive_path(url).exists());
+
+    // A mod that cannot be fetched only logs; the install reports it later.
+    let broken = update_test_mod("http://127.0.0.1:9/unreachable.7z");
+    let mut broken = broken;
+    broken.dir_name = Some("BrokenMod");
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&broken], &running);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
+fn install_uses_the_prefetched_archive_without_asking_gamebanana_again() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    // The API answers once, then fails, as if rate limited.
+    let api_calls = std::sync::Arc::new(AtomicUsize::new(0));
+    let calls = api_calls.clone();
+    let (base, log) = serve(move |request| {
+        if request.path.starts_with("/gbapi") {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                Reply::ok(r#"[{"777":{"_idRow":777}}]"#)
+            } else {
+                Reply::ok("rate limited").status("429 Too Many Requests")
+            }
+        } else {
+            Reply::ok("Name=FromGameBanana")
+        }
+    });
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            format!("{base}/gbapi?fields=Files().aFiles()"),
+        );
+        std::env::set_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE", format!("{base}/dl/"));
+    }
+    let mod_entry = ModEntry {
+        name: "Banana Mod",
+        slug: "banana-mod",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 4242,
+        },
+        description: "test",
+        full_description: None,
+        pictures: &[],
+        dir_name: Some("BananaMod"),
+        links: &[],
+    };
+
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(false));
+    assert_eq!(api_calls.load(Ordering::SeqCst), 1);
+
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(api_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/BananaMod/mod.ini")).unwrap(),
+        "Name=FromGameBanana"
+    );
+    let downloads = log
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|request| request.starts_with("GET") && request.contains("/dl/"))
+        .count();
+    assert_eq!(downloads, 1);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE");
     }
 }
 

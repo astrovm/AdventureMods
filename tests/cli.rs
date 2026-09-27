@@ -285,6 +285,10 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
             server.url("/dotnet.exe"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
             server.gamebanana_api_base(),
         ),
@@ -360,6 +364,10 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (
@@ -453,6 +461,10 @@ fn setup_installs_sadx_preset_from_cli_flag() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (
@@ -557,6 +569,10 @@ fn setup_surfaces_mod_download_failures() {
             server.url("/dotnet.exe"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
             server.gamebanana_api_base(),
         ),
@@ -638,6 +654,10 @@ fn setup_surfaces_archive_extraction_failures() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (
@@ -723,6 +743,10 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (
@@ -852,6 +876,10 @@ fn interactive_sa2_setup_completes_via_tty() {
             server.url("/dotnet.exe"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
             server.gamebanana_api_base(),
         ),
@@ -955,6 +983,10 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
         (
@@ -1083,6 +1115,10 @@ fn setup_installs_selected_mods_from_cli_flags() {
             server.url("/dotnet.exe"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
             server.gamebanana_api_base(),
         ),
@@ -1140,7 +1176,11 @@ fn setup_installs_selected_mods_from_cli_flags() {
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
     assert!(output.contains("Starting: SA2 Render Fix"));
-    assert!(output.contains("[1/2] Installed: SA2 Render Fix"));
+    // Mods download concurrently, so either one may finish first.
+    assert!(output.contains("] Installed: SA2 Render Fix"));
+    assert!(output.contains("] Installed: HD GUI: SA2 Edition"));
+    assert!(output.contains("[1/2] Installed: "));
+    assert!(output.contains("[2/2] Installed: "));
     assert!(output.contains("Generating mod config"));
 }
 
@@ -1226,4 +1266,28 @@ fn restore_command_puts_back_the_original_launcher() {
             .unwrap()
             .contains("Nothing to restore")
     );
+}
+
+#[test]
+fn restore_command_keeps_asking_for_a_pending_steam_repair() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path();
+    std::fs::write(game.join("Sonic Adventure DX.exe"), "game").unwrap();
+    // An earlier restore removed sonic.exe but Steam has not verified yet.
+    std::fs::write(game.join(".adventure-mods-steam-repair"), "").unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "restore",
+        "--game",
+        "sadx",
+        "--game-path",
+        game.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+    run_with_io(cli, false, &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+
+    assert!(!output.contains("Nothing to restore"), "{output}");
+    assert!(output.contains("steam://validate/71250"), "{output}");
 }

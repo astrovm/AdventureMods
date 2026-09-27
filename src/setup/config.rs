@@ -1,8 +1,8 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use gtk::gio;
-use gtk::prelude::SettingsExt;
+use gtk::prelude::{SettingsExt, SettingsExtManual};
 use serde::Serialize;
 
 use super::common::ModEntry;
@@ -167,6 +167,19 @@ pub fn app_settings() -> Option<gio::Settings> {
         None::<&gio::SettingsBackend>,
         None,
     ))
+}
+
+/// Steam libraries the user granted access to through the folder picker.
+pub fn load_extra_library_paths(settings: Option<&gio::Settings>) -> Vec<PathBuf> {
+    settings
+        .map(|settings| {
+            settings
+                .strv("extra-library-paths")
+                .into_iter()
+                .map(PathBuf::from)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 pub fn load_language_selection(
