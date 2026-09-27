@@ -1276,11 +1276,17 @@ esac
     head_fails.store(true, Ordering::SeqCst);
     install_mod_manager(game, GameKind::SADX, None).unwrap();
     assert_eq!(downloads(), 4);
-    head_fails.store(false, Ordering::SeqCst);
 
-    // Installs from before versions were recorded are updated once.
+    // Installs from before versions were recorded are kept while offline...
     std::fs::remove_file(game.join(".adventure-mods-manager-source")).unwrap();
     std::fs::remove_file(game.join("mods/.modloader/.adventure-mods-source")).unwrap();
+    head_fails.store(true, Ordering::SeqCst);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 4);
+    assert_eq!(read("Sonic Adventure DX.exe"), "release 2");
+    head_fails.store(false, Ordering::SeqCst);
+
+    // ...and updated once the source can be reached.
     install_mod_manager(game, GameKind::SADX, None).unwrap();
     assert_eq!(downloads(), 6);
     assert_eq!(read("Sonic Adventure DX.exe"), "release 3");

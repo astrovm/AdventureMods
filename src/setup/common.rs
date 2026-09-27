@@ -769,16 +769,23 @@ fn record_mod_source(mod_dir: &Path, url: &str, check_validator: bool) {
 pub(crate) const MANAGER_SOURCE_FILE: &str = ".adventure-mods-manager-source";
 
 /// Whether the component recorded in `record_path` still matches what `url`
-/// serves. Unlike mods, a component with no record is treated as outdated, so
-/// ones installed before this was tracked are updated once. When the source
-/// cannot be reached the installed copy is kept.
+/// serves. Unlike mods, a component with no record (installed before this was
+/// tracked) is updated once. When the source cannot be reached the installed
+/// copy is kept, so setup still works offline.
 fn component_is_current(record_path: &Path, url: &str) -> bool {
-    let Some(record) = ModSourceRecord::read_file(record_path) else {
-        return false;
+    let record = ModSourceRecord::read_file(record_path).filter(|record| record.url == url);
+    let Some(record) = record else {
+        // Unknown version: update, but only if the source is there to update from.
+        return match download::remote_validator(url) {
+            Ok(_) => false,
+            Err(err) => {
+                tracing::warn!(
+                    "Could not check {url} for updates, keeping the installed copy: {err:#}"
+                );
+                true
+            }
+        };
     };
-    if record.url != url {
-        return false;
-    }
     let Some(installed) = record.validator else {
         return true;
     };
