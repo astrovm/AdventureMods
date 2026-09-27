@@ -2165,6 +2165,12 @@ impl AdventureModsSetupPage {
                         progress_bar.set_text(Some("Finishing downloads…"));
                         let _ = done.recv().await;
                     }
+                    // Cancel may have ended the wait; install nothing then.
+                    if cancel_flag.load(Ordering::Relaxed) {
+                        obj.set_step_busy(false);
+                        obj.imp().task_running.set(false);
+                        return;
+                    }
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total_count = selected.len();
                     let game_path = game.path.clone();
@@ -3470,22 +3476,32 @@ mod tests {
             assert!(second.recv().await.is_err());
         });
 
-        // The mods step waits for the prefetch, then installs.
+        let run_mods_step = |cancelled: bool| {
+            page.run_download_step(
+                StepId::DownloadMods,
+                gtk::ProgressBar::new(),
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(cancelled)),
+            );
+            for _ in 0..200 {
+                while glib::MainContext::default().iteration(false) {}
+                if !page.imp().task_running.get() {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            assert!(!page.imp().task_running.get());
+        };
         page.imp().selected_mods.replace(Vec::new());
         page.imp().current_step.set(mods);
-        page.run_download_step(
-            StepId::DownloadMods,
-            gtk::ProgressBar::new(),
-            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-        );
-        for _ in 0..200 {
-            while glib::MainContext::default().iteration(false) {}
-            if !page.imp().task_running.get() {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5));
-        }
-        assert!(!page.imp().task_running.get());
+        let manager_config = tmp.path().join("SAManager/Manager.json");
+
+        // Cancelling while waiting for the downloads installs nothing.
+        run_mods_step(true);
+        assert!(!manager_config.exists());
+
+        // Otherwise the mods step waits for the prefetch, then installs.
+        run_mods_step(false);
+        assert!(manager_config.exists());
 
         // Leaving setup stops the downloads.
         page.go_back_to_welcome();
