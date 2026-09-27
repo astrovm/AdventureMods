@@ -122,6 +122,10 @@ fn sa2_setup_overlaps_mod_downloads() {
             server.url("/sa2-loader.7z"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
@@ -201,6 +205,10 @@ fn sa2_setup_completes_against_fake_steam_install() {
         (
             "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
             server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
@@ -313,6 +321,10 @@ fn sa2_setup_reports_progress_for_each_mod_and_config_generation() {
         (
             "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
             server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
@@ -433,6 +445,10 @@ fn sa2_setup_can_rerun_on_existing_installation() {
             server.url("/sa2-loader.7z"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
@@ -533,6 +549,10 @@ fn sa2_setup_generates_config_for_successful_mods_even_when_another_mod_fails() 
             server.url("/sa2-loader.7z"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
@@ -625,6 +645,10 @@ fn sa2_setup_rejects_duplicate_install_targets_before_running() {
             server.url("/sa2-loader.7z"),
         ),
         (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
             server.url("/dotnet.exe"),
         ),
@@ -706,6 +730,10 @@ fn sa2_setup_stops_when_download_progress_callback_errors() {
         (
             "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
             server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
