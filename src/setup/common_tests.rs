@@ -1379,6 +1379,71 @@ fn install_mod_updates_changed_files_and_keeps_user_config() {
 }
 
 #[test]
+fn prefetched_archives_install_without_downloading_again() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::atomic::AtomicBool;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    let (base, log) = serve(|_| Reply::ok("Name=Prefetched"));
+    let url: &'static str = Box::leak(format!("{base}/prefetch.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let mod_entry = update_test_mod(url);
+    let gets = || {
+        log.lock()
+            .unwrap()
+            .iter()
+            .filter(|request| request.starts_with("GET"))
+            .count()
+    };
+
+    // A cancelled prefetch fetches nothing.
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(true));
+    assert_eq!(gets(), 0);
+
+    // Prefetching downloads the archive but does not install it.
+    let running = AtomicBool::new(false);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    assert!(cached_archive_path(url).is_file());
+    assert!(!game.join("mods/UpdateMod").exists());
+    assert_eq!(gets(), 1);
+
+    // The install extracts the prefetched archive without a second download.
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(gets(), 1);
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
+        "Name=Prefetched"
+    );
+    assert!(!cached_archive_path(url).exists());
+
+    // Installed and current mods are not fetched again.
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    assert_eq!(gets(), 1);
+    assert!(!cached_archive_path(url).exists());
+
+    // A mod that cannot be fetched only logs; the install reports it later.
+    let broken = update_test_mod("http://127.0.0.1:9/unreachable.7z");
+    let mut broken = broken;
+    broken.dir_name = Some("BrokenMod");
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&broken], &running);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
 fn install_mod_reuses_cached_archive_and_drops_broken_ones() {
     use crate::external::test_http::{Reply, serve};
 

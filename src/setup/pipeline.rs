@@ -49,6 +49,43 @@ enum WorkerMessage {
     },
 }
 
+/// Download the selected mods' archives into the cache, four at a time, so a
+/// later install mostly extracts. Runs alongside the other setup work.
+///
+/// Failures are only logged: the install retries them and reports errors.
+/// Stops early once `cancelled` is set.
+pub fn prefetch_mod_archives(
+    game_path: &Path,
+    selected_mods: &[&ModEntry],
+    cancelled: &AtomicBool,
+) {
+    let queue = Mutex::new(selected_mods.iter().collect::<VecDeque<_>>());
+    thread::scope(|scope| {
+        for _ in 0..selected_mods.len().min(MAX_CONCURRENT_MOD_INSTALLS) {
+            scope.spawn(|| {
+                while !cancelled.load(Ordering::Relaxed) {
+                    let Some(mod_entry) = queue.lock().unwrap().pop_front() else {
+                        break;
+                    };
+                    let mut stop_when_cancelled = |_: u64, _: Option<u64>| {
+                        if cancelled.load(Ordering::Relaxed) {
+                            anyhow::bail!("cancelled")
+                        }
+                        Ok(())
+                    };
+                    if let Err(err) = common::prefetch_mod_archive(
+                        game_path,
+                        mod_entry,
+                        Some(&mut stop_when_cancelled),
+                    ) {
+                        tracing::info!("Prefetching '{}' failed: {err:#}", mod_entry.name);
+                    }
+                }
+            });
+        }
+    });
+}
+
 pub fn install_selected_mods_and_generate_config_with_progress(
     game_path: &Path,
     game_kind: GameKind,

@@ -42,6 +42,8 @@ mod imp {
         /// Body of the step on screen. Work steps share one install view.
         pub content_box: RefCell<gtk::Box>,
         pub(super) install_view: RefCell<Option<InstallView>>,
+        /// Mod downloads running alongside the other install tasks.
+        pub(super) prefetch: RefCell<Option<Prefetch>>,
         /// Step index the content was last built for, to pick a slide direction.
         pub shown_step: Cell<Option<usize>>,
         /// The Proton check is only part of the flow when it was needed.
@@ -985,6 +987,25 @@ impl TaskState {
     }
 }
 
+/// Background download of the selected mods' archives. `done` closes when
+/// the downloads stop, finished or cancelled.
+pub(super) struct Prefetch {
+    cancel: Arc<AtomicBool>,
+    done: async_channel::Receiver<()>,
+}
+
+fn prefetch_worker(
+    game_path: &std::path::Path,
+    selected_mods: &[&common::ModEntry],
+    cancelled: &AtomicBool,
+) {
+    // Unit tests render this page without a network.
+    if cfg!(test) {
+        return;
+    }
+    pipeline::prefetch_mod_archives(game_path, selected_mods, cancelled);
+}
+
 /// One checklist row for a work step.
 #[derive(Clone)]
 struct InstallTask {
@@ -992,6 +1013,8 @@ struct InstallTask {
     row: adw::ActionRow,
     state: gtk::Stack,
     description: &'static str,
+    /// Shown instead of the description while the task waits its turn.
+    pending_note: Rc<Cell<Option<&'static str>>>,
 }
 
 /// The install screen: a checklist of every work step, the current step's
@@ -1042,6 +1065,7 @@ impl InstallView {
                     row,
                     state,
                     description: step.description,
+                    pending_note: Rc::new(Cell::new(None)),
                 }
             })
             .collect();
@@ -1135,8 +1159,19 @@ impl InstallView {
         task.row.set_subtitle(match state {
             TaskState::Done => "Done",
             TaskState::Failed => "Failed",
-            TaskState::Pending | TaskState::Running => task.description,
+            TaskState::Pending => task.pending_note.get().unwrap_or(task.description),
+            TaskState::Running => task.description,
         });
+    }
+
+    /// Say what a waiting task is already doing in the background.
+    fn set_pending_note(&self, step: usize, note: &'static str) {
+        if let Some(task) = self.tasks.iter().find(|task| task.step == step) {
+            task.pending_note.set(Some(note));
+            if task.state.visible_child_name().as_deref() == Some(TaskState::Pending.page_name()) {
+                task.row.set_subtitle(note);
+            }
+        }
     }
 
     #[cfg(test)]
@@ -1499,12 +1534,80 @@ impl AdventureModsSetupPage {
         let view = InstallView::new(&imp.all_steps.borrow());
         content_box.append(&view.root);
         imp.install_view.replace(Some(view.clone()));
+        self.start_prefetch(&view);
         view
+    }
+
+    /// Start downloading the selected mods now, so they arrive while the
+    /// runtime, conversion and mod manager install.
+    fn start_prefetch(&self, view: &InstallView) {
+        let imp = self.imp();
+        if imp
+            .prefetch
+            .borrow()
+            .as_ref()
+            .is_some_and(|prefetch| !prefetch.cancel.load(Ordering::Relaxed))
+        {
+            return;
+        }
+        let Some(game) = imp.game.borrow().clone() else {
+            return;
+        };
+        let mods_list = common::recommended_mods_for_game(game.kind);
+        let selected: Vec<&'static common::ModEntry> = imp
+            .selected_mods
+            .borrow()
+            .iter()
+            .filter_map(|index| mods_list.get(*index))
+            .collect();
+        if selected.is_empty() {
+            return;
+        }
+
+        let previous = imp.prefetch.take();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (done_tx, done) = async_channel::bounded::<()>(1);
+        let worker_cancel = cancel.clone();
+        std::thread::spawn(move || {
+            // Never two writers for one archive: let a cancelled run stop first.
+            if let Some(previous) = previous {
+                let _ = previous.done.recv_blocking();
+            }
+            prefetch_worker(&game.path, &selected, &worker_cancel);
+            drop(done_tx);
+        });
+        imp.prefetch.replace(Some(Prefetch { cancel, done }));
+
+        if let Some(mods_step) = imp
+            .all_steps
+            .borrow()
+            .iter()
+            .position(|step| step.id == StepId::DownloadMods)
+        {
+            view.set_pending_note(mods_step, "Downloading in the background");
+        }
+    }
+
+    fn cancel_prefetch(&self) {
+        if let Some(prefetch) = self.imp().prefetch.borrow().as_ref() {
+            prefetch.cancel.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Wait for background downloads so the install never writes an archive
+    /// the prefetch is still writing.
+    fn prefetch_done(&self) -> Option<async_channel::Receiver<()>> {
+        self.imp()
+            .prefetch
+            .borrow()
+            .as_ref()
+            .map(|prefetch| prefetch.done.clone())
     }
 
     fn cancel_download(&self, flag: &Arc<AtomicBool>) {
         let imp = self.imp();
         flag.store(true, Ordering::Relaxed);
+        self.cancel_prefetch();
         imp.secondary_button.set_sensitive(false);
         imp.secondary_button.set_label("Cancelling…");
         // Poll until the blocking task has finished before re-showing the step,
@@ -1523,6 +1626,8 @@ impl AdventureModsSetupPage {
 
     /// Leave the install screen for the last screen that asked something.
     fn go_back_to_choices(&self) {
+        // The choices may change, so stop downloading the current ones.
+        self.cancel_prefetch();
         let imp = self.imp();
         let last_choice = imp.all_steps.borrow()[..imp.current_step.get()]
             .iter()
@@ -2056,6 +2161,10 @@ impl AdventureModsSetupPage {
                     )
                 }
                 StepId::DownloadMods => {
+                    if let Some(done) = obj.prefetch_done() {
+                        progress_bar.set_text(Some("Finishing downloads…"));
+                        let _ = done.recv().await;
+                    }
                     let selected: Vec<usize> = obj.imp().selected_mods.borrow().clone();
                     let total_count = selected.len();
                     let game_path = game.path.clone();
@@ -2333,6 +2442,7 @@ impl AdventureModsSetupPage {
     }
 
     fn go_back_to_welcome(&self) {
+        self.cancel_prefetch();
         if let Some(nav_view) = self.ancestor(adw::NavigationView::static_type()) {
             if let Ok(nav_view) = nav_view.downcast::<adw::NavigationView>() {
                 nav_view.pop();
@@ -3306,6 +3416,88 @@ mod tests {
         page.imp().current_step.set(0);
         page.go_back_to_choices();
         window.close();
+    }
+
+    #[gtk::test]
+    fn install_screen_downloads_mods_in_the_background() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let page = AdventureModsSetupPage::new(Game {
+            kind: GameKind::SA2,
+            path: tmp.path().to_path_buf(),
+        });
+        let all_steps = page.imp().all_steps.borrow().clone();
+        let mods = all_steps
+            .iter()
+            .position(|step| step.id == StepId::DownloadMods)
+            .unwrap();
+        let view = super::InstallView::new(&all_steps);
+        let mods_row_subtitle = || {
+            view.tasks
+                .iter()
+                .find(|task| task.step == mods)
+                .and_then(|task| task.row.subtitle())
+                .unwrap()
+                .to_string()
+        };
+
+        // Nothing selected, nothing to download.
+        page.imp().selected_mods.replace(Vec::new());
+        page.start_prefetch(&view);
+        assert!(page.imp().prefetch.borrow().is_none());
+
+        page.imp().selected_mods.replace(vec![0, 1]);
+        page.start_prefetch(&view);
+        assert!(page.imp().prefetch.borrow().is_some());
+        assert_eq!(mods_row_subtitle(), "Downloading in the background");
+        // The note stays while the task waits and goes once it runs.
+        view.show_step(&all_steps, 0);
+        assert_eq!(mods_row_subtitle(), "Downloading in the background");
+        view.show_step(&all_steps, mods);
+        assert_ne!(mods_row_subtitle(), "Downloading in the background");
+
+        // A running prefetch is kept; a cancelled one is replaced.
+        let first = page.prefetch_done().unwrap();
+        page.start_prefetch(&view);
+        assert!(page.prefetch_done().unwrap().same_channel(&first));
+        page.cancel_prefetch();
+        page.start_prefetch(&view);
+        let second = page.prefetch_done().unwrap();
+        assert!(!second.same_channel(&first));
+        glib::MainContext::default().block_on(async {
+            assert!(first.recv().await.is_err());
+            assert!(second.recv().await.is_err());
+        });
+
+        // The mods step waits for the prefetch, then installs.
+        page.imp().selected_mods.replace(Vec::new());
+        page.imp().current_step.set(mods);
+        page.run_download_step(
+            StepId::DownloadMods,
+            gtk::ProgressBar::new(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        for _ in 0..200 {
+            while glib::MainContext::default().iteration(false) {}
+            if !page.imp().task_running.get() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(!page.imp().task_running.get());
+
+        // Leaving setup stops the downloads.
+        page.go_back_to_welcome();
+        assert!(
+            page.imp()
+                .prefetch
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .cancel
+                .load(std::sync::atomic::Ordering::Relaxed)
+        );
     }
 
     #[gtk::test]

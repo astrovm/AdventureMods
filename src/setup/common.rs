@@ -490,16 +490,20 @@ pub fn install_mod(
     install_mod_with_progress(game_path, mod_entry, Some(&mut cb))
 }
 
-/// Like `install_mod` but accepts any `FnMut` without `Send` or `'static` bounds.
-/// Use from pipeline callbacks that capture non-Send state.
-pub fn install_mod_with_progress(
-    game_path: &Path,
-    mod_entry: &ModEntry,
-    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
-) -> Result<()> {
-    let mods_dir = game_path.join("mods");
-    std::fs::create_dir_all(&mods_dir)?;
+/// What installing a mod needs: nothing (the installed copy is current) or
+/// the archive at `url`.
+enum ModArchiveNeed {
+    Keep(Option<std::path::PathBuf>),
+    Fetch {
+        url: String,
+        check_remote_validator: bool,
+    },
+}
 
+/// Decide whether `mod_entry` must be downloaded, checking an installed copy
+/// against its source so updates are fetched and current mods are kept.
+fn mod_archive_need(game_path: &Path, mod_entry: &ModEntry) -> Result<ModArchiveNeed> {
+    let mods_dir = game_path.join("mods");
     let installed_dir = mod_entry
         .dir_name
         .map(|dir_name| mods_dir.join(dir_name))
@@ -515,7 +519,7 @@ pub fn install_mod_with_progress(
                 "Could not check '{}' for updates, keeping the installed copy: {err:#}",
                 mod_entry.name
             );
-            return keep_installed_mod(installed_dir.as_deref(), mod_entry);
+            return Ok(ModArchiveNeed::Keep(installed_dir));
         }
         Err(err) => return Err(err),
     };
@@ -524,7 +528,7 @@ pub fn install_mod_with_progress(
     if let Some(dest) = installed_dir.as_deref() {
         if installed_complete {
             match installed_mod_is_current(dest, &url, check_remote_validator) {
-                Ok(true) => return keep_installed_mod(Some(dest), mod_entry),
+                Ok(true) => return Ok(ModArchiveNeed::Keep(installed_dir)),
                 Ok(false) => {
                     tracing::info!("Updating mod '{}'", mod_entry.name);
                 }
@@ -533,7 +537,7 @@ pub fn install_mod_with_progress(
                         "Could not check '{}' for updates, keeping the installed copy: {err:#}",
                         mod_entry.name
                     );
-                    return keep_installed_mod(Some(dest), mod_entry);
+                    return Ok(ModArchiveNeed::Keep(installed_dir));
                 }
             }
         } else {
@@ -544,10 +548,22 @@ pub fn install_mod_with_progress(
         }
     }
 
+    Ok(ModArchiveNeed::Fetch {
+        url,
+        check_remote_validator,
+    })
+}
+
+/// Download `url` into the download cache unless a fresh copy is there.
+fn fetch_cached_archive(
+    url: &str,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<std::path::PathBuf> {
     // Archives live in the download cache until the mod is installed, so a
     // retry after a failure resumes (or skips) the download instead of
     // starting over.
-    let archive_path = cached_archive_path(&url);
+    let archive_path = cached_archive_path(url);
     discard_stale_archive(&archive_path);
     if archive_path.is_file() {
         tracing::info!("Reusing downloaded archive for '{}'", mod_entry.name);
@@ -556,8 +572,42 @@ pub fn install_mod_with_progress(
             progress(len, Some(len))?;
         }
     } else {
-        download::download_file_resumable(&url, &archive_path, progress)?;
+        download::download_file_resumable(url, &archive_path, progress)?;
     }
+    Ok(archive_path)
+}
+
+/// Download a mod's archive ahead of installing it, so the install only has
+/// to extract. Mods that are installed and current are skipped.
+pub fn prefetch_mod_archive(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<()> {
+    if let ModArchiveNeed::Fetch { url, .. } = mod_archive_need(game_path, mod_entry)? {
+        fetch_cached_archive(&url, mod_entry, progress)?;
+    }
+    Ok(())
+}
+
+/// Like `install_mod` but accepts any `FnMut` without `Send` or `'static` bounds.
+/// Use from pipeline callbacks that capture non-Send state.
+pub fn install_mod_with_progress(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+) -> Result<()> {
+    let mods_dir = game_path.join("mods");
+    std::fs::create_dir_all(&mods_dir)?;
+
+    let (url, check_remote_validator) = match mod_archive_need(game_path, mod_entry)? {
+        ModArchiveNeed::Keep(dest) => return keep_installed_mod(dest.as_deref(), mod_entry),
+        ModArchiveNeed::Fetch {
+            url,
+            check_remote_validator,
+        } => (url, check_remote_validator),
+    };
+    let archive_path = fetch_cached_archive(&url, mod_entry, progress)?;
 
     // Stage next to the game so the extracted mod is renamed into place.
     let temp_dir = staging_tempdir(game_path)?;

@@ -419,30 +419,48 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     let actions = steps::actions_for_game(game_kind);
     let total_steps = actions.len();
 
-    for (offset, action) in actions.into_iter().enumerate() {
-        let step_index = offset + 1;
-        let label = action.cli_title();
-        match action {
-            SetupAction::InstallDotnet => {
-                run_setup_step(out, step_index, total_steps, label, || {
-                    runtime_installer::install_runtimes(&game_path, game_kind.app_id())
-                })?;
+    // Download the mods while the runtime, conversion and mod manager install;
+    // the mod step waits for these downloads before installing.
+    let stop_prefetch = std::sync::atomic::AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let mut prefetch =
+            Some(scope.spawn(|| {
+                pipeline::prefetch_mod_archives(&game_path, &selected_mods, &stop_prefetch)
+            }));
+        let result = (|| -> Result<()> {
+            for (offset, action) in actions.into_iter().enumerate() {
+                let step_index = offset + 1;
+                let label = action.cli_title();
+                match action {
+                    SetupAction::InstallDotnet => {
+                        run_setup_step(out, step_index, total_steps, label, || {
+                            runtime_installer::install_runtimes(&game_path, game_kind.app_id())
+                        })?;
+                    }
+                    SetupAction::ConvertSteam => {
+                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                            sadx::convert_steam_to_2004(&game_path, progress_fn)
+                        })?;
+                    }
+                    SetupAction::InstallModManager => {
+                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                            common::install_mod_manager(&game_path, game_kind, progress_fn)
+                        })?;
+                    }
+                    SetupAction::InstallMods => {
+                        if let Some(prefetch) = prefetch.take() {
+                            let _ = prefetch.join();
+                        }
+                        run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
+                    }
+                }
             }
-            SetupAction::ConvertSteam => {
-                run_download_step(out, step_index, total_steps, label, |progress_fn| {
-                    sadx::convert_steam_to_2004(&game_path, progress_fn)
-                })?;
-            }
-            SetupAction::InstallModManager => {
-                run_download_step(out, step_index, total_steps, label, |progress_fn| {
-                    common::install_mod_manager(&game_path, game_kind, progress_fn)
-                })?;
-            }
-            SetupAction::InstallMods => {
-                run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
-            }
-        }
-    }
+            Ok(())
+        })();
+        // A failed step ends setup; stop the downloads instead of waiting.
+        stop_prefetch.store(true, std::sync::atomic::Ordering::Relaxed);
+        result
+    })?;
     persist_cli_language_selection(game_kind, language_selection);
 
     out.success("Setup complete!")?;
