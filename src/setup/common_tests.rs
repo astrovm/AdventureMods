@@ -1023,6 +1023,11 @@ fn dotnet_step_is_complete_for_a_ready_prefix_with_runtime() {
             .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0"),
     )
     .unwrap();
+    std::fs::create_dir_all(
+        compatdata
+            .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0"),
+    )
+    .unwrap();
     std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
     std::fs::write(
         compatdata.join("config_info"),

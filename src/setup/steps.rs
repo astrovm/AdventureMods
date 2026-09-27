@@ -123,7 +123,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: StepId::Dotnet,
             title: "Install .NET Runtime",
-            description: "Needed by the mod manager",
+            description: "Versions 8 and 10, needed by the mod manager",
             kind: StepKind::Auto,
         },
     ];
