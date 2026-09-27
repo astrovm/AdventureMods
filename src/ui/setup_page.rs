@@ -21,8 +21,6 @@ const MOD_PREVIEW_HOVER_DELAY: Duration = Duration::from_millis(50);
 /// screenshot is a few MB, so the cache is bounded instead of growing per hover.
 const MOD_PREVIEW_CACHE_LIMIT: usize = 6;
 const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_millis(16);
-/// Opens a URI for the page, so tests can check links without launching them.
-type UriOpener = Rc<dyn Fn(Option<&gtk::Window>, &str)>;
 
 mod imp {
     use super::*;
@@ -49,7 +47,7 @@ mod imp {
         /// The Proton check is only part of the flow when it was needed.
         pub steam_check_needed: Cell<bool>,
         pub secondary_action: RefCell<Option<Rc<dyn Fn()>>>,
-        pub(super) open_uri: RefCell<Option<UriOpener>>,
+        pub(crate) open_uri: crate::ui::UriOpenerSlot,
 
         pub game: RefCell<Option<Game>>,
         pub current_step: Cell<usize>,
@@ -1544,11 +1542,7 @@ impl AdventureModsSetupPage {
         };
         let uri = format!("steam://rungameid/{}", game.kind.app_id());
         let window = self.root().and_downcast::<gtk::Window>();
-        let opener = self.imp().open_uri.borrow().clone();
-        match opener {
-            Some(open) => open(window.as_ref(), &uri),
-            None => crate::ui::launch_uri(window.as_ref(), &uri),
-        }
+        self.imp().open_uri.open(window.as_ref(), &uri);
     }
 
     fn language_form(&self, description: &str) -> gtk::Widget {
@@ -3130,12 +3124,12 @@ mod tests {
         }));
         // Never launch the real URI: it would start the user's game.
         let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
-        page.imp().open_uri.replace(Some(std::rc::Rc::new({
+        page.imp().open_uri.replace(std::rc::Rc::new({
             let opened = opened.clone();
             move |_: Option<&gtk::Window>, uri: &str| {
                 opened.replace(Some(uri.to_owned()));
             }
-        })));
+        }));
         page.imp().secondary_button.emit_clicked();
         assert_eq!(opened.borrow().as_deref(), Some("steam://rungameid/213610"));
         assert!(descendants::<gtk::Picture>(complete_content.upcast_ref()).is_empty());

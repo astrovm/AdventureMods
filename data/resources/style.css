@@ -36,7 +36,8 @@
     color: @success_color;
 }
 
-.game-card-status-inaccessible {
+.game-card-status-inaccessible,
+.game-card-status-repair {
     color: @warning_color;
 }
 

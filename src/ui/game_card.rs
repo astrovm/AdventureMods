@@ -38,6 +38,7 @@ mod imp {
         pub secondary_button: TemplateChild<gtk::Button>,
         pub(super) install_options: RefCell<Vec<super::GameInstallOption>>,
         pub(super) kind: std::cell::Cell<Option<GameKind>>,
+        pub(super) steam_repair: std::cell::Cell<bool>,
         pub setup_callback: RefCell<Option<Box<dyn Fn()>>>,
         pub secondary_callback: RefCell<Option<Box<dyn Fn()>>>,
     }
@@ -270,6 +271,11 @@ impl AdventureModsGameCard {
         self.update_selected_install_option();
     }
 
+    /// Whether the selected install waits for Steam to repair its files.
+    pub(crate) fn needs_steam_repair(&self) -> bool {
+        self.imp().steam_repair.get()
+    }
+
     pub(crate) fn selected_install_option(&self) -> Option<GameInstallOption> {
         let imp = self.imp();
         let install_options = imp.install_options.borrow();
@@ -293,6 +299,9 @@ impl AdventureModsGameCard {
                 .kind
                 .get()
                 .is_some_and(|kind| crate::setup::restore::is_modded(option.path(), kind));
+        let steam_repair =
+            option.is_accessible() && crate::setup::restore::needs_steam_repair(option.path());
+        imp.steam_repair.set(steam_repair);
         imp.secondary_button.set_label("Restore");
         imp.secondary_button
             .set_tooltip_text(Some("Undo the setup so Steam starts the original game"));
@@ -312,7 +321,19 @@ impl AdventureModsGameCard {
                 imp.status_label
                     .set_label("Choose which install to set up.");
             }
-            if modded {
+            if steam_repair {
+                // Restored, but Steam still has to put back converted files.
+                imp.badge_label.set_label("Needs Steam repair");
+                imp.status_label.set_visible(true);
+                imp.status_label
+                    .set_label("Let Steam verify the game files to finish restoring it.");
+                imp.setup_button.set_label("Verify in Steam");
+                imp.secondary_button.set_label("Set Up");
+                imp.secondary_button
+                    .set_tooltip_text(Some("Set up again once Steam has verified the files"));
+                imp.secondary_button.set_visible(true);
+                self.set_state_classes("repair", None);
+            } else if modded {
                 imp.badge_label.set_label("Mods installed");
                 imp.setup_button.set_label("Change Mods");
                 self.set_state_classes("modded", None);
@@ -340,7 +361,7 @@ impl AdventureModsGameCard {
     fn set_state_classes(&self, status_suffix: &str, extra_card_class: Option<&str>) {
         let imp = self.imp();
 
-        for state in ["installed", "modded", "missing", "inaccessible"] {
+        for state in ["installed", "modded", "repair", "missing", "inaccessible"] {
             self.remove_css_class(&format!("game-card-{state}"));
             imp.status_row
                 .remove_css_class(&format!("game-card-status-{state}"));

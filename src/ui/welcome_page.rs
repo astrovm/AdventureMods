@@ -18,6 +18,7 @@ mod imp {
         pub alerts_box: TemplateChild<gtk::Box>,
         #[template_child]
         pub games_row: TemplateChild<adw::WrapBox>,
+        pub(crate) open_uri: crate::ui::UriOpenerSlot,
     }
 
     #[glib::object_subclass]
@@ -124,10 +125,18 @@ impl AdventureModsWelcomePage {
                     let restore_card = card.clone();
                     let restore_page = self.clone();
                     let kind = card_spec.kind;
+                    let secondary_nav_view = nav_view.clone();
                     card.connect_secondary_clicked(move || {
-                        if let Some(GameInstallOption::Detected(path)) =
+                        let Some(GameInstallOption::Detected(path)) =
                             restore_card.selected_install_option()
-                        {
+                        else {
+                            return;
+                        };
+                        // Waiting for a Steam repair, the secondary action sets
+                        // the game up again instead of restoring it.
+                        if restore_card.needs_steam_repair() {
+                            open_setup(&secondary_nav_view, Game { kind, path });
+                        } else {
                             restore_page.confirm_restore(kind, path);
                         }
                     });
@@ -137,14 +146,11 @@ impl AdventureModsWelcomePage {
                         };
 
                         match option {
+                            GameInstallOption::Detected(_) if card_clone.needs_steam_repair() => {
+                                obj.verify_in_steam(kind);
+                            }
                             GameInstallOption::Detected(path) => {
-                                let game = Game {
-                                    kind: card_spec.kind,
-                                    path,
-                                };
-                                let setup_page =
-                                    crate::ui::setup_page::AdventureModsSetupPage::new(game);
-                                nav_view_clone.push(&setup_page.navigation_page());
+                                open_setup(&nav_view_clone, Game { kind, path });
                             }
                             GameInstallOption::Inaccessible(path) => {
                                 obj.request_library_access(path);
@@ -218,6 +224,15 @@ impl AdventureModsWelcomePage {
         });
     }
 
+    /// Ask Steam to verify and repair the game's files.
+    fn verify_in_steam(&self, kind: GameKind) {
+        let window = self.root().and_downcast::<gtk::Window>();
+        self.imp().open_uri.open(
+            window.as_ref(),
+            &crate::setup::restore::steam_verify_uri(kind),
+        );
+    }
+
     fn confirm_restore(&self, kind: GameKind, path: std::path::PathBuf) {
         self.restore_dialog(kind, path).present(Some(self));
     }
@@ -275,7 +290,8 @@ impl AdventureModsWelcomePage {
 
     /// The SADX 2004 conversion rewrote game files; Steam can put them back.
     fn offer_steam_verify(&self, kind: GameKind) {
-        steam_verify_dialog(kind, crate::ui::launch_uri).present(Some(self));
+        let obj = self.clone();
+        steam_verify_dialog(kind, move |_, _| obj.verify_in_steam(kind)).present(Some(self));
     }
 }
 
@@ -327,6 +343,11 @@ enum GameCardState {
     Detected,
     Missing,
     Inaccessible,
+}
+
+fn open_setup(nav_view: &adw::NavigationView, game: Game) {
+    let setup_page = crate::ui::setup_page::AdventureModsSetupPage::new(game);
+    nav_view.push(&setup_page.navigation_page());
 }
 
 fn build_game_cards(result: &DetectionResult) -> Vec<GameCardSpec> {
@@ -561,6 +582,70 @@ mod tests {
         let signal =
             glib::subclass::SignalId::lookup("response", adw::AlertDialog::static_type()).unwrap();
         dialog.emit_with_details::<()>(signal, glib::Quark::from_str(response), &[&response]);
+    }
+
+    #[gtk::test]
+    fn restored_converted_game_waits_for_steam_repair() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path().to_path_buf();
+        std::fs::write(game_path.join("Sonic Adventure DX.exe"), "game").unwrap();
+        std::fs::write(game_path.join(".adventure-mods-steam-repair"), "").unwrap();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        // Never launch the real URI: it makes Steam verify the user's game.
+        let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
+        page.imp().open_uri.replace(std::rc::Rc::new({
+            let opened = opened.clone();
+            move |_: Option<&gtk::Window>, uri: &str| {
+                opened.replace(Some(uri.to_owned()));
+            }
+        }));
+        let nav_view = adw::NavigationView::new();
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![Game {
+                    kind: GameKind::SADX,
+                    path: game_path.clone(),
+                }],
+                inaccessible: vec![],
+            },
+            nav_view.clone(),
+        );
+
+        let card = page
+            .imp()
+            .games_row
+            .first_child()
+            .and_downcast::<AdventureModsGameCard>()
+            .unwrap();
+        assert!(card.needs_steam_repair());
+        assert_eq!(
+            card.imp().badge_label.label().as_str(),
+            "Needs Steam repair"
+        );
+        assert_eq!(card.imp().setup_button.label().unwrap(), "Verify in Steam");
+        assert_eq!(card.imp().secondary_button.label().unwrap(), "Set Up");
+        assert!(card.imp().secondary_button.is_visible());
+
+        card.imp().setup_button.emit_clicked();
+        assert_eq!(opened.borrow().as_deref(), Some("steam://validate/71250"));
+
+        // Once Steam has verified, setting up again is one click away.
+        card.imp().secondary_button.emit_clicked();
+        assert_eq!(
+            nav_view
+                .visible_page()
+                .and_then(|page| page.tag())
+                .as_deref(),
+            Some("setup")
+        );
+
+        // Finishing the offered verification also goes through the page.
+        opened.replace(None);
+        page.verify_in_steam(GameKind::SA2);
+        assert_eq!(opened.borrow().as_deref(), Some("steam://validate/213610"));
     }
 
     #[gtk::test]

@@ -21,6 +21,27 @@ pub struct RestoreReport {
     pub needs_steam_verify: bool,
 }
 
+/// Left by a restore that needs Steam to repair the converted game files.
+/// Steam does not report when a verification finishes, so the next successful
+/// 2004 conversion clears it instead.
+const STEAM_REPAIR_MARKER: &str = ".adventure-mods-steam-repair";
+
+/// Whether the game still waits for Steam to repair files a restore could
+/// not put back, so it must not be treated as an untouched Steam install.
+pub fn needs_steam_repair(game_path: &Path) -> bool {
+    game_path.join(STEAM_REPAIR_MARKER).is_file()
+}
+
+/// Forget a pending Steam repair once the game files are known to be good.
+pub fn clear_steam_repair(game_path: &Path) -> Result<()> {
+    match std::fs::remove_file(game_path.join(STEAM_REPAIR_MARKER)) {
+        Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+            Err(err).context("Failed to clear the Steam repair marker")
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Whether setup has modified this game folder.
 pub fn is_modded(game_path: &Path, game_kind: GameKind) -> bool {
     LAUNCH_EXECUTABLES
@@ -78,8 +99,11 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
 
     // Steam verification brings back the Steam files but leaves sonic.exe,
     // which setup and is_modded() read as "already converted". Remove it so
-    // the verified game counts as unmodded and a later setup converts again.
+    // a later setup converts again, and mark the game as waiting for Steam
+    // to repair the other converted files.
     if is_converted_to_2004(game_path, game_kind) {
+        std::fs::write(game_path.join(STEAM_REPAIR_MARKER), "")
+            .context("Failed to mark the game as waiting for a Steam repair")?;
         std::fs::remove_file(game_path.join("sonic.exe")).context("Failed to remove sonic.exe")?;
         report.changes.push("Removed sonic.exe".to_owned());
         report.needs_steam_verify = true;
@@ -191,6 +215,11 @@ mod tests {
         assert!(report.needs_steam_verify);
         assert!(!game.join("sonic.exe").exists());
         assert!(!is_modded(game, GameKind::SADX));
+        // Until a conversion succeeds again, the files still need Steam.
+        assert!(needs_steam_repair(game));
+        clear_steam_repair(game).unwrap();
+        assert!(!needs_steam_repair(game));
+        clear_steam_repair(game).unwrap();
         assert_eq!(steam_verify_uri(GameKind::SADX), "steam://validate/71250");
     }
 

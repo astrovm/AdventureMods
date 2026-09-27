@@ -138,6 +138,9 @@ pub fn convert_steam_to_2004(
     tracing::info!("Patch applied successfully to temp dir, moving files back...");
 
     super::common::move_dir_contents(&out_dir, game_path)?;
+    // The patch only applies to intact Steam files, so any repair a restore
+    // was waiting for has happened.
+    super::restore::clear_steam_repair(game_path)?;
 
     tracing::info!("Steam-to-2004 conversion complete");
     Ok(())
