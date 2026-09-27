@@ -73,9 +73,6 @@ fn find_program_in_search_path(program: &str, search_path: Option<&OsStr>) -> Op
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn assert_manifest_installs_7zz(manifest: &str) {
         assert!(manifest.contains("\"type\": \"file\""));
@@ -202,7 +199,7 @@ mod tests {
 
     #[test]
     fn resolve_archive_program_uses_override_path() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::test_env::lock();
         unsafe {
             std::env::set_var("ADVENTURE_MODS_7ZZ", "/tmp/fake-7zz");
         }

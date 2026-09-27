@@ -341,7 +341,7 @@ mod tests {
 
     #[test]
     fn url_and_hpatchz_overrides_are_used() {
-        let _guard = env_lock();
+        let _guard = crate::test_env::lock();
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -390,14 +390,6 @@ mod tests {
 
     // --- convert_steam_to_2004() failure tests ---
 
-    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
-        static ENV_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
-        ENV_LOCK
-            .get_or_init(|| std::sync::Mutex::new(()))
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-    }
-
     fn write_script(path: &Path, body: &str) {
         use std::os::unix::fs::PermissionsExt;
         std::fs::write(path, format!("#!/bin/sh\n{body}\n")).unwrap();
@@ -409,7 +401,7 @@ mod tests {
     fn convert_with_fake_tools(extract_body: &str, hpatchz: &Path) -> anyhow::Error {
         use crate::external::test_http::{Reply, serve};
 
-        let _guard = env_lock();
+        let _guard = crate::test_env::lock();
         let tmp = tempfile::tempdir().unwrap();
         let game = tmp.path().join("game");
         std::fs::create_dir_all(game.join("system")).unwrap();

@@ -115,9 +115,6 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn is_dotnet_installed_true_for_10() {
@@ -233,7 +230,7 @@ mod tests {
 
     #[test]
     fn dotnet_url_uses_override() {
-        let _lock = ENV_LOCK.lock().unwrap();
+        let _lock = crate::test_env::lock();
         unsafe {
             std::env::set_var(
                 "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",

@@ -1,11 +1,4 @@
-use std::sync::{Mutex, OnceLock};
-
 use super::*;
-
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
 
 #[test]
 fn gamebanana_item_dl_base_override() {
@@ -13,7 +6,7 @@ fn gamebanana_item_dl_base_override() {
     use std::net::TcpListener;
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     // Bind to a random port, then serve one fake GameBanana API response.
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -64,7 +57,7 @@ fn gamebanana_item_reports_malformed_and_empty_responses() {
     use std::net::TcpListener;
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let bodies = ["not-json".to_string(), "[]".to_string(), "[{}]".to_string()];
@@ -135,7 +128,7 @@ fn resolve_direct_url() {
 
 #[test]
 fn resolve_direct_url_rewrites_sadx_base_when_overridden() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     unsafe {
         std::env::set_var(
             "ADVENTURE_MODS_DCMODS_BASE_URL",
@@ -166,7 +159,7 @@ fn sa_mod_manager_url_valid() {
 
 #[test]
 fn sa_mod_manager_url_uses_override() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     unsafe {
         std::env::set_var(
             "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
@@ -186,7 +179,7 @@ fn sa_mod_manager_url_uses_override() {
 
 #[test]
 fn mod_loader_url_uses_override() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     unsafe {
         std::env::set_var(
             "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
@@ -1181,7 +1174,7 @@ fn install_manager_and_loader_from_synthetic_downloads() {
     use std::os::unix::fs::PermissionsExt;
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let server = std::thread::spawn(move || {
@@ -1309,7 +1302,7 @@ fn install_mod_updates_changed_files_and_keeps_user_config() {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     // The served file changes version once `version` is bumped.
     let version = Arc::new(AtomicUsize::new(1));
@@ -1386,7 +1379,7 @@ fn install_mod_reuses_cached_archive_and_drops_broken_ones() {
     use crate::external::test_http::{Reply, serve};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     let (base, log) = serve(|_| Reply::ok("broken"));
     let url: &'static str = Box::leak(format!("{base}/cached.7z").into_boxed_str());
@@ -1472,7 +1465,7 @@ fn mod_download_size_and_installed_state() {
     use crate::external::test_http::{Reply, serve};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     let (base, _) = serve(|request| {
         if request.path.starts_with("/gbapi") {
@@ -1531,7 +1524,7 @@ fn install_mod_keeps_installed_copy_when_update_checks_fail() {
     use crate::external::test_http::{Reply, serve};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     let tmp = tempfile::tempdir().unwrap();
     let game = tmp.path();
@@ -1580,7 +1573,7 @@ fn install_mod_replaces_incomplete_install() {
     use crate::external::test_http::{Reply, serve};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     let (base, _) = serve(|_| Reply::ok("Name=Fresh"));
     let url: &'static str = Box::leak(format!("{base}/fresh.7z").into_boxed_str());
@@ -1614,7 +1607,7 @@ fn install_mod_forwards_download_progress_to_callback() {
     use std::sync::{Arc, Mutex};
 
     let _ = rustls::crypto::ring::default_provider().install_default();
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
 
     let body = "Name=Progress Mod";
     let (base, _log) = serve(move |_| Reply::ok(body));
