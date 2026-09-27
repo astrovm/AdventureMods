@@ -1140,7 +1140,11 @@ fn setup_installs_selected_mods_from_cli_flags() {
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
     assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
     assert!(output.contains("Starting: SA2 Render Fix"));
-    assert!(output.contains("[1/2] Installed: SA2 Render Fix"));
+    // Mods download concurrently, so either one may finish first.
+    assert!(output.contains("] Installed: SA2 Render Fix"));
+    assert!(output.contains("] Installed: HD GUI: SA2 Edition"));
+    assert!(output.contains("[1/2] Installed: "));
+    assert!(output.contains("[2/2] Installed: "));
     assert!(output.contains("Generating mod config"));
 }
 
