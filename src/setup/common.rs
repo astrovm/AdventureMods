@@ -577,6 +577,28 @@ fn fetch_cached_archive(
     Ok(archive_path)
 }
 
+/// Archives the prefetch finished, by game folder and mod slug, with the URL
+/// they came from and whether the install records a remote validator.
+type PrefetchedArchives =
+    std::collections::HashMap<(std::path::PathBuf, &'static str), (String, bool)>;
+
+fn prefetched_archives() -> &'static std::sync::Mutex<PrefetchedArchives> {
+    static PREFETCHED: std::sync::OnceLock<std::sync::Mutex<PrefetchedArchives>> =
+        std::sync::OnceLock::new();
+    PREFETCHED.get_or_init(Default::default)
+}
+
+/// The prefetched archive for `mod_entry`, if it is still in the cache. The
+/// install then uses it without asking the source again, so a lookup that
+/// fails the second time cannot undo a finished download.
+fn take_prefetched_archive(game_path: &Path, mod_entry: &ModEntry) -> Option<(String, bool)> {
+    prefetched_archives()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&(game_path.to_path_buf(), mod_entry.slug))
+        .filter(|(url, _)| cached_archive_path(url).is_file())
+}
+
 /// Download a mod's archive ahead of installing it, so the install only has
 /// to extract. Mods that are installed and current are skipped.
 pub fn prefetch_mod_archive(
@@ -584,8 +606,19 @@ pub fn prefetch_mod_archive(
     mod_entry: &ModEntry,
     progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<()> {
-    if let ModArchiveNeed::Fetch { url, .. } = mod_archive_need(game_path, mod_entry)? {
+    if let ModArchiveNeed::Fetch {
+        url,
+        check_remote_validator,
+    } = mod_archive_need(game_path, mod_entry)?
+    {
         fetch_cached_archive(&url, mod_entry, progress)?;
+        prefetched_archives()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(
+                (game_path.to_path_buf(), mod_entry.slug),
+                (url, check_remote_validator),
+            );
     }
     Ok(())
 }
@@ -600,12 +633,15 @@ pub fn install_mod_with_progress(
     let mods_dir = game_path.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    let (url, check_remote_validator) = match mod_archive_need(game_path, mod_entry)? {
-        ModArchiveNeed::Keep(dest) => return keep_installed_mod(dest.as_deref(), mod_entry),
-        ModArchiveNeed::Fetch {
-            url,
-            check_remote_validator,
-        } => (url, check_remote_validator),
+    let (url, check_remote_validator) = match take_prefetched_archive(game_path, mod_entry) {
+        Some(prefetched) => prefetched,
+        None => match mod_archive_need(game_path, mod_entry)? {
+            ModArchiveNeed::Keep(dest) => return keep_installed_mod(dest.as_deref(), mod_entry),
+            ModArchiveNeed::Fetch {
+                url,
+                check_remote_validator,
+            } => (url, check_remote_validator),
+        },
     };
     let archive_path = fetch_cached_archive(&url, mod_entry, progress)?;
 

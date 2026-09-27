@@ -1444,6 +1444,81 @@ fn prefetched_archives_install_without_downloading_again() {
 }
 
 #[test]
+fn install_uses_the_prefetched_archive_without_asking_gamebanana_again() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    // The API answers once, then fails, as if rate limited.
+    let api_calls = std::sync::Arc::new(AtomicUsize::new(0));
+    let calls = api_calls.clone();
+    let (base, log) = serve(move |request| {
+        if request.path.starts_with("/gbapi") {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                Reply::ok(r#"[{"777":{"_idRow":777}}]"#)
+            } else {
+                Reply::ok("rate limited").status("429 Too Many Requests")
+            }
+        } else {
+            Reply::ok("Name=FromGameBanana")
+        }
+    });
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    let fake_7zz = install_echo_7zz(tmp.path());
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            format!("{base}/gbapi?fields=Files().aFiles()"),
+        );
+        std::env::set_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE", format!("{base}/dl/"));
+    }
+    let mod_entry = ModEntry {
+        name: "Banana Mod",
+        slug: "banana-mod",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 4242,
+        },
+        description: "test",
+        full_description: None,
+        pictures: &[],
+        dir_name: Some("BananaMod"),
+        links: &[],
+    };
+
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(false));
+    assert_eq!(api_calls.load(Ordering::SeqCst), 1);
+
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(api_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/BananaMod/mod.ini")).unwrap(),
+        "Name=FromGameBanana"
+    );
+    let downloads = log
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|request| request.starts_with("GET") && request.contains("/dl/"))
+        .count();
+    assert_eq!(downloads, 1);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_DL_BASE");
+    }
+}
+
+#[test]
 fn install_mod_reuses_cached_archive_and_drops_broken_ones() {
     use crate::external::test_http::{Reply, serve};
 
