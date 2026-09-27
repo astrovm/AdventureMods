@@ -106,8 +106,10 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
             .context("Failed to mark the game as waiting for a Steam repair")?;
         std::fs::remove_file(game_path.join("sonic.exe")).context("Failed to remove sonic.exe")?;
         report.changes.push("Removed sonic.exe".to_owned());
-        report.needs_steam_verify = true;
     }
+    // Also true when an earlier restore already removed sonic.exe but Steam
+    // has not repaired the files yet.
+    report.needs_steam_verify = needs_steam_repair(game_path);
     tracing::info!(
         "Restored {} at {}: {:?}",
         game_kind.name(),
@@ -217,9 +219,18 @@ mod tests {
         assert!(!is_modded(game, GameKind::SADX));
         // Until a conversion succeeds again, the files still need Steam.
         assert!(needs_steam_repair(game));
+        // Restoring again still asks for the Steam repair.
+        let again = restore_original_game(game, GameKind::SADX).unwrap();
+        assert!(again.changes.is_empty());
+        assert!(again.needs_steam_verify);
+
         clear_steam_repair(game).unwrap();
         assert!(!needs_steam_repair(game));
         clear_steam_repair(game).unwrap();
+        assert_eq!(
+            restore_original_game(game, GameKind::SADX).unwrap(),
+            RestoreReport::default()
+        );
         assert_eq!(steam_verify_uri(GameKind::SADX), "steam://validate/71250");
     }
 

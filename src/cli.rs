@@ -321,7 +321,7 @@ fn run_restore(args: RestoreArgs, out: &mut CliOutput) -> Result<()> {
     ))?;
 
     let report = crate::setup::restore::restore_original_game(&game_path, game_kind)?;
-    if report.changes.is_empty() {
+    if report.changes.is_empty() && !report.needs_steam_verify {
         out.writeln("Nothing to restore: this game was not modified by setup.")?;
     }
     for change in &report.changes {

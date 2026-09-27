@@ -1267,3 +1267,27 @@ fn restore_command_puts_back_the_original_launcher() {
             .contains("Nothing to restore")
     );
 }
+
+#[test]
+fn restore_command_keeps_asking_for_a_pending_steam_repair() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path();
+    std::fs::write(game.join("Sonic Adventure DX.exe"), "game").unwrap();
+    // An earlier restore removed sonic.exe but Steam has not verified yet.
+    std::fs::write(game.join(".adventure-mods-steam-repair"), "").unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "restore",
+        "--game",
+        "sadx",
+        "--game-path",
+        game.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+    run_with_io(cli, false, &mut output).unwrap();
+    let output = String::from_utf8(output).unwrap();
+
+    assert!(!output.contains("Nothing to restore"), "{output}");
+    assert!(output.contains("steam://validate/71250"), "{output}");
+}
