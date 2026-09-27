@@ -32,11 +32,11 @@
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/welcome.png</image>
-      <caption>Welcome screen with automatic game detection</caption>
+      <caption>Detected games and whether they are modded</caption>
     </screenshot>
     <screenshot>
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/mod-selection.png</image>
-      <caption>Mod selection with preview and preset configurations</caption>
+      <caption>Mod selection with previews and presets</caption>
     </screenshot>
   </screenshots>
   <branding>
@@ -46,9 +46,11 @@
   <releases>
     <release version="0.3.16" date="2026-09-27">
       <description>
-        <p>Added restoring the original game, mod updates and resumable downloads.</p>
+        <p>Redesigned setup, and added restoring the original game, mod updates and resumable downloads.</p>
         <ul>
-          <li>Added Restore Original to undo setup, keeping downloaded mods for later</li>
+          <li>Made every choice up front, then installed everything in one step with a live checklist</li>
+          <li>Showed on each game whether its mods are installed, with Change Mods and Restore</li>
+          <li>Added Restore to undo setup, keeping downloaded mods for later</li>
           <li>Updated installed mods when a newer file is available, keeping their settings</li>
           <li>Resumed interrupted downloads instead of starting over</li>
           <li>Showed the total download size while choosing mods</li>
