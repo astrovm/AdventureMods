@@ -19,9 +19,18 @@ pub struct EnvGuard {
 }
 
 impl EnvGuard {
+    /// Set `pairs` until the guard drops. Downloads are always cached in a
+    /// temporary directory so tests never write to the user's real cache.
     pub fn set(pairs: &[(&'static str, String)]) -> Self {
-        let mut vars = Vec::with_capacity(pairs.len());
-        for (key, value) in pairs {
+        let cache_dir = (
+            "ADVENTURE_MODS_CACHE_DIR",
+            std::env::temp_dir()
+                .join("adventure-mods-tests")
+                .display()
+                .to_string(),
+        );
+        let mut vars = Vec::with_capacity(pairs.len() + 1);
+        for (key, value) in std::iter::once(&cache_dir).chain(pairs) {
             vars.push((*key, std::env::var(key).ok()));
             unsafe {
                 std::env::set_var(key, value);

@@ -704,9 +704,15 @@ fn replace_mod_dir(content_root: &Path, dest: &Path) -> Result<()> {
 }
 
 fn download_cache_dir() -> std::path::PathBuf {
+    // Tests must not write to the user's real download cache.
+    let default_cache_dir = if cfg!(test) {
+        Some(std::env::temp_dir().join("adventure-mods-tests"))
+    } else {
+        dirs::cache_dir().map(|dir| dir.join("adventure-mods"))
+    };
     std::env::var_os("ADVENTURE_MODS_CACHE_DIR")
         .map(std::path::PathBuf::from)
-        .or_else(|| dirs::cache_dir().map(|dir| dir.join("adventure-mods")))
+        .or(default_cache_dir)
         .unwrap_or_else(std::env::temp_dir)
         .join("downloads")
 }

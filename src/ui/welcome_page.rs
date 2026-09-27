@@ -270,12 +270,15 @@ impl AdventureModsWelcomePage {
 
     /// The SADX 2004 conversion rewrote game files; Steam can put them back.
     fn offer_steam_verify(&self, kind: GameKind) {
-        steam_verify_dialog(kind).present(Some(self));
+        steam_verify_dialog(kind, launch_uri).present(Some(self));
     }
 }
 
-/// Offers to open Steam's file verification for `kind`.
-fn steam_verify_dialog(kind: GameKind) -> adw::AlertDialog {
+/// Offers to open Steam's file verification for `kind` through `open_uri`.
+fn steam_verify_dialog(
+    kind: GameKind,
+    open_uri: impl Fn(Option<&gtk::Window>, &str) + 'static,
+) -> adw::AlertDialog {
     let dialog = adw::AlertDialog::builder()
         .heading("Finish in Steam")
         .body(format!(
@@ -291,13 +294,17 @@ fn steam_verify_dialog(kind: GameKind) -> adw::AlertDialog {
     dialog.connect_response(Some("verify"), move |dialog, _| {
         let uri = crate::setup::restore::steam_verify_uri(kind);
         let window = dialog.root().and_downcast::<gtk::Window>();
-        gtk::UriLauncher::new(&uri).launch(window.as_ref(), gio::Cancellable::NONE, |result| {
-            if let Err(err) = result {
-                tracing::warn!("Could not open Steam: {err}");
-            }
-        });
+        open_uri(window.as_ref(), &uri);
     });
     dialog
+}
+
+fn launch_uri(window: Option<&gtk::Window>, uri: &str) {
+    gtk::UriLauncher::new(uri).launch(window, gio::Cancellable::NONE, |result| {
+        if let Err(err) = result {
+            tracing::warn!("Could not open Steam: {err}");
+        }
+    });
 }
 
 impl AdventureModsWelcomePage {
@@ -634,8 +641,16 @@ mod tests {
         respond(&dialog, "restore");
 
         page.offer_steam_verify(GameKind::SADX);
-        let verify = super::steam_verify_dialog(GameKind::SADX);
+        // Never launch the real URI: it makes Steam verify the user's game.
+        let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
+        let verify = super::steam_verify_dialog(GameKind::SADX, {
+            let opened = opened.clone();
+            move |_, uri| {
+                opened.replace(Some(uri.to_owned()));
+            }
+        });
         respond(&verify, "verify");
+        assert_eq!(opened.borrow().as_deref(), Some("steam://validate/71250"));
         for _ in 0..100 {
             glib::MainContext::default().iteration(false);
             std::thread::sleep(std::time::Duration::from_millis(2));
