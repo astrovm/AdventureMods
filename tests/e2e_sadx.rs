@@ -120,6 +120,8 @@ fn sadx_setup_completes_against_fake_steam_install() {
     // A restore that waited for Steam to repair the files is done once the
     // conversion applies cleanly.
     std::fs::write(fixture.game_path.join(".adventure-mods-steam-repair"), "").unwrap();
+    // Leftovers that usually mean "already converted" must not skip it.
+    std::fs::write(fixture.game_path.join("sonic.exe"), "stale").unwrap();
     assert!(adventure_mods::setup::restore::needs_steam_repair(
         &fixture.game_path
     ));

@@ -177,13 +177,16 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
             ) && runtime_installer::is_dotnet_installed(&prefix)
         }
 
+        // A restore waiting for Steam to repair the files needs a fresh
+        // conversion, whatever older setups left behind.
         StepId::ConvertSteam => {
-            sadx_data_dir(p)
-                .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
-                .is_some()
-                || p.join("SADXModLoader.dll").exists()
-                || p.join("mods/.modloader/SADXModLoader.dll").exists()
-                || p.join("sonic.exe").exists()
+            !super::restore::needs_steam_repair(p)
+                && (sadx_data_dir(p)
+                    .and_then(|dir| find_file_icase(&dir, "CHRMODELS_orig.dll"))
+                    .is_some()
+                    || p.join("SADXModLoader.dll").exists()
+                    || p.join("mods/.modloader/SADXModLoader.dll").exists()
+                    || p.join("sonic.exe").exists())
         }
 
         StepId::InstallModManager => is_mod_manager_fully_installed(p, game.kind),

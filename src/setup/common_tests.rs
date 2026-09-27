@@ -957,6 +957,10 @@ fn step_completion_detects_conversion_and_manager_markers() {
     std::fs::remove_file(dir.path().join("system/CHRMODELS_orig.dll")).unwrap();
     std::fs::write(dir.path().join("SADXModLoader.dll"), b"loader").unwrap();
     assert!(is_step_complete(StepId::ConvertSteam, &game));
+    // A restore waiting for a Steam repair converts again despite leftovers.
+    std::fs::write(dir.path().join(".adventure-mods-steam-repair"), b"").unwrap();
+    assert!(!is_step_complete(StepId::ConvertSteam, &game));
+    std::fs::remove_file(dir.path().join(".adventure-mods-steam-repair")).unwrap();
 
     std::fs::remove_file(dir.path().join("SADXModLoader.dll")).unwrap();
     std::fs::create_dir_all(dir.path().join("mods/.modloader")).unwrap();

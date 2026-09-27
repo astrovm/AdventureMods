@@ -42,23 +42,26 @@ pub fn convert_steam_to_2004(
     // Skip if already converted. Check multiple markers since previous setups
     // (including the official Windows installer) leave different traces.
     // Use case-insensitive lookup so this works whether Steam extracted to
-    // system/ or System/ on a case-sensitive Linux filesystem.
-    if super::common::sadx_data_dir(game_path)
-        .and_then(|dir| super::common::find_file_icase(&dir, "CHRMODELS_orig.dll"))
-        .is_some()
+    // system/ or System/ on a case-sensitive Linux filesystem. A restore that
+    // waits for a Steam repair always converts again, whatever is left over.
+    let repair_pending = super::restore::needs_steam_repair(game_path);
+    if !repair_pending
+        && super::common::sadx_data_dir(game_path)
+            .and_then(|dir| super::common::find_file_icase(&dir, "CHRMODELS_orig.dll"))
+            .is_some()
     {
         tracing::info!("Game appears already converted (CHRMODELS_orig.dll exists), skipping");
         return Ok(());
     }
 
-    if game_path.join("mods/.modloader/SADXModLoader.dll").exists() {
+    if !repair_pending && game_path.join("mods/.modloader/SADXModLoader.dll").exists() {
         tracing::info!(
             "Game appears already converted (SADXModLoader.dll exists in .modloader), skipping"
         );
         return Ok(());
     }
 
-    if game_path.join("sonic.exe").exists() {
+    if !repair_pending && game_path.join("sonic.exe").exists() {
         tracing::info!("Game appears already converted (sonic.exe exists), skipping");
         return Ok(());
     }
