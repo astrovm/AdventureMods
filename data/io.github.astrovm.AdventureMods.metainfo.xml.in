@@ -44,6 +44,21 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="0.3.16" date="2026-09-27">
+      <description>
+        <p>Added restoring the original game, mod updates and resumable downloads.</p>
+        <ul>
+          <li>Added Restore Original to undo setup, keeping downloaded mods for later</li>
+          <li>Updated installed mods when a newer file is available, keeping their settings</li>
+          <li>Resumed interrupted downloads instead of starting over</li>
+          <li>Showed the total download size while choosing mods</li>
+          <li>Kept the mod list responsive while screenshots load</li>
+          <li>Used Steam libraries granted in the app from the command line too</li>
+          <li>Explained when a game is in a Steam library that cannot be accessed</li>
+          <li>Moved the Flatpak to the GNOME 51 runtime</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.15" date="2026-09-24">
       <description>
         <p>Updated release downloads to include the version in every AppImage and Flatpak filename.</p>
