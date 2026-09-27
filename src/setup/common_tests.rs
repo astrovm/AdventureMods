@@ -1293,6 +1293,23 @@ esac
     install_mod_manager(game, GameKind::SADX, None).unwrap();
     assert_eq!(downloads(), 6);
 
+    // A version tag that could not be read at install is checked again later.
+    for record in [
+        ".adventure-mods-manager-source",
+        "mods/.modloader/.adventure-mods-source",
+    ] {
+        let url = if record.contains("manager") {
+            "manager"
+        } else {
+            "loader"
+        };
+        std::fs::write(game.join(record), format!("url={base}/{url}\nvalidator=\n")).unwrap();
+    }
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 8);
+    install_mod_manager(game, GameKind::SADX, None).unwrap();
+    assert_eq!(downloads(), 8);
+
     unsafe {
         std::env::remove_var("ADVENTURE_MODS_7ZZ");
         std::env::remove_var("ADVENTURE_MODS_URL_SA_MOD_MANAGER");
