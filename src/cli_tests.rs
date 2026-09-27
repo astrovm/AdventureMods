@@ -1,7 +1,6 @@
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
-use std::sync::{Mutex, OnceLock};
 
 use clap::Parser;
 use gio::Settings;
@@ -19,13 +18,8 @@ use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::DetectionResult;
 
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
-
 fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
-    let _guard = env_lock().lock().unwrap();
+    let _guard = crate::test_env::lock();
     let schema_dir = tempfile::tempdir().unwrap();
     let schema_path = schema_dir.path().join(format!("{APP_ID}.gschema.xml"));
     let schema = include_str!("../data/io.github.astrovm.AdventureMods.gschema.xml")
@@ -56,8 +50,15 @@ fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
     let schema_source =
         gio::SettingsSchemaSource::from_directory(schema_dir.path(), None, true).unwrap();
     let schema = schema_source.lookup(APP_ID, true).unwrap();
-    let settings = Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
-    let result = test(&settings);
+    // GSettings delivers change notifications through the thread-default
+    // context. Without a private one, writes acquire the global default
+    // context and race with GTK initialization in `#[gtk::test]`s.
+    let result = gio::glib::MainContext::new()
+        .with_thread_default(|| {
+            let settings = Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
+            test(&settings)
+        })
+        .unwrap();
 
     match previous_schema_dir {
         Some(value) => unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", value) },
@@ -1094,7 +1095,7 @@ fn looks_like_cli_ignores_no_color_without_subcommand() {
 
 #[test]
 fn terminal_prompt_respects_no_color_setting() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     console::set_colors_enabled_stderr(true);
 
     let prompt = TerminalPrompt { use_color: false };
@@ -1173,7 +1174,7 @@ fn cli_output_no_color_writes_plain() {
 
 #[test]
 fn cli_output_with_color_emits_ansi_sequences() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let previous = console::colors_enabled();
     console::set_colors_enabled(true);
 
@@ -1191,7 +1192,7 @@ fn cli_output_with_color_emits_ansi_sequences() {
 
 #[test]
 fn run_from_args_uses_color_for_terminal_output_by_default() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let had_no_color = std::env::var("NO_COLOR").ok();
     unsafe {
         std::env::remove_var("NO_COLOR");
@@ -1228,7 +1229,7 @@ fn run_from_args_uses_color_for_terminal_output_by_default() {
 
 #[test]
 fn run_from_args_disables_color_with_no_color_env() {
-    let _guard = env_lock().lock().unwrap();
+    let _guard = crate::test_env::lock();
     unsafe {
         std::env::set_var("NO_COLOR", "1");
     }
@@ -1436,7 +1437,7 @@ fn game_resolution_reports_multiple_installations() {
 
 #[test]
 fn rich_resolution_without_precomputed_detection_returns_errors() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let mut args = empty_setup_args();
     args.detect.libraryfolders_vdf = Some(PathBuf::from("/definitely/missing/libraryfolders.vdf"));
     let prompt = MockPrompt {
@@ -1498,7 +1499,8 @@ fn download_progress_and_summary_cover_cli_output_paths() {
     assert!(String::from_utf8(output).unwrap().contains("Summary"));
 }
 
-#[test]
+// GTK can only be initialized from one thread, so share the gtk test thread.
+#[gtk::test]
 fn detect_resolution_uses_a_safe_fallback() {
     let (width, height) = super::detect_resolution();
     assert!(width > 0);
@@ -1547,7 +1549,7 @@ fn detect_resolution_handles_xrandr_failures_and_invalid_output() {
 
 #[test]
 fn clap_parse_error_contains_no_ansi_codes() {
-    let _guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
+    let _guard = crate::test_env::lock();
     let previous = console::colors_enabled();
     console::set_colors_enabled(true);
     let mut output = Vec::new();

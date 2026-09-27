@@ -8,5 +8,7 @@ pub mod external;
 pub mod path_display;
 pub mod setup;
 pub mod steam;
+#[cfg(test)]
+pub(crate) mod test_env;
 pub mod ui;
 pub mod window;

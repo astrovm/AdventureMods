@@ -317,11 +317,6 @@ fn find_all_games_in_libraries(
             };
 
             if !lib_path.exists() {
-                tracing::warn!(
-                    "Steam library for {} at {} is inaccessible (partition may not be mounted)",
-                    kind.name(),
-                    lib_path.display()
-                );
                 inaccessible.push(InaccessibleGame {
                     kind,
                     library_path: lib_path.to_path_buf(),
@@ -335,6 +330,22 @@ fn find_all_games_in_libraries(
     (paths, inaccessible)
 }
 
+/// Whether `lib_path` holds an installed copy of `kind`, without logging.
+fn library_has_game(lib_path: &Path, kind: GameKind) -> bool {
+    game_executable_path(lib_path, kind).exists()
+}
+
+fn game_executable_path(lib_path: &Path, kind: GameKind) -> PathBuf {
+    let executable = match kind {
+        GameKind::SADX => "Sonic Adventure DX.exe",
+        GameKind::SA2 => "sonic2app.exe",
+    };
+    lib_path
+        .join("steamapps/common")
+        .join(kind.install_dir())
+        .join(executable)
+}
+
 fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf> {
     let game_path = lib_path.join("steamapps/common").join(kind.install_dir());
 
@@ -342,13 +353,7 @@ fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf>
         return None;
     }
 
-    let executable = match kind {
-        GameKind::SADX => "Sonic Adventure DX.exe",
-        GameKind::SA2 => "sonic2app.exe",
-    };
-
-    let exe_path = game_path.join(executable);
-    if exe_path.exists() {
+    if game_executable_path(lib_path, kind).exists() {
         let real_path = game_path
             .canonicalize()
             .unwrap_or_else(|_| game_path.clone());
@@ -416,8 +421,7 @@ fn detect_games_from_parsed_vdfs(
         for inc in kind_inaccessible {
             let covered_by_grant = extra_libraries.iter().any(|extra| {
                 extra_library_root_for_host(extra, &inc.library_path)
-                    .and_then(|root| find_game_in_library_path(&root, kind))
-                    .is_some()
+                    .is_some_and(|root| library_has_game(&root, kind))
             });
             if covered_by_grant {
                 continue;
@@ -425,6 +429,11 @@ fn detect_games_from_parsed_vdfs(
 
             let canonical = canonicalize_with_suffix(&inc.library_path);
             if seen_inacc.insert(canonical) {
+                tracing::warn!(
+                    "Steam library for {} at {} is inaccessible (partition may not be mounted)",
+                    kind.name(),
+                    inc.library_path.display()
+                );
                 result.inaccessible.push(inc);
             }
         }
