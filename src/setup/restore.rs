@@ -90,6 +90,9 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         ));
     }
 
+    // Without the manager, its recorded release means nothing.
+    let _ = std::fs::remove_file(game_path.join(super::common::MANAGER_SOURCE_FILE));
+
     let loader_dir = game_path.join("mods/.modloader");
     if loader_dir.is_dir() {
         std::fs::remove_dir_all(&loader_dir)
@@ -171,6 +174,7 @@ mod tests {
         write(&dll_dir.join("Data_DLL_orig.dll"), "data");
         write(&game.join("mods/.modloader/SA2ModLoader.dll"), "loader");
         write(&game.join("mods/SomeMod/mod.ini"), "[mod]");
+        write(&game.join(".adventure-mods-manager-source"), "url=x");
 
         assert!(is_modded(game, GameKind::SA2));
         let report = restore_original_game(game, GameKind::SA2).unwrap();
@@ -186,6 +190,7 @@ mod tests {
         assert!(!dll_dir.join("Data_DLL_orig.dll").exists());
         assert!(!game.join("mods/.modloader").exists());
         assert!(game.join("mods/SomeMod/mod.ini").exists());
+        assert!(!game.join(".adventure-mods-manager-source").exists());
         assert!(!report.needs_steam_verify);
         assert_eq!(report.changes.len(), 3);
         assert!(!is_modded(game, GameKind::SA2));

@@ -122,8 +122,8 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         },
         SetupStep {
             id: StepId::Dotnet,
-            title: "Install .NET Runtime",
-            description: "Versions 8 and 10, needed by the mod manager",
+            title: ".NET Runtimes",
+            description: "Versions 8 and 10, installed or updated",
             kind: StepKind::Auto,
         },
     ];
@@ -131,8 +131,8 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     if kind == GameKind::SADX {
         steps.push(SetupStep {
             id: StepId::ConvertSteam,
-            title: "Convert to the 2004 Version",
-            description: "Needed by the mod loader",
+            title: "2004 Version",
+            description: "Converts the Steam version for the mod loader",
             kind: StepKind::Download,
         });
     }
@@ -140,14 +140,14 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     steps.extend([
         SetupStep {
             id: StepId::InstallModManager,
-            title: "Install Mod Manager",
-            description: "SA Mod Manager and the mod loader",
+            title: "Mod Manager and Loader",
+            description: "Installed or updated to the latest release",
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::DownloadMods,
-            title: "Install Mods",
-            description: "Download the selected mods and set them up",
+            title: "Mods",
+            description: "Installed or updated, then set up",
             kind: StepKind::Download,
         },
         SetupStep {

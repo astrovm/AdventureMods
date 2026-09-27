@@ -167,15 +167,7 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
             .map(|state| matches!(state, proton::PrefixState::Ready))
             .unwrap_or(false),
 
-        StepId::Dotnet => {
-            let Ok(prefix) = proton_prefix(p, game.kind.app_id()) else {
-                return false;
-            };
-            matches!(
-                proton::prefix_state(p, game.kind.app_id()),
-                Ok(proton::PrefixState::Ready)
-            ) && runtime_installer::is_dotnet_installed(&prefix)
-        }
+        StepId::Dotnet => false,
 
         // A restore waiting for Steam to repair the files needs a fresh
         // conversion, whatever older setups left behind.
@@ -189,7 +181,9 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
                     || p.join("sonic.exe").exists())
         }
 
-        StepId::InstallModManager => is_mod_manager_fully_installed(p, game.kind),
+        // These run every time to bring the runtimes, manager and loader up
+        // to date; they only download when something changed.
+        StepId::InstallModManager => false,
 
         StepId::SelectMods | StepId::LanguageOptions | StepId::DownloadMods | StepId::Complete => {
             false
@@ -242,26 +236,6 @@ fn is_mod_manager_fully_installed(game_path: &Path, game_kind: GameKind) -> bool
     exe_backed_up && loader_extracted && dll_swapped
 }
 
-/// Derive the Proton prefix path from a game's install directory and app ID.
-///
-/// Game path is typically `.../steamapps/common/<game>/`, and the prefix lives
-/// at `.../steamapps/compatdata/<appid>/pfx/`.
-fn proton_prefix(game_path: &Path, app_id: u32) -> Result<std::path::PathBuf> {
-    game_path
-        .parent() // common/
-        .and_then(|p| p.parent()) // steamapps/
-        .map(|steamapps| {
-            steamapps
-                .join("compatdata")
-                .join(app_id.to_string())
-                .join("pfx")
-        })
-        .context(format!(
-            "Cannot derive Proton prefix from game path: {}",
-            game_path.display()
-        ))
-}
-
 /// Install the .NET Desktop Runtimes SA Mod Manager needs (8 and 10) into the game's Proton prefix
 /// using the game's own Proton/Wine.
 pub async fn install_runtimes(game_path: std::path::PathBuf, app_id: u32) -> Result<()> {
@@ -282,16 +256,32 @@ pub fn install_mod_manager(
     game_kind: GameKind,
     progress: Option<download::ProgressFn>,
 ) -> Result<()> {
-    if is_mod_manager_fully_installed(game_path, game_kind) {
-        tracing::info!("SA Mod Manager and loader already present, skipping installation");
-        return Ok(());
+    let manager_url = sa_mod_manager_url();
+    let manager_record = game_path.join(MANAGER_SOURCE_FILE);
+    if is_mod_manager_fully_installed(game_path, game_kind)
+        && component_is_current(&manager_record, &manager_url)
+    {
+        tracing::info!("SA Mod Manager is up to date");
+    } else {
+        install_manager_release(game_path, &manager_url, progress)?;
+        record_component_source(&manager_record, &manager_url);
     }
 
+    // The loader has its own releases, so it is checked separately.
+    install_mod_loader(game_path, game_kind, None)?;
+    Ok(())
+}
+
+/// Download the SA Mod Manager release at `manager_url` and put it in place of
+/// the game's Steam launch executable, backing that up the first time.
+fn install_manager_release(
+    game_path: &Path,
+    manager_url: &str,
+    progress: Option<download::ProgressFn>,
+) -> Result<()> {
     let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("SAModManager.zip");
-
-    let manager_url = sa_mod_manager_url();
-    download::download_file(&manager_url, &archive_path, progress)?;
+    download::download_file(manager_url, &archive_path, progress)?;
 
     let extract_dir = temp_dir.path().join("extracted");
     archive::extract(&archive_path, &extract_dir)?;
@@ -330,12 +320,7 @@ pub fn install_mod_manager(
         ))?;
     }
 
-    install_mod_loader(game_path, game_kind, None)?;
-
-    tracing::info!(
-        "SA Mod Manager and loader installed to {}",
-        game_path.display()
-    );
+    tracing::info!("SA Mod Manager installed to {}", game_path.display());
     Ok(())
 }
 
@@ -352,23 +337,25 @@ pub fn install_mod_loader(
         GameKind::SA2 => "SA2ModLoader.dll",
     };
 
-    if game_path.join("mods/.modloader").join(loader_dll).exists() {
-        tracing::info!("Mod loader already present, refreshing DLL replacement");
+    let url = mod_loader_url(game_kind);
+    let loader_dir = game_path.join("mods").join(".modloader");
+    let loader_record = loader_dir.join(MOD_SOURCE_FILE);
+    if loader_dir.join(loader_dll).exists() && component_is_current(&loader_record, &url) {
+        tracing::info!("Mod loader is up to date, refreshing DLL replacement");
         install_loader_dll(game_path, game_kind)?;
         return Ok(());
     }
-
-    let url = mod_loader_url(game_kind);
 
     let temp_dir = staging_tempdir(game_path)?;
     let archive_path = temp_dir.path().join("ModLoader.7z");
 
     download::download_file(&url, &archive_path, progress)?;
 
-    // The x64 manager discovers loaders only in this directory.
-    let loader_dir = game_path.join("mods").join(".modloader");
+    // The x64 manager discovers loaders only in this directory. Extracting
+    // over an older loader updates its files and keeps the manager's settings.
     std::fs::create_dir_all(&loader_dir).context("Failed to create mods/.modloader directory")?;
     archive::extract(&archive_path, &loader_dir)?;
+    record_component_source(&loader_record, &url);
 
     tracing::info!("Mod loader installed to {}", loader_dir.display());
 
@@ -699,7 +686,11 @@ struct ModSourceRecord {
 
 impl ModSourceRecord {
     fn read(mod_dir: &Path) -> Option<Self> {
-        let content = std::fs::read_to_string(mod_dir.join(MOD_SOURCE_FILE)).ok()?;
+        Self::read_file(&mod_dir.join(MOD_SOURCE_FILE))
+    }
+
+    fn read_file(path: &Path) -> Option<Self> {
+        let content = std::fs::read_to_string(path).ok()?;
         let mut record = Self::default();
         for line in content.lines() {
             match line.split_once('=') {
@@ -714,12 +705,16 @@ impl ModSourceRecord {
     }
 
     fn write(&self, mod_dir: &Path) -> std::io::Result<()> {
+        self.write_file(&mod_dir.join(MOD_SOURCE_FILE))
+    }
+
+    fn write_file(&self, path: &Path) -> std::io::Result<()> {
         let content = format!(
             "url={}\nvalidator={}\n",
             self.url,
             self.validator.as_deref().unwrap_or_default()
         );
-        std::fs::write(mod_dir.join(MOD_SOURCE_FILE), content)
+        std::fs::write(path, content)
     }
 }
 
@@ -767,6 +762,49 @@ fn record_mod_source(mod_dir: &Path, url: &str, check_validator: bool) {
             "Failed to record the source of {}: {err}",
             mod_dir.display()
         );
+    }
+}
+
+/// Where setup records which SA Mod Manager release it installed.
+pub(crate) const MANAGER_SOURCE_FILE: &str = ".adventure-mods-manager-source";
+
+/// Whether the component recorded in `record_path` still matches what `url`
+/// serves. Unlike mods, a component with no record is treated as outdated, so
+/// ones installed before this was tracked are updated once. When the source
+/// cannot be reached the installed copy is kept.
+fn component_is_current(record_path: &Path, url: &str) -> bool {
+    let Some(record) = ModSourceRecord::read_file(record_path) else {
+        return false;
+    };
+    if record.url != url {
+        return false;
+    }
+    let Some(installed) = record.validator else {
+        return true;
+    };
+    match download::remote_validator(url) {
+        Ok(Some(remote)) => remote == installed,
+        Ok(None) => true,
+        Err(err) => {
+            tracing::warn!(
+                "Could not check {url} for updates, keeping the installed copy: {err:#}"
+            );
+            true
+        }
+    }
+}
+
+fn record_component_source(record_path: &Path, url: &str) {
+    let validator = download::remote_validator(url).unwrap_or_else(|err| {
+        tracing::debug!("Could not read the version of {url}: {err:#}");
+        None
+    });
+    let record = ModSourceRecord {
+        url: url.to_owned(),
+        validator,
+    };
+    if let Err(err) = record.write_file(record_path) {
+        tracing::warn!("Failed to record {}: {err}", record_path.display());
     }
 }
 
