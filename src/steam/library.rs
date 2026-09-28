@@ -5,32 +5,27 @@ use crate::steam::game::{Game, GameKind};
 use crate::steam::vdf;
 use anyhow::Context;
 
+/// `path` with symlinks resolved, or unchanged when it cannot be resolved
+/// (for example because it does not exist).
+pub(crate) fn try_canonicalize(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
 // Canonicalize as much of `path` as possible by walking up to the nearest
 // existing ancestor, canonicalizing that, and re-attaching the remaining
 // non-existent suffix. This handles symlinked parent directories for paths
 // that do not exist themselves (e.g. inaccessible Steam library paths).
 fn canonicalize_with_suffix(path: &Path) -> PathBuf {
     let mut ancestor = path;
-    let mut suffix = PathBuf::new();
-    loop {
-        if ancestor.exists() {
-            let base = ancestor
-                .canonicalize()
-                .unwrap_or_else(|_| ancestor.to_path_buf());
-            return base.join(suffix);
-        }
+    while !ancestor.exists() {
         match ancestor.parent() {
-            Some(parent) => {
-                if let Some(component) = ancestor.file_name() {
-                    let mut new_suffix = PathBuf::from(component);
-                    new_suffix.push(&suffix);
-                    suffix = new_suffix;
-                }
-                ancestor = parent;
-            }
+            Some(parent) => ancestor = parent,
             None => return path.to_path_buf(),
         }
     }
+    // `ancestor` came from `path.parent()`, so it is always a prefix.
+    let suffix = path.strip_prefix(ancestor).unwrap_or(path);
+    try_canonicalize(ancestor).join(suffix)
 }
 
 fn is_steam_library_root(path: &Path) -> bool {
@@ -274,11 +269,8 @@ fn library_folders_paths() -> Vec<PathBuf> {
 
     for root in steam_roots() {
         let path = root.join("steamapps/libraryfolders.vdf");
-        if path.is_file() {
-            let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-            if seen.insert(canonical) {
-                result.push(path);
-            }
+        if path.is_file() && seen.insert(try_canonicalize(&path)) {
+            result.push(path);
         }
     }
 
@@ -354,9 +346,7 @@ fn find_game_in_library_path(lib_path: &Path, kind: GameKind) -> Option<PathBuf>
     }
 
     if game_executable_path(lib_path, kind).exists() {
-        let real_path = game_path
-            .canonicalize()
-            .unwrap_or_else(|_| game_path.clone());
+        let real_path = try_canonicalize(&game_path);
         tracing::info!(
             "Found {} at {} (Real path: {})",
             kind.name(),
@@ -388,8 +378,7 @@ fn detect_games_from_parsed_vdfs(
             let (paths, inaccessible) = find_all_games_in_libraries(root, kind);
 
             for path in paths {
-                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                if seen_canonical.insert(canonical) {
+                if seen_canonical.insert(try_canonicalize(&path)) {
                     result.games.push(Game { kind, path });
                 }
             }
@@ -398,11 +387,10 @@ fn detect_games_from_parsed_vdfs(
         }
 
         for lib_path in extra_libraries {
-            if let Some(path) = find_game_in_library_path(lib_path, kind) {
-                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                if seen_canonical.insert(canonical) {
-                    result.games.push(Game { kind, path });
-                }
+            if let Some(path) = find_game_in_library_path(lib_path, kind)
+                && seen_canonical.insert(try_canonicalize(&path))
+            {
+                result.games.push(Game { kind, path });
             }
         }
 

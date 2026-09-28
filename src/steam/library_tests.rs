@@ -911,8 +911,18 @@ fn resolve_granted_library_rejects_unrelated_folder() {
     assert!(resolve_granted_steam_library(&selected, &expected).is_none());
 }
 
+/// Tag `path` the way the document portal does. CI and development checkouts
+/// live on filesystems with user xattrs (ext4, btrfs, tmpfs), so a failure
+/// here is a broken test environment, not a skipped test.
 #[cfg(target_os = "linux")]
-fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
+fn set_host_path_xattr(path: &Path, host_path: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+
+    set_raw_host_path_xattr(path, host_path.as_os_str().as_bytes());
+}
+
+#[cfg(target_os = "linux")]
+fn set_raw_host_path_xattr(path: &Path, value: &[u8]) {
     use std::ffi::CString;
     use std::os::unix::ffi::OsStrExt;
 
@@ -928,7 +938,6 @@ fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
 
     let c_path = CString::new(path.as_os_str().as_bytes()).unwrap();
     let c_name = CString::new("user.document-portal.host-path").unwrap();
-    let value = host_path.as_os_str().as_bytes();
     let result = unsafe {
         setxattr(
             c_path.as_ptr(),
@@ -938,7 +947,12 @@ fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
             0,
         )
     };
-    result == 0
+    assert_eq!(
+        result,
+        0,
+        "document-portal tests need user xattr support on the temp filesystem: {}",
+        std::io::Error::last_os_error()
+    );
 }
 
 #[cfg(target_os = "linux")]
@@ -949,10 +963,7 @@ fn resolve_granted_library_accepts_matching_portal_path() {
     let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
     make_steam_library(&portal, GameKind::SADX);
 
-    if !try_set_host_path_xattr(&portal, &expected) {
-        eprintln!("skipping xattr-backed portal grant test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal, &expected);
 
     let resolved = resolve_granted_steam_library(&portal, &expected).unwrap();
     assert_eq!(resolved, portal);
@@ -967,10 +978,7 @@ fn resolve_document_portal_path_maps_existing_nested_path() {
     let nested = portal.join("steamapps/common/Proton 10.0");
     std::fs::create_dir_all(&nested).unwrap();
 
-    if !try_set_host_path_xattr(&portal, &host) {
-        eprintln!("skipping xattr-backed portal path test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal, &host);
 
     assert_eq!(resolve_document_portal_path(&portal, &host), Some(portal));
     assert_eq!(
@@ -990,10 +998,7 @@ fn resolve_granted_library_scans_grants_only_for_the_selected_host_library() {
     std::fs::create_dir_all(doc.join("by-app")).unwrap();
     make_steam_library(&portal, GameKind::SADX);
 
-    if !try_set_host_path_xattr(&portal, &expected) {
-        eprintln!("skipping xattr-backed portal scan test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal, &expected);
 
     let selected = tmp.path().join("selected");
     std::fs::create_dir_all(&selected).unwrap();
@@ -1029,10 +1034,7 @@ fn resolve_granted_library_scans_grants_only_for_the_selected_host_library() {
     let nested_grant = doc.join("nested-grant");
     let nested_portal = nested_grant.join("NestedLibrary");
     make_steam_library(&nested_portal, GameKind::SADX);
-    if !try_set_host_path_xattr(&nested_portal, &nested_expected) {
-        eprintln!("skipping nested xattr-backed portal scan test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&nested_portal, &nested_expected);
 
     let nested_selected = tmp.path().join("nested-selected");
     std::fs::create_dir_all(&nested_selected).unwrap();
@@ -1055,10 +1057,7 @@ fn resolve_document_portal_host_path_maps_nested_path() {
     let nested = portal.join("steamapps/common/Proton 10.0");
     std::fs::create_dir_all(&nested).unwrap();
 
-    if !try_set_host_path_xattr(&portal, &host) {
-        eprintln!("skipping xattr-backed portal host path test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal, &host);
 
     assert_eq!(
         resolve_document_portal_host_path(&nested),
@@ -1075,10 +1074,7 @@ fn resolve_document_portal_host_path_preserves_file_paths() {
     std::fs::create_dir_all(portal_file.parent().unwrap()).unwrap();
     std::fs::write(&portal_file, b"#!/bin/sh\n").unwrap();
 
-    if !try_set_host_path_xattr(&portal_file, &host_file) {
-        eprintln!("skipping xattr-backed portal file test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal_file, &host_file);
 
     assert_eq!(
         resolve_document_portal_host_path(&portal_file),
@@ -1095,10 +1091,7 @@ fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
     let portal = tmp.path().join("run-user-doc").join("abc123");
     make_steam_library(&portal, GameKind::SADX);
 
-    if !try_set_host_path_xattr(&portal, &host_library) {
-        eprintln!("skipping xattr-backed portal grant test; filesystem has no user xattrs");
-        return;
-    }
+    set_host_path_xattr(&portal, &host_library);
 
     let root = mock_vdf(host_library.to_str().unwrap(), &["71250"]);
     let (result, logs) =
@@ -1238,4 +1231,187 @@ fn home_scan_logs_unreadable_library_file() {
     assert!(result.games.is_empty());
     assert!(logs.contains(&format!("Failed to read {}", vdf_path.display())));
     assert!(logs.contains("libraryfolders.vdf"));
+}
+
+#[test]
+fn try_canonicalize_keeps_unresolvable_paths() {
+    let tmp = tempfile::tempdir().unwrap();
+    let missing = tmp.path().join("missing");
+
+    assert_eq!(try_canonicalize(&missing), missing);
+    assert_eq!(
+        try_canonicalize(tmp.path()),
+        tmp.path().canonicalize().unwrap()
+    );
+}
+
+#[test]
+fn canonicalize_with_suffix_resolves_the_nearest_existing_ancestor() {
+    let tmp = tempfile::tempdir().unwrap();
+    let real = tmp.path().join("real");
+    let link = tmp.path().join("link");
+    std::fs::create_dir_all(&real).unwrap();
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    assert_eq!(
+        canonicalize_with_suffix(&link.join("missing/SteamLibrary")),
+        real.canonicalize().unwrap().join("missing/SteamLibrary")
+    );
+    // A trailing `..` below a missing directory is kept, not dropped.
+    assert_eq!(
+        canonicalize_with_suffix(&link.join("missing/..")),
+        real.canonicalize().unwrap().join("missing/..")
+    );
+    // A relative path with no existing ancestor is returned as is.
+    let relative = Path::new("adventure-mods-missing/SteamLibrary");
+    assert_eq!(canonicalize_with_suffix(relative), relative);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn document_portal_host_path_ignores_trailing_nul_bytes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let with_nul = tmp.path().join("with-nul");
+    let only_nul = tmp.path().join("only-nul");
+    std::fs::create_dir_all(&with_nul).unwrap();
+    std::fs::create_dir_all(&only_nul).unwrap();
+
+    set_raw_host_path_xattr(&with_nul, b"/host/SteamLibrary\0\0");
+    set_raw_host_path_xattr(&only_nul, b"\0");
+
+    assert_eq!(
+        document_portal_host_path(&with_nul),
+        Some(PathBuf::from("/host/SteamLibrary"))
+    );
+    assert_eq!(document_portal_host_path(&only_nul), None);
+    assert_eq!(document_portal_host_path(tmp.path()), None);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn resolve_document_portal_path_rejects_missing_and_unrelated_host_paths() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = tmp.path().join("host/SteamLibrary");
+    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
+    std::fs::create_dir_all(&portal).unwrap();
+    set_host_path_xattr(&portal, &host);
+
+    // Inside the grant, but not present in the sandbox.
+    assert_eq!(
+        resolve_document_portal_path(&portal, &host.join("steamapps/common/Proton 9.0")),
+        None
+    );
+    // Outside the grant entirely.
+    assert_eq!(
+        resolve_document_portal_path(&portal, &tmp.path().join("host/OtherLibrary")),
+        None
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn extra_library_root_for_host_matches_direct_and_nested_grants() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host_parent = tmp.path().join("host/games");
+    let host_library = host_parent.join("SteamLibrary");
+    let plain = tmp.path().join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+
+    // The same path needs no portal.
+    assert_eq!(
+        extra_library_root_for_host(&plain, &plain),
+        Some(plain.clone())
+    );
+    // An unrelated folder without a grant does not match.
+    assert_eq!(extra_library_root_for_host(&plain, &host_library), None);
+
+    // A grant of the library's parent maps to the nested library...
+    let grant = tmp.path().join("doc/abc123");
+    make_steam_library(&grant.join("SteamLibrary"), GameKind::SADX);
+    set_host_path_xattr(&grant, &host_parent);
+    assert_eq!(
+        extra_library_root_for_host(&grant, &host_library),
+        Some(grant.join("SteamLibrary"))
+    );
+    // ...but only when that folder is a Steam library in the sandbox.
+    assert_eq!(
+        extra_library_root_for_host(&grant, &host_parent.join("NotALibrary")),
+        None
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn resolve_granted_library_ignores_unrelated_grants_and_nested_folders() {
+    let tmp = tempfile::tempdir().unwrap();
+    let runtime = tmp.path().join("runtime");
+    let expected = tmp.path().join("host/SteamLibrary");
+    let unrelated = runtime.join("doc/unrelated");
+    make_steam_library(&unrelated, GameKind::SA2);
+    set_host_path_xattr(&unrelated, &tmp.path().join("host/OtherLibrary"));
+
+    // The expected library is not visible and no grant covers it.
+    let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
+        resolve_granted_steam_library(&expected, &expected)
+    });
+    assert_eq!(resolved, None);
+
+    // A selected folder holding a different library with the same name.
+    let selected = tmp.path().join("selected");
+    make_steam_library(&selected.join("SteamLibrary"), GameKind::SADX);
+    assert_eq!(resolve_granted_steam_library(&selected, &expected), None);
+}
+
+#[test]
+fn resolve_granted_library_rejects_folders_for_a_root_expected_path() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    // `/` has no folder name to look for inside the selection.
+    assert_eq!(
+        resolve_granted_steam_library(tmp.path(), Path::new("/")),
+        None
+    );
+}
+
+#[test]
+fn library_folders_paths_dedupes_linked_steam_roots() {
+    let home = tempfile::tempdir().unwrap();
+    let native = home.path().join(".local/share/Steam");
+    std::fs::create_dir_all(native.join("steamapps")).unwrap();
+    std::fs::write(
+        native.join("steamapps/libraryfolders.vdf"),
+        "\"libraryfolders\"\n{\n}\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(home.path().join(".steam")).unwrap();
+    std::os::unix::fs::symlink(&native, home.path().join(".steam/steam")).unwrap();
+
+    let paths = with_environment("HOME", Some(home.path()), library_folders_paths);
+
+    assert_eq!(
+        paths,
+        vec![
+            home.path()
+                .join(".steam/steam/steamapps/libraryfolders.vdf")
+        ]
+    );
+}
+
+#[test]
+fn strict_detect_reports_unreadable_libraryfolders() {
+    let tmp = tempfile::tempdir().unwrap();
+    let vdf_path = tmp.path().join("libraryfolders.vdf");
+
+    let error = detect_games_from_vdf_strict(&vdf_path, &[]).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("Failed to read {}", vdf_path.display())
+    );
+
+    std::fs::write(&vdf_path, "not valid vdf").unwrap();
+    let error = detect_games_from_vdf_strict(&vdf_path, &[]).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("Failed to parse {}", vdf_path.display())
+    );
 }
