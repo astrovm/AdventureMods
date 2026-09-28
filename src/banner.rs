@@ -4,7 +4,7 @@ use console::Style;
 
 const SONIC_BANNER: &str = include_str!("banner.txt");
 
-pub fn print_banner(output: &mut impl Write, use_color: bool) -> std::io::Result<()> {
+pub fn print_banner(output: &mut dyn Write, use_color: bool) -> std::io::Result<()> {
     if !use_color {
         write!(output, "{SONIC_BANNER}")?;
         return Ok(());
@@ -17,11 +17,7 @@ pub fn print_banner(output: &mut impl Write, use_color: bool) -> std::io::Result
     Ok(())
 }
 
-pub fn print_header(
-    output: &mut impl Write,
-    version: &str,
-    use_color: bool,
-) -> std::io::Result<()> {
+pub fn print_header(output: &mut dyn Write, version: &str, use_color: bool) -> std::io::Result<()> {
     if use_color {
         let bold = Style::new().bold();
         let yellow = Style::new().yellow().bright();

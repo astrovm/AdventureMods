@@ -12,7 +12,7 @@ use clap::Parser;
 
 use support::http_server::{Response, TestServer};
 use support::scripts;
-use support::steam_fixture::{create_sa2_fixture, create_sadx_fixture};
+use support::steam_fixture::{SteamFixture, create_sa2_fixture, create_sadx_fixture};
 use support::{EnvGuard, env_lock, leak_str};
 
 fn add_fake_mod_archive(
@@ -1290,4 +1290,407 @@ fn restore_command_keeps_asking_for_a_pending_steam_repair() {
 
     assert!(!output.contains("Nothing to restore"), "{output}");
     assert!(output.contains("steam://validate/71250"), "{output}");
+}
+
+/// Accepts output until `needle` has been written, then fails every write,
+/// like a closed pipe partway through a report.
+struct FailOnText {
+    needle: &'static str,
+    written: Vec<u8>,
+}
+
+fn fail_on(needle: &'static str) -> FailOnText {
+    FailOnText {
+        needle,
+        written: Vec::new(),
+    }
+}
+
+impl Write for FailOnText {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.written.extend_from_slice(buf);
+        if String::from_utf8_lossy(&self.written).contains(self.needle) {
+            return Err(std::io::Error::other("synthetic write failure"));
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn assert_write_failure(result: anyhow::Result<()>) {
+    let error = result.expect_err("the failed write should end the command");
+    assert!(
+        error.to_string().contains("synthetic write failure"),
+        "error was: {error:#}"
+    );
+}
+
+/// Point every SA2 setup download at `server`.
+fn sa2_download_env(server: &TestServer, fixture: &SteamFixture) -> EnvGuard {
+    EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SA2_MOD_LOADER",
+            server.url("/sa2-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+    ])
+}
+
+fn sa2_setup_command(fixture: &SteamFixture, extra: &[&str]) -> Cli {
+    let mut args = vec![
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sa2",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+        "--mods",
+        "sa2-render-fix",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+    ];
+    args.extend_from_slice(extra);
+    Cli::parse_from(args)
+}
+
+const FILE_RESPONSE: Response = Response::Ok {
+    content_type: "application/octet-stream",
+    body: "file",
+};
+
+#[test]
+fn cli_without_a_command_does_nothing() {
+    let mut output = Vec::new();
+
+    run_with_io(
+        Cli::parse_from(["adventure-mods", "--no-color"]),
+        false,
+        &mut output,
+    )
+    .unwrap();
+
+    assert!(output.is_empty());
+}
+
+#[test]
+fn restore_stops_when_writing_the_report_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path();
+    std::fs::write(game.join("Sonic Adventure DX.exe"), "game").unwrap();
+    std::fs::write(game.join(".adventure-mods-steam-repair"), "").unwrap();
+    let restore = || {
+        Cli::parse_from([
+            "adventure-mods",
+            "restore",
+            "--game",
+            "sadx",
+            "--game-path",
+            game.to_str().unwrap(),
+        ])
+    };
+
+    let mut heading = fail_on("Restoring Sonic Adventure DX");
+    assert_write_failure(run_with_io(restore(), false, &mut heading));
+
+    let mut verify = fail_on("Verify its files in Steam");
+    assert_write_failure(run_with_io(restore(), false, &mut verify));
+    // The report stops before claiming success.
+    assert!(!String::from_utf8_lossy(&verify.written).contains("Restore complete!"));
+}
+
+#[test]
+fn setup_rejects_unknown_subtitle_language_before_installing() {
+    let fixture = create_sa2_fixture();
+    let mut output = Vec::new();
+
+    let error = run_with_io(
+        sa2_setup_command(&fixture, &["--subtitle-language", "klingon"]),
+        false,
+        &mut output,
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("klingon"), "{error:#}");
+    assert!(!String::from_utf8(output).unwrap().contains("Setting up"));
+    assert!(!fixture.game_path.join("SAManager.exe").exists());
+}
+
+#[test]
+fn setup_stops_when_writing_the_plan_fails() {
+    let fixture = create_sa2_fixture();
+    let mut output = fail_on("Setting up Sonic Adventure 2");
+
+    assert_write_failure(run_with_io(
+        sa2_setup_command(&fixture, &[]),
+        false,
+        &mut output,
+    ));
+    assert!(!String::from_utf8_lossy(&output.written).contains("Step 1/"));
+}
+
+#[test]
+fn setup_surfaces_runtime_install_failures() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    // No .NET installer is served.
+    let server = TestServer::start(HashMap::from([
+        ("/samodmanager.zip", FILE_RESPONSE),
+        ("/sa2-loader.7z", FILE_RESPONSE),
+        ("/dcmods/sa2-render-fix.7z", FILE_RESPONSE),
+    ]));
+    let _env = sa2_download_env(&server, &fixture);
+    let mut output = Vec::new();
+
+    let error = run_with_io(sa2_setup_command(&fixture, &[]), false, &mut output).unwrap_err();
+
+    assert!(error.to_string().contains("HTTP error 404"), "{error:#}");
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Step 1/"), "{output}");
+    assert!(!output.contains("Done"), "{output}");
+}
+
+#[test]
+fn setup_surfaces_mod_manager_install_failures() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sa2_fixture();
+    // The mod manager is not served.
+    let server = TestServer::start(HashMap::from([
+        ("/sa2-loader.7z", FILE_RESPONSE),
+        ("/dotnet.exe", FILE_RESPONSE),
+        ("/dcmods/sa2-render-fix.7z", FILE_RESPONSE),
+    ]));
+    let _env = sa2_download_env(&server, &fixture);
+    let mut output = Vec::new();
+
+    let error = run_with_io(sa2_setup_command(&fixture, &[]), false, &mut output).unwrap_err();
+
+    assert!(error.to_string().contains("HTTP error 404"), "{error:#}");
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Step 2/"), "{output}");
+    assert!(!output.contains("Step 3/"), "{output}");
+}
+
+#[test]
+fn setup_surfaces_steam_conversion_failures() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _env_lock = env_lock();
+    let fixture = create_sadx_fixture();
+    // The Steam conversion tools are not served.
+    let server = TestServer::start(HashMap::from([
+        ("/samodmanager.zip", FILE_RESPONSE),
+        ("/sadx-loader.7z", FILE_RESPONSE),
+        ("/dotnet.exe", FILE_RESPONSE),
+    ]));
+    let _env = EnvGuard::set(&[
+        (
+            "ADVENTURE_MODS_URL_SA_MOD_MANAGER",
+            server.url("/samodmanager.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SADX_MOD_LOADER",
+            server.url("/sadx-loader.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
+            server.url("/dotnet.exe"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
+            server.url("/steam_tools.7z"),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            server.gamebanana_api_base(),
+        ),
+        (
+            "ADVENTURE_MODS_GAMEBANANA_DL_BASE",
+            server.gamebanana_dl_base(),
+        ),
+        (
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            server.url("/dcmods/"),
+        ),
+        ("ADVENTURE_MODS_7ZZ", fixture.fake_7zz.display().to_string()),
+        (
+            "ADVENTURE_MODS_HPATCHZ",
+            fixture.fake_hpatchz.display().to_string(),
+        ),
+    ]);
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "setup",
+        "--game",
+        "sadx",
+        "--game-path",
+        fixture.game_path.to_str().unwrap(),
+        "--mods",
+        sadx::RECOMMENDED_MODS[0].slug,
+        "--width",
+        "1280",
+        "--height",
+        "720",
+    ]);
+    let mut output = Vec::new();
+
+    let error = run_with_io(cli, false, &mut output).unwrap_err();
+
+    assert!(error.to_string().contains("HTTP error 404"), "{error:#}");
+    let output = String::from_utf8(output).unwrap();
+    assert!(output.contains("Step 2/"), "{output}");
+    assert!(!output.contains("Step 3/"), "{output}");
+}
+
+/// Launch the GUI with no display to connect to. Without `pkgdatadir` the
+/// built-in package data directory is used.
+fn launch_gui_without_display(pkgdatadir: Option<&std::path::Path>) -> String {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_adventure-mods"));
+    command
+        .current_dir(tmp.path())
+        .env_remove("DISPLAY")
+        .env_remove("WAYLAND_DISPLAY")
+        .env_remove("DBUS_SESSION_BUS_ADDRESS")
+        .env_remove("ADVENTURE_MODS_PKGDATADIR")
+        .env("XDG_RUNTIME_DIR", tmp.path())
+        .stdin(Stdio::null());
+    if let Some(pkgdatadir) = pkgdatadir {
+        command.env("ADVENTURE_MODS_PKGDATADIR", pkgdatadir);
+    }
+
+    let output = command.output().unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(
+        stderr.contains("Failed to open display"),
+        "stderr was: {stderr}"
+    );
+    stderr
+}
+
+#[test]
+fn gui_launch_without_a_display_exits_with_an_error() {
+    launch_gui_without_display(None);
+}
+
+#[test]
+fn gui_launch_warns_about_a_missing_resource_bundle() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let stderr = launch_gui_without_display(Some(&tmp.path().join("missing")));
+
+    assert!(
+        stderr.contains("Warning: failed to load GResources"),
+        "stderr was: {stderr}"
+    );
+}
+
+/// Run `adventure-mods <args>` on a terminal through `script`, typing `input`.
+/// Returns everything the terminal showed, or `None` without `script`.
+fn run_on_tty(args: &str, input: &[u8]) -> Option<(bool, String)> {
+    Command::new("script").arg("--version").output().ok()?;
+    let command = format!("\"{}\" {args}", env!("CARGO_BIN_EXE_adventure-mods"));
+    let mut child = Command::new("script")
+        .args(["-qfec", &command, "/dev/null"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(input).unwrap();
+    let output = child.wait_with_output().unwrap();
+    Some((
+        output.status.success(),
+        format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ),
+    ))
+}
+
+#[test]
+fn interactive_setup_reports_detection_errors_via_tty() {
+    let tmp = tempfile::tempdir().unwrap();
+    let missing = tmp.path().join("libraryfolders.vdf");
+
+    let Some((success, terminal)) = run_on_tty(
+        &format!("setup --libraryfolders-vdf \"{}\"", missing.display()),
+        b"",
+    ) else {
+        return;
+    };
+
+    assert!(!success);
+    assert!(
+        terminal.contains("Library folders file not found"),
+        "terminal was: {terminal}"
+    );
+    assert!(
+        !terminal.contains("Choose setup mode"),
+        "terminal was: {terminal}"
+    );
+}
+
+#[test]
+fn interactive_setup_can_choose_mods_manually_via_tty() {
+    let fixture = create_sa2_fixture();
+
+    // Move to "Choose mods manually", keep every mod checked, keep the default
+    // languages, then decline the summary.
+    let Some((success, terminal)) = run_on_tty(
+        &format!(
+            "setup --game sa2 --game-path \"{}\"",
+            fixture.game_path.display()
+        ),
+        b"j\n\n\n\nn\n",
+    ) else {
+        return;
+    };
+
+    assert!(!success);
+    assert!(terminal.contains("Select mods"), "terminal was: {terminal}");
+    assert!(
+        terminal.contains(&format!("Mods selected: {}", sa2::RECOMMENDED_MODS.len())),
+        "terminal was: {terminal}"
+    );
+    assert!(
+        terminal.contains("Setup cancelled"),
+        "terminal was: {terminal}"
+    );
 }
