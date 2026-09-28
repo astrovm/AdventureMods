@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow};
 
 use crate::steam::game::GameKind;
 
-use super::common::{self, ModEntry};
+use super::common::{self, ModEntry, ModPreset};
 use super::config;
 
 pub enum InstallProgress<'a> {
@@ -67,12 +67,8 @@ pub fn prefetch_mod_archives(
                     let Some(mod_entry) = queue.lock().unwrap().pop_front() else {
                         break;
                     };
-                    let mut stop_when_cancelled = |_: u64, _: Option<u64>| {
-                        if cancelled.load(Ordering::Relaxed) {
-                            anyhow::bail!("cancelled")
-                        }
-                        Ok(())
-                    };
+                    let mut stop_when_cancelled =
+                        |_: u64, _: Option<u64>| ensure_not_cancelled(cancelled);
                     if let Err(err) = common::prefetch_mod_archive(
                         game_path,
                         mod_entry,
@@ -94,6 +90,28 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     height: u32,
     language_selection: config::LanguageSelection,
     mut progress: impl FnMut(InstallProgress<'_>) -> Result<()>,
+) -> Result<()> {
+    install_mods_and_generate_config(
+        game_path,
+        game_kind,
+        selected_mods,
+        width,
+        height,
+        language_selection,
+        &mut progress,
+    )
+}
+
+/// The body of [`install_selected_mods_and_generate_config_with_progress`],
+/// compiled once rather than for every progress callback type.
+fn install_mods_and_generate_config(
+    game_path: &Path,
+    game_kind: GameKind,
+    selected_mods: &[&ModEntry],
+    width: u32,
+    height: u32,
+    language_selection: config::LanguageSelection,
+    progress: &mut dyn FnMut(InstallProgress<'_>) -> Result<()>,
 ) -> Result<()> {
     reject_duplicate_install_targets(selected_mods)?;
 
@@ -140,22 +158,17 @@ pub fn install_selected_mods_and_generate_config_with_progress(
                     let mut attempt = 0;
                     let result = loop {
                         let mut download_progress = |downloaded: u64, total_bytes: Option<u64>| {
-                            if cancelled.load(Ordering::Relaxed) {
-                                anyhow::bail!("cancelled")
-                            }
+                            ensure_not_cancelled(&cancelled)?;
 
-                            tx.send(WorkerMessage::DownloadingMod {
+                            // The receiver outlives every worker, so this
+                            // cannot fail.
+                            let _ = tx.send(WorkerMessage::DownloadingMod {
                                 job_index,
                                 downloaded,
                                 total_bytes,
-                            })
-                            .map_err(|_| anyhow!("cancelled"))?;
+                            });
 
-                            if cancelled.load(Ordering::Relaxed) {
-                                anyhow::bail!("cancelled")
-                            }
-
-                            Ok(())
+                            ensure_not_cancelled(&cancelled)
                         };
 
                         let result = common::install_mod_with_progress(
@@ -276,6 +289,14 @@ pub fn install_selected_mods_and_generate_config_with_progress(
     Ok(())
 }
 
+/// Stop a download once the install was cancelled.
+fn ensure_not_cancelled(cancelled: &AtomicBool) -> Result<()> {
+    if cancelled.load(Ordering::Relaxed) {
+        anyhow::bail!("cancelled")
+    }
+    Ok(())
+}
+
 fn reject_duplicate_install_targets(selected_mods: &[&ModEntry]) -> Result<()> {
     let mut seen = HashSet::new();
 
@@ -294,8 +315,23 @@ pub fn resolve_selected_mods(
     preset_name: Option<&str>,
     mod_names: &[&str],
 ) -> Result<Vec<&'static ModEntry>> {
-    let mods = common::recommended_mods_for_game(game_kind);
+    resolve_selected_mods_in(
+        game_kind,
+        common::recommended_mods_for_game(game_kind),
+        common::presets_for_game(game_kind),
+        preset_name,
+        mod_names,
+    )
+}
 
+/// [`resolve_selected_mods`] against a given mod catalog and its presets.
+fn resolve_selected_mods_in(
+    game_kind: GameKind,
+    mods: &'static [ModEntry],
+    presets: &[ModPreset],
+    preset_name: Option<&str>,
+    mod_names: &[&str],
+) -> Result<Vec<&'static ModEntry>> {
     if !mod_names.is_empty() {
         return mod_names
             .iter()
@@ -308,7 +344,7 @@ pub fn resolve_selected_mods(
     }
 
     if let Some(preset_name) = preset_name {
-        let preset = common::presets_for_game(game_kind)
+        let preset = presets
             .iter()
             .find(|preset| preset.name.eq_ignore_ascii_case(preset_name))
             .ok_or_else(|| anyhow!("Unknown preset '{}' for {}", preset_name, game_kind.name()))?;
@@ -335,194 +371,5 @@ pub fn resolve_selected_mods(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{reject_duplicate_install_targets, resolve_selected_mods};
-    use crate::steam::game::GameKind;
-
-    #[test]
-    fn resolves_named_mods_in_requested_order() {
-        let selected = resolve_selected_mods(
-            GameKind::SA2,
-            None,
-            &["HD GUI: SA2 Edition", "SA2 Render Fix"],
-        )
-        .unwrap();
-
-        let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
-        assert_eq!(names, vec!["HD GUI: SA2 Edition", "SA2 Render Fix"]);
-    }
-
-    #[test]
-    fn resolves_preset_when_no_explicit_mods_are_given() {
-        let selected =
-            resolve_selected_mods(GameKind::SADX, Some("Dreamcast Restoration"), &[]).unwrap();
-
-        assert!(
-            selected
-                .iter()
-                .any(|entry| entry.name == "Dreamcast Characters Pack")
-        );
-        assert!(
-            !selected
-                .iter()
-                .any(|entry| entry.name == "DX Characters Refined")
-        );
-    }
-
-    #[test]
-    fn rejects_unknown_mod_names() {
-        let error = match resolve_selected_mods(GameKind::SA2, None, &["Not Real"]) {
-            Ok(_) => panic!("expected unknown mod to fail"),
-            Err(error) => error,
-        };
-
-        assert!(error.to_string().contains("Unknown mod"));
-    }
-
-    #[test]
-    fn resolve_selected_mods_preserves_duplicate_entries() {
-        let selected =
-            resolve_selected_mods(GameKind::SA2, None, &["SA2 Render Fix", "SA2 Render Fix"])
-                .unwrap();
-
-        let names: Vec<&str> = selected.iter().map(|entry| entry.name).collect();
-        assert_eq!(names, vec!["SA2 Render Fix", "SA2 Render Fix"]);
-    }
-
-    #[test]
-    fn reject_duplicate_install_targets_errors_on_duplicates() {
-        use crate::setup::common::{ModEntry, ModSource};
-        let entry = ModEntry {
-            name: "SA2 Render Fix",
-            slug: "sa2-render-fix",
-            dir_name: Some("sa2-render-fix"),
-            source: ModSource::DirectUrl {
-                url: "https://example.com/mod.zip",
-            },
-            description: "test",
-            full_description: None,
-            pictures: &[],
-            links: &[],
-        };
-        let selected = vec![&entry, &entry];
-        let result = reject_duplicate_install_targets(&selected);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Duplicate mod install target")
-        );
-    }
-
-    #[test]
-    fn empty_selection_generates_config_and_reports_progress() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut events = Vec::new();
-
-        super::install_selected_mods_and_generate_config_with_progress(
-            dir.path(),
-            GameKind::SA2,
-            &[],
-            1280,
-            720,
-            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
-            |progress| {
-                if let super::InstallProgress::GeneratingConfig = progress {
-                    events.push("config");
-                }
-                Ok(())
-            },
-        )
-        .unwrap();
-
-        assert_eq!(events, vec!["config"]);
-    }
-
-    fn complete_mod_entry() -> super::ModEntry {
-        super::ModEntry {
-            name: "Ready Mod",
-            slug: "ready-mod",
-            dir_name: Some("ReadyMod"),
-            source: super::common::ModSource::DirectUrl {
-                url: "http://127.0.0.1:9/unused.zip",
-            },
-            description: "preinstalled synthetic mod",
-            full_description: None,
-            pictures: &[],
-            links: &[],
-        }
-    }
-
-    #[test]
-    fn preinstalled_mod_reports_started_finished_and_config_events() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_dir = dir.path().join("mods/ReadyMod");
-        std::fs::create_dir_all(&mod_dir).unwrap();
-        std::fs::write(mod_dir.join("mod.ini"), b"Name=Ready Mod\n").unwrap();
-        let entry = complete_mod_entry();
-        let selected = vec![&entry];
-        let mut events = Vec::new();
-
-        super::install_selected_mods_and_generate_config_with_progress(
-            dir.path(),
-            GameKind::SA2,
-            &selected,
-            1280,
-            720,
-            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
-            |progress| {
-                match progress {
-                    super::InstallProgress::Started { .. } => events.push("started"),
-                    super::InstallProgress::Finished { .. } => events.push("finished"),
-                    super::InstallProgress::GeneratingConfig => events.push("config"),
-                    super::InstallProgress::DownloadingMod { .. } => events.push("download"),
-                }
-                Ok(())
-            },
-        )
-        .unwrap();
-
-        assert_eq!(events, vec!["started", "finished", "config"]);
-    }
-
-    #[test]
-    fn progress_callback_errors_cancel_started_and_finished_events() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_dir = dir.path().join("mods/ReadyMod");
-        std::fs::create_dir_all(&mod_dir).unwrap();
-        std::fs::write(mod_dir.join("mod.ini"), b"Name=Ready Mod\n").unwrap();
-        let entry = complete_mod_entry();
-        let selected = vec![&entry];
-
-        let started_error = super::install_selected_mods_and_generate_config_with_progress(
-            dir.path(),
-            GameKind::SA2,
-            &selected,
-            1280,
-            720,
-            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
-            |progress| match progress {
-                super::InstallProgress::Started { .. } => Err(anyhow::anyhow!("stop at start")),
-                _ => Ok(()),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(started_error.to_string(), "stop at start");
-
-        let finished_error = super::install_selected_mods_and_generate_config_with_progress(
-            dir.path(),
-            GameKind::SA2,
-            &selected,
-            1280,
-            720,
-            crate::setup::config::LanguageSelection::defaults_for(GameKind::SA2),
-            |progress| match progress {
-                super::InstallProgress::Finished { .. } => Err(anyhow::anyhow!("stop at finish")),
-                _ => Ok(()),
-            },
-        )
-        .unwrap_err();
-        assert_eq!(finished_error.to_string(), "stop at finish");
-    }
-}
+#[path = "pipeline_tests.rs"]
+mod tests;

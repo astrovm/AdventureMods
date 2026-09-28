@@ -366,6 +366,9 @@ mod tests {
             std::env::remove_var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS");
             std::env::remove_var("ADVENTURE_MODS_HPATCHZ");
         }
+
+        // Without an override, hpatchz is looked up on PATH.
+        assert_eq!(hpatchz_program(), std::path::PathBuf::from("hpatchz"));
     }
 
     #[test]
@@ -394,6 +397,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn normalize_case_for_patch_reports_directories_it_cannot_rename() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("SoundData/VOICE_JP")).unwrap();
+        // A dangling link does not count as an existing target, but a
+        // directory cannot be renamed over it.
+        std::os::unix::fs::symlink("missing", tmp.path().join("SoundData/voice_jp")).unwrap();
+
+        let err = normalize_case_for_patch(tmp.path()).unwrap_err();
+
+        assert!(err.to_string().starts_with("Failed to rename"), "{err}");
+        assert!(err.to_string().contains("SoundData/VOICE_JP"), "{err}");
+        assert!(tmp.path().join("SoundData/VOICE_JP").is_dir());
+    }
+
     // --- convert_steam_to_2004() failure tests ---
 
     fn write_script(path: &Path, body: &str) {
@@ -405,13 +423,27 @@ mod tests {
     /// Run the conversion on an unconverted game against a local steam_tools
     /// server, a fake 7zz running `extract_body` and hpatchz at `hpatchz`.
     fn convert_with_fake_tools(extract_body: &str, hpatchz: &Path) -> anyhow::Error {
-        use crate::external::test_http::{Reply, serve};
-
-        let _guard = crate::test_env::lock();
         let tmp = tempfile::tempdir().unwrap();
         let game = tmp.path().join("game");
         std::fs::create_dir_all(game.join("system")).unwrap();
-        let fake_7zz = tmp.path().join("7zz");
+
+        let result = run_conversion(tmp.path(), &game, extract_body, hpatchz);
+
+        assert!(!game.join("sonic.exe").exists());
+        result.unwrap_err()
+    }
+
+    /// Convert `game` with fake tools kept in `tools_dir`.
+    fn run_conversion(
+        tools_dir: &Path,
+        game: &Path,
+        extract_body: &str,
+        hpatchz: &Path,
+    ) -> Result<()> {
+        use crate::external::test_http::{Reply, serve};
+
+        let _guard = crate::test_env::lock();
+        let fake_7zz = tools_dir.join("7zz");
         write_script(
             &fake_7zz,
             &format!(
@@ -428,15 +460,13 @@ mod tests {
             std::env::set_var("ADVENTURE_MODS_7ZZ", fake_7zz);
             std::env::set_var("ADVENTURE_MODS_HPATCHZ", hpatchz);
         }
-        let result = convert_steam_to_2004(&game, None);
+        let result = convert_steam_to_2004(game, None);
         unsafe {
             std::env::remove_var("ADVENTURE_MODS_URL_SADX_STEAM_TOOLS");
             std::env::remove_var("ADVENTURE_MODS_7ZZ");
             std::env::remove_var("ADVENTURE_MODS_HPATCHZ");
         }
-
-        assert!(!game.join("sonic.exe").exists());
-        result.unwrap_err()
+        result
     }
 
     fn fake_hpatchz(dir: &tempfile::TempDir, body: &str) -> std::path::PathBuf {
@@ -446,6 +476,38 @@ mod tests {
     }
 
     const EXTRACT_PATCH: &str = "touch \"$dest/patch_steam_inst.dat\"";
+
+    #[test]
+    fn convert_moves_the_patched_game_into_place_and_clears_a_pending_repair() {
+        let capture = crate::test_log::LogCapture::start();
+        let tools = tempfile::tempdir().unwrap();
+        let game = tools.path().join("game");
+        std::fs::create_dir_all(game.join("system")).unwrap();
+        std::fs::write(game.join("system/CHRMODELS.dll"), "steam").unwrap();
+        // A restore left sonic.exe behind while waiting for Steam's repair.
+        std::fs::write(game.join("sonic.exe"), "leftover").unwrap();
+        std::fs::write(game.join(".adventure-mods-steam-repair"), "").unwrap();
+        // hpatchz -f <game> <patch> <out> writes the whole converted game.
+        let hpatchz = fake_hpatchz(
+            &tools,
+            "mkdir -p \"$4/system\"\necho 2004 > \"$4/sonic.exe\"\necho chr > \"$4/system/CHRMODELS.dll\"",
+        );
+
+        run_conversion(tools.path(), &game, EXTRACT_PATCH, &hpatchz).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(game.join("sonic.exe")).unwrap(),
+            "2004\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(game.join("system/CHRMODELS.dll")).unwrap(),
+            "chr\n"
+        );
+        assert!(!crate::setup::restore::needs_steam_repair(&game));
+        let logs = capture.contents();
+        assert!(logs.contains("moving files back"), "{logs}");
+        assert!(logs.contains("Steam-to-2004 conversion complete"), "{logs}");
+    }
 
     #[test]
     fn convert_fails_when_steam_tools_has_no_patch() {

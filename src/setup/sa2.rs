@@ -42,14 +42,12 @@ mod tests {
             .find(|m| m.name == "SA2 Render Fix")
             .expect("SA2 Render Fix entry missing");
 
-        match mod_entry.source {
-            ModSource::DirectUrl { url } => assert!(
-                url.contains("github.com/shaddatic/sa2b-render-fix"),
-                "SA2 Render Fix should use GitHub releases URL, got: {url}"
+        assert!(
+            matches!(
+                mod_entry.source,
+                ModSource::DirectUrl { url } if url.contains("github.com/shaddatic/sa2b-render-fix")
             ),
-            ModSource::GameBananaItem { .. } => {
-                panic!("SA2 Render Fix should use DirectUrl, not GameBananaItem")
-            }
-        }
+            "SA2 Render Fix should use a DirectUrl to its GitHub releases"
+        );
     }
 }
