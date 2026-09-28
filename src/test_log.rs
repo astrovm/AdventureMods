@@ -72,6 +72,17 @@ mod tests {
     }
 
     #[test]
+    fn buffer_keeps_its_contents_when_flushed() {
+        use std::io::Write;
+
+        let mut buffer = Buffer::default();
+        write!(buffer, "flushed line").unwrap();
+        buffer.flush().unwrap();
+
+        assert_eq!(&*buffer.0.lock().unwrap(), b"flushed line");
+    }
+
+    #[test]
     fn log_capture_stops_recording_when_dropped() {
         let capture = LogCapture::start();
         tracing::info!("while capturing");

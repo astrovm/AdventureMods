@@ -232,7 +232,7 @@ pub struct SetupArgs {
     pub detect: DetectArgs,
 }
 
-pub fn run_with_io(cli: Cli, use_color: bool, output: &mut impl Write) -> Result<()> {
+pub fn run_with_io(cli: Cli, use_color: bool, output: &mut dyn Write) -> Result<()> {
     let mut out = CliOutput::new(output, use_color);
 
     match cli.command {
@@ -448,9 +448,8 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
                         })?;
                     }
                     SetupAction::InstallMods => {
-                        if let Some(prefetch) = prefetch.take() {
-                            let _ = prefetch.join();
-                        }
+                        // Setup installs mods once, so the downloads are still pending here.
+                        let _ = prefetch.take().map(|prefetch| prefetch.join());
                         run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
                     }
                 }
@@ -508,59 +507,125 @@ fn run_download_step<T>(
     let heading = step_heading(index, total, label);
     out.heading(&heading)?;
 
-    // Track last printed MB to avoid flooding stdout
-    let last_mb = std::sync::Arc::new(std::sync::Mutex::new(-1i64));
-    let last_mb_clone = last_mb.clone();
-    let wrote_progress = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let wrote_progress_clone = wrote_progress.clone();
-
-    let use_color = out.use_color;
-    let dim = out.dim.clone();
-    let interactive_stderr = std::io::stderr().is_terminal();
-
+    let lines = std::sync::Arc::new(std::sync::Mutex::new(ProgressLines::new(
+        std::io::stderr().is_terminal(),
+        out.use_color,
+        out.dim.clone(),
+    )));
+    let progress_lines = lines.clone();
     let progress_fn: Option<crate::external::download::ProgressFn> =
         Some(Box::new(move |downloaded, total_bytes| {
-            let mb = (downloaded / 1_048_576) as i64;
-            let mut last = last_mb_clone.lock().unwrap();
-            if mb != *last {
-                *last = mb;
-                wrote_progress_clone.store(true, std::sync::atomic::Ordering::Relaxed);
-                let text = if let Some(tb) = total_bytes {
-                    let total_mb = tb as f64 / 1_048_576.0;
-                    let pct = downloaded as f64 / tb as f64 * 100.0;
-                    format!(
-                        "  {:.1} / {:.1} MB ({:.0}%)",
-                        downloaded as f64 / 1_048_576.0,
-                        total_mb,
-                        pct,
-                    )
-                } else {
-                    format!("  {:.1} MB downloaded", downloaded as f64 / 1_048_576.0)
-                };
-                if interactive_stderr {
-                    if use_color {
-                        eprint!("\r{}", dim.apply_to(&text))
-                    } else {
-                        eprint!("\r{text}")
-                    }
-                } else {
-                    if use_color {
-                        eprintln!("{}", dim.apply_to(&text))
-                    } else {
-                        eprintln!("{text}")
-                    }
-                }
-            }
+            eprint!(
+                "{}",
+                progress_lines.lock().unwrap().update(
+                    "",
+                    downloaded,
+                    total_bytes,
+                    download_progress_text
+                )
+            );
         }));
 
     let value = action(progress_fn);
-    if interactive_stderr && wrote_progress.load(std::sync::atomic::Ordering::Relaxed) {
-        eprintln!();
-    }
+    eprint!("{}", lines.lock().unwrap().end_line());
     let value = value?;
     out.writeln("Done")?;
     out.writeln("")?;
     Ok(value)
+}
+
+/// Download progress on stderr. An interactive terminal rewrites one line in
+/// place; otherwise every update gets its own line.
+struct ProgressLines {
+    interactive: bool,
+    use_color: bool,
+    dim: Style,
+    // Last printed MB per download, to avoid flooding stderr.
+    last_mb: std::collections::HashMap<String, i64>,
+    has_active_line: bool,
+}
+
+impl ProgressLines {
+    fn new(interactive: bool, use_color: bool, dim: Style) -> Self {
+        ProgressLines {
+            interactive,
+            use_color,
+            dim,
+            last_mb: std::collections::HashMap::new(),
+            has_active_line: false,
+        }
+    }
+
+    /// Text to print for the download `key`, or nothing while it stays
+    /// within the same MB.
+    fn update(
+        &mut self,
+        key: &str,
+        downloaded: u64,
+        total_bytes: Option<u64>,
+        text: fn(&str, u64, Option<u64>) -> String,
+    ) -> String {
+        let mb = (downloaded / 1_048_576) as i64;
+        let last = self.last_mb.entry(key.to_string()).or_insert(-1);
+        if mb == *last {
+            return String::new();
+        }
+        *last = mb;
+        self.has_active_line = true;
+        let text = text(key, downloaded, total_bytes);
+        let text = if self.use_color {
+            self.dim.apply_to(&text).to_string()
+        } else {
+            text
+        };
+        if self.interactive {
+            format!("\r{text}")
+        } else {
+            format!("{text}\n")
+        }
+    }
+
+    /// Forget the progress of `key`.
+    fn reset(&mut self, key: &str) {
+        self.last_mb.remove(key);
+    }
+
+    /// Text that moves past a line being rewritten in place, so the next
+    /// output starts on a fresh line.
+    fn end_line(&mut self) -> &'static str {
+        if self.interactive && self.has_active_line {
+            self.has_active_line = false;
+            "\n"
+        } else {
+            ""
+        }
+    }
+}
+
+fn download_progress_text(_key: &str, downloaded: u64, total_bytes: Option<u64>) -> String {
+    let downloaded_mb = downloaded as f64 / 1_048_576.0;
+    match total_bytes {
+        Some(tb) => format!(
+            "  {:.1} / {:.1} MB ({:.0}%)",
+            downloaded_mb,
+            tb as f64 / 1_048_576.0,
+            downloaded as f64 / tb as f64 * 100.0,
+        ),
+        None => format!("  {downloaded_mb:.1} MB downloaded"),
+    }
+}
+
+fn mod_progress_text(mod_name: &str, downloaded: u64, total_bytes: Option<u64>) -> String {
+    let downloaded_mb = downloaded as f64 / 1_048_576.0;
+    match total_bytes {
+        Some(tb) => format!(
+            "    {mod_name}: {:.1} / {:.1} MB ({:.0}%)",
+            downloaded_mb,
+            tb as f64 / 1_048_576.0,
+            downloaded as f64 / tb as f64 * 100.0,
+        ),
+        None => format!("    {mod_name}: {downloaded_mb:.1} MB"),
+    }
 }
 
 struct ModInstallStep<'a> {
@@ -589,11 +654,11 @@ fn run_mod_install_step(
     step: &ModInstallStep<'_>,
 ) -> Result<()> {
     out.heading(&step_heading(index, total, label))?;
-    // Track last printed MB per mod name to avoid flooding stderr under concurrent downloads.
-    let mut last_dl_mb_per_mod: std::collections::HashMap<String, i64> =
-        std::collections::HashMap::new();
-    let mut has_active_progress_line = false;
-    let interactive_stderr = std::io::stderr().is_terminal();
+    let mut lines = ProgressLines::new(
+        std::io::stderr().is_terminal(),
+        out.use_color,
+        out.dim.clone(),
+    );
     let result = pipeline::install_selected_mods_and_generate_config_with_progress(
         step.game_path,
         step.game_kind,
@@ -604,11 +669,8 @@ fn run_mod_install_step(
         |progress| {
             match progress {
                 pipeline::InstallProgress::Started { mod_name } => {
-                    if interactive_stderr && has_active_progress_line {
-                        eprintln!();
-                        has_active_progress_line = false;
-                    }
-                    last_dl_mb_per_mod.insert(mod_name.to_string(), -1);
+                    eprint!("{}", lines.end_line());
+                    lines.reset(mod_name);
                     let _ = out.dim_writeln(&format!("  Starting: {mod_name}"));
                 }
                 pipeline::InstallProgress::DownloadingMod {
@@ -616,63 +678,29 @@ fn run_mod_install_step(
                     downloaded,
                     total_bytes,
                 } => {
-                    let mb = (downloaded / 1_048_576) as i64;
-                    let last = last_dl_mb_per_mod.entry(mod_name.to_string()).or_insert(-1);
-                    if mb != *last {
-                        *last = mb;
-                        let text = if let Some(tb) = total_bytes {
-                            let pct = downloaded as f64 / tb as f64 * 100.0;
-                            format!(
-                                "    {mod_name}: {:.1} / {:.1} MB ({:.0}%)",
-                                downloaded as f64 / 1_048_576.0,
-                                tb as f64 / 1_048_576.0,
-                                pct,
-                            )
-                        } else {
-                            format!("    {mod_name}: {:.1} MB", downloaded as f64 / 1_048_576.0)
-                        };
-                        if interactive_stderr {
-                            has_active_progress_line = true;
-                            if out.use_color {
-                                eprint!("\r{}", out.dim.apply_to(&text))
-                            } else {
-                                eprint!("\r{text}")
-                            }
-                        } else {
-                            if out.use_color {
-                                eprintln!("{}", out.dim.apply_to(&text))
-                            } else {
-                                eprintln!("{text}")
-                            }
-                        }
-                    }
+                    eprint!(
+                        "{}",
+                        lines.update(mod_name, downloaded, total_bytes, mod_progress_text)
+                    );
                 }
                 pipeline::InstallProgress::Finished {
                     mod_name,
                     completed,
                     total,
                 } => {
-                    if interactive_stderr && has_active_progress_line {
-                        eprintln!();
-                        has_active_progress_line = false;
-                    }
-                    last_dl_mb_per_mod.remove(mod_name);
+                    eprint!("{}", lines.end_line());
+                    lines.reset(mod_name);
                     let _ = out.writeln(&format!("  [{completed}/{total}] Installed: {mod_name}"));
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
-                    if interactive_stderr && has_active_progress_line {
-                        eprintln!();
-                        has_active_progress_line = false;
-                    }
+                    eprint!("{}", lines.end_line());
                     let _ = out.writeln("  Generating mod config...");
                 }
             }
             Ok(())
         },
     );
-    if interactive_stderr && has_active_progress_line {
-        eprintln!();
-    }
+    eprint!("{}", lines.end_line());
     result?;
     out.writeln("Done")?;
     out.writeln("")?;
@@ -1255,16 +1283,14 @@ pub fn run_from_args_with_io(
 }
 
 fn detect_resolution() -> (u32, u32) {
-    detect_resolution_with(detect_resolution_via_gdk, || {
-        std::process::Command::new("xrandr")
-            .arg("--current")
-            .output()
-    })
+    let mut xrandr = std::process::Command::new("xrandr");
+    xrandr.arg("--current");
+    detect_resolution_with(detect_resolution_via_gdk, xrandr)
 }
 
 fn detect_resolution_with(
-    detect_gdk: impl FnOnce() -> Option<(u32, u32)>,
-    run_xrandr: impl FnOnce() -> std::io::Result<std::process::Output>,
+    detect_gdk: fn() -> Option<(u32, u32)>,
+    mut xrandr: std::process::Command,
 ) -> (u32, u32) {
     let fallback = (1920u32, 1080u32);
 
@@ -1272,7 +1298,7 @@ fn detect_resolution_with(
         return res;
     }
 
-    let output = run_xrandr();
+    let output = xrandr.output();
 
     let output = match output {
         Ok(o) if o.status.success() => o,
@@ -1305,12 +1331,17 @@ fn detect_resolution_with(
 }
 
 fn detect_resolution_via_gdk() -> Option<(u32, u32)> {
-    use std::sync::OnceLock;
-    static GTK_INIT: OnceLock<bool> = OnceLock::new();
+    static GTK_INIT: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    resolution_via_gdk(&GTK_INIT, gtk::init)
+}
 
+fn resolution_via_gdk(
+    init_state: &std::sync::OnceLock<bool>,
+    init_gtk: fn() -> Result<(), gtk::glib::BoolError>,
+) -> Option<(u32, u32)> {
     // gtk::init() panics if called from a non-main thread. Use OnceLock so only
     // the first caller attempts it and any panic is caught rather than propagated.
-    let initialized = GTK_INIT.get_or_init(|| std::panic::catch_unwind(gtk::init).is_ok());
+    let initialized = init_state.get_or_init(|| std::panic::catch_unwind(init_gtk).is_ok());
     if !*initialized {
         return None;
     }
