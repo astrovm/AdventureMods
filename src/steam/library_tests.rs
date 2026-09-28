@@ -1349,6 +1349,12 @@ fn resolve_granted_library_ignores_unrelated_grants_and_nested_folders() {
     let unrelated = runtime.join("doc/unrelated");
     make_steam_library(&unrelated, GameKind::SA2);
     set_host_path_xattr(&unrelated, &tmp.path().join("host/OtherLibrary"));
+    // The portal's per-app view and stray files are never grants, even when
+    // they look like the expected library.
+    let by_app = runtime.join("doc/by-app");
+    make_steam_library(&by_app, GameKind::SADX);
+    set_host_path_xattr(&by_app, &expected);
+    std::fs::write(runtime.join("doc/stray-file"), b"").unwrap();
 
     // The expected library is not visible and no grant covers it.
     let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
