@@ -1,7 +1,6 @@
 use super::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 /// Build a mock VDF structure for libraryfolders with one library.
 fn mock_vdf(lib_path: &str, app_ids: &[&str]) -> vdf::VdfValue {
@@ -1174,34 +1173,7 @@ fn multiple_games_in_multiple_libraries_single_vdf() {
     assert!(result.inaccessible.is_empty());
 }
 
-/// Run `test` with a subscriber that records every log line it emits, so the
-/// diagnostics users see in the terminal can be asserted on.
-fn capture_logs<T>(test: impl FnOnce() -> T) -> (T, String) {
-    #[derive(Clone, Default)]
-    struct Buffer(std::sync::Arc<Mutex<Vec<u8>>>);
-
-    impl std::io::Write for Buffer {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    let buffer = Buffer::default();
-    let writer = buffer.clone();
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::TRACE)
-        .with_ansi(false)
-        .with_writer(move || writer.clone())
-        .finish();
-    let result = tracing::subscriber::with_default(subscriber, test);
-    let logs = String::from_utf8(buffer.0.lock().unwrap().clone()).unwrap();
-    (result, logs)
-}
+use crate::test_log::capture_logs;
 
 #[test]
 fn library_detection_logs_found_stale_and_unmounted_libraries() {

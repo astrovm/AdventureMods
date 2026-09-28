@@ -10,5 +10,7 @@ pub mod setup;
 pub mod steam;
 #[cfg(test)]
 pub(crate) mod test_env;
+#[cfg(test)]
+pub(crate) mod test_log;
 pub mod ui;
 pub mod window;
