@@ -44,6 +44,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="1.0.0" date="2026-09-28">
+      <description>
+        <p>The first stable release. Every part of the app and the command line is now covered by automated tests.</p>
+      </description>
+    </release>
     <release version="0.3.16" date="2026-09-27">
       <description>
         <p>Redesigned setup, and added restoring the original game, mod updates and resumable downloads.</p>
