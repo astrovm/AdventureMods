@@ -139,6 +139,17 @@ mod tests {
     }
 
     #[test]
+    fn resolve_program_with_search_path_keeps_bare_name_when_not_found() {
+        let temp = tempfile::tempdir().unwrap();
+        let search_path = std::env::join_paths([temp.path()]).unwrap();
+
+        assert_eq!(
+            resolve_program_with_search_path("7z", Some(search_path.as_os_str())),
+            PathBuf::from("7z")
+        );
+    }
+
+    #[test]
     fn resolve_program_with_search_path_keeps_absolute_program() {
         let absolute = Path::new("/app/bin/7z");
         assert_eq!(
@@ -209,6 +220,107 @@ mod tests {
         unsafe {
             std::env::remove_var("ADVENTURE_MODS_7ZZ");
         }
+    }
+
+    fn write_executable(path: &Path, contents: &str) {
+        use std::os::unix::fs::PermissionsExt;
+
+        std::fs::write(path, contents).unwrap();
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// Extract with `ADVENTURE_MODS_7ZZ` pointing at `program`. Callers hold
+    /// the environment lock.
+    fn extract_with_override(program: &Path, archive: &Path, dest: &Path) -> Result<()> {
+        unsafe { std::env::set_var("ADVENTURE_MODS_7ZZ", program) };
+        let result = extract(archive, dest);
+        unsafe { std::env::remove_var("ADVENTURE_MODS_7ZZ") };
+        result
+    }
+
+    #[test]
+    fn extract_finds_7zz_on_path_without_override() {
+        let _lock = crate::test_env::lock();
+        let temp = tempfile::tempdir().unwrap();
+        let bin_dir = temp.path().join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        // Records its arguments so the test can check how 7zz was invoked.
+        write_executable(
+            &bin_dir.join("7zz"),
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"${3#-o}/args\"\n",
+        );
+        let archive = temp.path().join("mod.7z");
+        let dest = temp.path().join("out/nested");
+
+        let path = std::env::var_os("PATH").expect("tests run with PATH set");
+        unsafe { std::env::set_var("PATH", &bin_dir) };
+        let result = extract(&archive, &dest);
+        unsafe { std::env::set_var("PATH", path) };
+
+        result.unwrap();
+        let args = std::fs::read_to_string(dest.join("args")).unwrap();
+        assert_eq!(
+            args,
+            format!("x\n-y\n-o{}\n{}\n", dest.display(), archive.display())
+        );
+    }
+
+    #[test]
+    fn extract_reports_missing_archive_program() {
+        let _lock = crate::test_env::lock();
+        let temp = tempfile::tempdir().unwrap();
+        let missing = temp.path().join("missing-7zz");
+
+        let error = extract_with_override(
+            &missing,
+            &temp.path().join("mod.7z"),
+            &temp.path().join("out"),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to run {}. Is 7-Zip installed?", missing.display())
+        );
+    }
+
+    #[test]
+    fn extract_reports_archive_program_failure_output() {
+        let _lock = crate::test_env::lock();
+        let temp = tempfile::tempdir().unwrap();
+        let fake_7zz = temp.path().join("7zz");
+        write_executable(
+            &fake_7zz,
+            "#!/bin/sh\necho 'Scanning archive'\necho 'Unexpected end of archive' >&2\nexit 2\n",
+        );
+        let archive = temp.path().join("broken.7z");
+
+        let error =
+            extract_with_override(&fake_7zz, &archive, &temp.path().join("out")).unwrap_err();
+
+        let message = error.to_string();
+        assert!(message.starts_with(&format!(
+            "Archive extraction failed for {} with {}:",
+            archive.display(),
+            fake_7zz.display()
+        )));
+        assert!(message.contains("Scanning archive"));
+        assert!(message.contains("Unexpected end of archive"));
+    }
+
+    #[test]
+    fn extract_reports_destination_that_cannot_be_created() {
+        let temp = tempfile::tempdir().unwrap();
+        let blocker = temp.path().join("file");
+        std::fs::write(&blocker, b"not a directory").unwrap();
+        let dest = blocker.join("out");
+
+        let error = extract(&temp.path().join("mod.7z"), &dest).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to create directory {}", dest.display())
+        );
     }
 
     #[test]

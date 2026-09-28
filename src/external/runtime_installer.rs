@@ -141,14 +141,8 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
     let env = proton::proton_env(game_path, app_id)?;
     let compat_data = std::path::PathBuf::from(&env["STEAM_COMPAT_DATA_PATH"]);
     let prefix = std::path::PathBuf::from(&env["WINEPREFIX"]);
+    // `ensure_prefix_ready` has already checked that this prefix exists.
     let installer_dir = installer_staging_dir(&compat_data)?;
-
-    if !prefix.is_dir() {
-        anyhow::bail!(
-            "Proton prefix not found at {}. Launch the game from Steam at least once first.",
-            prefix.display()
-        );
-    }
 
     let latest = |major| {
         latest_dotnet_version(major)
@@ -273,26 +267,32 @@ mod tests {
     }
 
     #[test]
-    fn install_runtimes_skips_when_dotnet_is_already_present() {
+    fn installer_staging_dir_reports_blocked_compatdata() {
         let tmp = tempfile::tempdir().unwrap();
-        let steam_root = tmp.path();
+        let compatdata = tmp.path().join("compatdata");
+        std::fs::write(&compatdata, b"not a directory").unwrap();
+
+        let error = installer_staging_dir(&compatdata).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Failed to create installer staging dir {}",
+                compatdata.join("adventure-mods-installers").display()
+            )
+        );
+    }
+
+    /// A Steam library holding SA2 with a ready Proton 10 prefix and an empty
+    /// (not executable) Wine binary. Returns the game path and compatdata.
+    fn fake_sa2_install(steam_root: &Path) -> (std::path::PathBuf, std::path::PathBuf) {
         let game_path = steam_root.join("steamapps/common/Sonic Adventure 2");
         let proton_dir = steam_root.join("steamapps/common/Proton 10.0");
         let compatdata = steam_root.join("steamapps/compatdata/213610");
         std::fs::create_dir_all(&game_path).unwrap();
         std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
         std::fs::write(proton_dir.join("files/bin/wine64"), b"").unwrap();
-        std::fs::create_dir_all(
-            compatdata.join(
-                "pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0",
-            ),
-        )
-        .unwrap();
-        std::fs::create_dir_all(
-            compatdata
-                .join("pfx/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/8.0.0"),
-        )
-        .unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
         std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
         std::fs::write(
             compatdata.join("config_info"),
@@ -320,6 +320,142 @@ mod tests {
 }"#,
         )
         .unwrap();
+        (game_path, compatdata)
+    }
+
+    /// Serve a fake installer for every .NET major and point the download
+    /// overrides at it. Returns the request log.
+    fn serve_installers() -> std::sync::Arc<std::sync::Mutex<Vec<String>>> {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let (base, log) = crate::external::test_http::serve(|_| {
+            crate::external::test_http::Reply::ok("MZ fake installer")
+        });
+        for major in DOTNET_DESKTOP_MAJORS {
+            unsafe {
+                std::env::set_var(
+                    format!("ADVENTURE_MODS_URL_DOTNET_DESKTOP_{major}"),
+                    format!("{base}/{major}.exe"),
+                );
+            }
+        }
+        log
+    }
+
+    fn clear_installer_overrides() {
+        for major in DOTNET_DESKTOP_MAJORS {
+            unsafe { std::env::remove_var(format!("ADVENTURE_MODS_URL_DOTNET_DESKTOP_{major}")) };
+        }
+    }
+
+    #[test]
+    fn install_runtimes_accepts_reboot_code_and_reports_failed_installer() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let (game_path, compatdata) = fake_sa2_install(tmp.path());
+        // Proton's launcher: the .NET 8 installer asks for a reboot (3010,
+        // truncated by Wine); .NET 10 succeeds unless a `fail` marker exists.
+        let proton_dir = tmp.path().join("steamapps/common/Proton 10.0");
+        let launcher = proton_dir.join("proton");
+        std::fs::write(
+            &launcher,
+            "#!/bin/sh\ncase \"$2\" in *-8-*) exit 194;; esac\nif [ -e \"${0%/*}/fail\" ]; then echo \"installer crashed: $*\" >&2; exit 1; fi\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let installers = compatdata.join("adventure-mods-installers");
+
+        let _lock = crate::test_env::lock();
+        let log = serve_installers();
+        let installed = install_runtimes(&game_path, 213610);
+        let cleaned_up = !installers.exists();
+        std::fs::write(proton_dir.join("fail"), b"").unwrap();
+        let result = install_runtimes(&game_path, 213610);
+        clear_installer_overrides();
+
+        installed.unwrap();
+        assert!(cleaned_up);
+        let failed = installers.join("windowsdesktop-runtime-10-win-x64.exe");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!(
+                ".NET Desktop Runtime 10 installation failed (code 1): installer crashed: runinprefix {} /install /quiet /norestart\n",
+                failed.display()
+            )
+        );
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec!["GET /8.exe", "GET /10.exe", "GET /8.exe", "GET /10.exe"]
+        );
+        // The accepted .NET 8 installer is cleaned up; the failed one is kept.
+        assert!(
+            !installers
+                .join("windowsdesktop-runtime-8-win-x64.exe")
+                .exists()
+        );
+        assert!(failed.is_file());
+    }
+
+    #[test]
+    fn install_runtimes_keeps_installed_dotnet_when_updates_cannot_be_checked() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (game_path, compatdata) = fake_sa2_install(tmp.path());
+        for version in ["10.0.0", "8.0.0"] {
+            add_runtime(&compatdata.join("pfx"), version);
+        }
+        // Nothing listens here, so the release metadata cannot be fetched.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/releases.json", listener.local_addr().unwrap());
+        drop(listener);
+
+        let _lock = crate::test_env::lock();
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        for major in DOTNET_DESKTOP_MAJORS {
+            unsafe {
+                std::env::set_var(format!("ADVENTURE_MODS_URL_DOTNET_RELEASES_{major}"), &url)
+            };
+        }
+        let (result, logs) = crate::test_log::capture_logs(|| install_runtimes(&game_path, 213610));
+        for major in DOTNET_DESKTOP_MAJORS {
+            unsafe { std::env::remove_var(format!("ADVENTURE_MODS_URL_DOTNET_RELEASES_{major}")) };
+        }
+
+        result.unwrap();
+        for major in DOTNET_DESKTOP_MAJORS {
+            assert!(logs.contains(&format!(
+                "Could not check .NET {major} for updates: Failed to fetch {url}"
+            )));
+        }
+        assert!(!logs.contains("Installing"));
+        assert!(!compatdata.join("adventure-mods-installers").exists());
+    }
+
+    #[test]
+    fn install_runtimes_reports_wine_that_cannot_run() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (game_path, _) = fake_sa2_install(tmp.path());
+        let wine = tmp
+            .path()
+            .join("steamapps/common/Proton 10.0/files/bin/wine64");
+
+        let _lock = crate::test_env::lock();
+        serve_installers();
+        let result = install_runtimes(&game_path, 213610);
+        clear_installer_overrides();
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!("Could not run host command {}", wine.display())
+        );
+    }
+
+    #[test]
+    fn install_runtimes_skips_when_dotnet_is_already_present() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (game_path, compatdata) = fake_sa2_install(tmp.path());
+        for version in ["10.0.0", "8.0.0"] {
+            add_runtime(&compatdata.join("pfx"), version);
+        }
 
         let _lock = crate::test_env::lock();
         let _ = rustls::crypto::ring::default_provider().install_default();
@@ -389,26 +525,43 @@ mod tests {
         let _lock = crate::test_env::lock();
         let _ = rustls::crypto::ring::default_provider().install_default();
         let (base, _) = crate::external::test_http::serve(|request| {
-            crate::external::test_http::Reply::ok(if request.path == "/good" {
-                r#"{"latest-release":"10.0.12","releases":[{"windowsdesktop":{"version":"10.0.12"}}]}"#
-            } else {
-                r#"{"releases":[]}"#
-            })
+            use crate::external::test_http::Reply;
+            match request.path.as_str() {
+                "/good" => Reply::ok(
+                    r#"{"latest-release":"10.0.12","releases":[{"windowsdesktop":{"version":"10.0.12"}}]}"#,
+                ),
+                "/empty" => Reply::ok(r#"{"releases":[]}"#),
+                "/html" => Reply::ok("<html>maintenance</html>"),
+                "/truncated" => Reply::ok(r#"{"releases":"#).claim_length(100),
+                _ => Reply::ok("").status("404 Not Found"),
+            }
         });
-        unsafe {
-            std::env::set_var(
-                "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
-                format!("{base}/good"),
-            )
+        let latest_from = |path: &str| {
+            unsafe {
+                std::env::set_var(
+                    "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
+                    format!("{base}{path}"),
+                )
+            };
+            latest_dotnet_version(10).map_err(|err| err.to_string())
         };
-        assert_eq!(latest_dotnet_version(10).unwrap(), (10, 0, 12));
-        unsafe {
-            std::env::set_var(
-                "ADVENTURE_MODS_URL_DOTNET_RELEASES_10",
-                format!("{base}/empty"),
-            )
-        };
-        assert!(latest_dotnet_version(10).is_err());
+        assert_eq!(latest_from("/good"), Ok((10, 0, 12)));
+        assert_eq!(
+            latest_from("/empty"),
+            Err(format!("No Windows Desktop version in {base}/empty"))
+        );
+        assert_eq!(
+            latest_from("/html"),
+            Err(format!("Failed to parse {base}/html"))
+        );
+        assert_eq!(
+            latest_from("/truncated"),
+            Err(format!("Failed to read {base}/truncated"))
+        );
+        assert_eq!(
+            latest_from("/missing"),
+            Err(format!("Failed to fetch {base}/missing"))
+        );
         unsafe { std::env::remove_var("ADVENTURE_MODS_URL_DOTNET_RELEASES_10") };
         assert_eq!(
             dotnet_release_metadata_url(8),

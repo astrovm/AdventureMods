@@ -86,9 +86,7 @@ async fn download_file_async(
 
     let total = response.content_length();
 
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    create_parent_dir(dest)?;
 
     let mut file = std::fs::File::create(dest)
         .with_context(|| format!("Failed to create {}", dest.display()))?;
@@ -109,6 +107,14 @@ async fn download_file_async(
     }
 
     file.flush()?;
+    Ok(())
+}
+
+/// Create the directory that will hold `dest`, if it has one.
+fn create_parent_dir(dest: &Path) -> Result<()> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     Ok(())
 }
 
@@ -163,9 +169,7 @@ async fn download_file_resumable_async(
     use std::io::Write;
 
     let (part, validator_path) = partial_paths(dest);
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    create_parent_dir(dest)?;
 
     let resume_from = std::fs::metadata(&part).map(|meta| meta.len()).unwrap_or(0);
     let saved_validator = std::fs::read_to_string(&validator_path).ok();
@@ -221,44 +225,38 @@ async fn download_file_resumable_async(
 /// [`response_validator`]) without downloading it. Returns `None` when the
 /// server does not say, or answers with a web page instead of the file.
 pub fn remote_validator(url: &str) -> Result<Option<String>> {
-    block_on(async {
-        let response = client()
-            .head(url)
-            .timeout(HEAD_TIMEOUT)
-            .send()
-            .await
-            .with_context(|| format!("Failed to HEAD {url}"))?;
-        if !response.status().is_success() {
-            anyhow::bail!("HTTP error {} for {url}", response.status());
-        }
-        if response_is_html(&response) {
-            return Ok(None);
-        }
-        Ok(response_validator(&response))
-    })?
+    let response = block_on(head_file(url))??;
+    Ok(response.as_ref().and_then(response_validator))
 }
 
 /// Ask the server how large the file at `url` is without downloading it.
 pub fn remote_size(url: &str) -> Result<Option<u64>> {
-    block_on(async {
-        let response = client()
-            .head(url)
-            .timeout(HEAD_TIMEOUT)
-            .send()
-            .await
-            .with_context(|| format!("Failed to HEAD {url}"))?;
-        if !response.status().is_success() {
-            anyhow::bail!("HTTP error {} for {url}", response.status());
-        }
-        if response_is_html(&response) {
-            return Ok(None);
-        }
-        Ok(response
+    let response = block_on(head_file(url))??;
+    Ok(response.and_then(|response| {
+        response
             .headers()
             .get(reqwest::header::CONTENT_LENGTH)
             .and_then(|value| value.to_str().ok()?.parse().ok())
-            .filter(|&len: &u64| len > 0))
-    })?
+            .filter(|&len: &u64| len > 0)
+    }))
+}
+
+/// HEAD `url`. Returns `None` when the server answers with a web page
+/// instead of the file.
+async fn head_file(url: &str) -> Result<Option<Response>> {
+    let response = client()
+        .head(url)
+        .timeout(HEAD_TIMEOUT)
+        .send()
+        .await
+        .with_context(|| format!("Failed to HEAD {url}"))?;
+    if !response.status().is_success() {
+        anyhow::bail!("HTTP error {} for {url}", response.status());
+    }
+    if response_is_html(&response) {
+        return Ok(None);
+    }
+    Ok(Some(response))
 }
 
 /// Remove a finished download together with any partial leftovers.
@@ -478,6 +476,189 @@ mod tests {
         assert_eq!(remote_size(&format!("{base}/etag")).unwrap(), Some(10));
         assert_eq!(remote_size(&format!("{base}/page")).unwrap(), None);
         assert!(remote_size(&format!("{base}/missing")).is_err());
+    }
+
+    /// A local URL that refuses connections.
+    fn unreachable_url() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/file", listener.local_addr().unwrap());
+        drop(listener);
+        url
+    }
+
+    #[test]
+    fn requests_report_unreachable_servers() {
+        init();
+        let url = unreachable_url();
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+
+        for error in [
+            remote_validator(&url).unwrap_err(),
+            remote_size(&url).unwrap_err(),
+        ] {
+            assert_eq!(error.to_string(), format!("Failed to HEAD {url}"));
+        }
+        let error = download_file_resumable(&url, &dest, None).unwrap_err();
+        assert_eq!(error.to_string(), format!("Failed to GET {url}"));
+        assert!(!dest.exists());
+    }
+
+    #[test]
+    fn download_reports_http_errors_and_web_pages() {
+        init();
+        let (base, _) = serve(|request| match request.path.as_str() {
+            "/dl/1388911" => Reply::ok("<html></html>").header("Content-Type", "text/html"),
+            "/page" => {
+                Reply::ok("<html></html>").header("Content-Type", "text/html; charset=utf-8")
+            }
+            "/truncated" => Reply::ok("partial")
+                .status("500 Internal Server Error")
+                .claim_length(100),
+            _ => Reply::ok("  \n").status("404 Not Found"),
+        });
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+        let error = |path: &str| {
+            download_file(&format!("{base}{path}"), &dest, None)
+                .unwrap_err()
+                .to_string()
+        };
+
+        assert_eq!(
+            error("/missing"),
+            format!("HTTP error 404 Not Found for {base}/missing: <empty response body>")
+        );
+        assert_eq!(
+            error("/truncated"),
+            format!(
+                "HTTP error 500 Internal Server Error for {base}/truncated: <response body unavailable>"
+            )
+        );
+        assert_eq!(
+            error("/dl/1388911"),
+            "GameBanana file pages do not expose a supported headless download path for file 1388911"
+        );
+        assert_eq!(
+            error("/page"),
+            format!(
+                "Server returned HTML instead of a file for {base}/page. The download link may be broken"
+            )
+        );
+        assert!(!dest.exists());
+    }
+
+    #[test]
+    fn download_reports_progress_and_drops_stale_validators() {
+        init();
+        // No ETag or Last-Modified, so nothing identifies this version.
+        let (base, _) = serve(|_| Reply::ok(BODY));
+        let tmp = tempfile::tempdir().unwrap();
+
+        let plain = tmp.path().join("nested/plain.7z");
+        let reports = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = reports.clone();
+        let progress: ProgressFn =
+            Box::new(move |done, total| sink.lock().unwrap().push((done, total)));
+        download_file(&format!("{base}/file"), &plain, Some(progress)).unwrap();
+        assert_eq!(std::fs::read(&plain).unwrap(), BODY);
+        assert_eq!(reports.lock().unwrap().last(), Some(&(10, Some(10))));
+
+        let resumable = tmp.path().join("resumable.7z");
+        let (_, validator) = partial_paths(&resumable);
+        std::fs::write(&validator, "\"old\"").unwrap();
+        assert_eq!(
+            download_file_resumable(&format!("{base}/file"), &resumable, None).unwrap(),
+            None
+        );
+        assert_eq!(std::fs::read(&resumable).unwrap(), BODY);
+        assert!(!validator.exists());
+    }
+
+    #[test]
+    fn download_reports_destination_that_cannot_be_written() {
+        init();
+        let (base, _) = serve(|_| Reply::ok(BODY));
+        let tmp = tempfile::tempdir().unwrap();
+        // An existing directory cannot be replaced by the downloaded file.
+        let dest = tmp.path().join("taken");
+        std::fs::create_dir_all(&dest).unwrap();
+
+        let error = download_file(&format!("{base}/file"), &dest, None).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to create {}", dest.display())
+        );
+    }
+
+    #[test]
+    fn create_parent_dir_handles_rootless_and_blocked_destinations() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_parent_dir(Path::new("/")).unwrap();
+
+        let dest = tmp.path().join("a/b/file.7z");
+        create_parent_dir(&dest).unwrap();
+        assert!(tmp.path().join("a/b").is_dir());
+
+        let blocker = tmp.path().join("blocker");
+        std::fs::write(&blocker, b"file").unwrap();
+        assert!(create_parent_dir(&blocker.join("dir/file.7z")).is_err());
+    }
+
+    #[test]
+    fn resumable_download_reports_an_unusable_partial_file() {
+        init();
+        // Always resume, so the partial path is opened for appending.
+        let (base, _) = serve(|request| match request.header("Range") {
+            Some(_) => Reply::ok(&BODY[5..])
+                .status("206 Partial Content")
+                .header("ETag", "\"v1\""),
+            None => Reply::ok(BODY).header("ETag", "\"v1\""),
+        });
+        let tmp = tempfile::tempdir().unwrap();
+
+        // A directory where the partial file should be cannot be appended to...
+        let resumed = tmp.path().join("resumed.7z");
+        let (part, validator) = partial_paths(&resumed);
+        std::fs::create_dir_all(&part).unwrap();
+        std::fs::write(part.join("entry"), b"keeps the directory non-empty").unwrap();
+        std::fs::write(validator, "\"v1\"").unwrap();
+        let error = download_file_resumable(&format!("{base}/file"), &resumed, None).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to open {}", part.display())
+        );
+
+        // ...nor replaced when starting over.
+        let fresh = tmp.path().join("fresh.7z");
+        let (part, _) = partial_paths(&fresh);
+        std::fs::create_dir_all(&part).unwrap();
+        let error = download_file_resumable(&format!("{base}/file"), &fresh, None).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to create {}", part.display())
+        );
+    }
+
+    #[test]
+    fn resumable_download_keeps_the_partial_file_when_it_cannot_finish() {
+        init();
+        let (base, _) = serve(|request| ranged_file(request, "\"v1\""));
+        let tmp = tempfile::tempdir().unwrap();
+        // The finished file cannot replace an existing directory.
+        let dest = tmp.path().join("taken.7z");
+        std::fs::create_dir_all(&dest).unwrap();
+
+        let error = download_file_resumable(&format!("{base}/file"), &dest, None).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("Failed to finish download to {}", dest.display())
+        );
+        let (part, validator) = partial_paths(&dest);
+        assert_eq!(std::fs::read(part).unwrap(), BODY);
+        assert_eq!(std::fs::read_to_string(validator).unwrap(), "\"v1\"");
     }
 
     #[test]

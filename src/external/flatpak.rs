@@ -89,6 +89,23 @@ mod tests {
     }
 
     #[test]
+    fn missing_native_command_names_the_program() {
+        let error = host_command_with_env(
+            "/definitely-missing/wine64",
+            &[],
+            &HashMap::new(),
+            false,
+            Path::new("unused"),
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "Could not run host command /definitely-missing/wine64"
+        );
+    }
+
+    #[test]
     fn flatpak_command_runs_host_command_through_flatpak_spawn() {
         let (_temp_dir, flatpak_spawn) = executable_script("#!/bin/sh\nprintf '%s\\n' \"$@\"\n");
         let env = HashMap::from([("WINEPREFIX".to_owned(), "/steam/pfx".to_owned())]);
