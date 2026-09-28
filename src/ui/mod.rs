@@ -40,10 +40,15 @@ impl UriOpenerSlot {
 pub(crate) fn launch_uri(window: Option<&gtk::Window>, uri: &str) {
     let target = uri.to_owned();
     gtk::UriLauncher::new(uri).launch(window, gtk::gio::Cancellable::NONE, move |result| {
-        if let Err(err) = result {
-            tracing::warn!("Could not open {target}: {err}");
-        }
+        report_launch_failure(&target, result);
     });
+}
+
+/// Log why `target` could not be opened; there is no one else to tell.
+fn report_launch_failure(target: &str, result: Result<(), gtk::glib::Error>) {
+    if let Err(err) = result {
+        tracing::warn!("Could not open {target}: {err}");
+    }
 }
 
 pub(crate) fn catch_ui_panic(label: &'static str, action: impl FnOnce()) -> Result<(), String> {
@@ -76,5 +81,67 @@ mod tests {
     #[test]
     fn catch_ui_panic_returns_ok_for_successful_callbacks() {
         assert_eq!(super::catch_ui_panic("test callback", || {}), Ok(()));
+    }
+
+    #[test]
+    fn catch_ui_panic_reports_owned_and_opaque_payloads() {
+        let (owned, logs) = crate::test_log::capture_logs(|| {
+            super::catch_ui_panic("owned callback", || panic!("{} failed", "load"))
+        });
+        assert_eq!(owned, Err("load failed".to_string()));
+        assert!(logs.contains("UI callback panicked in owned callback: load failed"));
+
+        let opaque = super::catch_ui_panic("opaque callback", || std::panic::panic_any(7));
+        assert_eq!(opaque, Err("unknown panic payload".to_string()));
+    }
+
+    #[test]
+    fn uri_opener_slot_debug_names_the_slot() {
+        assert_eq!(
+            format!("{:?}", super::UriOpenerSlot::default()),
+            "UriOpenerSlot"
+        );
+    }
+
+    #[test]
+    fn only_failed_launches_are_logged() {
+        let ((), logs) = crate::test_log::capture_logs(|| {
+            super::report_launch_failure("steam://validate/71250", Ok(()));
+        });
+        assert_eq!(logs, "");
+
+        let ((), logs) = crate::test_log::capture_logs(|| {
+            super::report_launch_failure(
+                "steam://validate/71250",
+                Err(gtk::glib::Error::new(
+                    gtk::gio::IOErrorEnum::NotFound,
+                    "no handler",
+                )),
+            );
+        });
+        assert!(logs.contains("Could not open steam://validate/71250: no handler"));
+    }
+
+    #[gtk::test]
+    fn uri_opener_slot_falls_back_to_the_system_launcher_and_logs_failures() {
+        let capture = crate::test_log::LogCapture::start();
+        // No handler is registered for this scheme, so nothing is launched.
+        let uri = "adventure-mods-test-unhandled://nowhere";
+
+        super::UriOpenerSlot::default().open(None, uri);
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !capture.contents().contains("Could not open") {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "launch failure was not reported"
+            );
+            gtk::glib::MainContext::default().iteration(false);
+        }
+        assert!(
+            capture
+                .contents()
+                .contains(&format!("Could not open {uri}: "))
+        );
     }
 }
