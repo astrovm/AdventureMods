@@ -265,9 +265,18 @@ fn staging_tempdir_prefers_the_target_filesystem() {
             .starts_with(".adventure-mods-")
     );
 
-    let fallback = staging_tempdir(&tmp.path().join("missing")).unwrap();
+    let capture = crate::test_log::LogCapture::start();
+    let missing = tmp.path().join("missing");
+    let fallback = staging_tempdir(&missing).unwrap();
     assert!(fallback.path().is_dir());
     assert_ne!(fallback.path().parent(), Some(tmp.path()));
+    assert!(
+        capture
+            .contents()
+            .contains(&format!("Could not stage in {}", missing.display())),
+        "{}",
+        capture.contents()
+    );
 }
 
 #[test]
@@ -434,8 +443,13 @@ fn install_passthrough_mod_preserves_existing_directory() {
     std::fs::write(extracted.join("mod.ini"), b"[new]").unwrap();
     std::fs::write(existing.join("mod.ini"), b"[old]").unwrap();
 
+    let capture = crate::test_log::LogCapture::start();
     install_passthrough_mod(&staging, &mods_dir).unwrap();
 
+    assert!(capture.contents().contains(&format!(
+        "Mod directory '{}' already exists, skipping install",
+        existing.display()
+    )));
     assert_eq!(std::fs::read(existing.join("mod.ini")).unwrap(), b"[old]");
     assert!(extracted.join("mod.ini").is_file());
 }
@@ -452,7 +466,13 @@ fn install_passthrough_mod_replaces_incomplete_directory() {
     std::fs::write(extracted.join("mod.ini"), b"[new]").unwrap();
     std::fs::write(existing.join("old.txt"), b"old").unwrap();
 
+    let capture = crate::test_log::LogCapture::start();
     install_passthrough_mod(&staging, &mods_dir).unwrap();
+
+    assert!(capture.contents().contains(&format!(
+        "Mod directory '{}' exists but is incomplete, reinstalling",
+        existing.display()
+    )));
 
     assert!(existing.join("mod.ini").is_file());
     assert!(!existing.join("old.txt").exists());
@@ -601,30 +621,36 @@ fn move_dir_contents_replaces_file_with_directory() {
     );
 }
 
-/// Helper: simulate the Steam exe replacement logic from `install_mod_manager`.
-/// Creates `SAModManager.exe` in the game dir and runs the replacement logic.
+/// Helper: run the Steam exe replacement from `install_mod_manager` with a
+/// freshly copied `SAModManager.exe` in the game dir.
 fn run_exe_replacement(game_path: &std::path::Path) {
-    // Create a fake SAModManager.exe (the "dest_exe" that install_mod_manager copies)
     let dest_exe = game_path.join("SAModManager.exe");
     std::fs::write(&dest_exe, b"mod_manager_content").unwrap();
 
-    let launcher = game_path.join("Launcher.exe");
-    let sadx_exe = game_path.join("Sonic Adventure DX.exe");
-    let steam_exe = if launcher.is_file() {
-        Some(launcher)
-    } else if sadx_exe.is_file() {
-        Some(sadx_exe)
-    } else {
-        None
-    };
+    install_as_steam_launcher(game_path, &dest_exe).unwrap();
+}
 
-    if let Some(steam_exe) = steam_exe {
-        let bak = steam_exe.with_extension("exe.bak");
-        if !bak.exists() {
-            std::fs::rename(&steam_exe, &bak).unwrap();
-        }
-        std::fs::rename(&dest_exe, &steam_exe).unwrap();
-    }
+#[test]
+fn exe_replacement_reports_a_manager_that_cannot_be_moved_into_place() {
+    let dir = tempfile::tempdir().unwrap();
+    let game_path = dir.path();
+    std::fs::write(game_path.join("Launcher.exe"), b"original_launcher").unwrap();
+
+    let err =
+        install_as_steam_launcher(game_path, &game_path.join("SAModManager.exe")).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "Failed to install mod manager as {}",
+            game_path.join("Launcher.exe").display()
+        )
+    );
+    // The original stays backed up for a later attempt.
+    assert_eq!(
+        std::fs::read(game_path.join("Launcher.exe.bak")).unwrap(),
+        b"original_launcher"
+    );
 }
 
 #[test]
@@ -1809,4 +1835,529 @@ fn install_mod_forwards_download_progress_to_callback() {
         std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
         body
     );
+}
+
+#[test]
+fn direct_url_base_override_keeps_only_the_file_name() {
+    let _guard = crate::test_env::lock();
+    unsafe {
+        std::env::set_var(
+            "ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE",
+            "http://127.0.0.1:4010/files/",
+        );
+    }
+
+    let file = resolve_download_url(&ModSource::DirectUrl {
+        url: "https://github.com/owner/mod/releases/latest/download/mod.7z",
+    });
+    // A URL without a file name has nothing to rewrite.
+    let folder = resolve_download_url(&ModSource::DirectUrl {
+        url: "https://example.com/mods/",
+    });
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_DIRECT_URL_BASE_OVERRIDE");
+    }
+    assert_eq!(file.unwrap(), "http://127.0.0.1:4010/files/mod.7z");
+    assert_eq!(folder.unwrap(), "https://example.com/mods/");
+}
+
+#[test]
+fn gamebanana_item_urls_default_to_gamebanana() {
+    let _guard = crate::test_env::lock();
+
+    let (api_url, dl_base) = gamebanana_item_urls("Mod", 5);
+
+    assert_eq!(
+        api_url,
+        "https://api.gamebanana.com/Core/Item/Data?fields=Files().aFiles()&itemtype=Mod&itemid=5"
+    );
+    assert_eq!(dl_base, "https://gamebanana.com/dl/");
+}
+
+#[test]
+fn gamebanana_item_reports_api_errors() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+    let (base, _) = serve(|_| Reply::ok("down").status("503 Service Unavailable"));
+    unsafe {
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            format!("{base}/gbapi?fields=Files().aFiles()"),
+        );
+    }
+
+    let result = resolve_download_url(&ModSource::GameBananaItem {
+        item_type: "Mod",
+        item_id: 4,
+    });
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+    }
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "GameBanana API error for Mod/4"
+    );
+}
+
+#[test]
+fn install_runtimes_reports_the_installer_error_from_its_worker_thread() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game_path = tmp.path().join("steamapps/common/Sonic Adventure 2");
+    std::fs::create_dir_all(&game_path).unwrap();
+    let app_id = GameKind::SA2.app_id();
+
+    let error = glib::MainContext::new()
+        .block_on(install_runtimes(game_path.clone(), app_id))
+        .unwrap_err();
+
+    // Without a Proton prefix nothing is installed, as when run directly.
+    let direct = runtime_installer::install_runtimes(&game_path, app_id).unwrap_err();
+    assert_eq!(error.to_string(), direct.to_string());
+}
+
+/// A fake 7zz that extracts nothing.
+fn install_empty_7zz(dir: &std::path::Path) -> std::path::PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let fake_7zz = dir.join("empty-7zz");
+    std::fs::write(
+        &fake_7zz,
+        "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in -o*) mkdir -p \"${arg#-o}\" ;; esac; done\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake_7zz, std::fs::Permissions::from_mode(0o755)).unwrap();
+    fake_7zz
+}
+
+#[test]
+fn manager_release_without_the_manager_is_rejected() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+    let (base, _) = serve(|_| Reply::ok("not a manager release"));
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    std::fs::write(game.join("Launcher.exe"), "steam launcher").unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", install_empty_7zz(tmp.path()));
+    }
+
+    let result = install_manager_release(&game, &format!("{base}/release.zip"), None);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+    }
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "SAModManager.exe not found in release archive"
+    );
+    assert_eq!(
+        std::fs::read_to_string(game.join("Launcher.exe")).unwrap(),
+        "steam launcher"
+    );
+    assert!(!game.join("Launcher.exe.bak").exists());
+}
+
+/// An SA2 game folder with the mod loader extracted; returns its DLL folder.
+fn sa2_game_with_loader(game: &std::path::Path) -> std::path::PathBuf {
+    let dll_dir = game.join("resource/gd_PC/DLL/Win32");
+    std::fs::create_dir_all(&dll_dir).unwrap();
+    std::fs::create_dir_all(game.join("mods/.modloader")).unwrap();
+    std::fs::write(game.join("mods/.modloader/SA2ModLoader.dll"), b"loader").unwrap();
+    dll_dir
+}
+
+#[test]
+fn install_loader_dll_logs_the_swap_and_skips_a_missing_data_dll() {
+    let capture = crate::test_log::LogCapture::start();
+
+    let missing = tempfile::tempdir().unwrap();
+    let missing_dir = sa2_game_with_loader(missing.path());
+    install_loader_dll(missing.path(), GameKind::SA2).unwrap();
+    assert!(capture.contents().contains(&format!(
+        "Game data DLL not found at {}, skipping DLL replacement",
+        missing_dir.join("Data_DLL.dll").display()
+    )));
+    assert!(!missing_dir.join("Data_DLL.dll").exists());
+
+    let present = tempfile::tempdir().unwrap();
+    let dll_dir = sa2_game_with_loader(present.path());
+    std::fs::write(dll_dir.join("data_dll.DLL"), b"data").unwrap();
+    install_loader_dll(present.path(), GameKind::SA2).unwrap();
+    assert!(capture.contents().contains(&format!(
+        "DLL replacement complete: SA2ModLoader.dll → {}",
+        dll_dir.join("data_dll.DLL").display()
+    )));
+    assert_eq!(
+        std::fs::read(dll_dir.join("data_dll.DLL")).unwrap(),
+        b"loader"
+    );
+    assert_eq!(
+        std::fs::read(dll_dir.join("Data_DLL_orig.dll")).unwrap(),
+        b"data"
+    );
+}
+
+#[test]
+fn install_loader_dll_reports_copy_and_backup_failures() {
+    // The backup exists, but a folder is in the data DLL's place.
+    let refresh = tempfile::tempdir().unwrap();
+    let dll_dir = sa2_game_with_loader(refresh.path());
+    std::fs::write(dll_dir.join("Data_DLL_orig.dll"), b"data").unwrap();
+    std::fs::create_dir_all(dll_dir.join("Data_DLL.dll")).unwrap();
+    let err = install_loader_dll(refresh.path(), GameKind::SA2).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!(
+            "Failed to copy mod loader DLL to {}",
+            dll_dir.join("Data_DLL.dll").display()
+        )
+    );
+
+    // A folder is where the original would be backed up.
+    let backup = tempfile::tempdir().unwrap();
+    let dll_dir = sa2_game_with_loader(backup.path());
+    std::fs::write(dll_dir.join("Data_DLL.dll"), b"data").unwrap();
+    std::fs::create_dir_all(dll_dir.join("Data_DLL_orig.dll/blocker")).unwrap();
+    let err = install_loader_dll(backup.path(), GameKind::SA2).unwrap_err();
+    assert!(err.to_string().starts_with("Failed to back up"), "{err}");
+    assert_eq!(
+        std::fs::read(dll_dir.join("Data_DLL.dll")).unwrap(),
+        b"data"
+    );
+}
+
+#[test]
+fn install_mod_without_a_progress_callback_downloads_and_installs() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+    let (base, _) = serve(|_| Reply::ok("Name=Quiet Mod"));
+    let url: &'static str = Box::leak(format!("{base}/quiet.7z").into_boxed_str());
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", install_echo_7zz(tmp.path()));
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+
+    let result = install_mod(&game, &update_test_mod(url), None);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+    result.unwrap();
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
+        "Name=Quiet Mod"
+    );
+}
+
+#[test]
+fn install_mod_fails_when_a_new_mod_cannot_be_looked_up() {
+    let _guard = crate::test_env::lock();
+    let tmp = tempfile::tempdir().unwrap();
+    unsafe {
+        std::env::set_var(
+            "ADVENTURE_MODS_GAMEBANANA_API_BASE",
+            "http://127.0.0.1:9/gbapi?fields=Files().aFiles()",
+        );
+    }
+    let gamebanana = ModEntry {
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 1,
+        },
+        ..update_test_mod("unused")
+    };
+
+    let result = install_mod_with_progress(tmp.path(), &gamebanana, None);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_GAMEBANANA_API_BASE");
+    }
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "GameBanana API request failed for Mod/1"
+    );
+    assert!(!tmp.path().join("mods/UpdateMod").exists());
+}
+
+#[test]
+fn install_mod_passes_through_archives_with_their_own_folder() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+    let (base, _) = serve(|_| Reply::ok("Name=Own Folder\nUpdateUrl=https://example.test\n"));
+    let url: &'static str = Box::leak(format!("{base}/own-folder.7z").into_boxed_str());
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", install_echo_7zz(tmp.path()));
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let own_folder = ModEntry {
+        dir_name: None,
+        ..update_test_mod(url)
+    };
+
+    let result = install_mod_with_progress(&game, &own_folder, None);
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+    result.unwrap();
+    // The archive's own folder name is kept, and update tracking is set up.
+    let installed = game.join("mods/UpdateMod");
+    assert!(
+        std::fs::read_to_string(installed.join("mod.ini"))
+            .unwrap()
+            .starts_with("Name=Own Folder")
+    );
+    assert!(installed.join("mod.version").is_file());
+}
+
+#[test]
+fn prefetched_archives_survive_a_crashed_installer_thread() {
+    use crate::external::test_http::{Reply, serve};
+    use std::sync::atomic::AtomicBool;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+    let (base, log) = serve(|_| Reply::ok("Name=After Crash"));
+    let url: &'static str = Box::leak(format!("{base}/after-crash.7z").into_boxed_str());
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", install_echo_7zz(tmp.path()));
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+
+    // A thread panics while holding the record of prefetched archives.
+    let crashed = std::thread::spawn(|| {
+        let _held = prefetched_archives().lock().unwrap();
+        panic!("installer thread crashed");
+    })
+    .join();
+    assert!(crashed.is_err());
+    assert!(prefetched_archives().is_poisoned());
+
+    let mod_entry = update_test_mod(url);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(false));
+    let installed = install_mod_with_progress(&game, &mod_entry, None);
+    prefetched_archives().clear_poison();
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+    installed.unwrap();
+    let gets = log
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|request| request.starts_with("GET"))
+        .count();
+    assert_eq!(gets, 1);
+    assert_eq!(
+        std::fs::read_to_string(game.join("mods/UpdateMod/mod.ini")).unwrap(),
+        "Name=After Crash"
+    );
+}
+
+#[test]
+fn sources_without_a_version_tag_count_as_current() {
+    use crate::external::test_http::{Reply, serve};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    // No ETag or Last-Modified header.
+    let (base, _) = serve(|_| Reply::ok("untagged"));
+    let url = format!("{base}/untagged.7z");
+    let tmp = tempfile::tempdir().unwrap();
+    ModSourceRecord {
+        url: url.clone(),
+        validator: Some("\"v1\"".to_owned()),
+    }
+    .write(tmp.path())
+    .unwrap();
+
+    assert!(installed_mod_is_current(tmp.path(), &url, true).unwrap());
+    assert!(component_is_current(
+        &tmp.path().join(MOD_SOURCE_FILE),
+        &url
+    ));
+}
+
+#[test]
+fn source_records_log_unreadable_versions_and_write_failures() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let capture = crate::test_log::LogCapture::start();
+    let tmp = tempfile::tempdir().unwrap();
+    let unreachable = "http://127.0.0.1:9/manager.zip";
+
+    // The version cannot be read: the source is recorded without one.
+    let record_path = tmp.path().join(MANAGER_SOURCE_FILE);
+    record_component_source(&record_path, unreachable);
+    assert!(
+        capture
+            .contents()
+            .contains(&format!("Could not read the version of {unreachable}")),
+        "{}",
+        capture.contents()
+    );
+    assert_eq!(
+        ModSourceRecord::read_file(&record_path).unwrap(),
+        ModSourceRecord {
+            url: unreachable.to_owned(),
+            validator: None,
+        }
+    );
+
+    // The record cannot be written: setup goes on and logs it.
+    let missing_dir = tmp.path().join("missing");
+    record_component_source(&missing_dir.join(MANAGER_SOURCE_FILE), unreachable);
+    assert!(capture.contents().contains(&format!(
+        "Failed to record {}",
+        missing_dir.join(MANAGER_SOURCE_FILE).display()
+    )));
+    record_mod_source(&missing_dir, "https://gb.test/dl/1", false);
+    assert!(capture.contents().contains(&format!(
+        "Failed to record the source of {}",
+        missing_dir.display()
+    )));
+    assert!(!missing_dir.exists());
+}
+
+#[test]
+fn replace_mod_dir_keeps_user_config_and_reports_unremovable_installs() {
+    let tmp = tempfile::tempdir().unwrap();
+    let new_files = tmp.path().join("new");
+    let dest = tmp.path().join("mods/SomeMod");
+    std::fs::create_dir_all(&new_files).unwrap();
+    std::fs::create_dir_all(&dest).unwrap();
+    std::fs::write(new_files.join("mod.ini"), "Name=New").unwrap();
+    std::fs::write(dest.join("mod.ini"), "Name=Old").unwrap();
+    std::fs::write(dest.join("Config.ini"), "user settings").unwrap();
+
+    // The new version ships no config.ini: the user's is put back as is.
+    replace_mod_dir(&new_files, &dest).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(dest.join("mod.ini")).unwrap(),
+        "Name=New"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dest.join("Config.ini")).unwrap(),
+        "user settings"
+    );
+
+    // A file where the mod folder should be cannot be removed as a folder.
+    let blocked = tmp.path().join("mods/Blocked");
+    std::fs::write(&blocked, "not a folder").unwrap();
+    let err = replace_mod_dir(&dest, &blocked).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!("Failed to remove old mod files at {}", blocked.display())
+    );
+}
+
+#[test]
+fn find_mod_root_searches_each_folder_in_order() {
+    let tmp = tempfile::tempdir().unwrap();
+    let staging = tmp.path().join("staging");
+    // The first folder holds only folders without a mod.ini.
+    std::fs::create_dir_all(staging.join("a/docs")).unwrap();
+    std::fs::create_dir_all(staging.join("a/extras")).unwrap();
+    std::fs::create_dir_all(staging.join("b/Mod")).unwrap();
+    std::fs::write(staging.join("b/Mod/mod.ini"), "[mod]").unwrap();
+
+    assert_eq!(find_mod_root(&staging), Some(staging.join("b/Mod")));
+    assert_eq!(find_mod_root(&tmp.path().join("missing")), None);
+}
+
+#[test]
+fn install_passthrough_mod_counts_every_top_level_entry() {
+    let tmp = tempfile::tempdir().unwrap();
+    let staging = tmp.path().join("staging");
+    std::fs::create_dir_all(staging.join("ModA")).unwrap();
+    std::fs::create_dir_all(staging.join("ModB")).unwrap();
+
+    let err = install_passthrough_mod(&staging, &tmp.path().join("mods")).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Expected archive to contain a single top-level mod directory, found 2 entries"
+    );
+}
+
+#[test]
+fn install_passthrough_mod_reports_an_incomplete_mod_it_cannot_remove() {
+    // procfs entries cannot be removed, even by root.
+    let proc_self = std::path::Path::new("/proc/self");
+    if !proc_self.join("fd").is_dir() {
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let staging = tmp.path().join("staging");
+    std::fs::create_dir_all(staging.join("fd")).unwrap();
+    std::fs::write(staging.join("fd/mod.ini"), "[mod]").unwrap();
+
+    let err = install_passthrough_mod(&staging, proc_self).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        "Failed to remove incomplete mod at /proc/self/fd"
+    );
+    assert!(staging.join("fd/mod.ini").is_file());
+}
+
+#[test]
+fn normalize_mod_version_reports_an_unreadable_mod_ini() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(tmp.path().join("mod.ini")).unwrap();
+
+    let err = normalize_mod_version(tmp.path()).unwrap_err();
+
+    assert_eq!(
+        err.to_string(),
+        format!("Failed to read {}", tmp.path().join("mod.ini").display())
+    );
+    assert!(!tmp.path().join("mod.version").exists());
+}
+
+#[test]
+fn move_dir_contents_copies_folders_across_filesystems_when_available() {
+    let Ok(dest_root) = tempfile::tempdir_in("/dev/shm") else {
+        return;
+    };
+    let source_root = tempfile::tempdir().unwrap();
+    let source = source_root.path().join("src");
+    std::fs::create_dir_all(source.join("textures/hd")).unwrap();
+    std::fs::write(source.join("textures/hd/sky.dds"), b"sky").unwrap();
+
+    move_dir_contents(&source, &dest_root.path().join("dest")).unwrap();
+
+    assert_eq!(
+        std::fs::read(dest_root.path().join("dest/textures/hd/sky.dds")).unwrap(),
+        b"sky"
+    );
+    assert!(!source.join("textures/hd/sky.dds").exists());
+
+    // A link to nothing can be neither renamed nor copied across.
+    let broken = source_root.path().join("broken");
+    std::fs::create_dir_all(&broken).unwrap();
+    std::os::unix::fs::symlink("missing-target", broken.join("link")).unwrap();
+    assert!(move_dir_contents(&broken, &dest_root.path().join("broken")).is_err());
 }

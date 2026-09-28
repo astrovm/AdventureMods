@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use gtk::gio;
 
 use crate::blocking;
@@ -86,47 +86,61 @@ pub fn is_mod_installed(game_path: &Path, mod_entry: &ModEntry) -> bool {
 
 /// The latest file of a GameBanana item: its download URL and size in bytes.
 fn resolve_gamebanana_item(item_type: &str, item_id: u32) -> Result<(String, Option<u64>)> {
+    let (url, dl_base) = gamebanana_item_urls(item_type, item_id);
+    download::block_on(fetch_gamebanana_item(&url, &dl_base, item_type, item_id))?
+}
+
+/// The Core API URL listing an item's files, and the base its downloads use.
+fn gamebanana_item_urls(item_type: &str, item_id: u32) -> (String, String) {
     let api_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_API_BASE")
         .unwrap_or_else(|_| GAMEBANANA_API_BASE.to_string());
-    let url = format!("{api_base}&itemtype={item_type}&itemid={item_id}");
     let dl_base = std::env::var("ADVENTURE_MODS_GAMEBANANA_DL_BASE")
         .unwrap_or_else(|_| "https://gamebanana.com/dl/".to_string());
+    (
+        format!("{api_base}&itemtype={item_type}&itemid={item_id}"),
+        dl_base,
+    )
+}
 
-    download::block_on(async {
-        let body = download::client()
-            .get(&url)
-            .send()
-            .await
-            .with_context(|| format!("GameBanana API request failed for {item_type}/{item_id}"))?
-            .error_for_status()
-            .with_context(|| format!("GameBanana API error for {item_type}/{item_id}"))?
-            .text()
-            .await
-            .context("Failed to read GameBanana API response")?;
+async fn fetch_gamebanana_item(
+    url: &str,
+    dl_base: &str,
+    item_type: &str,
+    item_id: u32,
+) -> Result<(String, Option<u64>)> {
+    let body = download::client()
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("GameBanana API request failed for {item_type}/{item_id}"))?
+        .error_for_status()
+        .with_context(|| format!("GameBanana API error for {item_type}/{item_id}"))?
+        .text()
+        .await
+        .context("Failed to read GameBanana API response")?;
 
-        let parsed: Vec<serde_json::Map<String, serde_json::Value>> = serde_json::from_str(&body)
-            .with_context(|| {
+    let parsed: Vec<serde_json::Map<String, serde_json::Value>> = serde_json::from_str(&body)
+        .with_context(|| {
             format!("Failed to parse GameBanana API response for {item_type}/{item_id}: {body}")
         })?;
 
-        let files = parsed
-            .into_iter()
-            .next()
-            .with_context(|| format!("Empty GameBanana API response for {item_type}/{item_id}"))?;
+    let files = parsed
+        .into_iter()
+        .next()
+        .with_context(|| format!("Empty GameBanana API response for {item_type}/{item_id}"))?;
 
-        let (latest_id, size) = files
-            .values()
-            .filter_map(|v| {
-                let id = v.get("_idRow").and_then(|id| id.as_u64())?;
-                Some((id, v.get("_nFilesize").and_then(|size| size.as_u64())))
-            })
-            .max_by_key(|(id, _)| *id)
-            .with_context(|| {
-                format!("No files found in GameBanana API response for {item_type}/{item_id}")
-            })?;
+    let (latest_id, size) = files
+        .values()
+        .filter_map(|v| {
+            let id = v.get("_idRow").and_then(|id| id.as_u64())?;
+            Some((id, v.get("_nFilesize").and_then(|size| size.as_u64())))
+        })
+        .max_by_key(|(id, _)| *id)
+        .with_context(|| {
+            format!("No files found in GameBanana API response for {item_type}/{item_id}")
+        })?;
 
-        Ok((format!("{dl_base}{latest_id}"), size))
-    })?
+    Ok((format!("{dl_base}{latest_id}"), size))
 }
 
 fn sa_mod_manager_url() -> String {
@@ -294,10 +308,17 @@ fn install_manager_release(
     let dest_exe = game_path.join("SAModManager.exe");
     std::fs::copy(&manager_exe, &dest_exe)
         .context("Failed to copy SAModManager.exe to game directory")?;
+    install_as_steam_launcher(game_path, &dest_exe)?;
 
-    // Replace the game's Steam launch executable with the mod manager so
-    // Steam launches the mod manager, which then launches the real game exe.
-    // SA2 uses Launcher.exe; SADX uses "Sonic Adventure DX.exe".
+    tracing::info!("SA Mod Manager installed to {}", game_path.display());
+    Ok(())
+}
+
+/// Replace the game's Steam launch executable with the mod manager at
+/// `manager_exe` so Steam launches the mod manager, which then launches the
+/// real game exe. The original is backed up the first time. SA2 uses
+/// Launcher.exe; SADX uses "Sonic Adventure DX.exe".
+fn install_as_steam_launcher(game_path: &Path, manager_exe: &Path) -> Result<()> {
     let launcher = game_path.join("Launcher.exe");
     let sadx_exe = game_path.join("Sonic Adventure DX.exe");
     let steam_exe = if launcher.is_file() {
@@ -314,13 +335,11 @@ fn install_manager_release(
             std::fs::rename(&steam_exe, &bak)
                 .context(format!("Failed to backup {}", steam_exe.display()))?;
         }
-        std::fs::rename(&dest_exe, &steam_exe).context(format!(
+        std::fs::rename(manager_exe, &steam_exe).context(format!(
             "Failed to install mod manager as {}",
             steam_exe.display()
         ))?;
     }
-
-    tracing::info!("SA Mod Manager installed to {}", game_path.display());
     Ok(())
 }
 
@@ -402,11 +421,7 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
 
     if orig_dll_path.is_file() {
         tracing::info!("Original DLL already backed up, refreshing mod loader DLL");
-        std::fs::copy(&loader_dll, &data_dll_path).context(format!(
-            "Failed to copy mod loader DLL to {}",
-            data_dll_path.display()
-        ))?;
-        return Ok(());
+        return copy_loader_dll(&loader_dll, &data_dll_path);
     }
 
     if !data_dll_path.is_file() {
@@ -423,16 +438,24 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
         orig_dll_path.display()
     ))?;
 
-    std::fs::copy(&loader_dll, &data_dll_path).context(format!(
-        "Failed to copy mod loader DLL to {}",
-        data_dll_path.display()
-    ))?;
+    copy_loader_dll(&loader_dll, &data_dll_path)?;
 
     tracing::info!(
         "DLL replacement complete: {} → {}",
         loader_dll_name,
         data_dll_path.display()
     );
+    Ok(())
+}
+
+/// Put the mod loader DLL in place of the game's data DLL.
+fn copy_loader_dll(loader_dll: &Path, data_dll_path: &Path) -> Result<()> {
+    std::fs::copy(loader_dll, data_dll_path).with_context(|| {
+        format!(
+            "Failed to copy mod loader DLL to {}",
+            data_dll_path.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -480,7 +503,7 @@ pub fn install_mod(
 /// What installing a mod needs: nothing (the installed copy is current) or
 /// the archive at `url`.
 enum ModArchiveNeed {
-    Keep(Option<std::path::PathBuf>),
+    Keep(std::path::PathBuf),
     Fetch {
         url: String,
         check_remote_validator: bool,
@@ -501,21 +524,23 @@ fn mod_archive_need(game_path: &Path, mod_entry: &ModEntry) -> Result<ModArchive
 
     let url = match resolve_download_url(&mod_entry.source) {
         Ok(url) => url,
-        Err(err) if installed_complete => {
-            tracing::warn!(
-                "Could not check '{}' for updates, keeping the installed copy: {err:#}",
-                mod_entry.name
-            );
-            return Ok(ModArchiveNeed::Keep(installed_dir));
-        }
-        Err(err) => return Err(err),
+        Err(err) => match installed_dir.filter(|_| installed_complete) {
+            Some(dest) => {
+                tracing::warn!(
+                    "Could not check '{}' for updates, keeping the installed copy: {err:#}",
+                    mod_entry.name
+                );
+                return Ok(ModArchiveNeed::Keep(dest));
+            }
+            None => return Err(err),
+        },
     };
     let check_remote_validator = matches!(mod_entry.source, ModSource::DirectUrl { .. });
 
-    if let Some(dest) = installed_dir.as_deref() {
+    if let Some(dest) = installed_dir {
         if installed_complete {
-            match installed_mod_is_current(dest, &url, check_remote_validator) {
-                Ok(true) => return Ok(ModArchiveNeed::Keep(installed_dir)),
+            match installed_mod_is_current(&dest, &url, check_remote_validator) {
+                Ok(true) => return Ok(ModArchiveNeed::Keep(dest)),
                 Ok(false) => {
                     tracing::info!("Updating mod '{}'", mod_entry.name);
                 }
@@ -524,7 +549,7 @@ fn mod_archive_need(game_path: &Path, mod_entry: &ModEntry) -> Result<ModArchive
                         "Could not check '{}' for updates, keeping the installed copy: {err:#}",
                         mod_entry.name
                     );
-                    return Ok(ModArchiveNeed::Keep(installed_dir));
+                    return Ok(ModArchiveNeed::Keep(dest));
                 }
             }
         } else {
@@ -623,7 +648,7 @@ pub fn install_mod_with_progress(
     let (url, check_remote_validator) = match take_prefetched_archive(game_path, mod_entry) {
         Some(prefetched) => prefetched,
         None => match mod_archive_need(game_path, mod_entry)? {
-            ModArchiveNeed::Keep(dest) => return keep_installed_mod(dest.as_deref(), mod_entry),
+            ModArchiveNeed::Keep(dest) => return keep_installed_mod(&dest, mod_entry),
             ModArchiveNeed::Fetch {
                 url,
                 check_remote_validator,
@@ -659,10 +684,8 @@ pub fn install_mod_with_progress(
     Ok(())
 }
 
-fn keep_installed_mod(dest: Option<&Path>, mod_entry: &ModEntry) -> Result<()> {
-    if let Some(dest) = dest {
-        normalize_mod_version(dest)?;
-    }
+fn keep_installed_mod(dest: &Path, mod_entry: &ModEntry) -> Result<()> {
+    normalize_mod_version(dest)?;
     tracing::info!(
         "Mod '{}' already installed and up to date, skipping download",
         mod_entry.name
@@ -829,17 +852,22 @@ fn replace_mod_dir(content_root: &Path, dest: &Path) -> Result<()> {
 }
 
 fn download_cache_dir() -> std::path::PathBuf {
-    // Tests must not write to the user's real download cache.
-    let default_cache_dir = if cfg!(test) {
-        Some(std::env::temp_dir().join("adventure-mods-tests"))
-    } else {
-        dirs::cache_dir().map(|dir| dir.join("adventure-mods"))
-    };
     std::env::var_os("ADVENTURE_MODS_CACHE_DIR")
         .map(std::path::PathBuf::from)
-        .or(default_cache_dir)
+        .or(default_cache_dir())
         .unwrap_or_else(std::env::temp_dir)
         .join("downloads")
+}
+
+#[cfg(not(test))]
+fn default_cache_dir() -> Option<std::path::PathBuf> {
+    dirs::cache_dir().map(|dir| dir.join("adventure-mods"))
+}
+
+/// Tests must not write to the user's real download cache.
+#[cfg(test)]
+fn default_cache_dir() -> Option<std::path::PathBuf> {
+    Some(std::env::temp_dir().join("adventure-mods-tests"))
 }
 
 fn cached_archive_path(url: &str) -> std::path::PathBuf {
@@ -869,29 +897,34 @@ fn find_mod_root(staging: &Path) -> Option<std::path::PathBuf> {
     if staging.join("mod.ini").is_file() {
         return Some(staging.to_path_buf());
     }
-    if let Ok(entries) = std::fs::read_dir(staging) {
-        let mut first_level: Vec<_> = entries.flatten().collect();
-        first_level.sort_by_key(|e| e.file_name());
-        for entry in first_level {
-            let p = entry.path();
-            if p.is_dir() {
-                if p.join("mod.ini").is_file() {
-                    return Some(p);
-                }
-                if let Ok(inner) = std::fs::read_dir(&p) {
-                    let mut second_level: Vec<_> = inner.flatten().collect();
-                    second_level.sort_by_key(|e| e.file_name());
-                    for inner_entry in second_level {
-                        let ip = inner_entry.path();
-                        if ip.is_dir() && ip.join("mod.ini").is_file() {
-                            return Some(ip);
-                        }
-                    }
-                }
-            }
+    for dir in sorted_subdirs(staging) {
+        if dir.join("mod.ini").is_file() {
+            return Some(dir);
+        }
+        if let Some(inner) = sorted_subdirs(&dir)
+            .into_iter()
+            .find(|inner| inner.join("mod.ini").is_file())
+        {
+            return Some(inner);
         }
     }
     None
+}
+
+/// The directories directly inside `dir`, sorted by name. A directory that
+/// cannot be read has none.
+fn sorted_subdirs(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut entries: Vec<_> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
+    entries.sort_by_key(|entry| entry.file_name());
+    entries
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir())
+        .collect()
 }
 
 fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<std::path::PathBuf> {
@@ -949,8 +982,7 @@ fn normalize_mod_version(mod_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let now = glib::DateTime::now_utc().map_err(|err| anyhow!("{err}"))?;
-    let stamp = now.format_iso8601().map_err(|err| anyhow!("{err}"))?;
+    let stamp = glib::DateTime::now_utc()?.format_iso8601()?;
 
     std::fs::write(mod_dir.join("mod.version"), format!("{stamp}\n"))?;
     Ok(())
