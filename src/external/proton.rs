@@ -5,11 +5,8 @@ use std::process::Output;
 use anyhow::{Context, Result};
 
 use super::flatpak;
-use crate::steam::{library, vdf};
-
-fn try_canonicalize(p: &Path) -> PathBuf {
-    p.canonicalize().unwrap_or_else(|_| p.to_path_buf())
-}
+use crate::steam::library::{self, try_canonicalize};
+use crate::steam::vdf;
 
 /// Highest Proton major version known to run SA Mod Manager reliably.
 ///
@@ -265,19 +262,19 @@ fn proton_major_from_text(text: &str) -> Option<u32> {
 pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
     ensure_prefix_ready(game_path, app_id)?;
 
-    if let Some(mapped) = find_proton_from_prefix_metadata(game_path, app_id)? {
-        tracing::info!(
-            "Selected Proton from prefix metadata for app {} at {}",
-            app_id,
-            mapped.display()
-        );
-        return Ok(mapped);
-    }
-
-    anyhow::bail!(
-        "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
-    )
+    // A ready prefix has metadata; it can only vanish if Steam rewrites the
+    // prefix between the two reads.
+    let mapped =
+        find_proton_from_prefix_metadata(game_path, app_id)?.context(MISSING_PREFIX_METADATA)?;
+    tracing::info!(
+        "Selected Proton from prefix metadata for app {} at {}",
+        app_id,
+        mapped.display()
+    );
+    Ok(mapped)
 }
+
+const MISSING_PREFIX_METADATA: &str = "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again.";
 
 /// Build the environment variables needed to run Wine inside a Proton prefix.
 pub fn proton_env(game_path: &Path, app_id: u32) -> Result<HashMap<String, String>> {
@@ -384,11 +381,8 @@ fn map_env_paths_for_host_command(env: &mut HashMap<String, String>) {
 
 fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
     let steamapps = steamapps_dir(game_path)?;
+    // Never empty: the library's own root is always a candidate.
     let steam_roots = steam_root_candidates(game_path)?;
-
-    if steam_roots.is_empty() {
-        return Ok(ConfiguredToolLookup::MissingConfig);
-    }
 
     let mut best_failure = ConfiguredToolLookup::MissingConfig;
 
@@ -661,11 +655,8 @@ fn compat_tool_dir_candidates(steam_root: &Path, steamapps: &Path, tool_name: &s
         _ => Vec::new(),
     };
 
-    for alias in aliases {
-        if seen.insert(alias.to_owned()) {
-            candidates.push(alias.to_owned());
-        }
-    }
+    // Named tools have distinct aliases and never match `proton_<major>` below.
+    candidates.extend(aliases.into_iter().map(str::to_owned));
 
     if let Some(version) = trimmed
         .strip_prefix("proton_")
@@ -1052,6 +1043,23 @@ mod tests {
         assert!(v9 > other);
         assert!(exp > other);
         assert!(v8 > exp);
+
+        use std::cmp::Ordering;
+        assert_eq!(other.cmp(&v8), Ordering::Less);
+        assert_eq!(exp.cmp(&v8), Ordering::Less);
+        assert_eq!(exp.cmp(&ProtonVersion::Experimental), Ordering::Equal);
+        assert_eq!(other.cmp(&exp), Ordering::Less);
+        let custom = ProtonVersion::Other("Proton GE".to_string());
+        assert_eq!(custom.cmp(&other), Ordering::Less);
+        assert_eq!(other.partial_cmp(&custom), Some(Ordering::Greater));
+    }
+
+    #[test]
+    fn parse_bare_proton_name_is_other() {
+        assert_eq!(
+            parse_proton_dir_name("Proton"),
+            Some(ProtonVersion::Other("Proton".to_string()))
+        );
     }
 
     fn write_prefix_metadata(compatdata: &Path, tool_name: &str, proton_dir: &Path) {
@@ -1115,8 +1123,11 @@ mod tests {
         assert_eq!(result, common.join("Proton 8.0"));
     }
 
+    /// Tag `path` the way the document portal does. CI and development
+    /// checkouts live on filesystems with user xattrs (ext4, btrfs, tmpfs), so
+    /// a failure here is a broken test environment, not a skipped test.
     #[cfg(target_os = "linux")]
-    fn try_set_host_path_xattr(path: &Path, host_path: &Path) -> bool {
+    fn set_host_path_xattr(path: &Path, host_path: &Path) {
         use std::ffi::CString;
         use std::os::unix::ffi::OsStrExt;
 
@@ -1142,7 +1153,10 @@ mod tests {
                 0,
             )
         };
-        result == 0
+        (result == 0)
+            .then_some(())
+            .ok_or_else(std::io::Error::last_os_error)
+            .expect("document-portal tests need user xattr support on the temp filesystem");
     }
 
     #[cfg(target_os = "linux")]
@@ -1187,11 +1201,7 @@ mod tests {
         )
         .unwrap();
         std::fs::create_dir_all(&host_common).unwrap();
-
-        if !try_set_host_path_xattr(&portal_common, &host_common) {
-            eprintln!("skipping xattr-backed Proton portal test; filesystem has no user xattrs");
-            return;
-        }
+        set_host_path_xattr(&portal_common, &host_common);
 
         assert_eq!(prefix_state(&game_path, 71250).unwrap(), PrefixState::Ready);
         assert_eq!(
@@ -1209,13 +1219,7 @@ mod tests {
         let portal_prefix = portal_root.join("steamapps/compatdata/71250/pfx");
 
         std::fs::create_dir_all(&portal_prefix).unwrap();
-
-        if !try_set_host_path_xattr(&portal_root, &host_root) {
-            eprintln!(
-                "skipping xattr-backed host command path test; filesystem has no user xattrs"
-            );
-            return;
-        }
+        set_host_path_xattr(&portal_root, &host_root);
 
         assert_eq!(
             host_command_path(&portal_prefix),
@@ -1296,13 +1300,7 @@ mod tests {
             ),
         )
         .unwrap();
-
-        if !try_set_host_path_xattr(&portal_library, &host_library) {
-            eprintln!(
-                "skipping xattr-backed Steam root portal test; filesystem has no user xattrs"
-            );
-            return;
-        }
+        set_host_path_xattr(&portal_library, &host_library);
 
         assert!(steam_root_references_library(&steam_root, &portal_library));
     }
@@ -1352,6 +1350,10 @@ mod tests {
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
         assert!(format!("{error:#}").contains("has not created this game's Proton prefix"));
+        assert!(
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+                .starts_with("Steam has not created a Proton prefix for Sonic Adventure DX.")
+        );
         assert!(
             steam_config_message("Sonic Adventure DX", Path::new("/game"), 71250)
                 .contains("Force Proton 10.0")
@@ -2030,11 +2032,7 @@ mod tests {
         let host_dir = tmp.path().join("host/Proton 10.0");
         std::fs::create_dir_all(&portal_dir).unwrap();
         std::fs::write(portal_dir.join("proton"), "").unwrap();
-
-        if !try_set_host_path_xattr(&portal_dir, &host_dir) {
-            eprintln!("skipping xattr-backed Proton launcher test; filesystem has no user xattrs");
-            return;
-        }
+        set_host_path_xattr(&portal_dir, &host_dir);
 
         let mut env = HashMap::new();
         let (program, args) = prefix_command(
@@ -2055,6 +2053,295 @@ mod tests {
             ]
         );
         assert!(env.is_empty());
+    }
+
+    #[test]
+    fn prefix_command_uses_wine_with_runtime_env_without_launcher() {
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton 9.0");
+        std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+        std::fs::write(proton_dir.join("files/bin/wine"), "").unwrap();
+        let host_dir = Path::new("/host/Proton 9.0");
+        let mut env = HashMap::from([("PATH".to_owned(), "/usr/bin".to_owned())]);
+
+        let (program, args) = prefix_command(
+            &proton_dir,
+            host_dir,
+            Path::new("/tmp/setup.exe"),
+            &["/S"],
+            &mut env,
+        );
+
+        assert_eq!(program, proton_dir.join("files/bin/wine"));
+        assert_eq!(args, vec!["/tmp/setup.exe".to_owned(), "/S".to_owned()]);
+        // Loader paths point at the host copy that the command will run from.
+        assert_eq!(env["PATH"], "/host/Proton 9.0/files/bin:/usr/bin");
+        assert!(env["LD_LIBRARY_PATH"].starts_with("/host/Proton 9.0/files/lib/"));
+        assert!(!env.contains_key("WINESERVER"));
+
+        // An explicitly empty PATH stays empty rather than gaining a lone entry.
+        let mut env = HashMap::from([("PATH".to_owned(), String::new())]);
+        configure_proton_runtime_env(&mut env, host_dir);
+        assert_eq!(env["PATH"], "");
+    }
+
+    const PROTON_10_CONFIG: &str = r#""InstallConfigStore"
+{
+    "Software"
+    {
+        "Valve"
+        {
+            "Steam"
+            {
+                "CompatToolMapping"
+                {
+                    "71250"
+                    {
+                        "name"  "proton_10"
+                    }
+                }
+            }
+        }
+    }
+}"#;
+
+    #[test]
+    fn run_in_prefix_runs_proton_launcher_and_logs_the_command() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path();
+        let game_path = steam_root.join("steamapps/common/Sonic Adventure DX");
+        let proton_dir = steam_root.join("steamapps/common/Proton 10.0");
+        let compatdata = steam_root.join("steamapps/compatdata/71250");
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
+        std::fs::write(proton_dir.join("files/bin/wine64"), "").unwrap();
+        let launcher = proton_dir.join("proton");
+        std::fs::write(
+            &launcher,
+            "#!/bin/sh\nprintf '%s\\n' \"$@\"\nprintf '%s' \"$WINEPREFIX\" >&2\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+        write_prefix_metadata(&compatdata, "10.1000-105", &proton_dir);
+        std::fs::create_dir_all(steam_root.join("config")).unwrap();
+        std::fs::write(steam_root.join("config/config.vdf"), PROTON_10_CONFIG).unwrap();
+        let exe = game_path.join("mods/SAModManager.exe");
+
+        let (output, logs) = crate::test_log::capture_logs(|| {
+            run_in_prefix(&game_path, 71250, &exe, &["/quiet"]).unwrap()
+        });
+
+        assert!(output.status.success());
+        assert_eq!(
+            String::from_utf8(output.stdout).unwrap(),
+            format!("runinprefix\n{}\n/quiet\n", exe.display())
+        );
+        assert_eq!(
+            String::from_utf8(output.stderr).unwrap(),
+            compatdata.join("pfx").to_string_lossy()
+        );
+        assert!(logs.contains(&format!(
+            "Selected Proton from prefix metadata for app 71250 at {}",
+            proton_dir.display()
+        )));
+        assert!(logs.contains(&format!(
+            "Running {} in prefix for app 71250 with Proton at {} using {}",
+            exe.display(),
+            proton_dir.display(),
+            launcher.display()
+        )));
+    }
+
+    #[test]
+    fn proton_env_requires_steam_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path().join("steamapps/common/Sonic Adventure DX");
+        std::fs::create_dir_all(&game_path).unwrap();
+
+        let error = proton_env(&game_path, 71250).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Steam's config.vdf could not be found for {}",
+                game_path.display()
+            )
+        );
+    }
+
+    #[test]
+    fn read_prefix_metadata_rejects_unreadable_or_incomplete_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let compatdata = tmp.path().join("compatdata/71250");
+        let proton_dir = tmp.path().join("Proton 10.0");
+        let config_info = compatdata.join("config_info");
+        let version = compatdata.join("version");
+        write_prefix_metadata(&compatdata, "10.1000-105", &proton_dir);
+        assert_eq!(
+            read_prefix_metadata(&compatdata)
+                .unwrap()
+                .unwrap()
+                .proton_dir,
+            proton_dir
+        );
+
+        // Not UTF-8, so the files exist but cannot be read as text.
+        std::fs::write(&version, [0xff, 0xfe]).unwrap();
+        assert_eq!(
+            read_prefix_metadata(&compatdata).unwrap_err().to_string(),
+            format!("Failed to read {}", version.display())
+        );
+        std::fs::write(&config_info, [0xff, 0xfe]).unwrap();
+        assert_eq!(
+            read_prefix_metadata(&compatdata).unwrap_err().to_string(),
+            format!("Failed to read {}", config_info.display())
+        );
+
+        // A blank tool label or no Proton path is incomplete metadata.
+        write_prefix_metadata(&compatdata, "  ", &proton_dir);
+        assert!(read_prefix_metadata(&compatdata).unwrap().is_none());
+        std::fs::write(&version, "10.1000-105\n").unwrap();
+        std::fs::write(&config_info, "relative/files\n0\n").unwrap();
+        assert!(read_prefix_metadata(&compatdata).unwrap().is_none());
+    }
+
+    #[test]
+    fn compat_tool_name_reports_unreadable_config_and_unmapped_apps() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config = tmp.path().join("config/config.vdf");
+        std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+
+        std::fs::write(&config, [0xff, 0xfe, 0x00]).unwrap();
+        let (result, logs) =
+            crate::test_log::capture_logs(|| compat_tool_name_from_config(tmp.path(), 71250));
+        assert!(matches!(
+            result.unwrap(),
+            ConfiguredToolLookup::InvalidConfig
+        ));
+        assert!(logs.contains(&format!("Failed to read {}", config.display())));
+
+        // Only another game has a forced tool, and there is no global default.
+        std::fs::write(&config, PROTON_10_CONFIG.replace("\"71250\"", "\"213610\"")).unwrap();
+        assert!(matches!(
+            compat_tool_name_from_config(tmp.path(), 71250).unwrap(),
+            ConfiguredToolLookup::MissingConfiguredTool
+        ));
+    }
+
+    #[test]
+    fn configured_tool_keeps_the_most_specific_failure_across_roots() {
+        let tmp = tempfile::tempdir().unwrap();
+        let library = tmp.path().join("library");
+        let other_steam = tmp.path().join("steam");
+        let game_path = library.join("steamapps/common/Sonic Adventure DX");
+        std::fs::create_dir_all(&game_path).unwrap();
+        // The library's own root maps only another game...
+        std::fs::create_dir_all(library.join("config")).unwrap();
+        std::fs::write(
+            library.join("config/config.vdf"),
+            PROTON_10_CONFIG.replace("\"71250\"", "\"213610\""),
+        )
+        .unwrap();
+        // ...and a sibling Steam install that lists the library has a broken config.
+        std::fs::create_dir_all(other_steam.join("config")).unwrap();
+        std::fs::create_dir_all(other_steam.join("steamapps")).unwrap();
+        std::fs::write(other_steam.join("config/config.vdf"), "not valid vdf").unwrap();
+        std::fs::write(
+            other_steam.join("steamapps/libraryfolders.vdf"),
+            format!(
+                "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"\t\"{}\"\n    }}\n}}\n",
+                library.display()
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(steam_root_candidates(&game_path).unwrap().len(), 2);
+        assert!(matches!(
+            configured_tool_from_config(&game_path, 71250).unwrap(),
+            ConfiguredToolLookup::MissingConfiguredTool
+        ));
+    }
+
+    #[test]
+    fn steam_root_candidates_dedupe_home_steam_links_to_the_library() {
+        let tmp = tempfile::tempdir().unwrap();
+        let library = tmp.path().join("library");
+        let game_path = library.join("steamapps/common/Sonic Adventure DX");
+        let home = tmp.path().join("home");
+        std::fs::create_dir_all(&game_path).unwrap();
+        std::fs::create_dir_all(home.join(".steam")).unwrap();
+        std::fs::create_dir_all(home.join(".local/share")).unwrap();
+        // Both usual Steam locations point at the library itself.
+        std::os::unix::fs::symlink(&library, home.join(".steam/steam")).unwrap();
+        std::os::unix::fs::symlink(&library, home.join(".local/share/Steam")).unwrap();
+
+        let roots = {
+            let _lock = crate::test_env::lock();
+            let previous = std::env::var_os("HOME").expect("tests run with HOME set");
+            unsafe { std::env::set_var("HOME", &home) };
+            let roots = steam_root_candidates(&game_path);
+            unsafe { std::env::set_var("HOME", previous) };
+            roots.unwrap()
+        };
+
+        assert_eq!(roots, vec![library.canonicalize().unwrap()]);
+    }
+
+    #[test]
+    fn sibling_steam_roots_need_a_readable_parent() {
+        assert!(sibling_steam_root_candidates(Path::new("/")).is_empty());
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(sibling_steam_root_candidates(&tmp.path().join("missing/library")).is_empty());
+    }
+
+    #[test]
+    fn steam_root_references_library_checks_libraryfolders() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steam_root = tmp.path().join("steam");
+        let library = tmp.path().join("library");
+        let libraryfolders = steam_root.join("steamapps/libraryfolders.vdf");
+        std::fs::create_dir_all(steam_root.join("steamapps")).unwrap();
+        std::fs::create_dir_all(&library).unwrap();
+
+        // A Steam root is its own library.
+        assert!(steam_root_references_library(&library, &library));
+        // No, unparsable, or unrelated library lists do not reference it.
+        assert!(!steam_root_references_library(&steam_root, &library));
+        std::fs::write(&libraryfolders, "not valid vdf").unwrap();
+        assert!(!steam_root_references_library(&steam_root, &library));
+        std::fs::write(&libraryfolders, "\"InstallConfigStore\"\n{\n}\n").unwrap();
+        assert!(!steam_root_references_library(&steam_root, &library));
+    }
+
+    #[test]
+    fn compat_tool_dir_candidates_match_numbered_proton_once() {
+        let tmp = tempfile::tempdir().unwrap();
+        let steamapps = tmp.path().join("steamapps");
+        for dir in ["Proton 10.0", "Proton 9.0", "Proton - Experimental"] {
+            std::fs::create_dir_all(steamapps.join("common").join(dir)).unwrap();
+        }
+
+        // The library is also the Steam root, so both scans see the same folders.
+        assert_eq!(
+            compat_tool_dir_candidates(tmp.path(), &steamapps, "proton_10"),
+            vec!["proton_10".to_owned(), "Proton 10.0".to_owned()]
+        );
+        // A Steam root without a common folder adds nothing.
+        assert_eq!(
+            compat_tool_dir_candidates(&tmp.path().join("no-steam"), &steamapps, "proton_10"),
+            vec!["proton_10".to_owned(), "Proton 10.0".to_owned()]
+        );
+        assert_eq!(
+            compat_tool_dir_candidates(tmp.path(), &steamapps, " proton_experimental "),
+            vec![
+                "proton_experimental".to_owned(),
+                "Proton - Experimental".to_owned(),
+                "Proton Experimental".to_owned(),
+            ]
+        );
     }
 
     #[test]

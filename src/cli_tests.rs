@@ -20,6 +20,7 @@ use crate::setup::config::{
 };
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
+use crate::test_log::capture_logs;
 
 fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
     let _guard = crate::test_env::lock();
@@ -1594,43 +1595,105 @@ fn detect_resolution_uses_a_safe_fallback() {
 }
 
 #[test]
-fn detect_resolution_handles_xrandr_failures_and_invalid_output() {
+fn detect_resolution_prefers_gdk_over_xrandr() {
+    // xrandr must not run once GDK knows the resolution.
+    let xrandr = ProcessCommand::new("/definitely/missing/xrandr");
     assert_eq!(
-        super::detect_resolution_with(|| Some((1280, 720)), || unreachable!()),
+        super::detect_resolution_with(|| Some((1280, 720)), xrandr),
         (1280, 720)
     );
-    assert_eq!(
+}
+
+/// A command printing `stdout` and exiting with `status`, standing in for xrandr.
+fn fake_xrandr(stdout: &str, status: i32) -> ProcessCommand {
+    let mut command = ProcessCommand::new("sh");
+    command
+        .arg("-c")
+        .arg(format!("printf '{stdout}'; exit {status}"));
+    command
+}
+
+#[test]
+fn detect_resolution_reads_the_primary_monitor_from_xrandr() {
+    let (resolution, logs) = capture_logs(|| {
         super::detect_resolution_with(
             || None,
-            || {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "synthetic xrandr missing",
-                ))
-            }
-        ),
-        (1920, 1080)
-    );
+            fake_xrandr(
+                "Screen 0: minimum 8 x 8\\nHDMI-1 connected 1920x1080+0+0\\n\
+                 DP-1 connected primary 2560x1440+1920+0\\n",
+                0,
+            ),
+        )
+    });
 
-    let failed = ProcessCommand::new("sh")
-        .arg("-c")
-        .arg("exit 1")
-        .output()
-        .unwrap();
-    assert_eq!(
-        super::detect_resolution_with(|| None, || Ok(failed)),
-        (1920, 1080)
+    assert_eq!(resolution, (2560, 1440));
+    assert!(
+        logs.contains("Detected resolution via xrandr: 2560x1440"),
+        "logs were: {logs}"
     );
+}
 
-    let malformed = ProcessCommand::new("sh")
-        .arg("-c")
-        .arg("printf 'Screen 0: no connected monitors\\n'")
-        .output()
-        .unwrap();
-    assert_eq!(
-        super::detect_resolution_with(|| None, || Ok(malformed)),
-        (1920, 1080)
+#[test]
+fn detect_resolution_falls_back_when_xrandr_is_missing() {
+    let (resolution, logs) = capture_logs(|| {
+        super::detect_resolution_with(|| None, ProcessCommand::new("/definitely/missing/xrandr"))
+    });
+
+    assert_eq!(resolution, (1920, 1080));
+    assert!(logs.contains("Could not run xrandr"), "logs were: {logs}");
+}
+
+#[test]
+fn detect_resolution_falls_back_when_xrandr_fails() {
+    let (resolution, logs) = capture_logs(|| {
+        super::detect_resolution_with(|| None, fake_xrandr("HDMI-1 connected 800x600+0+0\\n", 1))
+    });
+
+    // Output from a failed run is not trusted.
+    assert_eq!(resolution, (1920, 1080));
+    assert!(
+        logs.contains("xrandr exited with status exit status: 1"),
+        "logs were: {logs}"
     );
+}
+
+#[test]
+fn detect_resolution_falls_back_when_xrandr_lists_no_monitor() {
+    let (resolution, logs) = capture_logs(|| {
+        super::detect_resolution_with(
+            || None,
+            fake_xrandr("Screen 0: no connected monitors\\n", 0),
+        )
+    });
+
+    assert_eq!(resolution, (1920, 1080));
+    assert!(
+        logs.contains("Could not detect monitor resolution via xrandr, using fallback 1920x1080"),
+        "logs were: {logs}"
+    );
+}
+
+#[test]
+fn gdk_resolution_is_unavailable_when_gtk_cannot_initialize() {
+    // gtk::init panics when GTK already runs on another thread.
+    let init_state = std::sync::OnceLock::new();
+    assert_eq!(
+        super::resolution_via_gdk(&init_state, || panic!("GTK runs on another thread")),
+        None
+    );
+    assert_eq!(init_state.get(), Some(&false));
+
+    // The failed attempt is remembered instead of retried.
+    assert_eq!(super::resolution_via_gdk(&init_state, gtk::init), None);
+}
+
+#[gtk::test]
+fn gdk_resolution_reads_the_default_display() {
+    let init_state = std::sync::OnceLock::new();
+    let resolution = super::resolution_via_gdk(&init_state, gtk::init);
+
+    assert!(resolution.is_some_and(|(width, height)| width > 0 && height > 0));
+    assert_eq!(init_state.get(), Some(&true));
 }
 
 #[test]
@@ -1699,4 +1762,427 @@ Screen 0: minimum 16 x 16, current 0 x 0, maximum 32767 x 32767
 DP-1 connected primary (normal left inverted right x axis y axis) 597mm x 336mm
 ";
     assert_eq!(parse_xrandr_resolution(output), None);
+}
+
+/// Accepts output until `needle` has been written, then fails every write,
+/// like a closed pipe partway through a report.
+struct FailOnText {
+    needle: String,
+    written: Vec<u8>,
+}
+
+fn fail_on(needle: &str) -> FailOnText {
+    FailOnText {
+        needle: needle.to_string(),
+        written: Vec::new(),
+    }
+}
+
+impl Write for FailOnText {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.written.extend_from_slice(buf);
+        if String::from_utf8_lossy(&self.written).contains(&self.needle) {
+            return Err(std::io::Error::other("synthetic write failure"));
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn assert_write_failure(result: anyhow::Result<()>) {
+    let error = result.expect_err("the failed write should end the command");
+    assert!(
+        error.to_string().contains("synthetic write failure"),
+        "error was: {error:#}"
+    );
+}
+
+/// Answers `select` with `select_result` when set and fails every other
+/// prompt, as a terminal closed mid-prompt would.
+struct ClosedTerminalPrompt {
+    select_result: Option<usize>,
+}
+
+impl Prompt for ClosedTerminalPrompt {
+    fn select(&self, _prompt: &str, _items: &[String], _default: usize) -> anyhow::Result<usize> {
+        self.select_result
+            .ok_or_else(|| anyhow::anyhow!("terminal closed during select"))
+    }
+
+    fn multi_select(
+        &self,
+        _prompt: &str,
+        _items: &[String],
+        _defaults: &[bool],
+    ) -> anyhow::Result<Vec<usize>> {
+        anyhow::bail!("terminal closed during multi-select")
+    }
+
+    fn confirm(&self, _prompt: &str, _default: bool) -> anyhow::Result<bool> {
+        anyhow::bail!("terminal closed during confirm")
+    }
+}
+
+/// A libraryfolders.vdf listing SA2 in an existing library and SADX in a
+/// library that does not exist.
+fn write_vdf_with_sa2_and_missing_sadx(root: &std::path::Path) -> PathBuf {
+    let library = root.join("library");
+    let game_dir = library.join("steamapps/common").join("Sonic Adventure 2");
+    std::fs::create_dir_all(&game_dir).unwrap();
+    std::fs::File::create(game_dir.join("sonic2app.exe")).unwrap();
+    let vdf_path = root.join("libraryfolders.vdf");
+    std::fs::write(
+        &vdf_path,
+        format!(
+            "\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" \"apps\" {{ \"213610\" \"0\" }} }} \
+             \"1\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }} }}",
+            library.display(),
+            root.join("missing-library").display()
+        ),
+    )
+    .unwrap();
+    vdf_path
+}
+
+fn detect_command(vdf_path: PathBuf) -> Cli {
+    Cli {
+        no_color: true,
+        command: Some(Command::Detect(DetectArgs {
+            libraryfolders_vdf: Some(vdf_path),
+            steam_libraries: vec![],
+        })),
+    }
+}
+
+#[test]
+fn crypto_provider_can_only_be_installed_once() {
+    // Another test may already have installed it; afterwards it is installed.
+    let _ = super::initialize_crypto_provider();
+
+    let error = super::initialize_crypto_provider().unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "failed to install TLS crypto provider: already installed"
+    );
+}
+
+#[test]
+fn detect_lists_inaccessible_libraries_without_detected_games() {
+    let tmp = tempfile::tempdir().unwrap();
+    let missing_library = tmp.path().join("missing-library");
+    let vdf_path = tmp.path().join("libraryfolders.vdf");
+    std::fs::write(
+        &vdf_path,
+        format!(
+            "\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }} }}",
+            missing_library.display()
+        ),
+    )
+    .unwrap();
+
+    let mut output = Vec::new();
+    run_with_io(detect_command(vdf_path), false, &mut output).unwrap();
+
+    let output = String::from_utf8(output).unwrap();
+    assert!(!output.contains("Detected games:"), "{output}");
+    assert!(!output.contains("No supported games detected"), "{output}");
+    assert!(
+        output.contains(&format!(
+            "Inaccessible Steam libraries:\n- Sonic Adventure DX: {}\n",
+            crate::path_display::display_path(&missing_library)
+        )),
+        "{output}"
+    );
+}
+
+#[test]
+fn detect_stops_when_writing_a_game_fails() {
+    let tmp = tempfile::tempdir().unwrap();
+    let vdf_path = write_vdf_with_sa2_and_missing_sadx(tmp.path());
+
+    let mut games = fail_on("- Sonic Adventure 2:");
+    assert_write_failure(run_with_io(
+        detect_command(vdf_path.clone()),
+        false,
+        &mut games,
+    ));
+    assert!(!String::from_utf8_lossy(&games.written).contains("Inaccessible"));
+
+    let mut libraries = fail_on("- Sonic Adventure DX:");
+    assert_write_failure(run_with_io(detect_command(vdf_path), false, &mut libraries));
+}
+
+fn list_mods_command(game: &str) -> Cli {
+    Cli {
+        no_color: true,
+        command: Some(Command::ListMods {
+            game: game.to_string(),
+        }),
+    }
+}
+
+#[test]
+fn list_mods_shows_presets_only_for_games_that_have_them() {
+    let mut sadx = Vec::new();
+    run_with_io(list_mods_command("sadx"), false, &mut sadx).unwrap();
+    let sadx = String::from_utf8(sadx).unwrap();
+    let preset = &common::presets_for_game(GameKind::SADX)[0];
+    assert!(sadx.contains("Presets:\n"), "{sadx}");
+    assert!(
+        sadx.contains(&format!("- {}: {}\n", preset.name, preset.description)),
+        "{sadx}"
+    );
+
+    let mut sa2 = Vec::new();
+    run_with_io(list_mods_command("SA2"), false, &mut sa2).unwrap();
+    let sa2 = String::from_utf8(sa2).unwrap();
+    assert!(common::presets_for_game(GameKind::SA2).is_empty());
+    assert!(!sa2.contains("Presets:"), "{sa2}");
+    assert!(sa2.contains("Game: Sonic Adventure 2\nMods:\n"), "{sa2}");
+}
+
+#[test]
+fn list_mods_stops_when_writing_a_mod_fails() {
+    let first = &common::recommended_mods_for_game(GameKind::SA2)[0];
+    let mut output = fail_on(&format!("[{}]", first.slug));
+
+    assert_write_failure(run_with_io(list_mods_command("sa2"), false, &mut output));
+}
+
+#[test]
+fn setup_summary_stops_when_writing_fails() {
+    let selected = vec![&common::recommended_mods_for_game(GameKind::SADX)[0]];
+    let summary = super::SetupSummary {
+        game_kind: GameKind::SADX,
+        game_path: std::path::Path::new("/games/sadx"),
+        selected_mods: &selected,
+        width: 1920,
+        height: 1080,
+        language_selection: LanguageSelection::defaults_for(GameKind::SADX),
+    };
+    let prompt = MockPrompt {
+        select_result: 0,
+        multi_select_result: vec![],
+        confirm_result: true,
+    };
+
+    for line in ["Path: ", "Subtitle language: ", "Voice language: "] {
+        let mut writer = fail_on(line);
+        let mut out = CliOutput::new(&mut writer, false);
+        assert_write_failure(super::confirm_setup_summary(&mut out, &summary, &prompt));
+    }
+}
+
+#[test]
+fn setup_summary_surfaces_confirmation_errors() {
+    let selected = vec![&common::recommended_mods_for_game(GameKind::SA2)[0]];
+    let summary = super::SetupSummary {
+        game_kind: GameKind::SA2,
+        game_path: std::path::Path::new("/games/sa2"),
+        selected_mods: &selected,
+        width: 1280,
+        height: 720,
+        language_selection: LanguageSelection::defaults_for(GameKind::SA2),
+    };
+    let mut output = Vec::new();
+    let mut out = CliOutput::new(&mut output, false);
+
+    let error = super::confirm_setup_summary(
+        &mut out,
+        &summary,
+        &ClosedTerminalPrompt {
+            select_result: None,
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(error.to_string(), "terminal closed during confirm");
+}
+
+#[test]
+fn rich_game_path_surfaces_installation_prompt_errors() {
+    let detected = DetectionResult {
+        games: vec![
+            Game {
+                kind: GameKind::SA2,
+                path: PathBuf::from("/games/sa2-one"),
+            },
+            Game {
+                kind: GameKind::SA2,
+                path: PathBuf::from("/games/sa2-two"),
+            },
+        ],
+        inaccessible: vec![],
+    };
+    let prompt = ClosedTerminalPrompt {
+        select_result: None,
+    };
+
+    let error =
+        resolve_game_path_rich(&empty_setup_args(), GameKind::SA2, Some(&detected), &prompt)
+            .unwrap_err();
+
+    assert_eq!(error.to_string(), "terminal closed during select");
+}
+
+#[test]
+fn rich_mod_selection_surfaces_manual_selection_errors() {
+    // SA2 has no presets: 0 installs all recommended mods, 1 picks manually.
+    let prompt = ClosedTerminalPrompt {
+        select_result: Some(1),
+    };
+
+    let Err(error) = resolve_setup_mods_rich(&empty_setup_args(), GameKind::SA2, &prompt) else {
+        panic!("a closed terminal should end mod selection");
+    };
+
+    assert_eq!(error.to_string(), "terminal closed during multi-select");
+}
+
+#[test]
+fn unknown_mod_slugs_point_to_the_matching_list_mods_command() {
+    for (game_kind, arg) in [(GameKind::SADX, "sadx"), (GameKind::SA2, "sa2")] {
+        let Err(error) = resolve_mods_flag(game_kind, "not-a-mod") else {
+            panic!("unknown slugs should be rejected");
+        };
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Unknown mod slug 'not-a-mod'. Use 'list-mods --game {arg}' to see valid slugs."
+            )
+        );
+    }
+}
+
+#[test]
+fn game_flag_selects_the_game_without_detection() {
+    let mut args = empty_setup_args();
+    args.game = Some(" SADX ".to_string());
+    // Detection would fail on this file, so it must not run.
+    args.detect.libraryfolders_vdf = Some(PathBuf::from("/definitely/missing/libraryfolders.vdf"));
+    assert_eq!(super::resolve_game_kind(&args).unwrap(), GameKind::SADX);
+
+    args.game = Some("sa3".to_string());
+    assert_eq!(
+        super::resolve_game_kind(&args).unwrap_err().to_string(),
+        "Unknown game 'sa3'. Use 'sadx' or 'sa2'."
+    );
+}
+
+#[test]
+fn game_path_flag_is_validated_instead_of_detected() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("Sonic Adventure 2");
+    std::fs::create_dir_all(&game).unwrap();
+    std::fs::File::create(game.join("sonic2app.exe")).unwrap();
+    let mut args = empty_setup_args();
+    args.game_path = Some(game.clone());
+    args.detect.libraryfolders_vdf = Some(PathBuf::from("/definitely/missing/libraryfolders.vdf"));
+
+    assert_eq!(
+        super::resolve_game_path(&args, GameKind::SA2).unwrap(),
+        game
+    );
+
+    let error = super::resolve_game_path(&args, GameKind::SADX).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("does not appear to be a Sonic Adventure DX installation"),
+        "{error}"
+    );
+}
+
+#[test]
+fn voice_language_keeps_the_saved_choice_without_flag_or_prompt() {
+    with_test_settings(|settings| {
+        settings
+            .set_string("sa2-voice-language", "english")
+            .unwrap();
+        let mut args = empty_setup_args();
+        args.subtitle_language = Some("german".to_string());
+
+        let selection = resolve_setup_languages(&args, GameKind::SA2, None).unwrap();
+
+        assert_eq!(selection.subtitle, SubtitleLanguage::German);
+        assert_eq!(selection.voice, VoiceLanguage::English);
+    });
+}
+
+fn plain_progress(interactive: bool) -> super::ProgressLines {
+    super::ProgressLines::new(interactive, false, console::Style::new().dim())
+}
+
+#[test]
+fn progress_lines_print_once_per_megabyte() {
+    let mut lines = plain_progress(false);
+
+    assert_eq!(
+        lines.update("", 512, Some(3_145_728), super::download_progress_text),
+        "  0.0 / 3.0 MB (0%)\n"
+    );
+    assert_eq!(
+        lines.update(
+            "",
+            1_000_000,
+            Some(3_145_728),
+            super::download_progress_text
+        ),
+        ""
+    );
+    assert_eq!(
+        lines.update(
+            "",
+            1_572_864,
+            Some(3_145_728),
+            super::download_progress_text
+        ),
+        "  1.5 / 3.0 MB (50%)\n"
+    );
+    // Other downloads are tracked separately.
+    assert_eq!(
+        lines.update("Other Mod", 1_572_864, None, super::mod_progress_text),
+        "    Other Mod: 1.5 MB\n"
+    );
+    // Non-interactive output never rewrites a line, so nothing needs ending.
+    assert_eq!(lines.end_line(), "");
+}
+
+#[test]
+fn progress_lines_rewrite_one_line_on_a_terminal() {
+    let mut lines = plain_progress(true);
+    assert_eq!(lines.end_line(), "");
+
+    assert_eq!(
+        lines.update("Mod", 2_097_152, Some(4_194_304), super::mod_progress_text),
+        "\r    Mod: 2.0 / 4.0 MB (50%)"
+    );
+    assert_eq!(lines.end_line(), "\n");
+    assert_eq!(lines.end_line(), "");
+
+    // A restarted download prints its first megabyte again.
+    assert_eq!(
+        lines.update("Mod", 2_097_152, None, super::mod_progress_text),
+        ""
+    );
+    lines.reset("Mod");
+    assert_eq!(
+        lines.update("Mod", 2_097_152, None, super::mod_progress_text),
+        "\r    Mod: 2.0 MB"
+    );
+}
+
+#[test]
+fn progress_lines_dim_the_text_when_color_is_enabled() {
+    let dim = console::Style::new().dim().force_styling(true);
+    let mut lines = super::ProgressLines::new(false, true, dim.clone());
+
+    let text = lines.update("", 1_048_576, None, super::download_progress_text);
+
+    assert_eq!(text, format!("{}\n", dim.apply_to("  1.0 MB downloaded")));
+    assert!(text.contains('\x1b'), "{text:?}");
 }

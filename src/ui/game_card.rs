@@ -497,6 +497,7 @@ mod tests {
 
         let card = AdventureModsGameCard::default();
         assert!(format!("{:?}", card).starts_with("AdventureModsGameCard"));
+        assert_eq!(format!("{:?}", card.imp()), "AdventureModsGameCard");
         assert!(card.selected_install_option().is_none());
 
         card.set_install_options(
@@ -561,5 +562,71 @@ mod tests {
             card.imp().status_icon.icon_name().as_deref(),
             Some("media-record-symbolic")
         );
+    }
+
+    fn click_card(card: &AdventureModsGameCard) {
+        let gesture = card
+            .observe_controllers()
+            .item(0)
+            .and_downcast::<gtk::GestureClick>()
+            .unwrap();
+        gesture.emit_by_name::<()>("released", &[&1i32, &0f64, &0f64]);
+    }
+
+    #[gtk::test]
+    fn clicking_a_card_with_an_install_selector_does_not_start_setup() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+        card.set_install_options(
+            GameKind::SADX,
+            &[
+                GameInstallOption::detected(PathBuf::from("/games/sadx-a")),
+                GameInstallOption::detected(PathBuf::from("/games/sadx-b")),
+            ],
+        );
+        let setup_calls = Rc::new(Cell::new(0));
+        card.connect_setup_clicked({
+            let setup_calls = setup_calls.clone();
+            move || setup_calls.set(setup_calls.get() + 1)
+        });
+
+        // The click is meant for the selector; only the button starts setup.
+        click_card(&card);
+        assert_eq!(setup_calls.get(), 0);
+
+        card.imp().setup_button.emit_clicked();
+        assert_eq!(setup_calls.get(), 1);
+    }
+
+    #[gtk::test]
+    fn refreshing_a_card_drops_callbacks_for_the_previous_install() {
+        init_resource_overlay();
+
+        let card = AdventureModsGameCard::new();
+        let options = [GameInstallOption::detected(PathBuf::from("/games/sa2"))];
+        card.set_install_options(GameKind::SA2, &options);
+        let calls = Rc::new(Cell::new(0));
+        card.connect_setup_clicked({
+            let calls = calls.clone();
+            move || calls.set(calls.get() + 1)
+        });
+        card.connect_secondary_clicked({
+            let calls = calls.clone();
+            move || calls.set(calls.get() + 1)
+        });
+        click_card(&card);
+        card.imp().secondary_button.set_visible(true);
+        card.imp().secondary_button.emit_clicked();
+        assert_eq!(calls.get(), 2);
+
+        card.set_install_options(GameKind::SA2, &options);
+        card.imp().secondary_button.set_visible(true);
+        click_card(&card);
+        card.imp().setup_button.emit_clicked();
+        card.imp().secondary_button.emit_clicked();
+
+        assert_eq!(calls.get(), 2);
+        assert!(card.has_css_class("game-card-clickable"));
     }
 }

@@ -8,6 +8,7 @@ pub(crate) struct Reply {
     pub status: &'static str,
     pub headers: Vec<(&'static str, String)>,
     pub body: Vec<u8>,
+    content_length: Option<usize>,
 }
 
 impl Reply {
@@ -16,11 +17,19 @@ impl Reply {
             status: "200 OK",
             headers: Vec::new(),
             body: body.into(),
+            content_length: None,
         }
     }
 
     pub fn status(mut self, status: &'static str) -> Self {
         self.status = status;
+        self
+    }
+
+    /// Announce `length` bytes but send only the body, then close the
+    /// connection, so the client sees a truncated response.
+    pub fn claim_length(mut self, length: usize) -> Self {
+        self.content_length = Some(length);
         self
     }
 
@@ -82,7 +91,7 @@ pub(crate) fn serve(
             let mut head = format!(
                 "HTTP/1.1 {}\r\nContent-Length: {}\r\nConnection: close\r\n",
                 reply.status,
-                reply.body.len()
+                reply.content_length.unwrap_or(reply.body.len())
             );
             for (name, value) in &reply.headers {
                 head.push_str(&format!("{name}: {value}\r\n"));

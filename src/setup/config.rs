@@ -588,4 +588,22 @@ mod tests {
         assert!(SubtitleLanguage::parse("klingon").is_err());
         let _ = app_settings();
     }
+
+    #[test]
+    fn language_selection_without_settings_uses_defaults_and_saves_nothing() {
+        let chosen = LanguageSelection {
+            subtitle: SubtitleLanguage::French,
+            voice: VoiceLanguage::English,
+        };
+
+        // Without a settings schema (e.g. an uninstalled build) the choice is
+        // simply not remembered, and the next load falls back to the defaults.
+        save_language_selection(None, GameKind::SA2, chosen);
+
+        assert_eq!(
+            load_language_selection(None, GameKind::SA2),
+            LanguageSelection::defaults_for(GameKind::SA2)
+        );
+        assert_ne!(load_language_selection(None, GameKind::SA2), chosen);
+    }
 }

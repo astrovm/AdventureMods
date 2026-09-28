@@ -19,6 +19,7 @@ mod imp {
         #[template_child]
         pub games_row: TemplateChild<adw::WrapBox>,
         pub(crate) open_uri: crate::ui::UriOpenerSlot,
+        pub(crate) pick_folder: super::FolderPickerSlot,
     }
 
     #[glib::object_subclass]
@@ -141,21 +142,7 @@ impl AdventureModsWelcomePage {
                         }
                     });
                     card.connect_setup_clicked(move || {
-                        let Some(option) = card_clone.selected_install_option() else {
-                            return;
-                        };
-
-                        match option {
-                            GameInstallOption::Detected(_) if card_clone.needs_steam_repair() => {
-                                obj.verify_in_steam(kind);
-                            }
-                            GameInstallOption::Detected(path) => {
-                                open_setup(&nav_view_clone, Game { kind, path });
-                            }
-                            GameInstallOption::Inaccessible(path) => {
-                                obj.request_library_access(path);
-                            }
-                        }
+                        obj.activate_card(&card_clone, kind, &nav_view_clone);
                     });
                 }
                 GameCardState::Missing => {
@@ -167,24 +154,40 @@ impl AdventureModsWelcomePage {
         }
     }
 
+    /// Run the primary action for the install selected on `card`.
+    fn activate_card(
+        &self,
+        card: &AdventureModsGameCard,
+        kind: GameKind,
+        nav_view: &adw::NavigationView,
+    ) {
+        let Some(option) = card.selected_install_option() else {
+            return;
+        };
+
+        match option {
+            GameInstallOption::Detected(_) if card.needs_steam_repair() => {
+                self.verify_in_steam(kind);
+            }
+            GameInstallOption::Detected(path) => {
+                open_setup(nav_view, Game { kind, path });
+            }
+            GameInstallOption::Inaccessible(path) => {
+                self.request_library_access(path);
+            }
+        }
+    }
+
     fn request_library_access(&self, expected_library: std::path::PathBuf) {
         let Some(window) = self.root().and_downcast::<gtk::Window>() else {
             tracing::warn!("Could not find parent window for library access dialog");
             return;
         };
 
-        let dialog = gtk::FileDialog::builder()
-            .title("Grant access to a Steam library")
-            .modal(true)
-            .accept_label("Grant Access")
-            .build();
-
-        // The host file chooser can see this path even when the sandbox cannot.
-        dialog.set_initial_folder(Some(&gio::File::for_path(&expected_library)));
-
+        let choice = self.imp().pick_folder.pick(&window, &expected_library);
         let obj = self.clone();
         glib::spawn_future_local(async move {
-            match dialog.select_folder_future(Some(&window)).await {
+            match choice.await {
                 Ok(folder) => {
                     let Some(path) = folder.path() else {
                         obj.show_library_access_error(&format!(
@@ -293,6 +296,51 @@ impl AdventureModsWelcomePage {
         let obj = self.clone();
         steam_verify_dialog(kind, move |_, _| obj.verify_in_steam(kind)).present(Some(self));
     }
+}
+
+/// A folder the user is choosing, or why no folder was chosen.
+pub(crate) type FolderChoice =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<gio::File, glib::Error>>>>;
+
+/// Asks for a folder; replaced in tests so no file dialog waits on a user.
+pub(crate) type FolderPicker = std::rc::Rc<dyn Fn(&gtk::Window, &std::path::Path) -> FolderChoice>;
+
+/// How a page asks for a folder: the file dialog unless a test swapped it.
+#[derive(Default)]
+pub(crate) struct FolderPickerSlot(std::cell::RefCell<Option<FolderPicker>>);
+
+impl std::fmt::Debug for FolderPickerSlot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("FolderPickerSlot")
+    }
+}
+
+impl FolderPickerSlot {
+    fn pick(&self, window: &gtk::Window, initial_folder: &std::path::Path) -> FolderChoice {
+        let picker = self.0.borrow().clone();
+        match picker {
+            Some(pick) => pick(window, initial_folder),
+            None => pick_library_folder(window, initial_folder),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn replace(&self, picker: FolderPicker) {
+        self.0.replace(Some(picker));
+    }
+}
+
+/// Ask for a Steam library folder with the file dialog.
+fn pick_library_folder(window: &gtk::Window, initial_folder: &std::path::Path) -> FolderChoice {
+    let dialog = gtk::FileDialog::builder()
+        .title("Grant access to a Steam library")
+        .modal(true)
+        .accept_label("Grant Access")
+        .build();
+
+    // The host file chooser can see this path even when the sandbox cannot.
+    dialog.set_initial_folder(Some(&gio::File::for_path(initial_folder)));
+    dialog.select_folder_future(Some(window))
 }
 
 /// Offers to open Steam's file verification for `kind` through `open_uri`.
@@ -803,5 +851,256 @@ mod tests {
             },
             adw::NavigationView::new(),
         );
+    }
+
+    /// Run the main loop until `done` holds, failing after a few seconds.
+    fn wait_until(what: &str, done: impl Fn() -> bool) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !done() {
+            assert!(std::time::Instant::now() < deadline, "timed out: {what}");
+            glib::MainContext::default().iteration(false);
+        }
+    }
+
+    type NextChoice = std::rc::Rc<std::cell::RefCell<Option<Result<gio::File, glib::Error>>>>;
+
+    /// Answer folder requests with whatever the test queued, recording where
+    /// each request started.
+    fn fake_folder_picker(
+        page: &AdventureModsWelcomePage,
+    ) -> (
+        NextChoice,
+        std::rc::Rc<std::cell::RefCell<Vec<std::path::PathBuf>>>,
+    ) {
+        let next: NextChoice = Default::default();
+        let initial_folders = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        page.imp().pick_folder.replace(std::rc::Rc::new({
+            let next = next.clone();
+            let initial_folders = initial_folders.clone();
+            move |_: &gtk::Window, initial: &std::path::Path| -> FolderChoice {
+                initial_folders.borrow_mut().push(initial.to_path_buf());
+                let choice = next.take().expect("a queued folder choice");
+                Box::pin(async move { choice })
+            }
+        }));
+        (next, initial_folders)
+    }
+
+    #[gtk::test]
+    fn library_access_checks_the_chosen_folder_before_granting_it() {
+        init_resource_overlay();
+
+        let app = gtk::Application::new(
+            Some("io.github.astrovm.AdventureMods.WelcomeTests"),
+            gio::ApplicationFlags::NON_UNIQUE,
+        );
+        let window = crate::window::AdventureModsWindow::new(&app);
+        let page = window.welcome_page();
+        let status = || window.imp().status_label.label().to_string();
+        // The first scan clears the status banner, so let it finish first.
+        wait_until("initial scan", || {
+            window.imp().refresh_button.is_sensitive()
+        });
+
+        let (next, initial_folders) = fake_folder_picker(&page);
+        let granted = std::rc::Rc::new(std::cell::RefCell::new(Vec::<String>::new()));
+        page.connect_local("library-access-granted", false, {
+            let granted = granted.clone();
+            move |args| {
+                granted.borrow_mut().push(args[1].get::<String>().unwrap());
+                None
+            }
+        });
+        let library = tempfile::tempdir().unwrap();
+        std::fs::create_dir(library.path().join("steamapps")).unwrap();
+        let expected = library.path().to_path_buf();
+        let capture = crate::test_log::LogCapture::start();
+
+        // Cancelling the dialog is not an error worth showing.
+        next.replace(Some(Err(glib::Error::new(
+            gtk::DialogError::Dismissed,
+            "Dismissed by user",
+        ))));
+        page.request_library_access(expected.clone());
+        wait_until("cancel is logged", || {
+            capture
+                .contents()
+                .contains("Library access dialog cancelled or failed: Dismissed by user")
+        });
+        assert_eq!(status(), "");
+        assert_eq!(*initial_folders.borrow(), vec![expected.clone()]);
+
+        next.replace(Some(Ok(gio::File::for_uri(
+            "https://example.com/SteamLibrary",
+        ))));
+        page.request_library_access(expected.clone());
+        let unreadable = format!(
+            "Could not read the selected folder. Please choose {}.",
+            display_path(&expected)
+        );
+        wait_until("unreadable folder is reported", || status() == unreadable);
+
+        let unrelated = tempfile::tempdir().unwrap();
+        next.replace(Some(Ok(gio::File::for_path(unrelated.path()))));
+        page.request_library_access(expected.clone());
+        let wrong_folder = format!(
+            "That folder is not the requested Steam library. Select {} (it must contain a steamapps folder).",
+            display_path(&expected)
+        );
+        wait_until("wrong folder is reported", || status() == wrong_folder);
+        assert!(
+            capture
+                .contents()
+                .contains("Granted folder is not a usable Steam library")
+        );
+        assert!(granted.borrow().is_empty());
+
+        // Picking the library's steamapps folder grants the library itself.
+        next.replace(Some(Ok(gio::File::for_path(expected.join("steamapps")))));
+        page.request_library_access(expected.clone());
+        wait_until("library is granted", || !granted.borrow().is_empty());
+        assert_eq!(
+            *granted.borrow(),
+            vec![expected.to_string_lossy().to_string()]
+        );
+        assert!(capture.contents().contains("Granted Steam library access"));
+        assert_eq!(
+            window.imp().extra_library_paths.borrow().as_slice(),
+            &[expected]
+        );
+        assert_eq!(initial_folders.borrow().len(), 4);
+    }
+
+    #[gtk::test]
+    fn default_folder_picker_opens_a_modal_dialog_that_can_be_dismissed() {
+        init_resource_overlay();
+        crate::ui::test_util::use_memory_gsettings_backend();
+
+        let window = gtk::Window::new();
+        window.present();
+        let library = tempfile::tempdir().unwrap();
+        let choice = FolderPickerSlot::default().pick(&window, library.path());
+        let outcome = std::rc::Rc::new(std::cell::RefCell::new(None));
+        glib::spawn_future_local({
+            let outcome = outcome.clone();
+            async move {
+                outcome.replace(Some(choice.await));
+            }
+        });
+
+        let find_dialog = || {
+            gtk::Window::list_toplevels()
+                .into_iter()
+                .filter_map(|widget| widget.downcast::<gtk::Window>().ok())
+                .find(|toplevel| {
+                    toplevel.title().as_deref() == Some("Grant access to a Steam library")
+                })
+        };
+        wait_until("file dialog opens", || find_dialog().is_some());
+        let dialog = find_dialog().unwrap();
+        assert!(dialog.is_modal());
+        assert_eq!(dialog.transient_for().as_ref(), Some(&window));
+
+        dialog.close();
+        wait_until("dialog reports back", || outcome.borrow().is_some());
+        let err = outcome.take().unwrap().unwrap_err();
+        assert!(err.matches(gtk::DialogError::Dismissed), "{err}");
+    }
+
+    #[gtk::test]
+    fn secondary_action_only_restores_installs_the_app_can_read() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path().to_path_buf();
+        std::fs::write(game_path.join("sonic2app.exe"), "game").unwrap();
+        std::fs::write(game_path.join("Launcher.exe"), "manager").unwrap();
+        std::fs::write(game_path.join("Launcher.exe.bak"), "launcher").unwrap();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        assert!(format!("{:?}", page.imp()).contains("pick_folder: FolderPickerSlot"));
+        let window = adw::Window::new();
+        window.set_content(Some(&page));
+        page.set_detection_result(
+            DetectionResult {
+                games: vec![Game {
+                    kind: GameKind::SA2,
+                    path: game_path,
+                }],
+                inaccessible: vec![InaccessibleGame {
+                    kind: GameKind::SA2,
+                    library_path: "/mnt/steam".into(),
+                }],
+            },
+            adw::NavigationView::new(),
+        );
+        let card = page
+            .imp()
+            .games_row
+            .last_child()
+            .and_downcast::<AdventureModsGameCard>()
+            .unwrap();
+
+        card.imp().install_selector.set_selected(1);
+        card.imp().secondary_button.emit_clicked();
+        assert!(window.visible_dialog().is_none());
+
+        card.imp().install_selector.set_selected(0);
+        card.imp().secondary_button.emit_clicked();
+        let dialog = window
+            .visible_dialog()
+            .and_downcast::<adw::AlertDialog>()
+            .unwrap();
+        assert_eq!(
+            dialog.heading().as_deref(),
+            Some("Restore the original Sonic Adventure 2?")
+        );
+    }
+
+    #[gtk::test]
+    fn activating_a_card_without_installs_does_nothing() {
+        init_resource_overlay();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let (_, initial_folders) = fake_folder_picker(&page);
+        let nav_view = adw::NavigationView::new();
+
+        page.activate_card(&AdventureModsGameCard::new(), GameKind::SADX, &nav_view);
+
+        assert!(nav_view.visible_page().is_none());
+        assert!(initial_folders.borrow().is_empty());
+    }
+
+    #[gtk::test]
+    fn restoring_a_converted_game_offers_to_verify_it_in_steam() {
+        init_resource_overlay();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let game_path = tmp.path().to_path_buf();
+        std::fs::write(game_path.join("Sonic Adventure DX.exe"), "game").unwrap();
+        std::fs::write(game_path.join(".adventure-mods-steam-repair"), "").unwrap();
+
+        let page: AdventureModsWelcomePage = glib::Object::builder().build();
+        let window = adw::Window::new();
+        window.set_content(Some(&page));
+        // Never launch the real URI: it makes Steam verify the user's game.
+        let opened = std::rc::Rc::new(std::cell::RefCell::new(None));
+        page.imp().open_uri.replace(std::rc::Rc::new({
+            let opened = opened.clone();
+            move |_: Option<&gtk::Window>, uri: &str| {
+                opened.replace(Some(uri.to_owned()));
+            }
+        }));
+
+        page.restore_game(GameKind::SADX, game_path);
+        wait_until("verify is offered", || window.visible_dialog().is_some());
+        let dialog = window
+            .visible_dialog()
+            .and_downcast::<adw::AlertDialog>()
+            .unwrap();
+        assert_eq!(dialog.heading().as_deref(), Some("Finish in Steam"));
+
+        respond(&dialog, "verify");
+        assert_eq!(opened.borrow().as_deref(), Some("steam://validate/71250"));
     }
 }

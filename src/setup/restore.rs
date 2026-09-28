@@ -71,8 +71,7 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
 
     let manager_copy = game_path.join("SAModManager.exe");
     if manager_copy.is_file() {
-        std::fs::remove_file(&manager_copy)
-            .with_context(|| format!("Failed to remove {}", manager_copy.display()))?;
+        removal_result(std::fs::remove_file(&manager_copy), &manager_copy)?;
         report.changes.push("Removed SAModManager.exe".to_owned());
     }
 
@@ -95,8 +94,7 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
 
     let loader_dir = game_path.join("mods/.modloader");
     if loader_dir.is_dir() {
-        std::fs::remove_dir_all(&loader_dir)
-            .with_context(|| format!("Failed to remove {}", loader_dir.display()))?;
+        removal_result(std::fs::remove_dir_all(&loader_dir), &loader_dir)?;
         report.changes.push("Removed the mod loader".to_owned());
     }
 
@@ -125,6 +123,11 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
 /// `steam://` link that asks Steam to verify (and repair) the game's files.
 pub fn steam_verify_uri(game_kind: GameKind) -> String {
     format!("steam://validate/{}", game_kind.app_id())
+}
+
+/// The outcome of removing what setup added at `path`, naming it on failure.
+fn removal_result(result: std::io::Result<()>, path: &Path) -> Result<()> {
+    result.with_context(|| format!("Failed to remove {}", path.display()))
 }
 
 fn backup_path(exe: &Path) -> PathBuf {
@@ -198,6 +201,7 @@ mod tests {
 
     #[test]
     fn restores_sadx_and_asks_for_steam_verify_after_conversion() {
+        let capture = crate::test_log::LogCapture::start();
         let tmp = tempfile::tempdir().unwrap();
         let game = tmp.path();
         write(&game.join("Sonic Adventure DX.exe"), "manager");
@@ -220,6 +224,10 @@ mod tests {
             "chr"
         );
         assert!(report.needs_steam_verify);
+        assert!(capture.contents().contains(&format!(
+            "Restored Sonic Adventure DX at {}",
+            game.display()
+        )));
         assert!(!game.join("sonic.exe").exists());
         assert!(!is_modded(game, GameKind::SADX));
         // Until a conversion succeeds again, the files still need Steam.
@@ -306,5 +314,30 @@ mod tests {
         let err = restore_original_game(tmp.path(), GameKind::SA2).unwrap_err();
 
         assert!(err.to_string().contains("Data_DLL.dll"), "{err}");
+    }
+
+    #[test]
+    fn clearing_the_steam_repair_marker_reports_failures() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Something other than the marker file is in its place.
+        write(&tmp.path().join(STEAM_REPAIR_MARKER).join("blocker"), "");
+
+        let err = clear_steam_repair(tmp.path()).unwrap_err();
+
+        assert_eq!(err.to_string(), "Failed to clear the Steam repair marker");
+        assert!(tmp.path().join(STEAM_REPAIR_MARKER).is_dir());
+    }
+
+    #[test]
+    fn removal_failures_name_what_could_not_be_removed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let gone = tmp.path().join("SAModManager.exe");
+
+        let file_err = removal_result(std::fs::remove_file(&gone), &gone).unwrap_err();
+        let dir_err = removal_result(std::fs::remove_dir_all(&gone), &gone).unwrap_err();
+
+        let expected = format!("Failed to remove {}", gone.display());
+        assert_eq!(file_err.to_string(), expected);
+        assert_eq!(dir_err.to_string(), expected);
     }
 }

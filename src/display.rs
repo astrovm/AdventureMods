@@ -1,5 +1,5 @@
-use gtk::gdk;
 use gtk::prelude::{Cast, DisplayExt, ListModelExt, MonitorExt, SurfaceExt};
+use gtk::{gdk, gio};
 
 /// Detect the physical resolution of the relevant monitor.
 ///
@@ -18,24 +18,33 @@ pub fn resolution_from_display(
         let scale = s.scale();
         (m, scale)
     } else {
-        let monitors = display.monitors();
-        let m = (0..monitors.n_items())
-            .filter_map(|i| {
-                monitors
-                    .item(i)
-                    .and_then(|m| m.downcast::<gdk::Monitor>().ok())
-            })
-            .max_by_key(|m| {
-                let g = m.geometry();
-                let (w, h) = (g.width() as i64, g.height() as i64);
-                // Prefer landscape monitors (width >= height), then largest area.
-                (if w >= h { 1i64 } else { 0i64 }, w * h)
-            })?;
+        let m = preferred_monitor(&display.monitors())?;
         let scale = m.scale();
         (m, scale)
     };
 
-    let geometry = monitor.geometry();
+    physical_resolution(&monitor.geometry(), scale)
+}
+
+/// Pick the landscape monitor with the largest area, or any monitor when all
+/// of them are portrait.
+fn preferred_monitor(monitors: &gio::ListModel) -> Option<gdk::Monitor> {
+    (0..monitors.n_items())
+        .filter_map(|i| {
+            monitors
+                .item(i)
+                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
+        })
+        .max_by_key(|m| {
+            let g = m.geometry();
+            let (w, h) = (g.width() as i64, g.height() as i64);
+            // Prefer landscape monitors (width >= height), then largest area.
+            (if w >= h { 1i64 } else { 0i64 }, w * h)
+        })
+}
+
+/// Scale a monitor's logical geometry to physical pixels.
+fn physical_resolution(geometry: &gdk::Rectangle, scale: f64) -> Option<(u32, u32)> {
     let width = (geometry.width() as f64 * scale).round() as u32;
     let height = (geometry.height() as f64 * scale).round() as u32;
 
@@ -75,5 +84,46 @@ mod tests {
         let resolution = resolution_from_display(&display, Some(&surface));
         assert!(resolution.is_some_and(|(width, height)| width > 0 && height > 0));
         window.close();
+    }
+
+    #[gtk::test]
+    fn preferred_monitor_needs_at_least_one_monitor() {
+        let display = gdk::Display::default().expect("test display");
+        let monitors = display.monitors();
+        assert!(monitors.n_items() > 0);
+
+        let preferred = preferred_monitor(&monitors).expect("a test monitor");
+        assert!(preferred.geometry().width() > 0);
+        let no_monitors = gio::ListStore::new::<gdk::Monitor>();
+        assert!(preferred_monitor(no_monitors.upcast_ref()).is_none());
+    }
+
+    #[test]
+    fn physical_resolution_applies_the_scale_and_logs_both_sizes() {
+        let (resolution, logs) = crate::test_log::capture_logs(|| {
+            physical_resolution(&gdk::Rectangle::new(0, 0, 1280, 720), 1.5)
+        });
+
+        assert_eq!(resolution, Some((1920, 1080)));
+        assert!(
+            logs.contains("Detected resolution: 1920x1080 (logical: 1280x720, scale: 1.50)"),
+            "logs were: {logs}"
+        );
+    }
+
+    #[test]
+    fn physical_resolution_rejects_empty_geometry() {
+        assert_eq!(
+            physical_resolution(&gdk::Rectangle::new(0, 0, 0, 720), 1.0),
+            None
+        );
+        assert_eq!(
+            physical_resolution(&gdk::Rectangle::new(0, 0, 1280, 0), 2.0),
+            None
+        );
+        assert_eq!(
+            physical_resolution(&gdk::Rectangle::new(0, 0, 1280, 720), 0.0),
+            None
+        );
     }
 }

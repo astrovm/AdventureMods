@@ -73,7 +73,7 @@ jobs:
         run: sh build-aux/test-cargo-version.sh
 
   coverage:
-    # 95% coverage is a required PR signal; main is protected by PR-only changes.
+    # 100% line coverage is a required PR signal; main is protected by PR-only changes.
     # Runs alongside the test job instead of after it: it runs the same tests.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
@@ -105,8 +105,8 @@ jobs:
         with:
           tool: cargo-llvm-cov
 
-      - name: Check 95% line coverage
-        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 95 --show-missing-lines -- --test-threads=1
+      - name: Check 100% line coverage
+        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 100 --show-missing-lines -- --test-threads=1
 
   flatpak:
     # Same packaging gates as AppImage: PR validation, release tags, manual runs.

@@ -22,11 +22,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn home() -> PathBuf {
-        if cfg!(windows) {
-            PathBuf::from("C:\\Users\\user")
-        } else {
-            PathBuf::from("/home/user")
-        }
+        PathBuf::from("/home/user")
     }
 
     #[test]

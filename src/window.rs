@@ -67,10 +67,7 @@ mod imp {
 
             let obj = self.obj();
 
-            if crate::config::PROFILE == "development" {
-                obj.add_css_class("devel");
-            }
-
+            obj.apply_profile_style(crate::config::PROFILE);
             obj.setup_settings();
             obj.setup_header_actions();
             obj.setup_welcome_page_signals();
@@ -94,6 +91,13 @@ glib::wrapper! {
 impl AdventureModsWindow {
     pub fn new(app: &impl IsA<gtk::Application>) -> Self {
         glib::Object::builder().property("application", app).build()
+    }
+
+    /// Development builds get the striped header, so they are easy to tell apart.
+    fn apply_profile_style(&self, profile: &str) {
+        if profile == "development" {
+            self.add_css_class("devel");
+        }
     }
 
     fn setup_welcome_page_signals(&self) {
@@ -205,8 +209,6 @@ impl AdventureModsWindow {
 
     fn detect_games(&self) {
         let imp = self.imp();
-        let welcome_page = imp.welcome_page.clone();
-        let nav_view = imp.navigation_view.clone();
         let extra_library_paths = imp.extra_library_paths.borrow().clone();
         let request_id = next_detection_request_id(imp.latest_detection_request_id.get());
         imp.latest_detection_request_id.set(request_id);
@@ -215,41 +217,40 @@ impl AdventureModsWindow {
         self.set_refresh_busy(true);
 
         glib::spawn_future_local(async move {
-            let result = match blocking::spawn_result(
+            let result = blocking::spawn_result(
                 gio::spawn_blocking(move || {
                     steam::library::detect_games_with_extra_libraries(&extra_library_paths)
                 })
                 .await,
-            ) {
-                Ok(result) => result,
-                Err(err) => {
-                    if !should_apply_detection_result(
-                        obj.imp().latest_detection_request_id.get(),
-                        request_id,
-                    ) {
-                        return;
-                    }
-                    tracing::error!("Failed to detect games: {err}");
-                    obj.set_refresh_busy(false);
-                    obj.show_status_message(
-                        &format!("Failed to detect Steam libraries: {err}"),
-                        true,
-                    );
-                    return;
-                }
-            };
-
-            if !should_apply_detection_result(
-                obj.imp().latest_detection_request_id.get(),
-                request_id,
-            ) {
-                return;
-            }
-
-            welcome_page.set_detection_result(result, nav_view);
-            obj.set_refresh_busy(false);
-            obj.clear_status_message();
+            );
+            obj.apply_detection_result(request_id, result);
         });
+    }
+
+    /// Show the outcome of scan `request_id`, unless a newer scan replaced it.
+    fn apply_detection_result(
+        &self,
+        request_id: u64,
+        result: anyhow::Result<steam::library::DetectionResult>,
+    ) {
+        let imp = self.imp();
+        if !should_apply_detection_result(imp.latest_detection_request_id.get(), request_id) {
+            return;
+        }
+
+        match result {
+            Ok(result) => {
+                imp.welcome_page
+                    .set_detection_result(result, imp.navigation_view.clone());
+                self.set_refresh_busy(false);
+                self.clear_status_message();
+            }
+            Err(err) => {
+                tracing::error!("Failed to detect games: {err}");
+                self.set_refresh_busy(false);
+                self.show_status_message(&format!("Failed to detect Steam libraries: {err}"), true);
+            }
+        }
     }
 
     fn set_refresh_busy(&self, busy: bool) {
@@ -287,6 +288,11 @@ impl AdventureModsWindow {
 
     pub fn navigation_view(&self) -> &adw::NavigationView {
         &self.imp().navigation_view
+    }
+
+    #[cfg(test)]
+    pub(crate) fn welcome_page(&self) -> AdventureModsWelcomePage {
+        self.imp().welcome_page.clone()
     }
 
     pub fn push_setup_page(&self, game: steam::game::Game) {
@@ -340,7 +346,6 @@ mod tests {
     use std::cell::RefCell;
     use std::path::PathBuf;
     use std::process::Command as ProcessCommand;
-    use std::sync::{Mutex, OnceLock};
 
     use adw::prelude::*;
     use adw::subclass::prelude::ObjectSubclassIsExt;
@@ -362,8 +367,20 @@ mod tests {
     }
 
     fn with_test_settings<T>(test: impl FnOnce(&gio::Settings) -> T) -> T {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let _guard = LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let _env = crate::test_env::lock();
+        with_test_settings_locked(test)
+    }
+
+    /// Put `value` back into `key`, or unset it when it was unset before.
+    fn restore_env_var(key: &str, value: Option<String>) {
+        match value {
+            Some(value) => unsafe { std::env::set_var(key, value) },
+            None => unsafe { std::env::remove_var(key) },
+        }
+    }
+
+    /// [`with_test_settings`] for callers already holding the environment lock.
+    fn with_test_settings_locked<T>(test: impl FnOnce(&gio::Settings) -> T) -> T {
         let schema_dir = tempfile::tempdir().unwrap();
         let schema_path = schema_dir
             .path()
@@ -380,6 +397,9 @@ mod tests {
                 .success()
         );
 
+        // GIO reads GSETTINGS_SCHEMA_DIR into its default schema source once.
+        // Load it now, so a window shown below cannot pin this temporary one.
+        let _ = gio::SettingsSchemaSource::default();
         let previous_schema_dir = std::env::var("GSETTINGS_SCHEMA_DIR").ok();
         let previous_backend = std::env::var("GSETTINGS_BACKEND").ok();
         unsafe {
@@ -393,14 +413,8 @@ mod tests {
         let settings = gio::Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
         let result = test(&settings);
 
-        match previous_schema_dir {
-            Some(value) => unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", value) },
-            None => unsafe { std::env::remove_var("GSETTINGS_SCHEMA_DIR") },
-        }
-        match previous_backend {
-            Some(value) => unsafe { std::env::set_var("GSETTINGS_BACKEND", value) },
-            None => unsafe { std::env::remove_var("GSETTINGS_BACKEND") },
-        }
+        restore_env_var("GSETTINGS_SCHEMA_DIR", previous_schema_dir);
+        restore_env_var("GSETTINGS_BACKEND", previous_backend);
 
         result
     }
@@ -596,6 +610,176 @@ mod tests {
                     "/tmp/synthetic-extra".to_string()
                 ]
             );
+        });
+    }
+
+    /// Run the main loop until `done` holds, failing after a few seconds.
+    fn wait_until(what: &str, done: impl Fn() -> bool) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while !done() {
+            assert!(std::time::Instant::now() < deadline, "timed out: {what}");
+            gtk::glib::MainContext::default().iteration(false);
+        }
+    }
+
+    #[test]
+    fn granting_the_same_library_twice_saves_it_once() {
+        let granted = PathBuf::from("/data/SteamLibrary");
+        let paths = RefCell::new(Vec::new());
+        let events = RefCell::new(Vec::new());
+
+        for _ in 0..2 {
+            handle_library_access_granted(
+                &paths,
+                granted.clone(),
+                || events.borrow_mut().push("saved"),
+                || events.borrow_mut().push("refreshed"),
+            );
+        }
+
+        assert_eq!(*events.borrow(), vec!["saved", "refreshed", "refreshed"]);
+        assert_eq!(*paths.borrow(), vec![granted]);
+    }
+
+    #[test]
+    fn test_settings_restore_the_callers_gsettings_environment() {
+        let _env = crate::test_env::lock();
+        let previous_schema_dir = std::env::var("GSETTINGS_SCHEMA_DIR").ok();
+        let previous_backend = std::env::var("GSETTINGS_BACKEND").ok();
+        unsafe {
+            std::env::set_var("GSETTINGS_SCHEMA_DIR", "/caller/schemas");
+            std::env::set_var("GSETTINGS_BACKEND", "caller-backend");
+        }
+
+        let backend_inside =
+            with_test_settings_locked(|_| std::env::var("GSETTINGS_BACKEND").unwrap());
+        let restored = (
+            std::env::var("GSETTINGS_SCHEMA_DIR").ok(),
+            std::env::var("GSETTINGS_BACKEND").ok(),
+        );
+        restore_env_var("GSETTINGS_SCHEMA_DIR", previous_schema_dir);
+        restore_env_var("GSETTINGS_BACKEND", previous_backend);
+
+        assert_eq!(backend_inside, "memory");
+        assert_eq!(
+            restored,
+            (
+                Some("/caller/schemas".to_string()),
+                Some("caller-backend".to_string())
+            )
+        );
+    }
+
+    #[gtk::test]
+    fn only_development_builds_get_the_devel_style() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+        assert_eq!(
+            window.has_css_class("devel"),
+            crate::config::PROFILE == "development"
+        );
+
+        window.apply_profile_style("default");
+        assert_eq!(
+            window.has_css_class("devel"),
+            crate::config::PROFILE == "development"
+        );
+
+        window.apply_profile_style("development");
+        assert!(window.has_css_class("devel"));
+    }
+
+    #[gtk::test]
+    fn granted_library_signal_without_a_path_is_ignored() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+        let before = window.imp().latest_detection_request_id.get();
+
+        window
+            .imp()
+            .welcome_page
+            .emit_by_name::<()>("library-access-granted", &[&None::<String>]);
+
+        assert!(window.imp().extra_library_paths.borrow().is_empty());
+        assert_eq!(window.imp().latest_detection_request_id.get(), before);
+    }
+
+    #[gtk::test]
+    fn failed_detection_is_reported_unless_a_newer_scan_replaced_it() {
+        init_resource_overlay();
+
+        let app = test_application();
+        let window = AdventureModsWindow::new(&app);
+        let stale = window.imp().latest_detection_request_id.get();
+        window.detect_games();
+        let current = window.imp().latest_detection_request_id.get();
+        assert!(!window.imp().refresh_button.is_sensitive());
+
+        let capture = crate::test_log::LogCapture::start();
+        window.apply_detection_result(stale, Err(anyhow::anyhow!("stale failure")));
+        assert_eq!(window.imp().status_label.label().as_str(), "");
+        assert!(!window.imp().refresh_button.is_sensitive());
+
+        window.apply_detection_result(current, Err(anyhow::anyhow!("spawn error: boom")));
+        assert_eq!(
+            window.imp().status_label.label().as_str(),
+            "Failed to detect Steam libraries: spawn error: boom"
+        );
+        assert!(
+            window
+                .imp()
+                .status_banner
+                .has_css_class("status-banner-error")
+        );
+        assert!(window.imp().refresh_button.is_sensitive());
+        let logs = capture.contents();
+        assert!(logs.contains("Failed to detect games: spawn error: boom"));
+        assert!(!logs.contains("stale failure"));
+    }
+
+    #[gtk::test]
+    fn closing_the_window_remembers_its_size_unless_maximized() {
+        init_resource_overlay();
+
+        with_test_settings(|settings| {
+            settings.set_int("window-width", 1111).unwrap();
+            settings.set_int("window-height", 777).unwrap();
+            settings.set_boolean("window-maximized", false).unwrap();
+
+            let app = test_application();
+            let window = AdventureModsWindow::new(&app);
+            window.set_default_size(900, 600);
+            window.present();
+            wait_until("window is mapped", || window.width() > 0);
+            let size = (window.width(), window.height());
+            assert!(!window.is_maximized());
+
+            window.close();
+            assert_eq!(
+                (settings.int("window-width"), settings.int("window-height")),
+                size
+            );
+            assert!(!settings.boolean("window-maximized"));
+
+            // A maximized size is not the one to restore, so keep the last.
+            settings.set_int("window-width", 1234).unwrap();
+            settings.set_int("window-height", 567).unwrap();
+            settings.set_boolean("window-maximized", true).unwrap();
+            let maximized = AdventureModsWindow::new(&app);
+            maximized.present();
+            wait_until("window is mapped", || maximized.width() > 0);
+            assert!(maximized.is_maximized());
+
+            maximized.close();
+            assert_eq!(
+                (settings.int("window-width"), settings.int("window-height")),
+                (1234, 567)
+            );
+            assert!(settings.boolean("window-maximized"));
         });
     }
 }
