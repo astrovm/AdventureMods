@@ -1,6 +1,8 @@
 # Adventure Mods
 
-The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles mod managers, runtimes, resolution, load order, and language settings so you can play right away.
+**The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.**
+
+It finds your Steam installs and downloads community mods. It also handles mod managers, runtimes, resolution, load order and language settings, so you can play right away.
 
 <p align="center">
   <img src="data/screenshots/welcome.png" alt="Game list" width="400">
@@ -8,22 +10,14 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
   <img src="data/screenshots/mod-selection.png" alt="Mod Selection" width="400">
 </p>
 
-## Features
+## Before you start
 
-- Detects SADX and SA2 across all Steam library folders
-- Includes 29 SADX mods and 12 SA2 mods
-- Provides SADX presets: DX Enhanced and Dreamcast Restoration
-- Installs mod managers, mods, and dependencies in one step
-- Configures native resolution, window mode, and optimal settings
-- Saves subtitle and voice language selection per game
+- **Steam** with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610).
+- **Proton 10.0.** Force it for each game under Properties → Compatibility.
 
-## Requirements
+Why Proton 10.0: Proton 11 and tools based on it (Hotfix, Experimental, many custom builds such as CachyOS) currently can't keep SA Mod Manager running.
 
-- Steam with Sonic Adventure DX (app 71250) and/or Sonic Adventure 2 (app 213610)
-- Force **Proton 10.0** for each game under Properties → Compatibility  
-  Proton 11 and tools based on it (Hotfix, Experimental, many custom builds such as CachyOS) currently cannot keep SA Mod Manager running.
-
-## Install
+## ⬇️ Install
 
 **Flatpak (recommended)**
 
@@ -33,8 +27,6 @@ The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds 
 flatpak install https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
-After installing, open **Adventure Mods** from your application menu and follow the setup wizard.
-
 Update it later through your software manager or with:
 
 ```sh
@@ -42,10 +34,11 @@ flatpak update
 ```
 
 <details>
-<summary>Other options (AppImage)</summary>
+<summary><b>Other options (AppImage)</b></summary>
 
-**AppImage with Gear Lever** — [Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install),
-or use the terminal:
+**AppImage with Gear Lever**
+
+[Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install), or use the terminal:
 
 ```sh
 flatpak install https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatpakref
@@ -53,8 +46,7 @@ flatpak install https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatp
 
 Gear Lever handles desktop integration and updates.
 
-Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest)
-and open it with Gear Lever.
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest) and open it with Gear Lever.
 
 **AppImage manually**
 
@@ -63,9 +55,22 @@ chmod +x AdventureMods-v<version>-<arch>.AppImage
 ./AdventureMods-v<version>-<arch>.AppImage
 ```
 
-Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
+Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
 
 </details>
+
+## 🚀 Use
+
+Open **Adventure Mods** from your application menu and follow the setup wizard.
+
+## Features
+
+- **Finds your games.** Detects SADX and SA2 across all Steam library folders.
+- **Lots of mods.** Includes 29 SADX mods and 12 SA2 mods.
+- **SADX presets.** DX Enhanced and Dreamcast Restoration.
+- **One step.** Installs mod managers, mods and dependencies together.
+- **Good settings.** Sets native resolution, window mode and optimal settings.
+- **Your languages.** Saves subtitle and voice language per game.
 
 ## CLI (optional)
 
@@ -73,18 +78,19 @@ Running without a subcommand launches the GUI. Pass a subcommand for CLI mode.
   <img src="data/screenshots/cli.png" alt="CLI" width="600">
 </p>
 
-The graphical app is recommended for most users. From a terminal, the usual entry point is the interactive setup wizard:
+The graphical app is recommended for most people. From a terminal, start with the interactive setup wizard:
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods setup
 ```
 
-It walks through game selection, mods, and install steps. Omit game or mod flags to stay interactive; pass them only when you want a fully non-interactive run.
+- **Interactive by default.** It walks you through game selection, mods and install steps.
+- **Scriptable.** Leave out game or mod flags to stay interactive. Pass them only for a fully non-interactive run.
 
 <details>
-<summary>Other commands</summary>
+<summary><b>Other commands</b></summary>
 
-| Command                      | Description                                                  |
+| Command                      | What it does                                                 |
 | ---------------------------- | ------------------------------------------------------------ |
 | `detect`                     | Show detected game installs and inaccessible Steam libraries |
 | `list-mods --game sadx\|sa2` | List available presets and mods for a game                   |
@@ -98,11 +104,11 @@ flatpak run io.github.astrovm.AdventureMods --help
 </details>
 
 <details>
-<summary>Non-interactive setup options</summary>
+<summary><b>Non-interactive setup options</b></summary>
 
-Use these with `setup` for scripting. When game, path, or mod selection is omitted, `setup` stays interactive.
+Use these with `setup` for scripting. When game, path or mod selection is left out, `setup` stays interactive.
 
-| Flag                         | Description                                  |
+| Flag                         | What it does                                 |
 | ---------------------------- | -------------------------------------------- |
 | `--game sadx\|sa2`           | Select the game                              |
 | `--game-path /path`          | Override Steam detection                     |
@@ -117,8 +123,10 @@ Use these with `setup` for scripting. When game, path, or mod selection is omitt
 
 Subtitle languages:
 
-- SADX: `japanese`, `english`, `french`, `spanish`, `german`
-- SA2: `english`, `german`, `spanish`, `french`, `italian`, `japanese`
+| Game | Languages                                                         |
+| ---- | ----------------------------------------------------------------- |
+| SADX | `japanese`, `english`, `french`, `spanish`, `german`              |
+| SA2  | `english`, `german`, `spanish`, `french`, `italian`, `japanese`   |
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods setup --game sadx --preset "DX Enhanced"
@@ -127,7 +135,8 @@ flatpak run io.github.astrovm.AdventureMods setup --help
 
 </details>
 
-## Development
+<details>
+<summary><b>Development</b></summary>
 
 **Flatpak** (Devel manifest, installs for the current user)
 
@@ -136,6 +145,7 @@ make flatpak
 ```
 
 Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
+
 The Flatpak build downloads the Cargo.lock dependencies during the build.
 
 **AppImage** (Podman + `ubuntu:26.04`, matching the CI runner)
@@ -144,5 +154,8 @@ The Flatpak build downloads the Cargo.lock dependencies during the build.
 make appimage
 ```
 
-Output: `appimage-build/AdventureMods-v<version>-<arch>.AppImage` and `.zsync`. Builds match the host
-architecture (x86_64 or aarch64). GitHub Releases publish both.
+Output: `appimage-build/AdventureMods-v<version>-<arch>.AppImage` and `.zsync`.
+
+Builds match the host architecture (x86_64 or aarch64). GitHub Releases publish both.
+
+</details>
