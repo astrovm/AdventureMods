@@ -377,10 +377,7 @@ mod tests {
         // No keyfile in this home; whatever dconf has is fine to read.
         let _ = legacy_gsettings();
 
-        match previous {
-            Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
-            None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
-        }
+        crate::test_env::set_var("XDG_CONFIG_HOME", previous);
         assert_eq!(
             settings.path(),
             home.path()

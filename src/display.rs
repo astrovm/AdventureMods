@@ -40,37 +40,29 @@ pub fn resolution_from_display_server() -> Option<(u32, u32)> {
 }
 
 fn probe_display_server() -> Option<(u32, u32)> {
-    use winit::application::ApplicationHandler;
-    use winit::event_loop::{ActiveEventLoop, EventLoop};
+    use winit::event::Event;
+    use winit::event_loop::EventLoop;
     use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
     use winit::platform::x11::EventLoopBuilderExtX11;
 
-    #[derive(Default)]
-    struct Probe(Option<(u32, u32)>);
-
-    impl ApplicationHandler for Probe {
-        fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-            self.0 = preferred_resolution(event_loop.available_monitors().map(|monitor| {
-                let size = monitor.size();
-                (size.width, size.height)
-            }));
-            event_loop.exit();
-        }
-
-        fn window_event(
-            &mut self,
-            _: &ActiveEventLoop,
-            _: winit::window::WindowId,
-            _: winit::event::WindowEvent,
-        ) {
-        }
-    }
-
     // Tests and the CLI may not run on the main thread.
     let mut event_loop = EventLoop::builder().with_any_thread(true).build().ok()?;
-    let mut probe = Probe::default();
-    event_loop.run_app_on_demand(&mut probe).ok()?;
-    probe.0
+    let mut resolution = None;
+    // A closure instead of an `ApplicationHandler`: the probe opens no window,
+    // so a handler's required `window_event` would never run.
+    #[allow(deprecated)]
+    event_loop
+        .run_on_demand(|event, event_loop| {
+            if let Event::Resumed = event {
+                resolution = preferred_resolution(event_loop.available_monitors().map(|monitor| {
+                    let size = monitor.size();
+                    (size.width, size.height)
+                }));
+                event_loop.exit();
+            }
+        })
+        .ok()?;
+    resolution
 }
 
 #[cfg(test)]

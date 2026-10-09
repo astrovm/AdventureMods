@@ -189,10 +189,7 @@ exit 1
             .recv_timeout(std::time::Duration::from_secs(30));
 
         unsafe { std::env::set_var("PATH", previous_path) };
-        match previous_bus {
-            Some(value) => unsafe { std::env::set_var("DBUS_SESSION_BUS_ADDRESS", value) },
-            None => unsafe { std::env::remove_var("DBUS_SESSION_BUS_ADDRESS") },
-        }
+        crate::test_env::set_var("DBUS_SESSION_BUS_ADDRESS", previous_bus);
         assert_eq!(answer, Ok(None));
     }
 }
