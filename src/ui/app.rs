@@ -468,6 +468,8 @@ impl AdventureModsApp {
         }
 
         theme::paint_background(&ctx);
+        // The chosen game's art stays behind setup too.
+        self.welcome.paint_backdrops(&ctx);
         self.show_header(ui);
         if let Some((message, is_error)) = self.status.clone() {
             egui::Panel::top("status")
@@ -543,7 +545,13 @@ impl AdventureModsApp {
                         });
                         ui.add(egui::Image::new(&*logo).fit_to_exact_size(Vec2::splat(40.0)));
                     }
-                    if subtitle.is_empty() {
+                    if self.setup.is_none() {
+                        ui.label(
+                            RichText::new(title.to_uppercase())
+                                .font(theme::font(ui.ctx(), 20.0, theme::heavy()))
+                                .extra_letter_spacing(1.5),
+                        );
+                    } else if subtitle.is_empty() {
                         ui.label(RichText::new(&title).heading().strong());
                     } else {
                         ui.vertical(|ui| {

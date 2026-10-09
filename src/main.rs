@@ -33,6 +33,8 @@ fn run_gui() -> ExitCode {
         config::APP_NAME,
         options,
         Box::new(|creation| {
+            // Before the first frame, so Rubik is there from the start.
+            adventure_mods::ui::theme::apply(&creation.egui_ctx);
             let mut app = AdventureModsApp::new(Services::real(), settings);
             app.set_gamepad(Gamepad::spawn(&creation.egui_ctx));
             Ok(Box::new(EframeApp::new(app)))

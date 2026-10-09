@@ -44,6 +44,21 @@ pub fn asset(resource: &str) -> Option<&'static [u8]> {
         .map(|index| ASSETS[index].1)
 }
 
+/// A bundled image shrunk and blurred into a soft backdrop. Small, so it is
+/// cheap to make and smooth when stretched across the window.
+pub fn decode_backdrop(resource: &str) -> anyhow::Result<egui::ColorImage> {
+    let bytes = asset(resource).ok_or_else(|| anyhow::anyhow!("not bundled"))?;
+    let image = image::load_from_memory(bytes)?
+        .resize(160, u32::MAX, image::imageops::FilterType::Triangle)
+        .blur(5.0)
+        .to_rgba8();
+    let size = [image.width() as usize, image.height() as usize];
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        image.as_raw(),
+    ))
+}
+
 /// Decode a bundled image, shrunk to [`MAX_WIDTH`]. Safe on any thread.
 pub fn decode(resource: &str) -> anyhow::Result<egui::ColorImage> {
     let bytes = asset(resource).ok_or_else(|| anyhow::anyhow!("not bundled"))?;
@@ -239,6 +254,13 @@ mod tests {
             }
         }
         assert!(asset("/missing.jpg").is_none());
+    }
+
+    #[test]
+    fn backdrops_are_small_and_need_a_bundled_image() {
+        let backdrop = decode_backdrop(cover_resource(GameKind::SA2)).unwrap();
+        assert_eq!(backdrop.size[0], 160);
+        assert!(decode_backdrop("/missing.jpg").is_err());
     }
 
     #[test]

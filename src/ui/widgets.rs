@@ -42,7 +42,13 @@ pub fn button(ui: &mut Ui, text: &str, kind: ButtonKind) -> Response {
 
 /// [`button`] at least `width` wide.
 pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Response {
-    let galley = WidgetText::from(RichText::new(text).strong()).into_galley(
+    let enabled = ui.is_enabled();
+    let text_color = match (enabled, kind) {
+        (false, _) => theme::TEXT_DIM,
+        (true, ButtonKind::Suggested) => theme::ON_ACCENT,
+        (true, _) => theme::TEXT,
+    };
+    let galley = WidgetText::from(RichText::new(text).color(text_color)).into_galley(
         ui,
         Some(egui::TextWrapMode::Extend),
         f32::INFINITY,
@@ -54,37 +60,43 @@ pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Re
         theme::TARGET_HEIGHT,
     );
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    let enabled = ui.is_enabled();
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, galley.text()));
 
     let (fill, lit) = match kind {
         ButtonKind::Suggested => (theme::ACCENT, theme::ACCENT_BRIGHT),
-        ButtonKind::Normal => (theme::CARD_RAISED, theme::CARD_HOVER),
+        ButtonKind::Normal => (Color32::from_white_alpha(30), Color32::from_white_alpha(56)),
         ButtonKind::Destructive => (theme::DESTRUCTIVE, theme::ERROR),
     };
     let highlight = motion::highlight(ui, &response);
     let press = motion::press(ui, &response);
-    let body = rect.shrink(press * 2.0);
+    // Pressing pushes the button down onto its lip.
+    let lip = if kind == ButtonKind::Normal { 0.0 } else { 3.0 };
+    let body = rect
+        .shrink2(Vec2::new(0.0, lip / 2.0))
+        .translate(Vec2::new(0.0, -lip / 2.0 + press * lip));
     let radius = CornerRadius::same((body.height() / 2.0) as u8);
     let painter = ui.painter();
     if kind != ButtonKind::Normal && enabled {
-        // A soft glow under the main action, brighter on hover.
         painter.add(
             egui::Shadow {
-                offset: [0, 6],
-                blur: 18,
+                offset: [0, 8],
+                blur: 20,
                 spread: 0,
-                color: fill.gamma_multiply(0.25 + 0.25 * highlight),
+                color: fill.gamma_multiply(0.2 + 0.3 * highlight),
             }
             .as_shape(body, radius),
         );
+        let deep = match kind {
+            ButtonKind::Suggested => theme::ACCENT_DEEP,
+            _ => Color32::from_rgb(0x8a, 0x14, 0x1e),
+        };
+        painter.rect_filled(
+            body.translate(Vec2::new(0.0, lip * (1.0 - press))),
+            radius,
+            deep,
+        );
     }
-    painter.rect_filled(body, radius, fill.lerp_to_gamma(lit, highlight * 0.6));
-    let text_color = if enabled {
-        theme::TEXT
-    } else {
-        theme::TEXT_DIM
-    };
+    painter.rect_filled(body, radius, fill.lerp_to_gamma(lit, highlight * 0.7));
     painter.galley(body.center() - galley.size() / 2.0, galley, text_color);
     focus_ring(ui, &response);
     response
@@ -135,12 +147,14 @@ fn painted_icon_button(
     painter.circle_filled(
         rect.center(),
         rect.width() / 2.0 - press * 2.0,
-        theme::CARD_RAISED.gamma_multiply(highlight),
+        Color32::from_white_alpha(18).lerp_to_gamma(Color32::from_white_alpha(48), highlight),
     );
     paint(
         painter,
         rect,
-        theme::TEXT_DIM.lerp_to_gamma(theme::TEXT, highlight),
+        theme::TEXT
+            .gamma_multiply(0.85)
+            .lerp_to_gamma(theme::TEXT, highlight),
     );
     focus_ring(ui, &response);
     response.on_hover_text(label)
@@ -159,7 +173,7 @@ pub fn focus_ring(ui: &Ui, response: &Response) {
         ui.painter().rect_stroke(
             response.rect.expand(2.0 + 2.0 * shown),
             CornerRadius::same(radius),
-            Stroke::new(3.0, theme::TEXT.gamma_multiply(shown)),
+            Stroke::new(3.0, theme::ACCENT_BRIGHT.gamma_multiply(shown)),
             egui::StrokeKind::Outside,
         );
     }
