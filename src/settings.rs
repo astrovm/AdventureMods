@@ -115,9 +115,7 @@ impl Settings {
 }
 
 fn write_json(path: &Path, values: &BTreeMap<String, Value>) -> anyhow::Result<()> {
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    std::fs::create_dir_all(path.parent().unwrap_or(Path::new("")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(values)?)?;
     std::fs::rename(&tmp, path)?;

@@ -284,6 +284,9 @@ mod tests {
             "finished, but no longer wanted"
         );
         assert!(!cache.slots.contains_key(skipped), "never decoded");
+        // However the worker raced, a result nobody asked for is dropped.
+        cache.store(&ctx, skipped, decode(SCREENSHOT));
+        assert!(!cache.slots.contains_key(skipped));
 
         cache.load_now(&ctx, cover);
         assert!(cache.get(&ctx, cover).is_some());

@@ -322,10 +322,8 @@ impl SetupFlow {
         self.error = None;
         self.cancelling = false;
         self.focus_primary = true;
-        if let Some(task) = &self.task {
-            task.cancel.store(true, Ordering::Relaxed);
-        }
-        self.task = None;
+        // Steps only change while nothing runs.
+        debug_assert!(self.task.is_none());
 
         let Some(step) = self.step().cloned() else {
             return;
@@ -359,13 +357,6 @@ impl SetupFlow {
     /// Start downloading the selected mods now, so they arrive while the
     /// runtime, conversion and mod manager install.
     fn start_prefetch(&mut self) {
-        if self
-            .prefetch
-            .as_ref()
-            .is_some_and(|prefetch| !prefetch.cancel.load(Ordering::Relaxed))
-        {
-            return;
-        }
         let mods = common::recommended_mods_for_game(self.game.kind);
         let selected: Vec<&'static ModEntry> = self
             .selected_mods
@@ -430,8 +421,11 @@ impl SetupFlow {
                 let progress = step_progress(progress_tx, samples.clone());
                 Box::new(move || (work.install_mod_manager)(&game.path, game.kind, Some(progress)))
             }
-            StepId::DownloadMods => self.install_mods_job(&cancel, progress_tx, &samples),
-            _ => Box::new(|| Ok(())),
+            // Only work steps run, and this is the last one.
+            other => {
+                debug_assert_eq!(other, StepId::DownloadMods);
+                self.install_mods_job(&cancel, progress_tx, &samples)
+            }
         };
 
         std::thread::spawn(move || {
@@ -1023,9 +1017,10 @@ impl SetupFlow {
     }
 
     fn show_install(&mut self, ui: &mut Ui) {
-        let Some(install) = &self.install else {
-            return;
-        };
+        let install = self
+            .install
+            .as_ref()
+            .expect("work steps always have an install view");
         let busy = self.task.is_some();
         centered(ui, |ui| {
             ui.set_max_width(620.0);

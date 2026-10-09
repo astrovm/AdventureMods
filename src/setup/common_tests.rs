@@ -948,6 +948,14 @@ fn step_completion_detects_conversion_and_manager_markers() {
         }
     ));
     assert!(!is_step_complete(StepId::SelectMods, &game));
+    // Outside a Steam library there is no prefix to check.
+    assert!(!is_step_complete(StepId::SteamConfig, &game));
+    let library_game = Game {
+        path: dir.path().join("steamapps/common/Sonic Adventure DX"),
+        ..game.clone()
+    };
+    std::fs::create_dir_all(&library_game.path).unwrap();
+    assert!(!is_step_complete(StepId::SteamConfig, &library_game));
 
     std::fs::create_dir_all(dir.path().join("system")).unwrap();
     std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();

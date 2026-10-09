@@ -344,7 +344,10 @@ impl WelcomeScreen {
                     if let Some(note) = note {
                         widgets::caption(ui, note);
                     }
-                    if let Some((primary, secondary)) = card.actions() {
+                    // Actions exist only for a selected install.
+                    if let (Some((primary, secondary)), Some(option)) =
+                        (card.actions(), card.selected_option())
+                    {
                         ui.horizontal(|ui| {
                             let width = if secondary.is_some() {
                                 CARD_WIDTH - 40.0 - 150.0
@@ -352,11 +355,8 @@ impl WelcomeScreen {
                                 CARD_WIDTH - 40.0
                             };
                             let response =
-                                widgets::button_sized(ui, primary, ButtonKind::Suggested, width);
-                            let response = match card.selected_option() {
-                                Some(option) => response.on_hover_text(display_path(option.path())),
-                                None => response,
-                            };
+                                widgets::button_sized(ui, primary, ButtonKind::Suggested, width)
+                                    .on_hover_text(display_path(option.path()));
                             if focus {
                                 response.request_focus();
                             }

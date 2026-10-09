@@ -595,18 +595,17 @@ impl AdventureModsApp {
     }
 
     fn show_dialog(&mut self, ctx: &egui::Context) {
-        let Some(dialog) = &mut self.dialog else {
+        let Some(mut dialog) = self.dialog.take() else {
             return;
         };
-        let answer = match dialog {
+        let answer = match &mut dialog {
             Dialog::ConfirmRestore(_, _, message)
             | Dialog::SteamVerify(_, message)
             | Dialog::About(message) => message.show(ctx),
         };
         let Some(answer) = answer else {
-            return;
-        };
-        let Some(dialog) = self.dialog.take() else {
+            // Still open.
+            self.dialog = Some(dialog);
             return;
         };
         self.welcome.focus_first();

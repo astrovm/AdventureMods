@@ -96,7 +96,11 @@ mod tests {
     #[test]
     fn catch_ui_panic_reports_owned_and_opaque_payloads() {
         let (owned, logs) = crate::test_log::capture_logs(|| {
-            super::catch_ui_panic("owned callback", || panic!("{} failed", "load"))
+            {
+                // Formatting a runtime value makes an owned `String` payload.
+                let what = String::from("load");
+                super::catch_ui_panic("owned callback", || panic!("{what} failed"))
+            }
         });
         assert_eq!(owned, Err("load failed".to_string()));
         assert!(logs.contains("UI callback panicked in owned callback: load failed"));

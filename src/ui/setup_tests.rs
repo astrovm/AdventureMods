@@ -387,6 +387,78 @@ fn going_back_from_mods_skips_completed_steps_in_between() {
 }
 
 #[test]
+fn going_back_skips_questions_that_are_already_answered() {
+    let dir = game_dir(&["proton-ready"]);
+    let work = SetupWork {
+        is_step_complete: |step, _| step == StepId::SelectMods,
+        ..work()
+    };
+    let mut setup = flow(GameKind::SA2, dir.path(), work);
+    setup.current = setup
+        .steps
+        .iter()
+        .position(|step| step.id == StepId::LanguageOptions)
+        .unwrap();
+
+    setup.on_back();
+
+    assert_eq!(setup.step().unwrap().id, StepId::SteamConfig);
+}
+
+#[test]
+fn the_action_button_does_nothing_without_a_secondary_action() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+
+    setup.handle_pad(PadButton::Action);
+
+    assert_eq!(setup.step().unwrap().id, StepId::SteamConfig);
+    assert!(setup.take_events().is_empty());
+}
+
+#[test]
+fn mods_toggle_both_ways_and_previews_page_forward() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
+    press(&mut harness, "Continue");
+    assert_eq!(step_id(harness.state()), StepId::SelectMods);
+    let mods = common::recommended_mods_for_game(GameKind::SA2);
+    let selected = harness.state().flow.selected_mods.clone();
+
+    let toggle = |harness: &mut Harness<'_, State>| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::CheckBox, mods[0].name)
+            .click();
+        harness.run_steps(4);
+    };
+    toggle(&mut harness);
+    assert_ne!(harness.state().flow.selected_mods, selected);
+    toggle(&mut harness);
+    let mut now = harness.state().flow.selected_mods.clone();
+    now.sort_unstable();
+    let mut before = selected;
+    before.sort_unstable();
+    assert_eq!(now, before);
+
+    let paged = mods
+        .iter()
+        .position(|mod_entry| mod_entry.pictures.len() > 1)
+        .expect("a mod with several pictures");
+    act(&mut harness, |flow| flow.show_preview(Some(paged)));
+    press(&mut harness, "›");
+    assert_eq!(harness.state().flow.preview.page, 1);
+
+    // A page without a picture shows just the name.
+    act(&mut harness, |flow| flow.preview.page = usize::MAX);
+    harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, mods[paged].name);
+
+    // With nothing to preview, the panel stays empty and paging is ignored.
+    act(&mut harness, |flow| flow.preview.index = None);
+    harness.state_mut().flow.turn_page(1);
+    harness.get_by_label(mods[0].name);
+}
+
+#[test]
 fn a_failed_task_can_be_retried_or_left() {
     let dir = game_dir(&["proton-ready", "fail-dotnet"]);
     let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));

@@ -222,40 +222,39 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
     let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 64.0), Sense::click());
     response.widget_info(|| WidgetInfo::labeled(WidgetType::ComboBox, true, title));
 
-    if ui.is_rect_visible(rect) {
-        let painter = ui.painter();
-        let fill = if response.has_focus() || response.hovered() {
-            theme::CARD_RAISED
+    // Painting is clipped, so off-screen rows cost little.
+    let painter = ui.painter();
+    let fill = if response.has_focus() || response.hovered() {
+        theme::CARD_RAISED
+    } else {
+        theme::CARD
+    };
+    painter.rect(
+        rect,
+        CornerRadius::same(14),
+        fill,
+        if response.has_focus() {
+            Stroke::new(3.0, theme::ACCENT_BRIGHT)
         } else {
-            theme::CARD
-        };
-        painter.rect(
-            rect,
-            CornerRadius::same(14),
-            fill,
-            if response.has_focus() {
-                Stroke::new(3.0, theme::ACCENT_BRIGHT)
-            } else {
-                Stroke::NONE
-            },
-            egui::StrokeKind::Inside,
-        );
-        let body = TextStyle::Body.resolve(ui.style());
-        painter.text(
-            rect.left_center() + Vec2::new(20.0, 0.0),
-            Align2::LEFT_CENTER,
-            title,
-            body.clone(),
-            theme::TEXT,
-        );
-        painter.text(
-            rect.right_center() - Vec2::new(20.0, 0.0),
-            Align2::RIGHT_CENTER,
-            format!("{value}  ›"),
-            body,
-            theme::ACCENT_BRIGHT,
-        );
-    }
+            Stroke::NONE
+        },
+        egui::StrokeKind::Inside,
+    );
+    let body = TextStyle::Body.resolve(ui.style());
+    painter.text(
+        rect.left_center() + Vec2::new(20.0, 0.0),
+        Align2::LEFT_CENTER,
+        title,
+        body.clone(),
+        theme::TEXT,
+    );
+    painter.text(
+        rect.right_center() - Vec2::new(20.0, 0.0),
+        Align2::RIGHT_CENTER,
+        format!("{value}  ›"),
+        body,
+        theme::ACCENT_BRIGHT,
+    );
     response
 }
 

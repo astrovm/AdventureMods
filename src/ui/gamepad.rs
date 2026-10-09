@@ -180,12 +180,16 @@ pub struct Gamepad {
 impl Gamepad {
     /// Watch controllers, waking `ctx` on every press.
     pub fn spawn(ctx: &egui::Context) -> Self {
+        Self::spawn_with(ctx, || gilrs::Gilrs::new().map_err(|err| err.to_string()))
+    }
+
+    fn spawn_with(ctx: &egui::Context, open: fn() -> Result<gilrs::Gilrs, String>) -> Self {
         let (tx, presses) = std::sync::mpsc::channel();
         let connected = Arc::new(AtomicBool::new(false));
         let thread_connected = connected.clone();
         let ctx = ctx.clone();
         std::thread::spawn(move || {
-            let mut gilrs = match gilrs::Gilrs::new() {
+            let mut gilrs = match open() {
                 Ok(gilrs) => gilrs,
                 Err(err) => return tracing::info!("Controllers are unavailable: {err}"),
             };
@@ -381,6 +385,15 @@ mod tests {
             sent,
             vec![PadButton::Right, PadButton::Right, PadButton::Confirm]
         );
+    }
+
+    #[test]
+    fn without_controller_support_the_thread_stops() {
+        let gamepad = Gamepad::spawn_with(&egui::Context::default(), || Err("no udev".into()));
+
+        let press = gamepad.presses.recv_timeout(Duration::from_secs(10));
+        assert_eq!(press, Err(std::sync::mpsc::RecvTimeoutError::Disconnected));
+        assert!(!gamepad.connected());
     }
 
     #[test]
