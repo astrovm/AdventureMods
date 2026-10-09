@@ -61,7 +61,9 @@
           <li>Moved from GTK to egui, with large text and buttons and a clear focus ring</li>
           <li>Added controller support: the D-pad or stick moves, A selects, B goes back, Start continues</li>
           <li>Opened fullscreen in Steam's Game Mode</li>
+          <li>Added smooth animations and a cleaner, centered layout</li>
           <li>Moved the Flatpak to the smaller Freedesktop runtime</li>
+          <li>Added a Snap package to each release</li>
           <li>Kept settings and granted Steam libraries from earlier versions</li>
         </ul>
       </description>

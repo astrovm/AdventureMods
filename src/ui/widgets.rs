@@ -5,7 +5,7 @@ use egui::{
     TextStyle, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
 };
 
-use super::theme;
+use super::{motion, theme};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tone {
@@ -42,39 +42,141 @@ pub fn button(ui: &mut Ui, text: &str, kind: ButtonKind) -> Response {
 
 /// [`button`] at least `width` wide.
 pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Response {
-    let fill = match kind {
-        ButtonKind::Suggested => theme::ACCENT,
-        ButtonKind::Normal => theme::CARD_RAISED,
-        ButtonKind::Destructive => theme::DESTRUCTIVE,
-    };
-    let response = ui.add(
-        egui::Button::new(RichText::new(text).strong())
-            .fill(fill)
-            .corner_radius(CornerRadius::same(theme::TARGET_HEIGHT as u8 / 2))
-            .min_size(Vec2::new(width.max(120.0), theme::TARGET_HEIGHT)),
+    let galley = WidgetText::from(RichText::new(text).strong()).into_galley(
+        ui,
+        Some(egui::TextWrapMode::Extend),
+        f32::INFINITY,
+        TextStyle::Button,
     );
+    let padding = ui.spacing().button_padding.x;
+    let size = Vec2::new(
+        (galley.size().x + 2.0 * padding).max(width.max(120.0)),
+        theme::TARGET_HEIGHT,
+    );
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let enabled = ui.is_enabled();
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, galley.text()));
+
+    let (fill, lit) = match kind {
+        ButtonKind::Suggested => (theme::ACCENT, theme::ACCENT_BRIGHT),
+        ButtonKind::Normal => (theme::CARD_RAISED, theme::CARD_HOVER),
+        ButtonKind::Destructive => (theme::DESTRUCTIVE, theme::ERROR),
+    };
+    let highlight = motion::highlight(ui, &response);
+    let press = motion::press(ui, &response);
+    let body = rect.shrink(press * 2.0);
+    let radius = CornerRadius::same((body.height() / 2.0) as u8);
+    let painter = ui.painter();
+    if kind != ButtonKind::Normal && enabled {
+        // A soft glow under the main action, brighter on hover.
+        painter.add(
+            egui::Shadow {
+                offset: [0, 6],
+                blur: 18,
+                spread: 0,
+                color: fill.gamma_multiply(0.25 + 0.25 * highlight),
+            }
+            .as_shape(body, radius),
+        );
+    }
+    painter.rect_filled(body, radius, fill.lerp_to_gamma(lit, highlight * 0.6));
+    let text_color = if enabled {
+        theme::TEXT
+    } else {
+        theme::TEXT_DIM
+    };
+    painter.galley(body.center() - galley.size() / 2.0, galley, text_color);
     focus_ring(ui, &response);
     response
 }
 
-/// Outline the widget the controller is on.
+/// A round button showing only `icon`; `label` names it for hover text and
+/// screen readers.
+pub fn icon_button(ui: &mut Ui, icon: &str, label: &str) -> Response {
+    painted_icon_button(ui, label, |painter, rect, color| {
+        painter.text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            icon,
+            egui::FontId::proportional(30.0),
+            color,
+        );
+    })
+}
+
+/// A round "Back" button with a chevron pointing left.
+pub fn back_button(ui: &mut Ui) -> Response {
+    painted_icon_button(ui, "Back", |painter, rect, color| {
+        let center = rect.center() + Vec2::new(-2.0, 0.0);
+        let arm = 9.0;
+        painter.line(
+            vec![
+                center + Vec2::new(arm / 2.0, -arm),
+                center + Vec2::new(-arm / 2.0, 0.0),
+                center + Vec2::new(arm / 2.0, arm),
+            ],
+            Stroke::new(3.0, color),
+        );
+    })
+}
+
+fn painted_icon_button(
+    ui: &mut Ui,
+    label: &str,
+    paint: impl FnOnce(&egui::Painter, egui::Rect, Color32),
+) -> Response {
+    let size = Vec2::splat(theme::TARGET_HEIGHT);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let enabled = ui.is_enabled();
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, label));
+    let highlight = motion::highlight(ui, &response);
+    let press = motion::press(ui, &response);
+    let painter = ui.painter();
+    painter.circle_filled(
+        rect.center(),
+        rect.width() / 2.0 - press * 2.0,
+        theme::CARD_RAISED.gamma_multiply(highlight),
+    );
+    paint(
+        painter,
+        rect,
+        theme::TEXT_DIM.lerp_to_gamma(theme::TEXT, highlight),
+    );
+    focus_ring(ui, &response);
+    response.on_hover_text(label)
+}
+
+/// Outline the widget the controller is on. The ring fades in.
 pub fn focus_ring(ui: &Ui, response: &Response) {
-    if response.has_focus() {
+    let shown = ui.ctx().animate_bool_with_time_and_easing(
+        response.id.with("focus"),
+        response.has_focus(),
+        motion::QUICK,
+        motion::ease_out,
+    );
+    if shown > 0.0 {
+        let radius = (response.rect.height() / 2.0) as u8 + 4;
         ui.painter().rect_stroke(
-            response.rect.expand(4.0),
-            CornerRadius::same(theme::TARGET_HEIGHT as u8 / 2 + 4),
-            Stroke::new(3.0, theme::TEXT),
+            response.rect.expand(2.0 + 2.0 * shown),
+            CornerRadius::same(radius),
+            Stroke::new(3.0, theme::TEXT.gamma_multiply(shown)),
             egui::StrokeKind::Outside,
         );
     }
 }
 
-/// A card: a rounded, filled box with room inside.
+/// A card: a rounded, filled box with room inside, floating on a soft shadow.
 pub fn card() -> Frame {
     Frame::new()
         .fill(theme::CARD)
         .corner_radius(CornerRadius::same(theme::CARD_RADIUS))
         .inner_margin(Margin::same(20))
+        .shadow(egui::Shadow {
+            offset: [0, 10],
+            blur: 28,
+            spread: 0,
+            color: Color32::from_black_alpha(110),
+        })
 }
 
 /// A tinted message box with a colored stripe.
@@ -153,11 +255,14 @@ pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) 
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
-        let fill = if response.has_focus() || response.hovered() {
-            theme::CARD_RAISED
-        } else {
-            theme::CARD
-        };
+        let highlight = motion::highlight(ui, &response);
+        let on = ui.ctx().animate_bool_with_time_and_easing(
+            response.id.with("checked"),
+            value,
+            motion::QUICK,
+            motion::ease_out,
+        );
+        let fill = theme::CARD.lerp_to_gamma(theme::CARD_RAISED, highlight);
         let painter = ui.painter();
         painter.rect(
             rect,
@@ -177,28 +282,25 @@ pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) 
         painter.rect(
             check,
             CornerRadius::same(8),
-            if value {
-                theme::ACCENT
-            } else {
-                theme::BACKGROUND
-            },
+            theme::BACKGROUND.lerp_to_gamma(theme::ACCENT, on),
             Stroke::new(
                 2.0,
-                if value {
-                    theme::ACCENT
-                } else {
-                    visuals.fg_stroke.color
-                },
+                visuals.fg_stroke.color.lerp_to_gamma(theme::ACCENT, on),
             ),
             egui::StrokeKind::Inside,
         );
-        if value {
+        if on > 0.0 {
+            // The check mark grows from the box's center.
+            let mark = |point: egui::Pos2| check.center() + (point - check.center()) * on;
             let points = [
-                check.left_center() + Vec2::new(6.0, 0.0),
-                check.center_bottom() + Vec2::new(-2.0, -7.0),
-                check.right_top() + Vec2::new(-6.0, 7.0),
+                mark(check.left_center() + Vec2::new(6.0, 0.0)),
+                mark(check.center_bottom() + Vec2::new(-2.0, -7.0)),
+                mark(check.right_top() + Vec2::new(-6.0, 7.0)),
             ];
-            painter.line(points.to_vec(), Stroke::new(3.0, theme::TEXT));
+            painter.line(
+                points.to_vec(),
+                Stroke::new(3.0, theme::TEXT.gamma_multiply(on)),
+            );
         }
         let top = rect.top() + (height - title_galley.size().y - subtitle_galley.size().y) / 2.0;
         painter.galley(
@@ -223,12 +325,9 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
     response.widget_info(|| WidgetInfo::labeled(WidgetType::ComboBox, true, title));
 
     // Painting is clipped, so off-screen rows cost little.
+    let highlight = motion::highlight(ui, &response);
     let painter = ui.painter();
-    let fill = if response.has_focus() || response.hovered() {
-        theme::CARD_RAISED
-    } else {
-        theme::CARD
-    };
+    let fill = theme::CARD.lerp_to_gamma(theme::CARD_RAISED, highlight);
     painter.rect(
         rect,
         CornerRadius::same(14),
@@ -254,6 +353,52 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
         format!("{value}  ›"),
         body,
         theme::ACCENT_BRIGHT,
+    );
+    response
+}
+
+/// A rounded progress bar with `text` on it. The fill glides to `fraction`;
+/// `pulse` adds a moving shimmer for work without a known end.
+pub fn progress_bar(ui: &mut Ui, fraction: f32, text: &str, pulse: bool) -> Response {
+    let size = Vec2::new(ui.available_width(), 36.0);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::ProgressIndicator, true, text));
+    let shown = ui.ctx().animate_value_with_time(
+        response.id.with("fraction"),
+        fraction.clamp(0.0, 1.0),
+        0.35,
+    );
+    let radius = CornerRadius::same(18);
+    let painter = ui.painter();
+    painter.rect_filled(rect, radius, theme::CARD);
+    if shown > 0.0 {
+        let filled = egui::Rect::from_min_size(
+            rect.min,
+            Vec2::new((rect.width() * shown).max(rect.height()), rect.height()),
+        );
+        painter.rect_filled(filled, radius, theme::ACCENT);
+    }
+    if pulse {
+        // A soft highlight sweeping across, once every 1.6 seconds.
+        let time = ui.input(|input| input.time);
+        let phase = (time / 1.6).fract() as f32;
+        let width = rect.width() * 0.25;
+        let x = rect.left() - width + phase * (rect.width() + width);
+        let sweep = egui::Rect::from_min_max(
+            egui::pos2(x.max(rect.left()), rect.top()),
+            egui::pos2((x + width).min(rect.right()), rect.bottom()),
+        );
+        if sweep.width() > 0.0 {
+            painter.rect_filled(sweep, radius, Color32::from_white_alpha(28));
+        }
+        ui.ctx().request_repaint();
+    }
+    painter.text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        text,
+        TextStyle::Body.resolve(ui.style()),
+        theme::TEXT,
     );
     response
 }

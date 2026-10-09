@@ -142,7 +142,7 @@ fn the_app_scans_on_start_and_shows_each_game() {
     harness.get_by_label("Adventure Mods");
 
     // Scanning again from the header keeps the cards.
-    press(&mut harness, "⟳  Scan Again");
+    press(&mut harness, "Scan Again");
     run_until(&mut harness, "rescan", scanned);
     harness.get_by_label("Set Up");
 }
@@ -161,7 +161,7 @@ fn failed_scans_show_an_error_banner_until_one_works() {
 
     harness.state_mut().services.detect_games = fake_detect;
     harness.state_mut().extra_library_paths = vec![fixture.library.clone()];
-    press(&mut harness, "⟳  Scan Again");
+    press(&mut harness, "Scan Again");
     run_until(&mut harness, "scan", scanned);
     assert!(harness.state().status.is_none());
 }
@@ -343,7 +343,7 @@ fn setup_opens_from_a_card_and_returns_with_b() {
     harness.get_by_label("Choose Mods");
 
     // The header's back button, then B (Escape), back to the games.
-    press(&mut harness, "‹  Back");
+    press(&mut harness, "Back");
     harness.get_by_label("Set Up Proton");
     harness.key_press(egui::Key::Escape);
     harness.run_steps(2);

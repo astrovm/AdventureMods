@@ -7,6 +7,7 @@ pub const BACKGROUND: Color32 = Color32::from_rgb(0x10, 0x13, 0x18);
 pub const PANEL: Color32 = Color32::from_rgb(0x17, 0x1b, 0x22);
 pub const CARD: Color32 = Color32::from_rgb(0x1f, 0x24, 0x2d);
 pub const CARD_RAISED: Color32 = Color32::from_rgb(0x2a, 0x30, 0x3c);
+pub const CARD_HOVER: Color32 = Color32::from_rgb(0x3a, 0x42, 0x52);
 pub const TEXT: Color32 = Color32::from_rgb(0xf2, 0xf4, 0xf8);
 pub const TEXT_DIM: Color32 = Color32::from_rgb(0x9a, 0xa3, 0xb2);
 pub const ACCENT: Color32 = Color32::from_rgb(0x35, 0x84, 0xe4);
@@ -20,6 +21,39 @@ pub const DESTRUCTIVE: Color32 = Color32::from_rgb(0xc0, 0x1c, 0x28);
 pub const CARD_RADIUS: u8 = 18;
 /// Smallest height of anything you can press.
 pub const TARGET_HEIGHT: f32 = 52.0;
+
+/// Paint the window background: a dark vertical gradient with a faint blue
+/// glow at the top, under every panel.
+pub fn paint_background(ctx: &egui::Context) {
+    let rect = ctx.content_rect();
+    let painter = ctx.layer_painter(egui::LayerId::background());
+    let mut mesh = egui::Mesh::default();
+    let top = Color32::from_rgb(0x16, 0x1c, 0x27);
+    let bottom = Color32::from_rgb(0x0c, 0x0e, 0x12);
+    for (pos, color) in [
+        (rect.left_top(), top),
+        (rect.right_top(), top),
+        (rect.right_bottom(), bottom),
+        (rect.left_bottom(), bottom),
+    ] {
+        mesh.colored_vertex(pos, color);
+    }
+    mesh.add_triangle(0, 1, 2);
+    mesh.add_triangle(0, 2, 3);
+    painter.add(mesh);
+    // A soft glow: a wide, very blurred shadow above the top edge.
+    let glow =
+        egui::Rect::from_center_size(rect.center_top(), Vec2::new(rect.width() * 0.6, 120.0));
+    painter.add(
+        egui::Shadow {
+            offset: [0, 0],
+            blur: 255,
+            spread: 40,
+            color: ACCENT.gamma_multiply(0.18),
+        }
+        .as_shape(glow, CornerRadius::same(60)),
+    );
+}
 
 /// Text larger than a heading, for screen titles.
 pub fn title_style() -> TextStyle {

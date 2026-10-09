@@ -34,7 +34,7 @@ flatpak update
 ```
 
 <details>
-<summary><b>Other options (AppImage)</b></summary>
+<summary><b>Other options (AppImage, Snap)</b></summary>
 
 **AppImage with Gear Lever**
 
@@ -56,6 +56,16 @@ chmod +x AdventureMods-v<version>-<arch>.AppImage
 ```
 
 Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
+
+**Snap**
+
+Download the latest `.snap` from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
+
+```sh
+sudo snap install --dangerous --classic AdventureMods-v<version>-<arch>.snap
+```
+
+It uses classic confinement, so it can reach every Steam library and run Proton. Snap won't update it on its own: install a newer `.snap` the same way.
 
 </details>
 

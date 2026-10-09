@@ -9,10 +9,10 @@ use super::dialogs::{Answer, MessageDialog};
 use super::gamepad::{Gamepad, PadButton};
 use super::images::ImageCache;
 use super::setup::{SetupEvent, SetupFlow, SetupWork};
-use super::theme;
 use super::welcome::{WelcomeAction, WelcomeScreen};
 use super::widgets::{self, ButtonKind, Tone};
 use super::{FolderPicker, UriOpener};
+use super::{motion, theme};
 use crate::path_display::display_path;
 use crate::settings::{Settings, Value, WINDOW_HEIGHT_KEY, WINDOW_MAXIMIZED_KEY, WINDOW_WIDTH_KEY};
 use crate::setup::config;
@@ -103,6 +103,7 @@ pub struct AdventureModsApp {
     /// Keyboard or controller in use: keep something focused.
     navigating: bool,
     window: WindowState,
+    transition: motion::ScreenTransition,
 }
 
 impl AdventureModsApp {
@@ -127,6 +128,7 @@ impl AdventureModsApp {
             pad_presses: Vec::new(),
             navigating: false,
             window,
+            transition: motion::ScreenTransition::default(),
         };
         app.detect_games();
         app
@@ -463,14 +465,12 @@ impl AdventureModsApp {
             setup.back();
         }
 
+        theme::paint_background(&ctx);
         self.show_header(ui);
         if let Some((message, is_error)) = self.status.clone() {
             egui::Panel::top("status")
-                .frame(
-                    egui::Frame::new()
-                        .inner_margin(egui::Margin::symmetric(24, 8))
-                        .fill(theme::BACKGROUND),
-                )
+                .frame(egui::Frame::new().inner_margin(egui::Margin::symmetric(24, 8)))
+                .show_separator_line(false)
                 .show(ui, |ui| {
                     widgets::banner(
                         ui,
@@ -481,7 +481,7 @@ impl AdventureModsApp {
         }
         self.show_footer(ui);
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(theme::BACKGROUND))
+            .frame(egui::Frame::new())
             .show(ui, |ui| self.show_screen(ui));
 
         self.show_dialog(&ctx);
@@ -500,11 +500,17 @@ impl AdventureModsApp {
 
     fn show_screen(&mut self, ui: &mut Ui) {
         let images = self.images.as_mut().expect("created before the screen");
-        if let Some(setup) = &mut self.setup {
-            setup.show_body(ui, images);
-            return;
-        }
-        if let Some(action) = self.welcome.show(ui, images) {
+        let key = self.setup.as_ref().map_or(0, SetupFlow::screen_key);
+        let welcome = &mut self.welcome;
+        let setup = &mut self.setup;
+        let action = self.transition.show(ui, key, |ui| match setup {
+            Some(setup) => {
+                setup.show_body(ui, images);
+                None
+            }
+            None => welcome.show(ui, images),
+        });
+        if let Some(action) = action {
             self.handle_welcome_action(action);
         }
     }
@@ -515,28 +521,26 @@ impl AdventureModsApp {
             None => (crate::config::APP_NAME.to_owned(), String::new()),
         };
         egui::Panel::top("header")
-            .frame(
-                egui::Frame::new()
-                    .fill(theme::PANEL)
-                    .inner_margin(egui::Margin::symmetric(20, 12)),
-            )
+            .frame(egui::Frame::new().inner_margin(egui::Margin::symmetric(20, 12)))
+            .show_separator_line(false)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.set_min_height(theme::TARGET_HEIGHT);
                     if let Some(setup) = &mut self.setup {
-                        let back = ui.add_enabled_ui(setup.can_go_back(), |ui| {
-                            widgets::button(ui, "‹  Back", ButtonKind::Normal)
-                        });
+                        let back = ui.add_enabled_ui(setup.can_go_back(), widgets::back_button);
                         if back.inner.clicked() {
                             setup.back();
                         }
                     }
-                    ui.vertical(|ui| {
+                    if subtitle.is_empty() {
                         ui.label(RichText::new(&title).heading().strong());
-                        if !subtitle.is_empty() {
+                    } else {
+                        ui.vertical(|ui| {
+                            ui.spacing_mut().item_spacing.y = 2.0;
+                            ui.label(RichText::new(&title).heading().strong());
                             widgets::caption(ui, &subtitle);
-                        }
-                    });
+                        });
+                    }
                     // Development builds say so, to tell them apart.
                     ui.label(
                         RichText::new(profile_badge(crate::config::PROFILE))
@@ -547,15 +551,15 @@ impl AdventureModsApp {
                         if self.setup.is_some() {
                             return;
                         }
-                        if widgets::button(ui, "About", ButtonKind::Normal).clicked() {
+                        if widgets::icon_button(ui, "ℹ", "About").clicked() {
                             self.dialog = Some(Dialog::About(about_dialog()));
                         }
                         if self.scanning() {
-                            ui.add(egui::Spinner::new().size(32.0));
-                        } else if widgets::button(ui, "⟳  Scan Again", ButtonKind::Normal)
-                            .on_hover_text("Scan Steam libraries again")
-                            .clicked()
-                        {
+                            ui.add_sized(
+                                Vec2::splat(theme::TARGET_HEIGHT),
+                                egui::Spinner::new().size(26.0),
+                            );
+                        } else if widgets::icon_button(ui, "⟳", "Scan Again").clicked() {
                             self.detect_games();
                         }
                     });
@@ -569,11 +573,8 @@ impl AdventureModsApp {
             return;
         }
         egui::Panel::bottom("footer")
-            .frame(
-                egui::Frame::new()
-                    .fill(theme::PANEL)
-                    .inner_margin(egui::Margin::symmetric(24, 14)),
-            )
+            .frame(egui::Frame::new().inner_margin(egui::Margin::symmetric(24, 14)))
+            .show_separator_line(false)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.set_min_height(theme::TARGET_HEIGHT);
@@ -623,20 +624,33 @@ impl AdventureModsApp {
         if self.toasts.is_empty() {
             return;
         }
+        let now = ctx.input(|input| input.time);
         egui::Area::new(egui::Id::new("toasts"))
             .anchor(Align2::CENTER_BOTTOM, Vec2::new(0.0, -110.0))
             .interactable(false)
             .show(ctx, |ui| {
                 for toast in &self.toasts {
+                    // Fade in when shown and out before leaving.
+                    let shown = now - (toast.until - TOAST_SECONDS);
+                    let left = toast.until - now;
+                    let fade = (shown.min(left) / motion::SCREEN).clamp(0.0, 1.0) as f32;
+                    ui.set_opacity(motion::ease_out(fade));
                     egui::Frame::new()
                         .fill(theme::CARD_RAISED)
                         .corner_radius(24)
                         .inner_margin(egui::Margin::symmetric(24, 12))
+                        .shadow(egui::Shadow {
+                            offset: [0, 6],
+                            blur: 20,
+                            spread: 0,
+                            color: egui::Color32::from_black_alpha(120),
+                        })
                         .show(ui, |ui| {
                             ui.label(&toast.text);
                         });
                 }
             });
+        ctx.request_repaint();
     }
 }
 

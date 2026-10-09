@@ -2,6 +2,7 @@ pub mod app;
 pub mod dialogs;
 pub mod gamepad;
 pub mod images;
+pub mod motion;
 pub mod progress;
 pub mod setup;
 pub mod theme;

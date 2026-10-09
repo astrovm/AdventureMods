@@ -6,8 +6,8 @@ use egui::{Color32, RichText, Ui, Vec2};
 
 use super::dialogs::{Answer, ChoiceDialog};
 use super::images::{ImageCache, cover_resource};
-use super::theme;
 use super::widgets::{self, ButtonKind, Tone};
+use super::{motion, theme};
 use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
@@ -189,6 +189,8 @@ pub struct WelcomeScreen {
     install_picker: Option<(usize, ChoiceDialog)>,
     /// Focus the first card's main button on the next frame.
     focus_first: bool,
+    /// Height of the content last frame, to center it vertically.
+    content_height: f32,
 }
 
 impl WelcomeScreen {
@@ -238,9 +240,10 @@ impl WelcomeScreen {
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
-                ui.vertical_centered(|ui| {
+                let free = ui.available_height() - self.content_height;
+                ui.add_space((free / 2.0).max(24.0));
+                let content = ui.vertical_centered(|ui| {
                     ui.set_max_width(ui.available_width().min(2.0 * CARD_WIDTH + 40.0));
-                    ui.add_space(24.0);
                     ui.label(
                         RichText::new("Choose a Game")
                             .text_style(theme::title_style())
@@ -282,8 +285,9 @@ impl WelcomeScreen {
                             }
                         }
                     });
-                    ui.add_space(24.0);
                 });
+                self.content_height = content.response.rect.height();
+                ui.add_space(24.0);
             });
         action
     }
@@ -298,9 +302,18 @@ impl WelcomeScreen {
         let card = &self.cards[index];
         let mut action = None;
         let mut open_picker = false;
+        // Hovered or focused cards light up and zoom their cover a little.
+        let hot_id = ui.id().with(("card-hot", index));
+        let was_hot = ui.data(|data| data.get_temp::<bool>(hot_id).unwrap_or(false));
+        let hot = ui.ctx().animate_bool_with_time_and_easing(
+            hot_id,
+            was_hot,
+            motion::QUICK * 2.0,
+            motion::ease_out,
+        );
         // Stack the card's parts even when the cards sit side by side.
         ui.vertical(|ui| {
-            widgets::card().inner_margin(0).show(ui, |ui| {
+            let frame = widgets::card().inner_margin(0).show(ui, |ui| {
                 ui.set_width(CARD_WIDTH);
                 ui.spacing_mut().item_spacing.y = 10.0;
                 let cover = cover_resource(card.kind);
@@ -312,9 +325,14 @@ impl WelcomeScreen {
                         } else {
                             Color32::WHITE
                         };
+                        let zoom = 0.04 * hot;
                         ui.add(
                             egui::Image::new(&texture)
                                 .fit_to_exact_size(size)
+                                .uv(egui::Rect::from_min_max(
+                                    egui::pos2(zoom, zoom),
+                                    egui::pos2(1.0 - zoom, 1.0 - zoom),
+                                ))
                                 .tint(tint)
                                 .corner_radius(egui::CornerRadius {
                                     nw: theme::CARD_RADIUS,
@@ -373,6 +391,28 @@ impl WelcomeScreen {
                     }
                 });
             });
+            let rect = frame.response.rect;
+            let focused_inside = ui
+                .ctx()
+                .memory(|memory| memory.focused())
+                .is_some_and(|id| {
+                    ui.ctx()
+                        .read_response(id)
+                        .is_some_and(|response| rect.contains_rect(response.rect))
+                });
+            let now_hot = ui.rect_contains_pointer(rect) || focused_inside;
+            ui.data_mut(|data| data.insert_temp(hot_id, now_hot));
+            if hot > 0.0 {
+                ui.painter().rect_stroke(
+                    rect,
+                    egui::CornerRadius::same(theme::CARD_RADIUS),
+                    egui::Stroke::new(2.0, theme::ACCENT_BRIGHT.gamma_multiply(0.7 * hot)),
+                    egui::StrokeKind::Outside,
+                );
+            }
+            if now_hot != was_hot {
+                ui.ctx().request_repaint();
+            }
         });
         if open_picker {
             let card = &self.cards[index];

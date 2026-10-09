@@ -11,6 +11,7 @@ use egui::{RichText, Ui, Vec2};
 use super::dialogs::{Answer, ChoiceDialog};
 use super::gamepad::PadButton;
 use super::images::{ImageCache, cover_resource};
+use super::motion;
 use super::progress::{
     ModDownloadEstimate, ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState,
     apply_install_progress, download_size_text, drain_progress_updates, estimate_mod_downloads,
@@ -764,6 +765,15 @@ impl SetupFlow {
     }
 
     /// Header title and subtitle for the current step.
+    /// Which screen shows: one per question, one for all the work.
+    pub fn screen_key(&self) -> u64 {
+        if self.on_work_step() {
+            motion::key((self.game.kind, "install"))
+        } else {
+            motion::key((self.game.kind, self.current))
+        }
+    }
+
     pub fn title(&self) -> (String, String) {
         let game_name = self.game.kind.name();
         let title = match self.step() {
@@ -1059,13 +1069,7 @@ impl SetupFlow {
                     ),
                     None => (0.0, "Starting…".to_owned(), true),
                 };
-                ui.add(
-                    egui::ProgressBar::new(fraction)
-                        .text(text)
-                        .animate(animate)
-                        .desired_height(36.0)
-                        .corner_radius(18),
-                );
+                widgets::progress_bar(ui, fraction, &text, animate);
             }
             if let Some(error) = &install.error {
                 ui.add_space(8.0);
@@ -1145,8 +1149,7 @@ impl SetupFlow {
                                 &mut checked,
                                 mod_entry.name,
                                 mod_entry.description,
-                            )
-                            .on_hover_text("Install this mod");
+                            );
                             if response.changed() {
                                 self.set_mod_selected(index, checked);
                             }
@@ -1308,12 +1311,20 @@ fn icon(ui: &Ui, rect: egui::Rect, glyph: &str, color: egui::Color32) {
 }
 
 /// Center `add` in the space left, scrolling when it does not fit.
+/// Show `add` in the middle of the screen, scrolling when it doesn't fit.
 fn centered(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
     egui::ScrollArea::vertical()
         .auto_shrink(false)
         .show(ui, |ui| {
-            ui.add_space(24.0);
-            ui.vertical_centered(add);
+            // Centering needs the content's height, so use last frame's.
+            let id = ui.id().with("content-height");
+            let last = ui.data(|data| data.get_temp::<f32>(id)).unwrap_or(0.0);
+            ui.add_space(((ui.available_height() - last) / 2.0).max(24.0));
+            let height = ui.vertical_centered(add).response.rect.height();
+            if (height - last).abs() > 0.5 {
+                ui.data_mut(|data| data.insert_temp(id, height));
+                ui.ctx().request_repaint();
+            }
             ui.add_space(24.0);
         });
 }
