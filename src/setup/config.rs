@@ -1,11 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use gtk::gio;
-use gtk::prelude::{SettingsExt, SettingsExtManual};
 use serde::Serialize;
 
 use super::common::ModEntry;
+use crate::settings::{EXTRA_LIBRARY_PATHS_KEY, Settings, Value};
 use crate::steam::game::GameKind;
 
 /// Convert a Linux path to a Wine Z: drive path with backslashes.
@@ -156,25 +155,16 @@ pub fn voice_settings_key(game_kind: GameKind) -> &'static str {
     }
 }
 
-pub fn app_settings() -> Option<gio::Settings> {
-    let schema_source = match std::env::var_os("GSETTINGS_SCHEMA_DIR") {
-        Some(directory) => gio::SettingsSchemaSource::from_directory(directory, None, true).ok(),
-        None => gio::SettingsSchemaSource::default(),
-    };
-    let schema = schema_source?.lookup(crate::config::APP_ID, true)?;
-    Some(gio::Settings::new_full(
-        &schema,
-        None::<&gio::SettingsBackend>,
-        None,
-    ))
+pub fn app_settings() -> Option<Settings> {
+    Settings::load()
 }
 
 /// Steam libraries the user granted access to through the folder picker.
-pub fn load_extra_library_paths(settings: Option<&gio::Settings>) -> Vec<PathBuf> {
+pub fn load_extra_library_paths(settings: Option<&Settings>) -> Vec<PathBuf> {
     settings
         .map(|settings| {
             settings
-                .strv("extra-library-paths")
+                .strings(EXTRA_LIBRARY_PATHS_KEY)
                 .into_iter()
                 .map(PathBuf::from)
                 .collect()
@@ -182,8 +172,19 @@ pub fn load_extra_library_paths(settings: Option<&gio::Settings>) -> Vec<PathBuf
         .unwrap_or_default()
 }
 
+pub fn save_extra_library_paths(settings: Option<&mut Settings>, paths: &[PathBuf]) {
+    let Some(settings) = settings else {
+        return;
+    };
+    let paths = paths
+        .iter()
+        .filter_map(|path| path.to_str().map(String::from))
+        .collect();
+    settings.set(EXTRA_LIBRARY_PATHS_KEY, Value::Strings(paths));
+}
+
 pub fn load_language_selection(
-    settings: Option<&gio::Settings>,
+    settings: Option<&Settings>,
     game_kind: GameKind,
 ) -> LanguageSelection {
     let defaults = LanguageSelection::defaults_for(game_kind);
@@ -191,12 +192,14 @@ pub fn load_language_selection(
         return defaults;
     };
 
-    let subtitle = SubtitleLanguage::parse(&settings.string(subtitle_settings_key(game_kind)))
-        .ok()
+    let subtitle = settings
+        .string(subtitle_settings_key(game_kind))
+        .and_then(|value| SubtitleLanguage::parse(value).ok())
         .filter(|language| SubtitleLanguage::supported_for(game_kind).contains(language))
         .unwrap_or(defaults.subtitle);
-    let voice = VoiceLanguage::parse(&settings.string(voice_settings_key(game_kind)))
-        .ok()
+    let voice = settings
+        .string(voice_settings_key(game_kind))
+        .and_then(|value| VoiceLanguage::parse(value).ok())
         .filter(|language| VoiceLanguage::all().contains(language))
         .unwrap_or(defaults.voice);
 
@@ -204,7 +207,7 @@ pub fn load_language_selection(
 }
 
 pub fn save_language_selection(
-    settings: Option<&gio::Settings>,
+    settings: Option<&mut Settings>,
     game_kind: GameKind,
     selection: LanguageSelection,
 ) {
@@ -212,11 +215,14 @@ pub fn save_language_selection(
         return;
     };
 
-    let _ = settings.set_string(
+    settings.set(
         subtitle_settings_key(game_kind),
-        selection.subtitle.as_str(),
+        Value::String(selection.subtitle.as_str().to_owned()),
     );
-    let _ = settings.set_string(voice_settings_key(game_kind), selection.voice.as_str());
+    settings.set(
+        voice_settings_key(game_kind),
+        Value::String(selection.voice.as_str().to_owned()),
+    );
 }
 
 // --- Shared JSON structures for SA Mod Manager config files ---
@@ -586,7 +592,6 @@ mod tests {
         );
         assert_eq!(voice_settings_key(GameKind::SA2), "sa2-voice-language");
         assert!(SubtitleLanguage::parse("klingon").is_err());
-        let _ = app_settings();
     }
 
     #[test]
@@ -605,5 +610,47 @@ mod tests {
             LanguageSelection::defaults_for(GameKind::SA2)
         );
         assert_ne!(load_language_selection(None, GameKind::SA2), chosen);
+        save_extra_library_paths(None, &[PathBuf::from("/ignored")]);
+        assert!(load_extra_library_paths(None).is_empty());
+    }
+
+    #[test]
+    fn language_and_library_choices_are_remembered() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = Settings::load_from(dir.path(), || None);
+        let chosen = LanguageSelection {
+            subtitle: SubtitleLanguage::French,
+            voice: VoiceLanguage::English,
+        };
+
+        save_language_selection(Some(&mut settings), GameKind::SA2, chosen);
+        save_extra_library_paths(Some(&mut settings), &[PathBuf::from("/data/Steam")]);
+
+        let settings = Settings::load_from(dir.path(), || None);
+        assert_eq!(
+            load_language_selection(Some(&settings), GameKind::SA2),
+            chosen
+        );
+        assert_eq!(
+            load_language_selection(Some(&settings), GameKind::SADX),
+            LanguageSelection::defaults_for(GameKind::SADX)
+        );
+        assert_eq!(
+            load_extra_library_paths(Some(&settings)),
+            vec![PathBuf::from("/data/Steam")]
+        );
+    }
+
+    #[test]
+    fn unsupported_saved_languages_fall_back_to_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = Settings::load_from(dir.path(), || None);
+        settings.set("sa2-subtitle-language", Value::String("klingon".into()));
+        settings.set("sa2-voice-language", Value::String("klingon".into()));
+
+        assert_eq!(
+            load_language_selection(Some(&settings), GameKind::SA2),
+            LanguageSelection::defaults_for(GameKind::SA2)
+        );
     }
 }

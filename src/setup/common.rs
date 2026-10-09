@@ -1,10 +1,8 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use gtk::gio;
 
-use crate::blocking;
-use crate::external::{archive, download, proton, runtime_installer};
+use crate::external::{archive, download, proton};
 use crate::steam::game::{Game, GameKind};
 
 const GAMEBANANA_API_BASE: &str =
@@ -67,7 +65,7 @@ fn resolve_gamebanana_item_url(item_type: &str, item_id: u32) -> Result<String> 
 
 /// How many bytes installing `mod_entry` downloads, if the source says.
 ///
-/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+/// Must be called from a blocking thread (e.g. `std::thread::spawn`).
 pub fn mod_download_size(mod_entry: &ModEntry) -> Result<Option<u64>> {
     match &mod_entry.source {
         ModSource::GameBananaItem { item_type, item_id } => {
@@ -250,21 +248,13 @@ fn is_mod_manager_fully_installed(game_path: &Path, game_kind: GameKind) -> bool
     exe_backed_up && loader_extracted && dll_swapped
 }
 
-/// Install the .NET Desktop Runtimes SA Mod Manager needs (8 and 10) into the game's Proton prefix
-/// using the game's own Proton/Wine.
-pub async fn install_runtimes(game_path: std::path::PathBuf, app_id: u32) -> Result<()> {
-    blocking::flatten_spawn_result(
-        gio::spawn_blocking(move || runtime_installer::install_runtimes(&game_path, app_id)).await,
-    )
-}
-
 /// Download and install SA Mod Manager and the mod loader into the game directory.
 ///
 /// Downloads the manager from GitHub, extracts, and replaces Launcher.exe with
 /// SAModManager.exe (backing up the original). Then downloads and extracts
 /// the mod loader DLLs.
 ///
-/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+/// Must be called from a blocking thread (e.g. `std::thread::spawn`).
 pub fn install_mod_manager(
     game_path: &Path,
     game_kind: GameKind,
@@ -345,7 +335,7 @@ fn install_as_steam_launcher(game_path: &Path, manager_exe: &Path) -> Result<()>
 
 /// Download and install the mod loader into the game directory.
 ///
-/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+/// Must be called from a blocking thread (e.g. `std::thread::spawn`).
 pub fn install_mod_loader(
     game_path: &Path,
     game_kind: GameKind,
@@ -484,7 +474,7 @@ pub(super) fn sadx_data_dir(game_path: &Path) -> Option<std::path::PathBuf> {
 /// When `dir_name` is `None` (e.g. GameBanana mods), the archive is extracted
 /// directly into `mods/` and is expected to contain its own subdirectory.
 ///
-/// Must be called from a blocking thread (e.g. `gio::spawn_blocking`).
+/// Must be called from a blocking thread (e.g. `std::thread::spawn`).
 pub fn install_mod(
     game_path: &Path,
     mod_entry: &ModEntry,
@@ -982,10 +972,46 @@ fn normalize_mod_version(mod_dir: &Path) -> Result<()> {
         return Ok(());
     }
 
-    let stamp = glib::DateTime::now_utc()?.format_iso8601()?;
+    let stamp = iso8601_utc(std::time::SystemTime::now());
 
     std::fs::write(mod_dir.join("mod.version"), format!("{stamp}\n"))?;
     Ok(())
+}
+
+/// `time` as UTC in ISO 8601 with microseconds, like `2026-10-09T20:11:55.123456Z`.
+fn iso8601_utc(time: std::time::SystemTime) -> String {
+    let since_epoch = time
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let seconds = since_epoch.as_secs();
+    let (year, month, day) = civil_from_days((seconds / 86_400) as i64);
+    let second_of_day = seconds % 86_400;
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{:06}Z",
+        second_of_day / 3600,
+        second_of_day / 60 % 60,
+        second_of_day % 60,
+        since_epoch.subsec_micros()
+    )
+}
+
+/// The proleptic Gregorian date `days` after 1970-01-01 (Howard Hinnant's algorithm).
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let day_of_era = z.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let shifted_month = (5 * day_of_year + 2) / 153;
+    let day = (day_of_year - (153 * shifted_month + 2) / 5 + 1) as u32;
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    } as u32;
+    let year = year_of_era + era * 400 + i64::from(month <= 2);
+    (year, month, day)
 }
 
 fn has_update_metadata(mod_ini: &str) -> bool {

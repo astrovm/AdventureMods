@@ -1904,19 +1904,27 @@ fn gamebanana_item_reports_api_errors() {
 }
 
 #[test]
-fn install_runtimes_reports_the_installer_error_from_its_worker_thread() {
-    let tmp = tempfile::tempdir().unwrap();
-    let game_path = tmp.path().join("steamapps/common/Sonic Adventure 2");
-    std::fs::create_dir_all(&game_path).unwrap();
-    let app_id = GameKind::SA2.app_id();
+fn iso8601_timestamps_are_utc_with_microseconds() {
+    use std::time::{Duration, UNIX_EPOCH};
 
-    let error = glib::MainContext::new()
-        .block_on(install_runtimes(game_path.clone(), app_id))
-        .unwrap_err();
-
-    // Without a Proton prefix nothing is installed, as when run directly.
-    let direct = runtime_installer::install_runtimes(&game_path, app_id).unwrap_err();
-    assert_eq!(error.to_string(), direct.to_string());
+    assert_eq!(iso8601_utc(UNIX_EPOCH), "1970-01-01T00:00:00.000000Z");
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_micros(1_791_576_715_123_456)),
+        "2026-10-09T20:11:55.123456Z"
+    );
+    // 2000-02-29 is a leap day; 2100-03-01 follows a skipped one.
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_secs(951_782_400)),
+        "2000-02-29T00:00:00.000000Z"
+    );
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_secs(4_107_542_400)),
+        "2100-03-01T00:00:00.000000Z"
+    );
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH - Duration::from_secs(1)),
+        "1970-01-01T00:00:00.000000Z"
+    );
 }
 
 /// A fake 7zz that extracts nothing.

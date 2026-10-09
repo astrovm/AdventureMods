@@ -3,8 +3,6 @@ use std::path::PathBuf;
 use std::process::Command as ProcessCommand;
 
 use clap::Parser;
-use gio::Settings;
-use gio::prelude::{SettingsExt, SettingsExtManual};
 
 use super::{
     Cli, CliOutput, Command, DetectArgs, Prompt, SetupArgs, TerminalPrompt,
@@ -14,6 +12,7 @@ use super::{
     run_from_args_with_io, run_with_io, setup_is_fully_specified,
 };
 use crate::config::APP_ID;
+use crate::settings::{Settings, Value};
 use crate::setup::common;
 use crate::setup::config::{
     LanguageSelection, SubtitleLanguage, VoiceLanguage, load_extra_library_paths,
@@ -22,56 +21,27 @@ use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
 use crate::test_log::capture_logs;
 
-fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
+/// Run `test` with the app's settings in a fresh config directory. The code
+/// under test loads its own copy, so read changes back with [`Settings::load`].
+fn with_test_settings<T>(test: impl FnOnce(&mut Settings) -> T) -> T {
     let _guard = crate::test_env::lock();
-    let schema_dir = tempfile::tempdir().unwrap();
-    let schema_path = schema_dir.path().join(format!("{APP_ID}.gschema.xml"));
-    let schema = include_str!("../data/io.github.astrovm.AdventureMods.gschema.xml")
-        .replace("@APP_ID_RAW@", APP_ID)
-        .replace("@APP_PATH_RAW@", "/io/github/astrovm/AdventureMods/");
-    std::fs::write(&schema_path, schema).unwrap();
-
-    let status = ProcessCommand::new("glib-compile-schemas")
-        .arg(schema_dir.path())
-        .status()
-        .unwrap();
-    assert!(status.success(), "glib-compile-schemas failed");
-
-    let previous_schema_dir = std::env::var("GSETTINGS_SCHEMA_DIR").ok();
-    let previous_backend = std::env::var("GSETTINGS_BACKEND").ok();
     let previous_xdg_config = std::env::var("XDG_CONFIG_HOME").ok();
     let previous_xdg_data = std::env::var("XDG_DATA_HOME").ok();
     let config_home = tempfile::tempdir().unwrap();
     let data_home = tempfile::tempdir().unwrap();
+    let settings_dir = config_home.path().join(APP_ID);
+    // An existing file keeps the first load from importing this machine's GSettings.
+    std::fs::create_dir_all(&settings_dir).unwrap();
+    std::fs::write(settings_dir.join("settings.json"), "{}").unwrap();
 
     unsafe {
-        std::env::set_var("GSETTINGS_SCHEMA_DIR", schema_dir.path());
-        std::env::set_var("GSETTINGS_BACKEND", "memory");
         std::env::set_var("XDG_CONFIG_HOME", config_home.path());
         std::env::set_var("XDG_DATA_HOME", data_home.path());
     }
 
-    let schema_source =
-        gio::SettingsSchemaSource::from_directory(schema_dir.path(), None, true).unwrap();
-    let schema = schema_source.lookup(APP_ID, true).unwrap();
-    // GSettings delivers change notifications through the thread-default
-    // context. Without a private one, writes acquire the global default
-    // context and race with GTK initialization in `#[gtk::test]`s.
-    let result = gio::glib::MainContext::new()
-        .with_thread_default(|| {
-            let settings = Settings::new_full(&schema, None::<&gio::SettingsBackend>, None);
-            test(&settings)
-        })
-        .unwrap();
+    let mut settings = Settings::load().unwrap();
+    let result = test(&mut settings);
 
-    match previous_schema_dir {
-        Some(value) => unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", value) },
-        None => unsafe { std::env::remove_var("GSETTINGS_SCHEMA_DIR") },
-    }
-    match previous_backend {
-        Some(value) => unsafe { std::env::set_var("GSETTINGS_BACKEND", value) },
-        None => unsafe { std::env::remove_var("GSETTINGS_BACKEND") },
-    }
     match previous_xdg_config {
         Some(value) => unsafe { std::env::set_var("XDG_CONFIG_HOME", value) },
         None => unsafe { std::env::remove_var("XDG_CONFIG_HOME") },
@@ -82,6 +52,10 @@ fn with_test_settings<T>(test: impl FnOnce(&Settings) -> T) -> T {
     }
 
     result
+}
+
+fn set_string(settings: &mut Settings, key: &str, value: &str) {
+    settings.set(key, Value::String(value.to_owned()));
 }
 
 struct MockPrompt {
@@ -254,14 +228,12 @@ fn missing_game_error_names_inaccessible_libraries() {
 fn saved_library_grants_are_read_from_settings() {
     assert!(load_extra_library_paths(None).is_empty());
     with_test_settings(|settings| {
-        settings
-            .set_strv(
-                "extra-library-paths",
-                ["/run/user/1000/doc/abc/SteamLibrary"],
-            )
-            .unwrap();
+        settings.set(
+            "extra-library-paths",
+            Value::Strings(vec!["/run/user/1000/doc/abc/SteamLibrary".to_owned()]),
+        );
         assert_eq!(
-            load_extra_library_paths(Some(settings)),
+            load_extra_library_paths(Some(&*settings)),
             vec![PathBuf::from("/run/user/1000/doc/abc/SteamLibrary")]
         );
     });
@@ -542,12 +514,8 @@ fn resolve_setup_mods_rich_rejects_empty_manual_selection() {
 #[test]
 fn cli_persists_selected_languages() {
     with_test_settings(|settings| {
-        settings
-            .set_string("sa2-subtitle-language", "english")
-            .unwrap();
-        settings
-            .set_string("sa2-voice-language", "japanese")
-            .unwrap();
+        set_string(settings, "sa2-subtitle-language", "english");
+        set_string(settings, "sa2-voice-language", "japanese");
 
         persist_cli_language_selection(
             GameKind::SA2,
@@ -557,20 +525,17 @@ fn cli_persists_selected_languages() {
             },
         );
 
-        assert_eq!(settings.string("sa2-subtitle-language"), "italian");
-        assert_eq!(settings.string("sa2-voice-language"), "english");
+        let saved = Settings::load().unwrap();
+        assert_eq!(saved.string("sa2-subtitle-language"), Some("italian"));
+        assert_eq!(saved.string("sa2-voice-language"), Some("english"));
     });
 }
 
 #[test]
 fn resolve_setup_languages_prompts_when_no_flags() {
     with_test_settings(|settings| {
-        settings
-            .set_string("sadx-subtitle-language", "english")
-            .unwrap();
-        settings
-            .set_string("sadx-voice-language", "japanese")
-            .unwrap();
+        set_string(settings, "sadx-subtitle-language", "english");
+        set_string(settings, "sadx-voice-language", "japanese");
 
         let args = SetupArgs {
             game: None,
@@ -1586,8 +1551,7 @@ fn download_progress_and_summary_cover_cli_output_paths() {
     assert!(String::from_utf8(output).unwrap().contains("Summary"));
 }
 
-// GTK can only be initialized from one thread, so share the gtk test thread.
-#[gtk::test]
+#[test]
 fn detect_resolution_uses_a_safe_fallback() {
     let (width, height) = super::detect_resolution();
     assert!(width > 0);
@@ -1595,8 +1559,8 @@ fn detect_resolution_uses_a_safe_fallback() {
 }
 
 #[test]
-fn detect_resolution_prefers_gdk_over_xrandr() {
-    // xrandr must not run once GDK knows the resolution.
+fn detect_resolution_prefers_the_display_server_over_xrandr() {
+    // xrandr must not run once the display server reported the resolution.
     let xrandr = ProcessCommand::new("/definitely/missing/xrandr");
     assert_eq!(
         super::detect_resolution_with(|| Some((1280, 720)), xrandr),
@@ -1671,29 +1635,6 @@ fn detect_resolution_falls_back_when_xrandr_lists_no_monitor() {
         logs.contains("Could not detect monitor resolution via xrandr, using fallback 1920x1080"),
         "logs were: {logs}"
     );
-}
-
-#[test]
-fn gdk_resolution_is_unavailable_when_gtk_cannot_initialize() {
-    // gtk::init panics when GTK already runs on another thread.
-    let init_state = std::sync::OnceLock::new();
-    assert_eq!(
-        super::resolution_via_gdk(&init_state, || panic!("GTK runs on another thread")),
-        None
-    );
-    assert_eq!(init_state.get(), Some(&false));
-
-    // The failed attempt is remembered instead of retried.
-    assert_eq!(super::resolution_via_gdk(&init_state, gtk::init), None);
-}
-
-#[gtk::test]
-fn gdk_resolution_reads_the_default_display() {
-    let init_state = std::sync::OnceLock::new();
-    let resolution = super::resolution_via_gdk(&init_state, gtk::init);
-
-    assert!(resolution.is_some_and(|(width, height)| width > 0 && height > 0));
-    assert_eq!(init_state.get(), Some(&true));
 }
 
 #[test]
@@ -2100,9 +2041,7 @@ fn game_path_flag_is_validated_instead_of_detected() {
 #[test]
 fn voice_language_keeps_the_saved_choice_without_flag_or_prompt() {
     with_test_settings(|settings| {
-        settings
-            .set_string("sa2-voice-language", "english")
-            .unwrap();
+        set_string(settings, "sa2-voice-language", "english");
         let mut args = empty_setup_args();
         args.subtitle_language = Some("german".to_string());
 

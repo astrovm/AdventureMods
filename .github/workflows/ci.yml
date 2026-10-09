@@ -42,8 +42,10 @@ jobs:
             build-essential \
             curl \
             pkg-config \
-            libgtk-4-dev \
-            libadwaita-1-dev \
+            libudev-dev \
+            libegl1 \
+            libgl1-mesa-dri \
+            libxkbcommon-x11-0 \
             xvfb
 
       - name: Install Rust
@@ -85,8 +87,10 @@ jobs:
             build-essential \
             curl \
             pkg-config \
-            libgtk-4-dev \
-            libadwaita-1-dev \
+            libudev-dev \
+            libegl1 \
+            libgl1-mesa-dri \
+            libxkbcommon-x11-0 \
             xvfb
 
       - name: Install Rust
@@ -121,7 +125,7 @@ jobs:
             runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.variant.runner }}
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
       options: --privileged
 
     steps:
@@ -179,17 +183,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential pkg-config meson gettext \
-            libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
-            libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
-            libgdk-pixbuf-2.0-dev libepoxy-dev libwayland-dev \
-            libxkbcommon-dev libvulkan-dev libx11-dev libxrandr-dev \
-            libxi-dev libxext-dev libxcursor-dev libxdamage-dev \
-            libxfixes-dev libxinerama-dev libxcomposite-dev \
-            wayland-protocols libcloudproviders-dev libsass-dev sassc \
-            libappstream-dev desktop-file-utils appstream libxml2-utils \
-            wget unzip file libfuse2t64 curl git glslc libdrm-dev zsync \
-            librsvg2-dev libgirepository1.0-dev
+            build-essential pkg-config meson libudev-dev \
+            desktop-file-utils appstream \
+            wget unzip file libfuse2t64 curl git zsync
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable

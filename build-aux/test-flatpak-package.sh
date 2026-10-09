@@ -21,7 +21,6 @@ test -f "$metadata"
 
 desktop-file-validate "$files_dir/share/applications/$app_id.desktop"
 appstreamcli validate --no-net "$files_dir/share/metainfo/$app_id.metainfo.xml"
-glib-compile-schemas --strict --dry-run "$files_dir/share/glib-2.0/schemas"
 
 # Host integration finish-args (Steam mounts + flatpak-spawn talk-name)
 grep -q 'org\.freedesktop\.Flatpak' "$metadata"

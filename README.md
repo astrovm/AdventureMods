@@ -63,6 +63,8 @@ Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
 
 Open **Adventure Mods** from your application menu and follow the setup wizard.
 
+It works with a controller too, so you can use it from the couch or in Steam Deck's Game Mode (add it to Steam as a non-Steam game). The D-pad or left stick moves, **A** selects, **B** goes back and **Start** continues.
+
 ## Features
 
 - **Finds your games.** Detects SADX and SA2 across all Steam library folders.
@@ -71,6 +73,7 @@ Open **Adventure Mods** from your application menu and follow the setup wizard.
 - **One step.** Installs mod managers, mods and dependencies together.
 - **Good settings.** Sets native resolution, window mode and optimal settings.
 - **Your languages.** Saves subtitle and voice language per game.
+- **Couch friendly.** Big text and buttons, with full controller support.
 
 ## CLI (optional)
 
