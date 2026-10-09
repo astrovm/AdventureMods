@@ -137,9 +137,10 @@ fn the_app_scans_on_start_and_shows_each_game() {
     let fixture = Fixture::new(&["sa2"]);
     let mut harness = fixture.harness();
     run_until(&mut harness, "scan", scanned);
+    // The game that is there starts selected.
+    harness.get_by_label("SONIC ADVENTURE 2");
     harness.get_by_label("Set Up");
-    harness.get_by_label("Not installed");
-    harness.get_by_label("Adventure Mods");
+    harness.get_by_label("ADVENTURE MODS");
 
     // Scanning again from the header keeps the cards.
     press(&mut harness, "Scan Again");
@@ -236,7 +237,7 @@ fn restoring_a_modded_game_asks_first() {
     let game = fixture.library.join("sa2");
     let mut harness = fixture.harness();
     run_until(&mut harness, "scan", scanned);
-    harness.get_by_label("Mods installed");
+    harness.get_by_label("Change Mods");
 
     // Cancelling the question changes nothing.
     press(&mut harness, "Restore");
@@ -254,7 +255,7 @@ fn restoring_a_modded_game_asks_first() {
     });
     run_until(&mut harness, "rescan", scanned);
     harness.get_by_label("Sonic Adventure 2 was restored.");
-    harness.get_by_label("Ready to set up");
+    harness.get_by_label("Set Up");
     // Nothing was converted, so there is nothing for Steam to verify.
     assert!(harness.state().dialog.is_none());
 }
@@ -525,7 +526,7 @@ fn the_window_state_follows_the_viewport() {
     harness.run_steps(2);
     assert_eq!(
         harness.state().window_state().size,
-        Vec2::new(1280.0, 800.0)
+        Vec2::new(super::super::DEFAULT_WIDTH, super::super::DEFAULT_HEIGHT)
     );
 
     // F11 toggles fullscreen; the harness ignores the request.
