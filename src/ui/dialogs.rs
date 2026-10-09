@@ -84,12 +84,17 @@ pub struct ChoiceDialog {
     id: Id,
     title: String,
     options: Vec<String>,
-    selected: usize,
+    selected: Option<usize>,
     opened: bool,
 }
 
 impl ChoiceDialog {
-    pub fn new(id: &str, title: impl Into<String>, options: Vec<String>, selected: usize) -> Self {
+    pub fn new(
+        id: &str,
+        title: impl Into<String>,
+        options: Vec<String>,
+        selected: Option<usize>,
+    ) -> Self {
         Self {
             id: Id::new(id),
             title: title.into(),
@@ -117,19 +122,19 @@ impl ChoiceDialog {
                     .max_height(ctx.content_rect().height() * 0.6)
                     .show(ui, |ui| {
                         for (index, option) in self.options.iter().enumerate() {
-                            let label = if index == self.selected {
+                            let label = if Some(index) == self.selected {
                                 format!("✔  {option}")
                             } else {
                                 option.clone()
                             };
-                            let kind = if index == self.selected {
+                            let kind = if Some(index) == self.selected {
                                 ButtonKind::Suggested
                             } else {
                                 ButtonKind::Normal
                             };
                             let response =
                                 widgets::button_sized(ui, &label, kind, ui.available_width());
-                            if focus && index == self.selected {
+                            if focus && index == self.selected.unwrap_or(0) {
                                 response.request_focus();
                             }
                             if response.clicked() {
@@ -203,7 +208,7 @@ mod tests {
             "voices",
             "Voices",
             vec!["Japanese".into(), "English".into()],
-            1,
+            Some(1),
         );
         assert_eq!(dialog.title(), "Voices");
         Harness::new_ui_state(
@@ -228,6 +233,31 @@ mod tests {
         harness.get_by_label("Japanese").click();
         harness.run();
         assert_eq!(harness.state().1.last(), Some(&Answer::Button(0)));
+    }
+
+    #[test]
+    fn choice_dialogs_without_a_selection_focus_the_first_unmarked_option() {
+        let dialog = ChoiceDialog::new(
+            "presets",
+            "Preset",
+            vec!["First".into(), "Second".into()],
+            None,
+        );
+        let mut harness = Harness::new_ui_state(
+            |ui, (dialog, answers): &mut (ChoiceDialog, Vec<Answer>)| {
+                if let Some(answer) = dialog.show(ui.ctx()) {
+                    answers.push(answer);
+                }
+            },
+            (dialog, Vec::new()),
+        );
+        harness.get_by_label("First");
+        harness.get_by_label("Second");
+        assert!(harness.query_by_label("✔  First").is_none());
+        assert!(harness.query_by_label("✔  Second").is_none());
+        harness.key_press(egui::Key::Enter);
+        harness.run();
+        assert_eq!(harness.state().1, vec![Answer::Button(0)]);
     }
 
     #[test]

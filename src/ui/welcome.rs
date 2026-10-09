@@ -410,7 +410,7 @@ impl WelcomeScreen {
                     "install-picker",
                     format!("{} Install", card.kind.name()),
                     options,
-                    card.selected,
+                    Some(card.selected),
                 ),
             ));
         }

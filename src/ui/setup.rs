@@ -224,7 +224,6 @@ pub struct SetupFlow {
     /// The Proton check is only part of the flow when it was needed.
     steam_check_needed: bool,
     selected_mods: Vec<usize>,
-    preset: usize,
     languages: LanguageSelection,
     // Steam/Proton status for the current visit to the Steam step. Refreshed
     // whenever the user navigates or asks to check again.
@@ -263,7 +262,6 @@ impl SetupFlow {
             current: 0,
             steam_check_needed: false,
             selected_mods,
-            preset: 0,
             languages,
             steam_status: None,
             estimates: None,
@@ -833,13 +831,25 @@ impl SetupFlow {
         let Some(preset) = common::presets_for_game(self.game.kind).get(index) else {
             return;
         };
-        self.preset = index;
         self.selected_mods = common::recommended_mods_for_game(self.game.kind)
             .iter()
             .enumerate()
             .filter(|(_, mod_entry)| preset.mod_names.contains(&mod_entry.name))
             .map(|(index, _)| index)
             .collect();
+    }
+
+    fn matching_preset(&self) -> Option<usize> {
+        let mods = common::recommended_mods_for_game(self.game.kind);
+        common::presets_for_game(self.game.kind)
+            .iter()
+            .position(|preset| {
+                self.selected_mods.len() == preset.mod_names.len()
+                    && self
+                        .selected_mods
+                        .iter()
+                        .all(|&index| preset.mod_names.contains(&mods[index].name))
+            })
     }
 
     fn set_mod_selected(&mut self, index: usize, selected: bool) {
@@ -979,24 +989,24 @@ impl SetupFlow {
     }
 
     fn open_picker(&mut self, target: Picker) {
-        let (title, options, selected): (&str, Vec<&str>, usize) = match target {
+        let (title, options, selected): (&str, Vec<&str>, Option<usize>) = match target {
             Picker::Preset => {
                 let presets = common::presets_for_game(self.game.kind);
                 (
                     "Preset",
                     presets.iter().map(|preset| preset.name).collect(),
-                    self.preset,
+                    self.matching_preset(),
                 )
             }
             Picker::Subtitles => (
                 "Subtitles",
                 subtitle_language_labels(self.game.kind),
-                subtitle_language_index(self.game.kind, self.languages.subtitle) as usize,
+                Some(subtitle_language_index(self.game.kind, self.languages.subtitle) as usize),
             ),
             Picker::Voices => (
                 "Voices",
                 voice_language_labels(),
-                voice_language_index(self.languages.voice) as usize,
+                Some(voice_language_index(self.languages.voice) as usize),
             ),
         };
         let options = options.into_iter().map(String::from).collect();
@@ -1114,6 +1124,7 @@ impl SetupFlow {
     fn show_mod_selection(&mut self, ui: &mut Ui, images: &mut ImageCache) {
         let mods = common::recommended_mods_for_game(self.game.kind);
         let presets = common::presets_for_game(self.game.kind);
+        let preset = self.matching_preset().map(|index| &presets[index]);
         let wide = ui.available_width() >= 900.0;
         let column_width = if wide {
             (ui.available_width() - 72.0) / 2.0
@@ -1129,11 +1140,19 @@ impl SetupFlow {
             ui.add_space(24.0);
             ui.vertical(|ui| {
                 ui.set_width(column_width);
-                if let Some(preset) = presets.get(self.preset) {
-                    if widgets::choice_row(ui, "Preset", preset.name).clicked() {
+                if !presets.is_empty() {
+                    if widgets::choice_row(
+                        ui,
+                        "Preset",
+                        preset.map_or("Custom", |preset| preset.name),
+                    )
+                    .clicked()
+                    {
                         open_preset = true;
                     }
-                    widgets::caption(ui, preset.description);
+                    if let Some(preset) = preset {
+                        widgets::caption(ui, preset.description);
+                    }
                 }
                 let list_height = ui.available_height() - 40.0;
                 egui::ScrollArea::vertical()

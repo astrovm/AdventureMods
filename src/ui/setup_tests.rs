@@ -680,7 +680,104 @@ fn sadx_presets_pick_their_mods() {
 
     // Unknown presets change nothing.
     harness.state_mut().flow.apply_preset(99);
-    assert_eq!(harness.state().flow.preset, 1);
+    assert_eq!(harness.state().flow.matching_preset(), Some(1));
+}
+
+#[test]
+fn presets_follow_mod_selection_and_custom_choices_stay_available() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut harness = harness(flow(GameKind::SADX, dir.path(), work()));
+    act(&mut harness, SetupFlow::on_next);
+    let presets = common::presets_for_game(GameKind::SADX);
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    harness.get_by_label(presets[0].description);
+
+    let toggle = |harness: &mut Harness<'_, State>| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::CheckBox, mods[0].name)
+            .click();
+        harness.run_steps(4);
+    };
+    toggle(&mut harness);
+    harness.get_by_label("Custom");
+    assert!(harness.query_by_label(presets[0].description).is_none());
+    press(&mut harness, "Preset");
+    for preset in presets {
+        harness.get_by_label(preset.name);
+        assert!(
+            harness
+                .query_by_label(&format!("✔  {}", preset.name))
+                .is_none()
+        );
+    }
+    press(&mut harness, "Cancel");
+    harness.get_by_label("Custom");
+
+    toggle(&mut harness);
+    harness.get_by_label(presets[0].name);
+    harness.get_by_label(presets[0].description);
+    assert!(harness.query_by_label("Custom").is_none());
+    press(&mut harness, "Preset");
+    harness.get_by_label(&format!("✔  {}", presets[0].name));
+    press(&mut harness, "Cancel");
+
+    toggle(&mut harness);
+    press(&mut harness, "Preset");
+    press(&mut harness, presets[1].name);
+    harness.get_by_label(presets[1].name);
+    harness.get_by_label(presets[1].description);
+}
+
+#[test]
+fn manually_matching_another_preset_updates_its_label_and_picker() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut harness = harness(flow(GameKind::SADX, dir.path(), work()));
+    act(&mut harness, SetupFlow::on_next);
+    let presets = common::presets_for_game(GameKind::SADX);
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    act(&mut harness, |flow| {
+        for (index, mod_entry) in mods.iter().enumerate().rev() {
+            flow.set_mod_selected(index, presets[1].mod_names.contains(&mod_entry.name));
+        }
+    });
+    harness.get_by_label(presets[1].name);
+    harness.get_by_label(presets[1].description);
+    assert!(harness.query_by_label(presets[0].description).is_none());
+    press(&mut harness, "Preset");
+    harness.get_by_label(&format!("✔  {}", presets[1].name));
+    harness.get_by_label(presets[0].name);
+}
+
+#[test]
+fn preset_matching_requires_exact_mod_sets_in_any_order() {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SADX, dir.path(), work());
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    assert_eq!(setup.matching_preset(), Some(0));
+    for index in 0..common::presets_for_game(GameKind::SADX).len() {
+        setup.apply_preset(index);
+        setup.selected_mods.reverse();
+        assert_eq!(setup.matching_preset(), Some(index));
+        let selected = setup.selected_mods.clone();
+        let extra = (0..mods.len())
+            .find(|index| !selected.contains(index))
+            .unwrap();
+        setup.set_mod_selected(extra, true);
+        assert_eq!(setup.matching_preset(), None);
+        setup.selected_mods = selected.clone();
+        setup.selected_mods.pop();
+        assert_eq!(setup.matching_preset(), None);
+        setup.set_mod_selected(extra, true);
+        assert_eq!(setup.matching_preset(), None);
+    }
+    setup.selected_mods.clear();
+    assert_eq!(setup.matching_preset(), None);
+    setup.selected_mods = (0..mods.len()).collect();
+    assert_eq!(setup.matching_preset(), None);
+    let mut sa2 = flow(GameKind::SA2, dir.path(), work());
+    assert_eq!(sa2.matching_preset(), None);
+    sa2.selected_mods.clear();
+    assert_eq!(sa2.matching_preset(), None);
 }
 
 #[test]
