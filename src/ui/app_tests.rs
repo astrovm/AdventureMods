@@ -526,7 +526,7 @@ fn the_window_state_follows_the_viewport() {
     harness.run_steps(2);
     assert_eq!(
         harness.state().window_state().size,
-        Vec2::new(1280.0, 800.0)
+        Vec2::new(super::super::DEFAULT_WIDTH, super::super::DEFAULT_HEIGHT)
     );
 
     // F11 toggles fullscreen; the harness ignores the request.
