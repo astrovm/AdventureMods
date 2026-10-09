@@ -445,6 +445,15 @@ fn mods_toggle_both_ways_and_previews_page_forward() {
         .position(|mod_entry| mod_entry.pictures.len() > 1)
         .expect("a mod with several pictures");
     act(&mut harness, |flow| flow.show_preview(Some(paged)));
+    // Decode the picture now, so the preview draws it however slow the machine.
+    let ctx = harness.ctx.clone();
+    harness
+        .state_mut()
+        .images
+        .as_mut()
+        .expect("drawn once")
+        .load_now(&ctx, mods[paged].pictures[0]);
+    harness.step();
     press(&mut harness, "›");
     assert_eq!(harness.state().flow.preview.page, 1);
 
