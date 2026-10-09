@@ -247,6 +247,24 @@ mod tests {
     }
 
     #[test]
+    fn a_ui_styled_after_the_fonts_load_uses_rubik_at_once() {
+        let ctx = egui::Context::default();
+        apply(&ctx);
+        let mut families = Vec::new();
+        for _ in 0..2 {
+            let mut output = ctx.run_ui(Default::default(), |ui| {
+                // A fresh style, as a new window would have.
+                ui.set_style(egui::Style::default());
+                apply_ui(ui);
+                families.push(ui.style().text_styles[&title_style()].family.clone());
+            });
+            output.textures_delta.clear();
+        }
+
+        assert_eq!(families, vec![heavy(), heavy()]);
+    }
+
+    #[test]
     fn the_japanese_label_has_glyphs() {
         let ctx = egui::Context::default();
         apply(&ctx);

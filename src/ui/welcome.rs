@@ -807,6 +807,14 @@ mod tests {
         harness.run_steps(4);
         harness.get_by_label("SONIC ADVENTURE DX");
 
+        // Moving focus onto a tile selects it, as the controller does.
+        harness.get_by_label("Sonic Adventure 2").focus();
+        harness.run_steps(4);
+        harness.get_by_label("SONIC ADVENTURE 2");
+        harness.get_by_label("Sonic Adventure DX").focus();
+        harness.run_steps(4);
+        harness.get_by_label("SONIC ADVENTURE DX");
+
         harness.get_by_label("Sonic Adventure 2").click();
         harness.run_steps(30);
         harness.get_by_label("SONIC ADVENTURE 2");
