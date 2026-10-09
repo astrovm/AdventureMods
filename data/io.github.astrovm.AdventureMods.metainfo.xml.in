@@ -42,7 +42,7 @@
   <screenshots>
     <screenshot type="default">
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/welcome.png</image>
-      <caption>Detected games and whether they are modded</caption>
+      <caption>Your games, ready to set up</caption>
     </screenshot>
     <screenshot>
       <image>https://raw.githubusercontent.com/astrovm/AdventureMods/main/data/screenshots/mod-selection.png</image>
@@ -54,6 +54,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="1.1.1" date="2026-10-09">
+      <description>
+        <p>Fixes a missing arrow in setup instructions.</p>
+        <ul>
+          <li>Showed the arrow in "Properties → Compatibility" instead of a box</li>
+          <li>Updated the screenshots to the new look</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-10-09">
       <description>
         <p>A new interface made for the couch: it works with a controller and fits the Steam Deck.</p>
