@@ -448,6 +448,14 @@ fn mods_toggle_both_ways_and_previews_page_forward() {
     press(&mut harness, "›");
     assert_eq!(harness.state().flow.preview.page, 1);
 
+    // A single picture needs no page arrows.
+    let single = mods
+        .iter()
+        .position(|mod_entry| mod_entry.pictures.len() == 1)
+        .expect("a mod with one picture");
+    act(&mut harness, |flow| flow.show_preview(Some(single)));
+    assert!(harness.query_by_label("›").is_none());
+
     // A page without a picture shows just the name.
     act(&mut harness, |flow| flow.preview.page = usize::MAX);
     harness.get_by_role_and_label(egui::accesskit::Role::CheckBox, mods[paged].name);
