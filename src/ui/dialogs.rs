@@ -258,6 +258,11 @@ mod tests {
         harness.key_press(egui::Key::Enter);
         harness.run();
         assert_eq!(harness.state().1, vec![Answer::Button(0)]);
+        harness.key_press(egui::Key::Tab);
+        harness.run();
+        harness.key_press(egui::Key::Enter);
+        harness.run();
+        assert_eq!(harness.state().1.last(), Some(&Answer::Button(1)));
     }
 
     #[test]

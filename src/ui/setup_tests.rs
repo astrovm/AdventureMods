@@ -2,7 +2,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 
 use super::*;
 use crate::setup::config::{SubtitleLanguage, VoiceLanguage};
@@ -699,7 +699,14 @@ fn presets_follow_mod_selection_and_custom_choices_stay_available() {
         harness.run_steps(4);
     };
     toggle(&mut harness);
-    harness.get_by_label("Custom");
+    assert_eq!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some("Custom")
+    );
     assert!(harness.query_by_label(presets[0].description).is_none());
     press(&mut harness, "Preset");
     for preset in presets {
@@ -711,12 +718,33 @@ fn presets_follow_mod_selection_and_custom_choices_stay_available() {
         );
     }
     press(&mut harness, "Cancel");
-    harness.get_by_label("Custom");
+    assert_eq!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some("Custom")
+    );
 
     toggle(&mut harness);
-    harness.get_by_label(presets[0].name);
+    assert_eq!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some(presets[0].name)
+    );
     harness.get_by_label(presets[0].description);
-    assert!(harness.query_by_label("Custom").is_none());
+    assert_ne!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some("Custom")
+    );
     press(&mut harness, "Preset");
     harness.get_by_label(&format!("✔  {}", presets[0].name));
     press(&mut harness, "Cancel");
@@ -724,7 +752,14 @@ fn presets_follow_mod_selection_and_custom_choices_stay_available() {
     toggle(&mut harness);
     press(&mut harness, "Preset");
     press(&mut harness, presets[1].name);
-    harness.get_by_label(presets[1].name);
+    assert_eq!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some(presets[1].name)
+    );
     harness.get_by_label(presets[1].description);
 }
 
@@ -740,7 +775,14 @@ fn manually_matching_another_preset_updates_its_label_and_picker() {
             flow.set_mod_selected(index, presets[1].mod_names.contains(&mod_entry.name));
         }
     });
-    harness.get_by_label(presets[1].name);
+    assert_eq!(
+        harness
+            .get_by_label("Preset")
+            .accesskit_node()
+            .value()
+            .as_deref(),
+        Some(presets[1].name)
+    );
     harness.get_by_label(presets[1].description);
     assert!(harness.query_by_label(presets[0].description).is_none());
     press(&mut harness, "Preset");

@@ -336,7 +336,11 @@ pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) 
 pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 64.0), Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::ComboBox, true, title));
+    response.widget_info(|| {
+        let mut info = WidgetInfo::labeled(WidgetType::ComboBox, true, title);
+        info.current_text_value = Some(value.to_owned());
+        info
+    });
 
     // Painting is clipped, so off-screen rows cost little.
     let highlight = motion::highlight(ui, &response);
