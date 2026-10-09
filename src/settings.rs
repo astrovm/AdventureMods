@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(
             legacy_gsettings_from(&keyfile, "/io/github/astrovm/AdventureMods/", "false")
                 .as_deref(),
-            Some("window-width=2\n")
+            Some("window-width=2")
         );
 
         // Without a keyfile, `dconf dump` prints the same format.
