@@ -1,3 +1,8 @@
+Rubik-Medium.ttf, Rubik-Bold.ttf and Rubik-ExtraBold.ttf are static instances
+of the Rubik variable font, subset to Latin characters.
+Source: https://github.com/googlefonts/rubik
+Copyright 2015 The Rubik Project Authors (https://github.com/googlefonts/rubik)
+
 NotoSansCJK-JapaneseLabel.otf is a subset of Noto Sans CJK JP Regular holding
 only the glyphs of "日本語", the label of the Japanese language option.
 Source: https://github.com/notofonts/noto-cjk

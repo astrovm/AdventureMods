@@ -1,21 +1,18 @@
 //! The first screen: one card per game, saying whether it is ready for mods.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use egui::{Color32, RichText, Ui, Vec2};
 
 use super::dialogs::{Answer, ChoiceDialog};
-use super::images::{ImageCache, cover_resource};
+use super::images::{self, ImageCache, cover_resource};
 use super::widgets::{self, ButtonKind, Tone};
 use super::{motion, theme};
 use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
-
-const CARD_WIDTH: f32 = 380.0;
-/// Covers are 460x215 Steam headers.
-const COVER_HEIGHT: f32 = CARD_WIDTH * 215.0 / 460.0;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum GameInstallOption {
@@ -101,33 +98,15 @@ impl GameCard {
         self.options.get(self.selected)
     }
 
-    /// Badge, its tone and the line under it.
-    fn status(&self) -> (&'static str, Tone, Option<&'static str>) {
-        let multiple = self.options.len() > 1;
+    /// A line under the name, only when the user has to do something the
+    /// buttons don't already say.
+    fn note(&self) -> Option<&'static str> {
         match self.selected_option() {
-            None => (
-                "Not installed",
-                Tone::Neutral,
-                Some("Install it in Steam, then scan again."),
-            ),
-            Some(GameInstallOption::Inaccessible(_)) => (
-                "Needs access",
-                Tone::Warning,
-                Some("Allow access to this Steam library to set it up."),
-            ),
-            Some(GameInstallOption::Detected(_)) if self.steam_repair => (
-                "Needs Steam repair",
-                Tone::Warning,
-                Some("Let Steam verify the game files to finish restoring it."),
-            ),
-            Some(GameInstallOption::Detected(_)) => {
-                let note = multiple.then_some("Choose which install to set up.");
-                if self.modded {
-                    ("Mods installed", Tone::Success, note)
-                } else {
-                    ("Ready to set up", Tone::Accent, note)
-                }
+            None => Some("Install it in Steam, then scan again."),
+            Some(GameInstallOption::Detected(_)) if self.steam_repair => {
+                Some("Let Steam verify the game files to finish restoring it.")
             }
+            Some(_) => None,
         }
     }
 
@@ -187,10 +166,14 @@ pub struct WelcomeScreen {
     result: Option<DetectionResult>,
     cards: Vec<GameCard>,
     install_picker: Option<(usize, ChoiceDialog)>,
-    /// Focus the first card's main button on the next frame.
+    /// The game in focus: its tile is large and its buttons show.
+    selected: usize,
+    /// Focus the selected game's main button on the next frame.
     focus_first: bool,
     /// Height of the content last frame, to center it vertically.
     content_height: f32,
+    /// Each game's blurred cover, behind everything while it is selected.
+    backdrops: HashMap<GameKind, egui::TextureHandle>,
 }
 
 impl WelcomeScreen {
@@ -202,6 +185,14 @@ impl WelcomeScreen {
             .filter_map(|card| Some((card.kind, card.selected_option()?.clone())))
             .collect();
         self.cards = build_game_cards(&result);
+        if self.result.is_none() {
+            // Start on the first game there is something to do with.
+            self.selected = self
+                .cards
+                .iter()
+                .position(|card| card.actions().is_some())
+                .unwrap_or(0);
+        }
         for card in &mut self.cards {
             if let Some((_, option)) = previous.iter().find(|(kind, _)| *kind == card.kind)
                 && let Some(index) = card
@@ -224,7 +215,6 @@ impl WelcomeScreen {
     }
 
     pub fn show(&mut self, ui: &mut Ui, images: &mut ImageCache) -> Option<WelcomeAction> {
-        let mut action = None;
         if let Some((card_index, picker)) = &mut self.install_picker {
             match picker.show(ui.ctx()) {
                 Some(Answer::Button(option)) => {
@@ -237,185 +227,178 @@ impl WelcomeScreen {
             }
         }
 
+        let Some(result) = &self.result else {
+            ui.vertical_centered(|ui| {
+                ui.add_space(ui.available_height() / 2.0 - 60.0);
+                ui.add(egui::Spinner::new().size(48.0));
+                ui.label(RichText::new("Looking for your games…").color(theme::TEXT_DIM));
+            });
+            return None;
+        };
+        let alert = inaccessible_alert(&result.inaccessible);
+
+        let mut action = None;
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
                 let free = ui.available_height() - self.content_height;
-                ui.add_space((free / 2.0).max(24.0));
-                let content = ui.vertical_centered(|ui| {
-                    ui.set_max_width(ui.available_width().min(2.0 * CARD_WIDTH + 40.0));
-                    ui.label(
-                        RichText::new("Choose a Game")
-                            .text_style(theme::title_style())
-                            .strong(),
-                    );
-                    ui.add_space(8.0);
-
-                    let Some(result) = &self.result else {
-                        ui.add_space(48.0);
-                        ui.add(egui::Spinner::new().size(48.0));
-                        ui.label(RichText::new("Looking for your games…").color(theme::TEXT_DIM));
-                        return;
-                    };
-
-                    if let Some(alert) = inaccessible_alert(&result.inaccessible) {
-                        widgets::banner(ui, Tone::Warning, &alert);
-                        ui.add_space(8.0);
-                    }
-
-                    let side_by_side = ui.available_width() >= 2.0 * CARD_WIDTH + 24.0;
-                    let layout = if side_by_side {
-                        egui::Layout::left_to_right(egui::Align::Min)
-                    } else {
-                        egui::Layout::top_down(egui::Align::Center)
-                    };
-                    let width = if side_by_side {
-                        2.0 * CARD_WIDTH + 24.0
-                    } else {
-                        CARD_WIDTH
-                    };
-                    ui.allocate_ui_with_layout(Vec2::new(width, 0.0), layout, |ui| {
-                        ui.spacing_mut().item_spacing = Vec2::splat(24.0);
-                        for index in 0..self.cards.len() {
-                            // Focus lands on the first card that has a button.
-                            let focus = self.focus_first && self.cards[index].actions().is_some();
-                            self.focus_first &= !focus;
-                            if let Some(card_action) = self.show_card(ui, images, index, focus) {
-                                action = Some(card_action);
+                ui.add_space((free / 2.0).max(16.0));
+                let content = ui.vertical(|ui| {
+                    let margin = (ui.available_width() * 0.05).clamp(16.0, 48.0);
+                    egui::Frame::new()
+                        .inner_margin(egui::Margin::symmetric(margin as i8, 0))
+                        .show(ui, |ui| {
+                            if let Some(alert) = &alert {
+                                widgets::banner(ui, Tone::Warning, alert);
+                                ui.add_space(12.0);
                             }
-                        }
-                    });
+                            self.show_tiles(ui, images);
+                            ui.add_space(28.0);
+                            action = self.show_selected(ui);
+                        });
                 });
                 self.content_height = content.response.rect.height();
-                ui.add_space(24.0);
+                ui.add_space(16.0);
             });
         action
     }
 
-    fn show_card(
-        &mut self,
-        ui: &mut Ui,
-        images: &mut ImageCache,
-        index: usize,
-        focus: bool,
-    ) -> Option<WelcomeAction> {
+    /// The selected game's blurred cover fills the window, fading between
+    /// games, with the bottom darkened so text stays readable. Call it before
+    /// anything else is drawn, as it paints over the whole window.
+    pub fn paint_backdrops(&mut self, ctx: &egui::Context) {
+        let screen = ctx.content_rect();
+        let painter = ctx.layer_painter(egui::LayerId::background());
+        for (index, card) in self.cards.iter().enumerate() {
+            let shown = ctx.animate_bool_with_time_and_easing(
+                egui::Id::new(("backdrop", card.kind)),
+                index == self.selected && card.state != CardState::Missing,
+                motion::SCREEN as f32 * 2.0,
+                motion::ease_out,
+            );
+            if shown <= 0.0 {
+                continue;
+            }
+            let texture = self.backdrops.entry(card.kind).or_insert_with(|| {
+                let image = images::decode_backdrop(cover_resource(card.kind))
+                    .expect("bundled covers decode");
+                ctx.load_texture(
+                    format!("backdrop-{:?}", card.kind),
+                    image,
+                    egui::TextureOptions::LINEAR,
+                )
+            });
+            painter.image(
+                texture.id(),
+                screen,
+                cover_uv(texture.aspect_ratio(), screen.aspect_ratio()),
+                Color32::WHITE.gamma_multiply(0.42 * shown),
+            );
+        }
+        let mut shade = egui::Mesh::default();
+        let clear = theme::BACKGROUND.gamma_multiply(0.15);
+        let dark = theme::BACKGROUND.gamma_multiply(0.92);
+        for (pos, color) in [
+            (screen.left_top(), clear),
+            (screen.right_top(), clear),
+            (screen.right_bottom(), dark),
+            (screen.left_bottom(), dark),
+        ] {
+            shade.colored_vertex(pos, color);
+        }
+        shade.add_triangle(0, 1, 2);
+        shade.add_triangle(0, 2, 3);
+        painter.add(shade);
+    }
+
+    /// One tile per game; the selected one is larger and outlined in gold.
+    fn show_tiles(&mut self, ui: &mut Ui, images: &mut ImageCache) {
+        let gap = 24.0;
+        let count = self.cards.len() as f32;
+        let room = ui.available_width() - gap * (count - 1.0);
+        // The selected tile takes a bigger share of the row.
+        let small = (room / (count + 0.25)).min(560.0);
+        let large = small * 1.25;
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Max), |ui| {
+                for index in 0..self.cards.len() {
+                    let card = &self.cards[index];
+                    let grow = ui.ctx().animate_bool_with_time_and_easing(
+                        egui::Id::new(("tile-grow", card.kind)),
+                        index == self.selected,
+                        motion::QUICK * 2.0,
+                        motion::ease_out,
+                    );
+                    let width = small + (large - small) * grow;
+                    let size = Vec2::new(width, width * 215.0 / 460.0);
+                    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
+                    let name = card.kind.name();
+                    response.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, name)
+                    });
+                    let highlight = motion::highlight(ui, &response);
+                    paint_tile(ui, rect, card, images, grow, highlight);
+                    if response.gained_focus() {
+                        self.selected = index;
+                    }
+                    if response.clicked() {
+                        self.selected = index;
+                        // A, or a click, moves on to the game's buttons.
+                        self.focus_first = true;
+                    }
+                }
+            });
+        });
+    }
+
+    /// The selected game's name, what it needs, and its buttons.
+    fn show_selected(&mut self, ui: &mut Ui) -> Option<WelcomeAction> {
+        let index = self.selected.min(self.cards.len() - 1);
         let card = &self.cards[index];
         let mut action = None;
         let mut open_picker = false;
-        // Hovered or focused cards light up and zoom their cover a little.
-        let hot_id = ui.id().with(("card-hot", index));
-        let was_hot = ui.data(|data| data.get_temp::<bool>(hot_id).unwrap_or(false));
-        let hot = ui.ctx().animate_bool_with_time_and_easing(
-            hot_id,
-            was_hot,
-            motion::QUICK * 2.0,
-            motion::ease_out,
+        ui.label(
+            RichText::new(card.kind.name().to_uppercase())
+                .font(theme::font(ui.ctx(), 34.0, theme::heavy()))
+                .extra_letter_spacing(1.0),
         );
-        // Stack the card's parts even when the cards sit side by side.
-        ui.vertical(|ui| {
-            let frame = widgets::card().inner_margin(0).show(ui, |ui| {
-                ui.set_width(CARD_WIDTH);
-                ui.spacing_mut().item_spacing.y = 10.0;
-                let cover = cover_resource(card.kind);
-                let size = Vec2::new(CARD_WIDTH, COVER_HEIGHT);
-                match images.get(ui.ctx(), cover) {
-                    Some(texture) => {
-                        let tint = if card.state == CardState::Missing {
-                            Color32::from_gray(90)
-                        } else {
-                            Color32::WHITE
-                        };
-                        let zoom = 0.04 * hot;
-                        ui.add(
-                            egui::Image::new(&texture)
-                                .fit_to_exact_size(size)
-                                .uv(egui::Rect::from_min_max(
-                                    egui::pos2(zoom, zoom),
-                                    egui::pos2(1.0 - zoom, 1.0 - zoom),
-                                ))
-                                .tint(tint)
-                                .corner_radius(egui::CornerRadius {
-                                    nw: theme::CARD_RADIUS,
-                                    ne: theme::CARD_RADIUS,
-                                    sw: 0,
-                                    se: 0,
-                                }),
-                        );
-                    }
-                    None => {
-                        ui.allocate_exact_size(size, egui::Sense::hover());
-                    }
+        if let Some(note) = card.note() {
+            ui.label(RichText::new(note).color(theme::TEXT_DIM));
+        }
+        if card.options.len() > 1
+            && let Some(option) = card.selected_option()
+        {
+            ui.allocate_ui(Vec2::new(ui.available_width().min(520.0), 0.0), |ui| {
+                if widgets::choice_row(ui, "Install", &option.selector_label())
+                    .on_hover_text("Choose which install to set up")
+                    .clicked()
+                {
+                    open_picker = true;
                 }
-                egui::Frame::new().inner_margin(20).show(ui, |ui| {
-                    ui.set_width(CARD_WIDTH - 40.0);
-                    ui.label(RichText::new(card.kind.name()).heading().strong());
-                    let (badge, tone, note) = card.status();
-                    widgets::status_dot(ui, tone, badge);
-                    if card.options.len() > 1
-                        && let Some(option) = card.selected_option()
-                        && widgets::choice_row(ui, "Install", &option.selector_label())
-                            .on_hover_text("Choose which install to set up")
-                            .clicked()
-                    {
-                        open_picker = true;
-                    }
-                    if let Some(note) = note {
-                        widgets::caption(ui, note);
-                    }
-                    // Actions exist only for a selected install.
-                    if let (Some((primary, secondary)), Some(option)) =
-                        (card.actions(), card.selected_option())
-                    {
-                        ui.horizontal(|ui| {
-                            let width = if secondary.is_some() {
-                                CARD_WIDTH - 40.0 - 150.0
-                            } else {
-                                CARD_WIDTH - 40.0
-                            };
-                            let response =
-                                widgets::button_sized(ui, primary, ButtonKind::Suggested, width)
-                                    .on_hover_text(display_path(option.path()));
-                            if focus {
-                                response.request_focus();
-                            }
-                            if response.clicked() {
-                                action = card.primary_action();
-                            }
-                            if let Some(secondary) = secondary
-                                && widgets::button_sized(ui, secondary, ButtonKind::Normal, 136.0)
-                                    .clicked()
-                            {
-                                action = card.secondary_action();
-                            }
-                        });
-                    }
-                });
             });
-            let rect = frame.response.rect;
-            let focused_inside = ui
-                .ctx()
-                .memory(|memory| memory.focused())
-                .is_some_and(|id| {
-                    ui.ctx()
-                        .read_response(id)
-                        .is_some_and(|response| rect.contains_rect(response.rect))
-                });
-            let now_hot = ui.rect_contains_pointer(rect) || focused_inside;
-            ui.data_mut(|data| data.insert_temp(hot_id, now_hot));
-            if hot > 0.0 {
-                ui.painter().rect_stroke(
-                    rect,
-                    egui::CornerRadius::same(theme::CARD_RADIUS),
-                    egui::Stroke::new(2.0, theme::ACCENT_BRIGHT.gamma_multiply(0.7 * hot)),
-                    egui::StrokeKind::Outside,
-                );
-            }
-            if now_hot != was_hot {
-                ui.ctx().request_repaint();
-            }
-        });
+        }
+        // Actions exist only for a selected install.
+        if let (Some((primary, secondary)), Some(option)) = (card.actions(), card.selected_option())
+        {
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let response = widgets::button_sized(ui, primary, ButtonKind::Suggested, 220.0)
+                    .on_hover_text(display_path(option.path()));
+                if std::mem::take(&mut self.focus_first) {
+                    response.request_focus();
+                }
+                if response.clicked() {
+                    action = card.primary_action();
+                }
+                if let Some(secondary) = secondary
+                    && widgets::button_sized(ui, secondary, ButtonKind::Normal, 160.0).clicked()
+                {
+                    action = card.secondary_action();
+                }
+            });
+        }
         if open_picker {
-            let card = &self.cards[index];
             let options = card
                 .options
                 .iter()
@@ -437,6 +420,68 @@ impl WelcomeScreen {
     #[cfg(test)]
     fn card(&self, kind: GameKind) -> &GameCard {
         self.cards.iter().find(|card| card.kind == kind).unwrap()
+    }
+}
+
+/// A game's cover, dimmed unless selected, outlined in gold as it grows.
+fn paint_tile(
+    ui: &Ui,
+    rect: egui::Rect,
+    card: &GameCard,
+    images: &mut ImageCache,
+    selected: f32,
+    highlight: f32,
+) {
+    let radius = egui::CornerRadius::same(14);
+    let painter = ui.painter();
+    if selected > 0.0 {
+        painter.add(
+            egui::Shadow {
+                offset: [0, 12],
+                blur: 30,
+                spread: 4,
+                color: theme::ACCENT.gamma_multiply(0.35 * selected),
+            }
+            .as_shape(rect, radius),
+        );
+    }
+    painter.rect_filled(rect, radius, theme::CARD);
+    if let Some(texture) = images.get(ui.ctx(), cover_resource(card.kind)) {
+        let light = if card.state == CardState::Missing {
+            90.0
+        } else {
+            170.0 + 85.0 * selected.max(highlight)
+        };
+        egui::Image::new(&texture)
+            .corner_radius(radius)
+            .tint(Color32::from_gray(light as u8))
+            .paint_at(ui, rect);
+    }
+    if selected > 0.0 {
+        painter.rect_stroke(
+            rect.expand(3.0),
+            egui::CornerRadius::same(17),
+            egui::Stroke::new(3.0, theme::ACCENT_BRIGHT.gamma_multiply(selected)),
+            egui::StrokeKind::Outside,
+        );
+    }
+}
+
+/// The part of an image with aspect ratio `image` that covers an area with
+/// aspect ratio `area`, centered.
+fn cover_uv(image: f32, area: f32) -> egui::Rect {
+    if area > image {
+        let height = image / area;
+        egui::Rect::from_min_max(
+            egui::pos2(0.0, (1.0 - height) / 2.0),
+            egui::pos2(1.0, (1.0 + height) / 2.0),
+        )
+    } else {
+        let width = area / image;
+        egui::Rect::from_min_max(
+            egui::pos2((1.0 - width) / 2.0, 0.0),
+            egui::pos2((1.0 + width) / 2.0, 1.0),
+        )
     }
 }
 
@@ -526,6 +571,7 @@ mod tests {
                     let images = state
                         .images
                         .get_or_insert_with(|| ImageCache::new(ui.ctx()));
+                    state.screen.paint_backdrops(ui.ctx());
                     if let Some(action) = state.screen.show(ui, images) {
                         state.actions.push(action);
                     }
@@ -548,7 +594,10 @@ mod tests {
         assert_eq!(cards.len(), 2);
         assert_eq!(cards[0].state, CardState::Missing);
         assert_eq!(cards[1].state, CardState::Detected);
-        assert_eq!(cards[0].status().0, "Not installed");
+        assert_eq!(
+            cards[0].note(),
+            Some("Install it in Steam, then scan again.")
+        );
         assert!(cards[0].actions().is_none());
         assert!(cards[0].primary_action().is_none());
         assert!(cards[0].secondary_action().is_none());
@@ -563,7 +612,7 @@ mod tests {
 
         let card = &cards[0];
         assert_eq!(card.state, CardState::Inaccessible);
-        assert_eq!(card.status().0, "Needs access");
+        assert_eq!(card.note(), None, "the Grant Access button says it");
         assert_eq!(card.actions(), Some(("Grant Access", None)));
         assert_eq!(
             card.primary_action(),
@@ -592,14 +641,7 @@ mod tests {
         let card = &cards[0];
         assert_eq!(card.options.len(), 4);
         assert_eq!(card.state, CardState::Detected);
-        assert_eq!(
-            card.status(),
-            (
-                "Ready to set up",
-                Tone::Accent,
-                Some("Choose which install to set up.")
-            )
-        );
+        assert_eq!(card.note(), None, "the install picker says it");
         assert_eq!(card.selected, 0);
     }
 
@@ -630,7 +672,10 @@ mod tests {
             vec![GameInstallOption::Detected(path.clone())],
         );
         assert!(card.steam_repair);
-        assert_eq!(card.status().0, "Needs Steam repair");
+        assert_eq!(
+            card.note(),
+            Some("Let Steam verify the game files to finish restoring it.")
+        );
         assert_eq!(card.actions(), Some(("Verify in Steam", Some("Set Up"))));
         assert_eq!(
             card.primary_action(),
@@ -647,7 +692,7 @@ mod tests {
         // Pretend setup ran: the card offers to change mods or restore.
         card.steam_repair = false;
         card.modded = true;
-        assert_eq!(card.status().0, "Mods installed");
+        assert_eq!(card.note(), None);
         assert_eq!(card.actions(), Some(("Change Mods", Some("Restore"))));
         assert_eq!(
             card.secondary_action(),
@@ -675,8 +720,12 @@ mod tests {
             "Adventure Mods needs access to the Steam library with Sonic Adventure DX. Use Grant Access on the game below.",
         );
 
-        harness.get_by_label("Set Up").click();
+        // The first game with a button starts selected.
         harness.get_by_label("Grant Access").click();
+        harness.run_steps(4);
+        harness.get_by_label("Sonic Adventure 2").click();
+        harness.run_steps(8);
+        harness.get_by_label("Set Up").click();
         harness.run_steps(4);
 
         assert!(
@@ -747,12 +796,50 @@ mod tests {
     }
 
     #[test]
-    fn narrow_windows_stack_the_cards() {
+    fn selecting_a_tile_shows_its_game_and_focuses_its_button() {
+        let mut harness = harness(Some(DetectionResult {
+            games: vec![
+                game(GameKind::SADX, "/games/sadx"),
+                game(GameKind::SA2, "/games/sa2"),
+            ],
+            inaccessible: vec![],
+        }));
+        harness.run_steps(4);
+        harness.get_by_label("SONIC ADVENTURE DX");
+
+        harness.get_by_label("Sonic Adventure 2").click();
+        harness.run_steps(30);
+        harness.get_by_label("SONIC ADVENTURE 2");
+        assert!(harness.get_by_label("Set Up").is_focused());
+        let sadx = harness.get_by_label("Sonic Adventure DX").rect();
+        let sa2 = harness.get_by_label("Sonic Adventure 2").rect();
+        assert!(sa2.width() > sadx.width(), "the selected tile is larger");
+    }
+
+    #[test]
+    fn missing_games_show_dimmed_with_a_hint_and_no_buttons() {
+        let mut harness = harness(Some(DetectionResult::default()));
+        harness.run_steps(4);
+        harness.get_by_label("Install it in Steam, then scan again.");
+        assert!(harness.query_by_label("Set Up").is_none());
+    }
+
+    #[test]
+    fn narrow_windows_shrink_the_tiles_to_fit() {
         let mut harness = harness(Some(DetectionResult::default()));
         harness.set_size(Vec2::new(480.0, 900.0));
         harness.run_steps(4);
-        let sadx = harness.get_by_label("Sonic Adventure DX").rect();
         let sa2 = harness.get_by_label("Sonic Adventure 2").rect();
-        assert!(sa2.min.y > sadx.max.y, "{sadx:?} {sa2:?}");
+        assert!(sa2.max.x <= 480.0, "{sa2:?}");
+    }
+
+    #[test]
+    fn covers_are_cropped_to_fill_any_area() {
+        let wide = cover_uv(2.0, 4.0);
+        assert_eq!(wide.width(), 1.0);
+        assert_eq!(wide.height(), 0.5);
+        let tall = cover_uv(2.0, 1.0);
+        assert_eq!(tall.height(), 1.0);
+        assert_eq!(tall.width(), 0.5);
     }
 }
