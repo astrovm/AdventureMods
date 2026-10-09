@@ -78,8 +78,8 @@ mod tests {
         assert!(manifest.contains("\"type\": \"file\""));
         assert!(manifest.contains("tar xf 7zip.tar.xz"));
         assert!(manifest.contains("install -Dm755 7zz /app/bin/7zz"));
-        assert!(manifest.contains("7z2603-linux-x64.tar.xz"));
-        assert!(manifest.contains("7z2603-linux-arm64.tar.xz"));
+        assert!(manifest.contains("7z2604-linux-x64.tar.xz"));
+        assert!(manifest.contains("7z2604-linux-arm64.tar.xz"));
         assert!(manifest.contains("\"only-arches\": [\"x86_64\"]"));
         assert!(manifest.contains("\"only-arches\": [\"aarch64\"]"));
     }
@@ -92,7 +92,7 @@ mod tests {
 
     fn assert_appimage_build_installs_7zz(script: &str) {
         assert!(script.contains("install -Dm755 \"$BUILD_DIR/tmp/7zz\" \"$APPDIR/usr/bin/7zz\""));
-        assert!(script.contains("7z2603-linux-${SEVENZIP_ARCH}.tar.xz"));
+        assert!(script.contains("7z2604-linux-${SEVENZIP_ARCH}.tar.xz"));
         assert!(script.contains("SEVENZIP_ARCH=\"x64\""));
         assert!(script.contains("SEVENZIP_ARCH=\"arm64\""));
     }

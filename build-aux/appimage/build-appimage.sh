@@ -31,7 +31,7 @@ esac
 
 LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
 HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v5.1.3/hdiffpatch_v5.1.3_bin_${HPATCHZ_ARCH}.zip"
-SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.03/7z2603-linux-${SEVENZIP_ARCH}.tar.xz"
+SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.04/7z2604-linux-${SEVENZIP_ARCH}.tar.xz"
 
 GTK4_VERSION="4.22.5"
 GTK4_URL="https://download.gnome.org/sources/gtk/4.22/gtk-${GTK4_VERSION}.tar.xz"
