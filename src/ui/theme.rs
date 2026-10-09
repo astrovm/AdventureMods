@@ -184,8 +184,8 @@ pub fn apply(ctx: &egui::Context) {
     });
 }
 
-/// Rubik in three weights, with egui's fonts behind it for symbols, plus the
-/// glyphs of "日本語" for the Japanese language option.
+/// Rubik in three weights, with arrows and egui's fonts behind it for symbols,
+/// plus the glyphs of "日本語" for the Japanese language option.
 fn fonts() -> egui::FontDefinitions {
     let mut fonts = egui::FontDefinitions::default();
     for (name, bytes) in [
@@ -200,6 +200,10 @@ fn fonts() -> egui::FontDefinitions {
         (
             "rubik-extrabold",
             &include_bytes!("../../data/fonts/Rubik-ExtraBold.ttf")[..],
+        ),
+        (
+            "arrows",
+            &include_bytes!("../../data/fonts/NotoSansMath-Arrows.ttf")[..],
         ),
         (
             "japanese-label",
@@ -217,7 +221,8 @@ fn fonts() -> egui::FontDefinitions {
         (bold(), "rubik-bold"),
         (heavy(), "rubik-extrabold"),
     ] {
-        let mut chain = vec![first.to_owned()];
+        // Rubik has no arrows, as in "Properties → Compatibility".
+        let mut chain = vec![first.to_owned(), "arrows".to_owned()];
         chain.extend(fallbacks.iter().cloned());
         fonts.families.insert(family, chain);
     }
@@ -262,6 +267,25 @@ mod tests {
         }
 
         assert_eq!(families, vec![heavy(), heavy()]);
+    }
+
+    #[test]
+    fn every_family_draws_arrows() {
+        let ctx = egui::Context::default();
+        apply(&ctx);
+        let mut output = ctx.run_ui(Default::default(), |_| {});
+        output.textures_delta.clear();
+
+        for family in [FontFamily::Proportional, bold(), heavy()] {
+            let font = FontId::new(20.0, family);
+            let missing: Vec<char> = ctx.fonts_mut(|fonts| {
+                "→←↗‹›…"
+                    .chars()
+                    .filter(|c| !fonts.has_glyph(&font, *c))
+                    .collect()
+            });
+            assert!(missing.is_empty(), "{font:?} lacks {missing:?}");
+        }
     }
 
     #[test]

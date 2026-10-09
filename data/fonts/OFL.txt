@@ -3,6 +3,11 @@ of the Rubik variable font, subset to Latin characters.
 Source: https://github.com/googlefonts/rubik
 Copyright 2015 The Rubik Project Authors (https://github.com/googlefonts/rubik)
 
+NotoSansMath-Arrows.ttf is a subset of Noto Sans Math Regular holding only
+the arrows U+2190 to U+2199, which Rubik lacks.
+Source: https://github.com/notofonts/math
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/math)
+
 NotoSansCJK-JapaneseLabel.otf is a subset of Noto Sans CJK JP Regular holding
 only the glyphs of "日本語", the label of the Japanese language option.
 Source: https://github.com/notofonts/noto-cjk
