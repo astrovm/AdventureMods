@@ -44,6 +44,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="1.0.1" date="2026-10-09">
+      <description>
+        <p>A new app icon, plus updated dependencies.</p>
+        <ul>
+          <li>Redesigned the app icon</li>
+          <li>Updated the bundled 7-Zip to 26.04</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-09-28">
       <description>
         <p>The first stable release. Every part of the app and the command line is now covered by automated tests.</p>
