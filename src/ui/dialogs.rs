@@ -266,6 +266,27 @@ mod tests {
     }
 
     #[test]
+    fn choice_dialogs_fill_only_the_current_option() {
+        let filled = |harness: &Harness<'_, (ChoiceDialog, Vec<Answer>)>, label: &str| {
+            let bounds = harness.get_by_label(label).rect();
+            harness.output().shapes.iter().any(|shape| {
+                matches!(&shape.shape, egui::Shape::Rect(shape)
+                    if bounds.contains(shape.rect.center())
+                        && shape.rect.width() <= bounds.width()
+                        && shape.rect.height() <= bounds.height()
+                        && shape.fill.a() == 255)
+            })
+        };
+        let mut harness = choice_harness();
+        assert!(!filled(&harness, "Japanese"));
+        assert!(filled(&harness, "✔  English"));
+        harness.state_mut().0.selected = None;
+        harness.run_steps(2);
+        assert!(!filled(&harness, "Japanese"));
+        assert!(!filled(&harness, "English"));
+    }
+
+    #[test]
     fn choice_dialogs_can_be_cancelled() {
         let mut harness = choice_harness();
 
