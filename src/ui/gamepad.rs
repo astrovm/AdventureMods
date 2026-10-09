@@ -180,10 +180,13 @@ pub struct Gamepad {
 impl Gamepad {
     /// Watch controllers, waking `ctx` on every press.
     pub fn spawn(ctx: &egui::Context) -> Self {
-        Self::spawn_with(ctx, || gilrs::Gilrs::new().map_err(|err| err.to_string()))
+        Self::spawn_with(ctx, || gilrs::Gilrs::new().map_err(Into::into))
     }
 
-    fn spawn_with(ctx: &egui::Context, open: fn() -> Result<gilrs::Gilrs, String>) -> Self {
+    fn spawn_with(
+        ctx: &egui::Context,
+        open: fn() -> Result<gilrs::Gilrs, Box<dyn std::error::Error>>,
+    ) -> Self {
         let (tx, presses) = std::sync::mpsc::channel();
         let connected = Arc::new(AtomicBool::new(false));
         let thread_connected = connected.clone();

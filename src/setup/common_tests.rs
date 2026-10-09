@@ -2377,3 +2377,11 @@ fn move_dir_contents_copies_folders_across_filesystems_when_available() {
     std::os::unix::fs::symlink("missing-target", broken.join("link")).unwrap();
     assert!(move_dir_contents(&broken, &dest_root.path().join("broken")).is_err());
 }
+
+#[test]
+fn env_or_default_falls_back_when_the_variable_is_unset() {
+    assert_eq!(
+        env_or_default("ADVENTURE_MODS_TEST_NEVER_SET", "fallback"),
+        "fallback"
+    );
+}

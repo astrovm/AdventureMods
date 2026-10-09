@@ -236,7 +236,7 @@ mod tests {
         settings.set("width", Value::Int(1280));
         settings.set("maximized", Value::Bool(true));
 
-        let reloaded = Settings::load_from(dir.path(), || panic!("not a first run"));
+        let reloaded = Settings::load_from(dir.path(), no_legacy);
         assert_eq!(reloaded, settings);
         assert_eq!(reloaded.string("name"), Some("english"));
         assert_eq!(reloaded.strings("list"), vec!["/a", "/b"]);
@@ -275,9 +275,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("settings.json"), "{not json").unwrap();
 
-        let (settings, logs) = crate::test_log::capture_logs(|| {
-            Settings::load_from(dir.path(), || panic!("the file exists"))
-        });
+        let (settings, logs) =
+            crate::test_log::capture_logs(|| Settings::load_from(dir.path(), no_legacy));
 
         assert_eq!(settings.string(EXTRA_LIBRARY_PATHS_KEY), None);
         assert!(logs.contains("Ignoring unreadable settings"), "{logs}");
