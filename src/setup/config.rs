@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn language_and_library_choices_are_remembered() {
         let dir = tempfile::tempdir().unwrap();
-        let mut settings = Settings::load_from(dir.path(), || None);
+        let mut settings = Settings::load_from(dir.path(), &|| None);
         let chosen = LanguageSelection {
             subtitle: SubtitleLanguage::French,
             voice: VoiceLanguage::English,
@@ -626,7 +626,7 @@ mod tests {
         save_language_selection(Some(&mut settings), GameKind::SA2, chosen);
         save_extra_library_paths(Some(&mut settings), &[PathBuf::from("/data/Steam")]);
 
-        let settings = Settings::load_from(dir.path(), || None);
+        let settings = Settings::load_from(dir.path(), &|| None);
         assert_eq!(
             load_language_selection(Some(&settings), GameKind::SA2),
             chosen
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn unsupported_saved_languages_fall_back_to_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let mut settings = Settings::load_from(dir.path(), || None);
+        let mut settings = Settings::load_from(dir.path(), &|| None);
         settings.set("sa2-subtitle-language", Value::String("klingon".into()));
         settings.set("sa2-voice-language", Value::String("klingon".into()));
 

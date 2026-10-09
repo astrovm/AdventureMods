@@ -37,11 +37,11 @@ impl Settings {
     /// The app's settings, importing GSettings from older versions once.
     pub fn load() -> Option<Self> {
         let dir = config_dir()?;
-        Some(Self::load_from(&dir, legacy_gsettings))
+        Some(Self::load_from(&dir, &legacy_gsettings))
     }
 
     /// Settings stored in `dir`, or the ones `legacy` finds when none are.
-    pub fn load_from(dir: &Path, legacy: impl FnOnce() -> Option<String>) -> Self {
+    pub fn load_from(dir: &Path, legacy: &dyn Fn() -> Option<String>) -> Self {
         let path = dir.join(SETTINGS_FILE);
         let values = match std::fs::read_to_string(&path) {
             Ok(text) => serde_json::from_str(&text).unwrap_or_else(|err| {
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn values_round_trip_through_the_settings_file() {
         let dir = tempfile::tempdir().unwrap();
-        let mut settings = Settings::load_from(dir.path(), no_legacy);
+        let mut settings = Settings::load_from(dir.path(), &no_legacy);
         assert_eq!(settings.path(), dir.path().join("settings.json"));
         assert!(!settings.path().exists(), "nothing to save yet");
 
@@ -236,7 +236,7 @@ mod tests {
         settings.set("width", Value::Int(1280));
         settings.set("maximized", Value::Bool(true));
 
-        let reloaded = Settings::load_from(dir.path(), no_legacy);
+        let reloaded = Settings::load_from(dir.path(), &no_legacy);
         assert_eq!(reloaded, settings);
         assert_eq!(reloaded.string("name"), Some("english"));
         assert_eq!(reloaded.strings("list"), vec!["/a", "/b"]);
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn missing_or_mistyped_values_read_as_unset() {
         let dir = tempfile::tempdir().unwrap();
-        let mut settings = Settings::load_from(dir.path(), no_legacy);
+        let mut settings = Settings::load_from(dir.path(), &no_legacy);
         settings.set("key", Value::Int(1));
 
         assert_eq!(settings.string("key"), None);
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn unchanged_values_are_not_written_again() {
         let dir = tempfile::tempdir().unwrap();
-        let mut settings = Settings::load_from(dir.path(), no_legacy);
+        let mut settings = Settings::load_from(dir.path(), &no_legacy);
         settings.set("key", Value::Int(1));
         std::fs::remove_file(settings.path()).unwrap();
 
@@ -276,7 +276,7 @@ mod tests {
         std::fs::write(dir.path().join("settings.json"), "{not json").unwrap();
 
         let (settings, logs) =
-            crate::test_log::capture_logs(|| Settings::load_from(dir.path(), no_legacy));
+            crate::test_log::capture_logs(|| Settings::load_from(dir.path(), &no_legacy));
 
         assert_eq!(settings.string(EXTRA_LIBRARY_PATHS_KEY), None);
         assert!(logs.contains("Ignoring unreadable settings"), "{logs}");
@@ -288,7 +288,7 @@ mod tests {
         // A file where the settings directory should be.
         let blocker = dir.path().join("blocker");
         std::fs::write(&blocker, "").unwrap();
-        let mut settings = Settings::load_from(&blocker.join("app"), no_legacy);
+        let mut settings = Settings::load_from(&blocker.join("app"), &no_legacy);
 
         let ((), logs) = crate::test_log::capture_logs(|| settings.set("key", Value::Bool(true)));
 
@@ -302,7 +302,7 @@ mod tests {
                     extra-library-paths=['/run/user/1000/doc/a/Steam Library', \"/mnt/it's\"]\n\
                     sadx-voice-language='english'\nbroken=[\n";
 
-        let settings = Settings::load_from(dir.path(), || Some(dump.to_owned()));
+        let settings = Settings::load_from(dir.path(), &|| Some(dump.to_owned()));
 
         assert_eq!(settings.int(WINDOW_WIDTH_KEY), Some(1111));
         assert_eq!(settings.boolean(WINDOW_MAXIMIZED_KEY), Some(true));
@@ -314,7 +314,7 @@ mod tests {
         assert!(settings.path().exists());
 
         let empty = tempfile::tempdir().unwrap();
-        let nothing = Settings::load_from(empty.path(), || Some(String::new()));
+        let nothing = Settings::load_from(empty.path(), &|| Some(String::new()));
         assert!(!nothing.path().exists());
     }
 

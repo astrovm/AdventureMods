@@ -62,7 +62,7 @@ impl Fixture {
             std::fs::create_dir_all(library.join(folder)).unwrap();
         }
         let config = dir.path().join("config");
-        let mut settings = Settings::load_from(&config, || None);
+        let mut settings = Settings::load_from(&config, &|| None);
         config::save_extra_library_paths(Some(&mut settings), std::slice::from_ref(&library));
         Self {
             _dir: dir,
@@ -90,7 +90,7 @@ impl Fixture {
     }
 
     fn settings(&self) -> Settings {
-        Settings::load_from(&self.config, || None)
+        Settings::load_from(&self.config, &|| None)
     }
 
     fn app(&self) -> AdventureModsApp {
