@@ -1575,47 +1575,23 @@ fn setup_surfaces_steam_conversion_failures() {
     assert!(!output.contains("Step 3/"), "{output}");
 }
 
-/// Launch the GUI with no display to connect to. Without `pkgdatadir` the
-/// built-in package data directory is used.
-fn launch_gui_without_display(pkgdatadir: Option<&std::path::Path>) -> String {
+#[test]
+fn gui_launch_without_a_display_exits_with_an_error() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_adventure-mods"));
-    command
+    let output = Command::new(env!("CARGO_BIN_EXE_adventure-mods"))
         .current_dir(tmp.path())
         .env_remove("DISPLAY")
         .env_remove("WAYLAND_DISPLAY")
-        .env_remove("DBUS_SESSION_BUS_ADDRESS")
-        .env_remove("ADVENTURE_MODS_PKGDATADIR")
+        .env_remove("WAYLAND_SOCKET")
         .env("XDG_RUNTIME_DIR", tmp.path())
-        .stdin(Stdio::null());
-    if let Some(pkgdatadir) = pkgdatadir {
-        command.env("ADVENTURE_MODS_PKGDATADIR", pkgdatadir);
-    }
-
-    let output = command.output().unwrap();
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
 
     assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Failed to open display"),
-        "stderr was: {stderr}"
-    );
-    stderr
-}
-
-#[test]
-fn gui_launch_without_a_display_exits_with_an_error() {
-    launch_gui_without_display(None);
-}
-
-#[test]
-fn gui_launch_warns_about_a_missing_resource_bundle() {
-    let tmp = tempfile::tempdir().unwrap();
-
-    let stderr = launch_gui_without_display(Some(&tmp.path().join("missing")));
-
-    assert!(
-        stderr.contains("Warning: failed to load GResources"),
+        stderr.contains("Could not open the window"),
         "stderr was: {stderr}"
     );
 }

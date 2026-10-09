@@ -1,0 +1,17 @@
+name: adventure-mods
+version: 'VERSION'
+summary: Set up Sonic Adventure mods
+description: |
+  The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.
+  Finds your Steam installs, downloads community mods, and handles mod
+  managers, runtimes, resolution, load order, and language settings so you
+  can play right away. Works with a mouse or a controller.
+base: core24
+grade: stable
+# Classic: the app reads any Steam library and runs Proton, which strict
+# confinement blocks.
+confinement: classic
+architectures: [ARCHITECTURE]
+apps:
+  adventure-mods:
+    command: AppRun

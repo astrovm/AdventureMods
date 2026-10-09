@@ -19,6 +19,7 @@
       <li>Installs mod managers, mods, and dependencies in one step</li>
       <li>Configures native resolution, window mode, and optimal settings</li>
       <li>Lets you choose subtitle and voice language during setup</li>
+      <li>Works with a controller, a keyboard, a mouse, or touch, including Steam Deck Game Mode</li>
     </ul>
   </description>
   <url type="homepage">https://github.com/astrovm/AdventureMods</url>
@@ -28,6 +29,15 @@
     <name>astrovm</name>
   </developer>
   <launchable type="desktop-id">@APP_ID_RAW@.desktop</launchable>
+  <supports>
+    <control>gamepad</control>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
   <content_rating type="oars-1.1" />
   <screenshots>
     <screenshot type="default">
@@ -44,6 +54,20 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="1.1.0" date="2026-10-09">
+      <description>
+        <p>A new interface made for the couch: it works with a controller and fits the Steam Deck.</p>
+        <ul>
+          <li>Moved from GTK to egui, with large text and buttons and a clear focus ring</li>
+          <li>Added controller support: the D-pad or stick moves, A selects, B goes back, Start continues</li>
+          <li>Opened fullscreen in Steam's Game Mode</li>
+          <li>Added smooth animations and a cleaner, centered layout</li>
+          <li>Moved the Flatpak to the smaller Freedesktop runtime</li>
+          <li>Added a Snap package to each release</li>
+          <li>Kept settings and granted Steam libraries from earlier versions</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.1" date="2026-10-09">
       <description>
         <p>A new app icon, plus updated dependencies.</p>

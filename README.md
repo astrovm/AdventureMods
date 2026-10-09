@@ -34,7 +34,7 @@ flatpak update
 ```
 
 <details>
-<summary><b>Other options (AppImage)</b></summary>
+<summary><b>Other options (AppImage, Snap)</b></summary>
 
 **AppImage with Gear Lever**
 
@@ -57,11 +57,23 @@ chmod +x AdventureMods-v<version>-<arch>.AppImage
 
 Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
 
+**Snap**
+
+Download the latest `.snap` from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
+
+```sh
+sudo snap install --dangerous --classic AdventureMods-v<version>-<arch>.snap
+```
+
+It uses classic confinement, so it can reach every Steam library and run Proton. Snap won't update it on its own: install a newer `.snap` the same way.
+
 </details>
 
 ## 🚀 Use
 
 Open **Adventure Mods** from your application menu and follow the setup wizard.
+
+It works with a controller too, so you can use it from the couch or in Steam Deck's Game Mode (add it to Steam as a non-Steam game). The D-pad or left stick moves, **A** selects, **B** goes back and **Start** continues.
 
 ## Features
 
@@ -71,6 +83,7 @@ Open **Adventure Mods** from your application menu and follow the setup wizard.
 - **One step.** Installs mod managers, mods and dependencies together.
 - **Good settings.** Sets native resolution, window mode and optimal settings.
 - **Your languages.** Saves subtitle and voice language per game.
+- **Couch friendly.** Big text and buttons, with full controller support.
 
 ## CLI (optional)
 

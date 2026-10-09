@@ -7,3 +7,4 @@ Icon=@APP_ID_RAW@
 Terminal=false
 Categories=Game;
 Keywords=sonic;adventure;mods;sadx;sa2;
+StartupWMClass=@APP_ID_RAW@

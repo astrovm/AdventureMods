@@ -7,8 +7,6 @@ BUILD_DIR="$PROJECT_DIR/appimage-build"
 APPDIR="$BUILD_DIR/AppDir"
 
 LINUXDEPLOY_VERSION="1-alpha-20251107-1"
-GTK_PLUGIN_COMMIT="7a3fbc31a9e5075073ff8790f26effbac5f84453"
-GTK_PLUGIN_URL="https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/${GTK_PLUGIN_COMMIT}/linuxdeploy-plugin-gtk.sh"
 BUILD_ARCH="$(uname -m)"
 case "$BUILD_ARCH" in
 	x86_64)
@@ -33,11 +31,6 @@ LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/${
 HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v5.1.3/hdiffpatch_v5.1.3_bin_${HPATCHZ_ARCH}.zip"
 SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.04/7z2604-linux-${SEVENZIP_ARCH}.tar.xz"
 
-GTK4_VERSION="4.22.5"
-GTK4_URL="https://download.gnome.org/sources/gtk/4.22/gtk-${GTK4_VERSION}.tar.xz"
-LIBADWAITA_VERSION="1.9.4"
-LIBADWAITA_URL="https://download.gnome.org/sources/libadwaita/1.9/libadwaita-${LIBADWAITA_VERSION}.tar.xz"
-
 cleanup() {
 	rm -rf "$BUILD_DIR/tmp"
 }
@@ -47,50 +40,6 @@ echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
 echo "==> Building ${APPIMAGE_ARCH} AppImage"
-
-build_gtk_from_source() {
-	echo "==> Building GTK4 ${GTK4_VERSION} from source"
-	wget -q -O "$BUILD_DIR/tmp/gtk4.tar.xz" "$GTK4_URL"
-	tar xf "$BUILD_DIR/tmp/gtk4.tar.xz" -C "$BUILD_DIR/tmp/"
-	meson setup "$BUILD_DIR/tmp/gtk4-build" "$BUILD_DIR/tmp/gtk-${GTK4_VERSION}" \
-		--prefix=/usr --buildtype=release \
-		-Dmedia-gstreamer=disabled \
-		-Dprint-cups=disabled \
-		-Dbuild-demos=false \
-		-Dbuild-examples=false \
-		-Dbuild-tests=false \
-		-Dbuild-testsuite=false \
-		-Dintrospection=disabled \
-		-Ddocumentation=false
-	meson compile -C "$BUILD_DIR/tmp/gtk4-build"
-	sudo meson install -C "$BUILD_DIR/tmp/gtk4-build"
-	sudo ldconfig
-
-	echo "==> Building libadwaita ${LIBADWAITA_VERSION} from source"
-	wget -q -O "$BUILD_DIR/tmp/libadwaita.tar.xz" "$LIBADWAITA_URL"
-	tar xf "$BUILD_DIR/tmp/libadwaita.tar.xz" -C "$BUILD_DIR/tmp/"
-	meson setup "$BUILD_DIR/tmp/adw-build" "$BUILD_DIR/tmp/libadwaita-${LIBADWAITA_VERSION}" \
-		--prefix=/usr --buildtype=release \
-		-Dintrospection=disabled \
-		-Ddocumentation=false \
-		-Dtests=false \
-		-Dexamples=false \
-		-Dvapi=false
-	meson compile -C "$BUILD_DIR/tmp/adw-build"
-	sudo meson install -C "$BUILD_DIR/tmp/adw-build"
-	sudo ldconfig
-}
-
-# The app needs GTK 4.22 and libadwaita 1.9 (see Cargo.toml features). Ubuntu
-# 26.04 ships both, so use the distro builds there; on older build hosts,
-# build them from source while linking against the host glibc for broad
-# compatibility.
-if pkg-config --atleast-version=4.22 gtk4 &&
-	pkg-config --atleast-version=1.9 libadwaita-1; then
-	echo "==> Using system GTK4 $(pkg-config --modversion gtk4) and libadwaita $(pkg-config --modversion libadwaita-1)"
-else
-	build_gtk_from_source
-fi
 
 echo "==> Configuring Meson"
 meson setup "$BUILD_DIR/meson" "$PROJECT_DIR" \
@@ -114,53 +63,26 @@ wget -q -O "$BUILD_DIR/tmp/7zip.tar.xz" "$SEVENZIP_URL"
 tar xf "$BUILD_DIR/tmp/7zip.tar.xz" -C "$BUILD_DIR/tmp/"
 install -Dm755 "$BUILD_DIR/tmp/7zz" "$APPDIR/usr/bin/7zz"
 
-echo "==> Compiling GSettings schemas"
-glib-compile-schemas "$APPDIR/usr/share/glib-2.0/schemas/"
-
 echo "==> Downloading linuxdeploy"
 wget -q -O "$BUILD_DIR/linuxdeploy" "$LINUXDEPLOY_URL"
 chmod +x "$BUILD_DIR/linuxdeploy"
-wget -q -O "$BUILD_DIR/linuxdeploy-plugin-gtk.sh" "$GTK_PLUGIN_URL"
-chmod +x "$BUILD_DIR/linuxdeploy-plugin-gtk.sh"
 
-echo "==> Bundling libraries"
-export DEPLOY_GTK_VERSION=4
-export NO_STRIP=1
+# The bundled 7zz and hpatchz sit next to the app; find them first.
+mkdir -p "$APPDIR/apprun-hooks"
+cat >"$APPDIR/apprun-hooks/adventure-mods.sh" <<'HOOK'
+export PATH="$APPDIR/usr/bin:$PATH"
+HOOK
 
+echo "==> Bundling libraries and creating the AppImage"
 cd "$BUILD_DIR"
-
-# First pass: let linuxdeploy + GTK plugin bundle libraries (no output yet).
-./linuxdeploy --appimage-extract-and-run \
-	--appdir "$APPDIR" \
-	--exclude-library 'libvulkan.so.*' \
-	--exclude-library 'libwayland-egl.so.*' \
-	--plugin gtk \
-	--desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
-	--icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg"
-
-# Replace the GTK plugin hook with our own. The default hook forces
-# GDK_BACKEND=x11 and sets GTK_THEME, both of which break libadwaita apps.
-echo "==> Patching apprun hooks for libadwaita"
-cp "$SCRIPT_DIR/apprun-hooks/adventure-mods.sh" "$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
-
-# Keep low-level graphics loader libraries on the host side. Bundling these
-# while still relying on host Mesa/ICD drivers can lead to a mixed graphics
-# stack with worse animation smoothness than the Flatpak runtime.
-echo "==> Removing bundled graphics loader libraries"
-rm -f \
-	"$APPDIR/usr/lib/libvulkan.so.1" \
-	"$APPDIR/usr/lib/libwayland-egl.so.1"
-
-# Remove the bundled GStreamer media backend. The app doesn't use media
-# playback and the module causes errors due to GLib version mismatches.
-rm -f "$APPDIR"/usr/lib/gtk-4.0/4.0.0/media/libmedia-gstreamer.so
-
-# Second pass: produce the AppImage.
+# OpenGL, Vulkan, Wayland and xkbcommon are loaded at runtime from the host,
+# so they match its graphics drivers and are not bundled.
+export NO_STRIP=1
 export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|AdventureMods-v*-${APPIMAGE_ARCH}.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
-	--exclude-library 'libvulkan.so.*' \
-	--exclude-library 'libwayland-egl.so.*' \
+	--desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
+	--icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg" \
 	--output appimage
 
 generated_name="Adventure_Mods-${APPIMAGE_ARCH}.AppImage"

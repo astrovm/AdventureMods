@@ -42,8 +42,10 @@ jobs:
             build-essential \
             curl \
             pkg-config \
-            libgtk-4-dev \
-            libadwaita-1-dev \
+            libudev-dev \
+            libegl1 \
+            libgl1-mesa-dri \
+            libxkbcommon-x11-0 \
             xvfb
 
       - name: Install Rust
@@ -85,8 +87,10 @@ jobs:
             build-essential \
             curl \
             pkg-config \
-            libgtk-4-dev \
-            libadwaita-1-dev \
+            libudev-dev \
+            libegl1 \
+            libgl1-mesa-dri \
+            libxkbcommon-x11-0 \
             xvfb
 
       - name: Install Rust
@@ -121,7 +125,7 @@ jobs:
             runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.variant.runner }}
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-51
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08
       options: --privileged
 
     steps:
@@ -179,17 +183,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential pkg-config meson gettext \
-            libgtk-4-dev libadwaita-1-dev libglib2.0-dev \
-            libgraphene-1.0-dev libpango1.0-dev libcairo2-dev \
-            libgdk-pixbuf-2.0-dev libepoxy-dev libwayland-dev \
-            libxkbcommon-dev libvulkan-dev libx11-dev libxrandr-dev \
-            libxi-dev libxext-dev libxcursor-dev libxdamage-dev \
-            libxfixes-dev libxinerama-dev libxcomposite-dev \
-            wayland-protocols libcloudproviders-dev libsass-dev sassc \
-            libappstream-dev desktop-file-utils appstream libxml2-utils \
-            wget unzip file libfuse2t64 curl git glslc libdrm-dev zsync \
-            librsvg2-dev libgirepository1.0-dev
+            build-essential pkg-config meson libudev-dev \
+            desktop-file-utils appstream \
+            wget unzip file libfuse2t64 curl git zsync \
+            snapd squashfs-tools
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
@@ -197,11 +194,26 @@ jobs:
       - name: Build AppImage
         run: bash build-aux/appimage/build-appimage.sh
 
+      - name: Build and test Snap
+        run: |
+          bash build-aux/snap/build-snap.sh
+          snap_file=$(echo appimage-build/*.snap)
+          unsquashfs -d appimage-build/snap-check "$snap_file"
+          test -x appimage-build/snap-check/AppRun
+          test -x appimage-build/snap-check/usr/bin/adventure-mods
+          grep -Fx 'confinement: classic' appimage-build/snap-check/meta/snap.yaml
+          sudo systemctl enable --now snapd.socket
+          sudo snap wait system seed.loaded
+          sudo snap install --dangerous --classic "$snap_file"
+          snap run adventure-mods --version | grep -Fx "adventure-mods $(sh build-aux/cargo-version.sh)"
+
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: AdventureMods-AppImage-${{ matrix.arch }}
-          path: appimage-build/*.AppImage*
+          path: |
+            appimage-build/*.AppImage*
+            appimage-build/*.snap
 
   # Create the draft release immediately on tag push (no build deps).
   # GitHub rejects GITHUB_TOKEN release creation when the tag commit's
@@ -277,14 +289,15 @@ jobs:
         run: |
           tag="$RELEASE_TAG"
           for arch in x86_64 aarch64; do
-            for extension in AppImage AppImage.zsync; do
+            for extension in AppImage AppImage.zsync snap; do
               test -f "appimage-artifacts/AdventureMods-$tag-$arch.$extension"
             done
             test -f "flatpak-artifacts/AdventureMods-$tag-$arch.flatpak"
           done
-          test "$(find appimage-artifacts flatpak-artifacts -maxdepth 1 -type f | wc -l)" -eq 6
+          test "$(find appimage-artifacts flatpak-artifacts -maxdepth 1 -type f | wc -l)" -eq 8
           gh release upload "$tag" \
             appimage-artifacts/*.AppImage* \
+            appimage-artifacts/*.snap \
             flatpak-artifacts/*.flatpak \
             --repo "$GITHUB_REPOSITORY" \
             --clobber

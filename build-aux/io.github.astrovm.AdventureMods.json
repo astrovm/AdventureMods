@@ -1,8 +1,8 @@
 {
   "id": "io.github.astrovm.AdventureMods",
-  "runtime": "org.gnome.Platform",
-  "runtime-version": "51",
-  "sdk": "org.gnome.Sdk",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "26.08",
+  "sdk": "org.freedesktop.Sdk",
   "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
   "command": "adventure-mods",
   "finish-args": [
@@ -10,6 +10,7 @@
     "--share=ipc",
     "--socket=fallback-x11",
     "--device=dri",
+    "--device=input",
     "--socket=wayland",
     "--filesystem=~/.steam/debian-installation",
     "--filesystem=~/.steam/steam",
@@ -27,8 +28,6 @@
     "/share/aclocal",
     "/man",
     "/share/man",
-    "/share/gtk-doc",
-    "/share/vala",
     "*.la",
     "*.a"
   ],

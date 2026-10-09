@@ -330,7 +330,7 @@ mod tests {
             include_str!("../../build-aux/io.github.astrovm.AdventureMods.Devel.json");
 
         for manifest in [production, development] {
-            assert!(manifest.contains("\"runtime-version\": \"51\""));
+            assert!(manifest.contains("\"runtime-version\": \"26.08\""));
             assert!(manifest.contains("\"flatpak/7zip.json\""));
             assert!(manifest.contains("\"flatpak/hdiffpatch.json\""));
         }

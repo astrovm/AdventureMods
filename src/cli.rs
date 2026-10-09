@@ -6,7 +6,6 @@ use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
 use dialoguer::{Confirm, MultiSelect, Select, theme::ColorfulTheme};
-use gtk::gdk;
 
 use crate::banner;
 use crate::external::runtime_installer;
@@ -757,7 +756,7 @@ fn persist_cli_language_selection(
     language_selection: setup_config::LanguageSelection,
 ) {
     setup_config::save_language_selection(
-        setup_config::app_settings().as_ref(),
+        setup_config::app_settings().as_mut(),
         game_kind,
         language_selection,
     );
@@ -1285,19 +1284,18 @@ pub fn run_from_args_with_io(
 fn detect_resolution() -> (u32, u32) {
     let mut xrandr = std::process::Command::new("xrandr");
     xrandr.arg("--current");
-    detect_resolution_with(detect_resolution_via_gdk, xrandr)
+    detect_resolution_with(crate::display::resolution_from_display_server, xrandr)
 }
 
 fn detect_resolution_with(
-    detect_gdk: fn() -> Option<(u32, u32)>,
+    detect_display: fn() -> Option<(u32, u32)>,
     mut xrandr: std::process::Command,
 ) -> (u32, u32) {
     let fallback = (1920u32, 1080u32);
 
-    if let Some(res) = detect_gdk() {
+    if let Some(res) = detect_display() {
         return res;
     }
-
     let output = xrandr.output();
 
     let output = match output {
@@ -1328,25 +1326,6 @@ fn detect_resolution_with(
             fallback
         }
     }
-}
-
-fn detect_resolution_via_gdk() -> Option<(u32, u32)> {
-    static GTK_INIT: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    resolution_via_gdk(&GTK_INIT, gtk::init)
-}
-
-fn resolution_via_gdk(
-    init_state: &std::sync::OnceLock<bool>,
-    init_gtk: fn() -> Result<(), gtk::glib::BoolError>,
-) -> Option<(u32, u32)> {
-    // gtk::init() panics if called from a non-main thread. Use OnceLock so only
-    // the first caller attempts it and any panic is caught rather than propagated.
-    let initialized = init_state.get_or_init(|| std::panic::catch_unwind(init_gtk).is_ok());
-    if !*initialized {
-        return None;
-    }
-    let display = gdk::Display::default()?;
-    crate::display::resolution_from_display(&display, None)
 }
 
 fn parse_xrandr_resolution(output: &str) -> Option<(u32, u32)> {

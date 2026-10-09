@@ -948,6 +948,14 @@ fn step_completion_detects_conversion_and_manager_markers() {
         }
     ));
     assert!(!is_step_complete(StepId::SelectMods, &game));
+    // Outside a Steam library there is no prefix to check.
+    assert!(!is_step_complete(StepId::SteamConfig, &game));
+    let library_game = Game {
+        path: dir.path().join("steamapps/common/Sonic Adventure DX"),
+        ..game.clone()
+    };
+    std::fs::create_dir_all(&library_game.path).unwrap();
+    assert!(!is_step_complete(StepId::SteamConfig, &library_game));
 
     std::fs::create_dir_all(dir.path().join("system")).unwrap();
     std::fs::write(dir.path().join("system/CHRMODELS_orig.dll"), b"orig").unwrap();
@@ -1904,19 +1912,27 @@ fn gamebanana_item_reports_api_errors() {
 }
 
 #[test]
-fn install_runtimes_reports_the_installer_error_from_its_worker_thread() {
-    let tmp = tempfile::tempdir().unwrap();
-    let game_path = tmp.path().join("steamapps/common/Sonic Adventure 2");
-    std::fs::create_dir_all(&game_path).unwrap();
-    let app_id = GameKind::SA2.app_id();
+fn iso8601_timestamps_are_utc_with_microseconds() {
+    use std::time::{Duration, UNIX_EPOCH};
 
-    let error = glib::MainContext::new()
-        .block_on(install_runtimes(game_path.clone(), app_id))
-        .unwrap_err();
-
-    // Without a Proton prefix nothing is installed, as when run directly.
-    let direct = runtime_installer::install_runtimes(&game_path, app_id).unwrap_err();
-    assert_eq!(error.to_string(), direct.to_string());
+    assert_eq!(iso8601_utc(UNIX_EPOCH), "1970-01-01T00:00:00.000000Z");
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_micros(1_791_576_715_123_456)),
+        "2026-10-09T20:11:55.123456Z"
+    );
+    // 2000-02-29 is a leap day; 2100-03-01 follows a skipped one.
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_secs(951_782_400)),
+        "2000-02-29T00:00:00.000000Z"
+    );
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH + Duration::from_secs(4_107_542_400)),
+        "2100-03-01T00:00:00.000000Z"
+    );
+    assert_eq!(
+        iso8601_utc(UNIX_EPOCH - Duration::from_secs(1)),
+        "1970-01-01T00:00:00.000000Z"
+    );
 }
 
 /// A fake 7zz that extracts nothing.
@@ -2360,4 +2376,12 @@ fn move_dir_contents_copies_folders_across_filesystems_when_available() {
     std::fs::create_dir_all(&broken).unwrap();
     std::os::unix::fs::symlink("missing-target", broken.join("link")).unwrap();
     assert!(move_dir_contents(&broken, &dest_root.path().join("broken")).is_err());
+}
+
+#[test]
+fn env_or_default_falls_back_when_the_variable_is_unset() {
+    assert_eq!(
+        env_or_default("ADVENTURE_MODS_TEST_NEVER_SET", "fallback"),
+        "fallback"
+    );
 }
