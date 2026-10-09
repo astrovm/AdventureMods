@@ -58,6 +58,9 @@ fn native_options(window: WindowState, fullscreen: bool) -> eframe::NativeOption
         viewport: egui::ViewportBuilder::default()
             .with_title(config::APP_NAME)
             .with_app_id(config::APP_ID)
+            .with_icon(std::sync::Arc::new(
+                adventure_mods::ui::images::window_icon(),
+            ))
             .with_inner_size(window.size)
             .with_min_inner_size([360.0, 480.0])
             .with_maximized(window.maximized)

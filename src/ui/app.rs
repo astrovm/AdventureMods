@@ -7,7 +7,7 @@ use egui::{Align2, RichText, Ui, Vec2};
 
 use super::dialogs::{Answer, MessageDialog};
 use super::gamepad::{Gamepad, PadButton};
-use super::images::ImageCache;
+use super::images::{self, ImageCache};
 use super::setup::{SetupEvent, SetupFlow, SetupWork};
 use super::welcome::{WelcomeAction, WelcomeScreen};
 use super::widgets::{self, ButtonKind, Tone};
@@ -104,6 +104,7 @@ pub struct AdventureModsApp {
     navigating: bool,
     window: WindowState,
     transition: motion::ScreenTransition,
+    logo: Option<egui::TextureHandle>,
 }
 
 impl AdventureModsApp {
@@ -129,6 +130,7 @@ impl AdventureModsApp {
             navigating: false,
             window,
             transition: motion::ScreenTransition::default(),
+            logo: None,
         };
         app.detect_games();
         app
@@ -531,6 +533,15 @@ impl AdventureModsApp {
                         if back.inner.clicked() {
                             setup.back();
                         }
+                    }
+                    if self.setup.is_none() {
+                        let logo = self.logo.get_or_insert_with(|| {
+                            let image = images::decode(images::APP_ICON)
+                                .expect("the bundled app icon decodes");
+                            ui.ctx()
+                                .load_texture("app-icon", image, egui::TextureOptions::LINEAR)
+                        });
+                        ui.add(egui::Image::new(&*logo).fit_to_exact_size(Vec2::splat(40.0)));
                     }
                     if subtitle.is_empty() {
                         ui.label(RichText::new(&title).heading().strong());

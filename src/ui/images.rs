@@ -20,6 +20,22 @@ pub fn cover_resource(kind: GameKind) -> &'static str {
     }
 }
 
+/// Resource path of the app icon.
+pub const APP_ICON: &str = "/io/github/astrovm/AdventureMods/resources/images/app-icon.png";
+
+/// The app icon, for the window and taskbar.
+pub fn window_icon() -> egui::IconData {
+    let bytes = asset(APP_ICON).expect("the app icon is bundled");
+    let image = image::load_from_memory(bytes)
+        .expect("the bundled app icon is a valid PNG")
+        .to_rgba8();
+    egui::IconData {
+        width: image.width(),
+        height: image.height(),
+        rgba: image.into_raw(),
+    }
+}
+
 /// The bundled bytes of `resource`.
 pub fn asset(resource: &str) -> Option<&'static [u8]> {
     ASSETS
@@ -223,6 +239,14 @@ mod tests {
             }
         }
         assert!(asset("/missing.jpg").is_none());
+    }
+
+    #[test]
+    fn the_window_icon_is_the_square_app_icon() {
+        let icon = window_icon();
+        assert_eq!((icon.width, icon.height), (256, 256));
+        assert_eq!(icon.rgba.len(), 256 * 256 * 4);
+        assert!(decode(APP_ICON).is_ok());
     }
 
     #[test]
