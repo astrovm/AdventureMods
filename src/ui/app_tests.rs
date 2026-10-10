@@ -405,6 +405,7 @@ fn the_about_dialog_links_to_the_issue_tracker() {
 
     press(&mut harness, "About");
     harness.get_by_label(&format!("Adventure Mods {}", env!("CARGO_PKG_VERSION")));
+    harness.get_by_label("Made with ❤ by astro");
     press(&mut harness, "Report an Issue");
     assert_eq!(*fixture.opened.borrow(), vec![ISSUES_URL.to_owned()]);
 

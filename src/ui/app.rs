@@ -787,12 +787,26 @@ fn about_dialog() -> MessageDialog {
     MessageDialog::new(
         "about",
         format!("{} {}", crate::config::APP_NAME, env!("CARGO_PKG_VERSION")),
-        "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.\n\n\
-         © 2026 astrovm · MIT License",
+        "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.",
     )
+    .footer(made_by())
     .button("Report an Issue", ButtonKind::Normal)
     .button("Close", ButtonKind::Suggested)
     .default_button(1)
+}
+
+/// "Made with ❤ by astro", with a red heart.
+fn made_by() -> egui::text::LayoutJob {
+    let mut job = egui::text::LayoutJob::default();
+    let font = egui::FontId::proportional(20.0);
+    for (text, color) in [
+        ("Made with ", theme::TEXT_DIM),
+        ("❤", theme::ERROR),
+        (" by astro", theme::TEXT_DIM),
+    ] {
+        job.append(text, 0.0, egui::TextFormat::simple(font.clone(), color));
+    }
+    job
 }
 
 /// The eframe side: controller input, the frame, and saving on exit.

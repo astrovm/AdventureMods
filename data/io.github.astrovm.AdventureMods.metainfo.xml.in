@@ -61,6 +61,7 @@
           <li>Scaled the whole app with the window, so it fits small windows and fills big screens</li>
           <li>Opened the first window sized for the screen</li>
           <li>Kept the mod preview picture from pushing its description off screen</li>
+          <li>Added "Made with ❤ by astro" to About</li>
         </ul>
       </description>
     </release>

@@ -20,6 +20,8 @@ pub struct MessageDialog {
     id: Id,
     heading: String,
     body: String,
+    /// A dim line under the body, like a credit.
+    footer: Option<egui::text::LayoutJob>,
     buttons: Vec<(String, ButtonKind)>,
     /// The button focused when the dialog opens.
     default: usize,
@@ -32,10 +34,16 @@ impl MessageDialog {
             id: Id::new(id),
             heading: heading.into(),
             body: body.into(),
+            footer: None,
             buttons: Vec::new(),
             default: 0,
             opened: false,
         }
+    }
+
+    pub fn footer(mut self, footer: egui::text::LayoutJob) -> Self {
+        self.footer = Some(footer);
+        self
     }
 
     pub fn button(mut self, label: &str, kind: ButtonKind) -> Self {
@@ -57,6 +65,10 @@ impl MessageDialog {
                 ui.label(RichText::new(&self.heading).heading().strong());
                 ui.add_space(4.0);
                 ui.add(egui::Label::new(&self.body).wrap());
+                if let Some(footer) = &self.footer {
+                    ui.add_space(12.0);
+                    ui.label(footer.clone());
+                }
                 ui.add_space(12.0);
                 let mut pressed = None;
                 ui.horizontal(|ui| {
