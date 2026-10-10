@@ -1218,8 +1218,11 @@ impl SetupFlow {
         ui.label(RichText::new(mod_entry.name).heading().strong());
         let pages = mod_entry.pictures;
         if let Some(picture) = pages.get(self.preview.page) {
+            // In a wide window the picture would grow taller than the room
+            // under it allows, so it stays within a share of the height.
             let width = ui.available_width();
-            let size = Vec2::new(width, width * 9.0 / 16.0);
+            let height = (width * 9.0 / 16.0).min(ui.available_height() * PICTURE_SHARE);
+            let size = Vec2::new(height * 16.0 / 9.0, height);
             let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
             ui.painter()
                 .rect_filled(rect, theme::CARD_RADIUS, theme::CARD);
@@ -1308,6 +1311,10 @@ impl SetupFlow {
         });
     }
 }
+
+/// The most of the preview panel's height its picture takes: its share in
+/// the layout's window size, where the description and links fit under it.
+const PICTURE_SHARE: f32 = 0.47;
 
 /// A download progress callback that updates the install screen's bar.
 fn step_progress(

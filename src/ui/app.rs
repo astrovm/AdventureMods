@@ -45,6 +45,42 @@ impl Services {
     }
 }
 
+/// The smallest the UI shrinks to in a small window, so text stays readable.
+const MIN_ZOOM: f32 = 0.8;
+/// The biggest the UI grows to in a big window.
+const MAX_ZOOM: f32 = 2.0;
+/// Zoom steps per 100%. Every zoom lays out and draws text anew, so a few
+/// steps keep resizing smooth.
+const ZOOM_STEPS: f32 = 40.0;
+
+/// Scale the UI with the window, so it keeps the layout instead of cutting
+/// off the mod preview in a small window or looking tiny in a big one.
+fn fit_zoom_to_window(ctx: &egui::Context) {
+    let zoom = ctx.zoom_factor();
+    let wanted = zoom_for_window(ctx.content_rect().size() * zoom);
+    if wanted != zoom {
+        ctx.set_zoom_factor(wanted);
+        // Lay out again at the new zoom, so the old one never shows.
+        ctx.request_discard("zoom follows the window");
+    }
+}
+
+/// The zoom that fits the layout in a window of `size`, unzoomed.
+fn zoom_for_window(size: Vec2) -> f32 {
+    let fit = (size.x / super::LAYOUT_WIDTH).min(size.y / super::LAYOUT_HEIGHT);
+    // Rounded down, so the layout still fits.
+    ((fit * ZOOM_STEPS).floor() / ZOOM_STEPS).clamp(MIN_ZOOM, MAX_ZOOM)
+}
+
+/// The first window's size on a `monitor`: two thirds of its height in the
+/// layout's shape, so it looks the same on every screen, but at least the
+/// default size and never bigger than the monitor.
+fn first_window_size(monitor: Vec2) -> Vec2 {
+    let height = (monitor.y * 2.0 / 3.0).max(super::DEFAULT_HEIGHT);
+    let size = Vec2::new(height * super::LAYOUT_WIDTH / super::LAYOUT_HEIGHT, height);
+    size.min(monitor)
+}
+
 /// `size` shrunk to fit on a `monitor`, or `None` when it already fits.
 fn fit_to_monitor(size: Vec2, monitor: Vec2) -> Option<Vec2> {
     let fitted = size.min(monitor);
@@ -56,6 +92,8 @@ fn fit_to_monitor(size: Vec2, monitor: Vec2) -> Option<Vec2> {
 pub struct WindowState {
     pub size: Vec2,
     pub maximized: bool,
+    /// Whether the size came from an earlier run.
+    pub saved: bool,
 }
 
 impl WindowState {
@@ -69,6 +107,7 @@ impl WindowState {
             maximized: settings
                 .and_then(|settings| settings.boolean(WINDOW_MAXIMIZED_KEY))
                 .unwrap_or(false),
+            saved: int(WINDOW_WIDTH_KEY).is_some() && int(WINDOW_HEIGHT_KEY).is_some(),
         }
     }
 }
@@ -419,16 +458,26 @@ impl AdventureModsApp {
     }
 
     fn remember_window(&mut self, ctx: &egui::Context) {
+        let zoom = ctx.zoom_factor();
         let fitted = ctx.input(|input| {
             let viewport = input.viewport();
             // eframe's own check misreads fractional scaling on Wayland, so
             // shrink a window bigger than its monitor once the monitor is known.
+            // The first run sizes it for the monitor instead.
             let mut fitted = None;
             if !self.fitted
                 && let (Some(monitor), Some(rect)) = (viewport.monitor_size, viewport.inner_rect)
             {
                 self.fitted = true;
-                fitted = fit_to_monitor(rect.size(), monitor);
+                let (monitor, size) = (monitor * zoom, rect.size() * zoom);
+                let filling = viewport.fullscreen == Some(true) || viewport.maximized == Some(true);
+                fitted = if self.window.saved || filling {
+                    fit_to_monitor(size, monitor)
+                } else {
+                    let first = first_window_size(monitor);
+                    (first != size).then_some(first)
+                }
+                .map(|size| size / zoom);
             }
             if let Some(maximized) = viewport.maximized {
                 self.window.maximized = maximized;
@@ -436,7 +485,8 @@ impl AdventureModsApp {
             if !self.window.maximized
                 && let Some(rect) = viewport.inner_rect
             {
-                self.window.size = rect.size();
+                // Saved without the zoom, which only follows the window.
+                self.window.size = rect.size() * zoom;
             }
             fitted
         });
@@ -466,6 +516,7 @@ impl AdventureModsApp {
     /// Draw one frame.
     pub fn show(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
+        fit_zoom_to_window(&ctx);
         theme::apply_ui(ui);
         self.poll(&ctx);
         self.track_navigation(&ctx);

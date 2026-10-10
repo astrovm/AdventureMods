@@ -109,6 +109,7 @@ mod tests {
         let window = WindowState {
             size: egui::vec2(1111.0, 777.0),
             maximized: true,
+            saved: true,
         };
 
         let options = native_options(window, true);
