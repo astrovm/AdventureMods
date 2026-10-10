@@ -216,6 +216,13 @@ struct Preview {
     page: usize,
 }
 
+/// The mod rows under focus and under the pointer last frame.
+#[derive(Default, PartialEq)]
+struct Pointed {
+    focused: Option<usize>,
+    hovered: Option<usize>,
+}
+
 pub struct SetupFlow {
     game: Game,
     work: SetupWork,
@@ -231,6 +238,7 @@ pub struct SetupFlow {
     estimates: Option<Vec<ModDownloadEstimate>>,
     estimates_rx: Option<Receiver<anyhow::Result<Vec<ModDownloadEstimate>>>>,
     preview: Preview,
+    pointed: Pointed,
     install: Option<InstallView>,
     task: Option<RunningTask>,
     prefetch: Option<Prefetch>,
@@ -267,6 +275,7 @@ impl SetupFlow {
             estimates: None,
             estimates_rx: None,
             preview: Preview::default(),
+            pointed: Pointed::default(),
             install: None,
             task: None,
             prefetch: None,
@@ -1200,7 +1209,12 @@ impl SetupFlow {
             }
         });
 
-        if let Some(index) = focused.or(hovered) {
+        // Preview whichever moved last, so the mouse works while a row
+        // still holds keyboard focus.
+        let pointed = Pointed { focused, hovered };
+        let last = std::mem::replace(&mut self.pointed, pointed);
+        let moved = |now: Option<usize>, before| now.filter(|_| now != before);
+        if let Some(index) = moved(hovered, last.hovered).or(moved(focused, last.focused)) {
             self.show_preview(Some(index));
         }
         if let Some(mod_entry) = self.preview_entry() {
