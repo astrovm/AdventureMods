@@ -198,8 +198,12 @@ impl Gamepad {
             };
             pump(
                 |timeout| {
-                    let event = gilrs.next_event_blocking(Some(timeout));
-                    let any = gilrs.gamepads().next().is_some();
+                    let event = gilrs
+                        .next_event_blocking(Some(timeout))
+                        .filter(|event| is_controller(|b| gilrs.gamepad(event.id).button_code(b)));
+                    let any = gilrs
+                        .gamepads()
+                        .any(|(_, pad)| is_controller(|b| pad.button_code(b)));
                     thread_connected.store(any, Ordering::Relaxed);
                     event.map(|event| event.event)
                 },
@@ -224,6 +228,13 @@ impl Gamepad {
     pub fn presses(&self) -> Vec<PadButton> {
         self.presses.try_iter().collect()
     }
+}
+
+/// Whether a device has an A button. In a Flatpak gilrs can't ask udev, so it
+/// guesses from the device's buttons and axes and also picks up things like
+/// virtual absolute mice.
+fn is_controller(button_code: impl Fn(Button) -> Option<gilrs::ev::Code>) -> bool {
+    button_code(Button::South).is_some()
 }
 
 /// Hand presses to the app and wake it; `false` once the app is gone.
@@ -388,6 +399,14 @@ mod tests {
             sent,
             vec![PadButton::Right, PadButton::Right, PadButton::Confirm]
         );
+    }
+
+    #[test]
+    fn only_devices_with_an_a_button_are_controllers() {
+        assert!(is_controller(|button| (button == Button::South).then(code)));
+        // An absolute mouse: a left click and X/Y axes, no gamepad buttons.
+        assert!(!is_controller(|_| None));
+        assert!(!is_controller(|button| (button != Button::South).then(code)));
     }
 
     #[test]
