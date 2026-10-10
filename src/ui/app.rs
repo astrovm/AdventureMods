@@ -45,6 +45,12 @@ impl Services {
     }
 }
 
+/// `size` shrunk to fit on a `monitor`, or `None` when it already fits.
+fn fit_to_monitor(size: Vec2, monitor: Vec2) -> Option<Vec2> {
+    let fitted = size.min(monitor);
+    (fitted != size).then_some(fitted)
+}
+
 /// The window size to restore next time.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WindowState {
@@ -103,6 +109,8 @@ pub struct AdventureModsApp {
     /// Keyboard or controller in use: keep something focused.
     navigating: bool,
     window: WindowState,
+    /// Whether the window was checked against its monitor yet.
+    fitted: bool,
     transition: motion::ScreenTransition,
     logo: Option<egui::TextureHandle>,
 }
@@ -129,6 +137,7 @@ impl AdventureModsApp {
             pad_presses: Vec::new(),
             navigating: false,
             window,
+            fitted: false,
             transition: motion::ScreenTransition::default(),
             logo: None,
         };
@@ -410,8 +419,17 @@ impl AdventureModsApp {
     }
 
     fn remember_window(&mut self, ctx: &egui::Context) {
-        ctx.input(|input| {
+        let fitted = ctx.input(|input| {
             let viewport = input.viewport();
+            // eframe's own check misreads fractional scaling on Wayland, so
+            // shrink a window bigger than its monitor once the monitor is known.
+            let mut fitted = None;
+            if !self.fitted
+                && let (Some(monitor), Some(rect)) = (viewport.monitor_size, viewport.inner_rect)
+            {
+                self.fitted = true;
+                fitted = fit_to_monitor(rect.size(), monitor);
+            }
             if let Some(maximized) = viewport.maximized {
                 self.window.maximized = maximized;
             }
@@ -420,7 +438,11 @@ impl AdventureModsApp {
             {
                 self.window.size = rect.size();
             }
+            fitted
         });
+        if let Some(size) = fitted {
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+        }
     }
 
     /// Save the window size so the next start uses it.

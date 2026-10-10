@@ -160,6 +160,10 @@ fn painted_icon_button(
     response.on_hover_text(label)
 }
 
+/// How far the focus ring reaches outside its widget, gap and stroke included.
+/// Scroll areas clip their content, so lists leave this much room around it.
+pub const FOCUS_RING_OUTSET: f32 = 7.0;
+
 /// Outline the widget the controller is on. The ring fades in.
 pub fn focus_ring(ui: &Ui, response: &Response) {
     let shown = ui.ctx().animate_bool_with_time_and_easing(
