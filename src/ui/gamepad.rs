@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use gilrs::{Axis, Button, EventType};
+use gilrs::{Axis, Button, EventType, GamepadId};
 
 /// Hold a direction this long before it repeats.
 const REPEAT_DELAY: Duration = Duration::from_millis(400);
@@ -198,14 +198,11 @@ impl Gamepad {
             };
             pump(
                 |timeout| {
-                    let event = gilrs
-                        .next_event_blocking(Some(timeout))
-                        .filter(|event| is_controller(|b| gilrs.gamepad(event.id).button_code(b)));
-                    let any = gilrs
-                        .gamepads()
-                        .any(|(_, pad)| is_controller(|b| pad.button_code(b)));
+                    let event = gilrs.next_event_blocking(Some(timeout));
+                    let (event, any) =
+                        from_controllers(event, gilrs.gamepads(), gilrs::Gamepad::button_code);
                     thread_connected.store(any, Ordering::Relaxed);
-                    event.map(|event| event.event)
+                    event
                 },
                 forward(tx, ctx),
             );
@@ -230,11 +227,21 @@ impl Gamepad {
     }
 }
 
-/// Whether a device has an A button. In a Flatpak gilrs can't ask udev, so it
-/// guesses from the device's buttons and axes and also picks up things like
-/// virtual absolute mice.
-fn is_controller(button_code: impl Fn(Button) -> Option<gilrs::ev::Code>) -> bool {
-    button_code(Button::South).is_some()
+/// Keep the event only if it came from a controller, and say whether any
+/// controller is connected. Controllers are devices with an A button: in a
+/// Flatpak gilrs can't ask udev, so it guesses from buttons and axes and also
+/// picks up things like virtual absolute mice.
+fn from_controllers<Pad>(
+    event: Option<gilrs::Event>,
+    pads: impl Iterator<Item = (GamepadId, Pad)>,
+    button_code: impl Fn(&Pad, Button) -> Option<gilrs::ev::Code>,
+) -> (Option<EventType>, bool) {
+    let controllers: Vec<GamepadId> = pads
+        .filter(|(_, pad)| button_code(pad, Button::South).is_some())
+        .map(|(id, _)| id)
+        .collect();
+    let event = event.filter(|event| controllers.contains(&event.id));
+    (event.map(|event| event.event), !controllers.is_empty())
 }
 
 /// Hand presses to the app and wake it; `false` once the app is gone.
@@ -401,12 +408,43 @@ mod tests {
         );
     }
 
+    fn id(n: usize) -> GamepadId {
+        // SAFETY: `GamepadId` wraps a `usize`. gilrs only hands them out for
+        // connected controllers.
+        unsafe { std::mem::transmute(n) }
+    }
+
     #[test]
     fn only_devices_with_an_a_button_are_controllers() {
-        assert!(is_controller(|button| (button == Button::South).then(code)));
-        // An absolute mouse: a left click and X/Y axes, no gamepad buttons.
-        assert!(!is_controller(|_| None));
-        assert!(!is_controller(|button| (button != Button::South).then(code)));
+        // `true` for a controller; `false` for an absolute mouse, which has a
+        // left click and X/Y axes but no gamepad buttons.
+        let a_button = |pad: &bool, button| (*pad && button == Button::South).then(code);
+        let press = EventType::ButtonPressed(Button::South, code());
+        let from = |n| Some(gilrs::Event::new(id(n), press));
+
+        let mouse = [(id(0), false)];
+        assert_eq!(
+            from_controllers(from(0), mouse.into_iter(), a_button),
+            (None, false)
+        );
+
+        let both = [(id(0), false), (id(1), true)];
+        assert_eq!(
+            from_controllers(from(0), both.into_iter(), a_button),
+            (None, true)
+        );
+        assert_eq!(
+            from_controllers(from(1), both.into_iter(), a_button),
+            (Some(press), true)
+        );
+        assert_eq!(
+            from_controllers(None, both.into_iter(), a_button),
+            (None, true)
+        );
+        assert_eq!(
+            from_controllers(None, [].into_iter(), a_button),
+            (None, false)
+        );
     }
 
     #[test]
