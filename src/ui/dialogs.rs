@@ -116,11 +116,12 @@ impl ChoiceDialog {
             .show(ctx, |ui| {
                 ui.set_width(520.0);
                 ui.label(RichText::new(&self.title).heading().strong());
-                ui.add_space(4.0);
                 let mut picked = None;
                 egui::ScrollArea::vertical()
                     .max_height(ctx.content_rect().height() * 0.6)
                     .show(ui, |ui| {
+                        // Room for the focus ring, which the scroll area clips.
+                        ui.add_space(widgets::FOCUS_RING_OUTSET);
                         for (index, option) in self.options.iter().enumerate() {
                             let label = if Some(index) == self.selected {
                                 format!("✔  {option}")
@@ -141,8 +142,8 @@ impl ChoiceDialog {
                                 picked = Some(index);
                             }
                         }
+                        ui.add_space(widgets::FOCUS_RING_OUTSET);
                     });
-                ui.add_space(8.0);
                 if widgets::button(ui, "Cancel", ButtonKind::Normal).clicked() {
                     picked = Some(usize::MAX);
                 }

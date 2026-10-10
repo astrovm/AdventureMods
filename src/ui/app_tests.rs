@@ -520,6 +520,53 @@ fn the_window_size_is_saved_unless_maximized() {
 }
 
 #[test]
+fn a_window_bigger_than_its_monitor_shrinks_to_fit() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    let inner_size_commands = |harness: &Harness<'_, AdventureModsApp>| {
+        harness.output().viewport_output[&egui::ViewportId::ROOT]
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                egui::ViewportCommand::InnerSize(size) => Some(*size),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let viewport = harness
+        .input_mut()
+        .viewports
+        .get_mut(&egui::ViewportId::ROOT)
+        .unwrap();
+    viewport.monitor_size = Some(Vec2::new(1280.0, 720.0));
+    viewport.inner_rect = Some(egui::Rect::from_min_size(
+        egui::Pos2::ZERO,
+        Vec2::new(1152.0, 864.0),
+    ));
+    harness.step();
+    assert_eq!(
+        inner_size_commands(&harness),
+        vec![Vec2::new(1152.0, 720.0)]
+    );
+
+    // It only checks once, so a later resize is left alone.
+    harness.step();
+    assert!(inner_size_commands(&harness).is_empty());
+}
+
+#[test]
+fn a_window_that_fits_its_monitor_keeps_its_size() {
+    assert_eq!(
+        fit_to_monitor(Vec2::new(1152.0, 864.0), Vec2::new(2048.0, 1152.0)),
+        None
+    );
+    assert_eq!(
+        fit_to_monitor(Vec2::new(1152.0, 864.0), Vec2::new(1024.0, 768.0)),
+        Some(Vec2::new(1024.0, 768.0))
+    );
+}
+
+#[test]
 fn the_window_state_follows_the_viewport() {
     let fixture = Fixture::new(&[]);
     let mut harness = fixture.harness();

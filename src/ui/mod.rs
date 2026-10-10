@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 
-pub const DEFAULT_WIDTH: f32 = 1024.0;
-pub const DEFAULT_HEIGHT: f32 = 768.0;
+pub const DEFAULT_WIDTH: f32 = 1088.0;
+pub const DEFAULT_HEIGHT: f32 = 816.0;
 
 /// Opens a URI; replaced in tests so links are checked, never launched.
 pub type UriOpener = Rc<dyn Fn(&str)>;

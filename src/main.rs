@@ -64,6 +64,9 @@ fn native_options(window: WindowState, fullscreen: bool) -> eframe::NativeOption
                 adventure_mods::ui::images::window_icon(),
             ))
             .with_inner_size(window.size)
+            // On Wayland with fractional scaling, eframe sees the monitor as
+            // smaller than it is; the app checks the size itself instead.
+            .with_clamp_size_to_monitor_size(false)
             .with_min_inner_size([360.0, 480.0])
             .with_maximized(window.maximized)
             .with_fullscreen(fullscreen),
@@ -113,6 +116,7 @@ mod tests {
         assert_eq!(options.viewport.inner_size, Some(egui::vec2(1111.0, 777.0)));
         assert_eq!(options.viewport.maximized, Some(true));
         assert_eq!(options.viewport.fullscreen, Some(true));
+        assert_eq!(options.viewport.clamp_size_to_monitor_size, Some(false));
         assert_eq!(options.viewport.app_id.as_deref(), Some(config::APP_ID));
         let _ = in_game_mode();
     }
