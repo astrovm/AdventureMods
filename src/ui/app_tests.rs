@@ -614,6 +614,27 @@ fn the_first_window_is_sized_for_its_monitor() {
 }
 
 #[test]
+fn the_ui_zooms_after_the_window_is_resized() {
+    // The new size is in points at the current zoom, so the zoom waits.
+    let fixture = Fixture::new(&[]);
+    let mut harness = harness_on_monitor(
+        fixture.app(),
+        Vec2::new(2560.0, 1440.0),
+        Vec2::new(960.0, 720.0),
+    );
+    harness.set_size(Vec2::new(960.0, 720.0));
+    harness.step();
+    assert_eq!(
+        inner_size_commands(&harness),
+        vec![Vec2::new(1280.0, 960.0)]
+    );
+    assert_eq!(harness.ctx.zoom_factor(), 1.0);
+    // Then it zooms for the new size.
+    harness.step();
+    assert_eq!(harness.ctx.zoom_factor(), 1.175);
+}
+
+#[test]
 fn first_window_sizes_follow_the_monitor() {
     assert_eq!(
         first_window_size(Vec2::new(2560.0, 1440.0)),

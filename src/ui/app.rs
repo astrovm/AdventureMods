@@ -457,7 +457,8 @@ impl AdventureModsApp {
         }
     }
 
-    fn remember_window(&mut self, ctx: &egui::Context) {
+    /// Returns whether it resized the window.
+    fn remember_window(&mut self, ctx: &egui::Context) -> bool {
         let zoom = ctx.zoom_factor();
         let fitted = ctx.input(|input| {
             let viewport = input.viewport();
@@ -493,6 +494,7 @@ impl AdventureModsApp {
         if let Some(size) = fitted {
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         }
+        fitted.is_some()
     }
 
     /// Save the window size so the next start uses it.
@@ -516,12 +518,14 @@ impl AdventureModsApp {
     /// Draw one frame.
     pub fn show(&mut self, ui: &mut Ui) {
         let ctx = ui.ctx().clone();
-        fit_zoom_to_window(&ctx);
+        // The new size is in points at this zoom, so the zoom waits a frame.
+        if !self.remember_window(&ctx) {
+            fit_zoom_to_window(&ctx);
+        }
         theme::apply_ui(ui);
         self.poll(&ctx);
         self.track_navigation(&ctx);
         self.handle_pad_presses();
-        self.remember_window(&ctx);
         if ctx.input(|input| input.key_pressed(egui::Key::F11)) {
             let fullscreen = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
