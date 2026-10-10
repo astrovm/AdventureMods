@@ -867,6 +867,42 @@ fn the_preview_follows_the_focused_mod_and_turns_pages() {
 }
 
 #[test]
+fn the_preview_follows_the_mouse_while_a_mod_has_focus() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut harness = harness(flow(GameKind::SADX, dir.path(), work()));
+    act(&mut harness, SetupFlow::on_next);
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    let row = |index: usize| (egui::accesskit::Role::CheckBox, mods[index].name);
+    // The list opens with the first mod focused.
+    let (role, name) = row(0);
+    assert!(harness.get_by_role_and_label(role, name).is_focused());
+
+    // Hovering other mods previews them, without clicking anywhere first.
+    for index in [2, 1] {
+        let (role, name) = row(index);
+        harness.get_by_role_and_label(role, name).hover();
+        harness.run_steps(2);
+        assert_eq!(harness.state().flow.preview.index, Some(index));
+    }
+    // Resting on a mod keeps it, though another one still has focus.
+    harness.run_steps(4);
+    assert_eq!(harness.state().flow.preview.index, Some(1));
+
+    // Leaving the list keeps the last one.
+    harness.hover_at(egui::pos2(1270.0, 10.0));
+    harness.run_steps(2);
+    assert_eq!(harness.state().flow.preview.index, Some(1));
+
+    // The keyboard takes over again from the focused mod.
+    harness.key_press(egui::Key::ArrowDown);
+    harness.run_steps(2);
+    assert_eq!(harness.state().flow.preview.index, Some(1));
+    harness.key_press(egui::Key::ArrowDown);
+    harness.run_steps(2);
+    assert_eq!(harness.state().flow.preview.index, Some(2));
+}
+
+#[test]
 fn mods_without_screenshots_have_nothing_to_turn() {
     let dir = game_dir(&["proton-ready"]);
     let mut setup = flow(GameKind::SADX, dir.path(), work());
