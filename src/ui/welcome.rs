@@ -833,6 +833,19 @@ mod tests {
     }
 
     #[test]
+    fn a_cover_that_fails_to_decode_leaves_a_plain_tile() {
+        let mut harness = harness(Some(DetectionResult::default()));
+        fn broken(_: &str) -> anyhow::Result<egui::ColorImage> {
+            anyhow::bail!("broken cover")
+        }
+        let ctx = harness.ctx.clone();
+        harness.state_mut().images = Some(ImageCache::with_decoder(&ctx, broken));
+        let ((), logs) = crate::test_log::capture_logs(|| harness.run_steps(2));
+        assert!(logs.contains("broken cover"), "{logs}");
+        harness.get_by_label("Sonic Adventure 2");
+    }
+
+    #[test]
     fn narrow_windows_shrink_the_tiles_to_fit() {
         let mut harness = harness(Some(DetectionResult::default()));
         harness.set_size(Vec2::new(480.0, 900.0));
