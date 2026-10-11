@@ -848,6 +848,7 @@ fn the_preview_follows_the_focused_mod_and_turns_pages() {
     press(&mut harness, "›");
     assert_eq!(harness.state().flow.preview.page, 0);
     press(&mut harness, "‹");
+    assert_eq!(harness.state().flow.preview.page, pages - 1);
     harness.state_mut().flow.handle_pad(PadButton::Up);
 
     // Moving down the list previews the next mod.
@@ -1156,4 +1157,32 @@ fn the_real_mod_installer_reports_pipeline_errors() {
     );
     // Without a mod loader in place, writing the config fails.
     let _ = result;
+}
+
+#[test]
+fn page_buttons_keep_their_ids_while_the_picture_loads() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut harness = harness(flow(GameKind::SADX, dir.path(), work()));
+    act(&mut harness, SetupFlow::on_next);
+    let ctx = harness.ctx.clone();
+    fn slow(_: &str) -> anyhow::Result<egui::ColorImage> {
+        std::thread::sleep(Duration::from_secs(2));
+        anyhow::bail!("still loading")
+    }
+    harness.state_mut().images = Some(ImageCache::with_decoder(&ctx, slow));
+    harness.run_steps(2);
+    harness.get_by_role(egui::accesskit::Role::ProgressIndicator);
+    let loading = harness.get_by_label("‹").accesskit_node().id();
+
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    let mut images = ImageCache::new(&ctx);
+    images.load_now(&ctx, mods[0].pictures[0]);
+    harness.state_mut().images = Some(images);
+    harness.run_steps(2);
+    assert!(
+        harness
+            .query_by_role(egui::accesskit::Role::ProgressIndicator)
+            .is_none()
+    );
+    assert_eq!(harness.get_by_label("‹").accesskit_node().id(), loading);
 }

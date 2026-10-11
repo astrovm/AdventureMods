@@ -15,6 +15,9 @@ const MAX_WIDTH: u32 = 1280;
 pub const SCREENSHOT_CACHE_LIMIT: usize = 48;
 /// Threads decoding at once, at most.
 const MAX_WORKERS: usize = 4;
+/// Screenshots sent to the GPU in one frame, at most. Each is a few MB, so a
+/// burst of them would stutter the frame on slower GPUs.
+const MAX_UPLOADS_PER_FRAME: usize = 2;
 
 /// Resource path of a game's Steam header image.
 pub fn cover_resource(kind: GameKind) -> &'static str {
@@ -123,6 +126,8 @@ pub struct ImageCache {
     recent: VecDeque<&'static str>,
     queue: Arc<Queue>,
     results: std::sync::mpsc::Receiver<Decoded>,
+    /// The frame number, and how many screenshots it uploaded.
+    uploads: (u64, usize),
     decode: fn(&str) -> anyhow::Result<egui::ColorImage>,
 }
 
@@ -165,6 +170,7 @@ impl ImageCache {
             recent: VecDeque::new(),
             queue,
             results,
+            uploads: (0, 0),
             decode,
         }
     }
@@ -238,9 +244,19 @@ impl ImageCache {
     }
 
     fn receive(&mut self, ctx: &egui::Context) {
-        while let Ok((resource, result)) = self.results.try_recv() {
-            self.store(ctx, resource, result);
+        let frame = ctx.cumulative_frame_nr();
+        if self.uploads.0 != frame {
+            self.uploads = (frame, 0);
         }
+        while self.uploads.1 < MAX_UPLOADS_PER_FRAME {
+            let Ok((resource, result)) = self.results.try_recv() else {
+                return;
+            };
+            self.store(ctx, resource, result);
+            self.uploads.1 += 1;
+        }
+        // The rest wait for the next frame.
+        ctx.request_repaint();
     }
 
     fn store(
@@ -308,6 +324,13 @@ mod tests {
 
     const SCREENSHOT: &str = "/io/github/astrovm/AdventureMods/resources/images/sadx/dreamcast_conversion/dreamcast_conversion_before.jpg";
 
+    /// Move on to the next frame, which may upload more screenshots.
+    fn next_frame(ctx: &egui::Context) {
+        ctx.run_ui(egui::RawInput::default(), |_| {})
+            .textures_delta
+            .clear();
+    }
+
     /// Poll until `resource` decoded, failing after a few seconds.
     pub(crate) fn wait_for(
         cache: &mut ImageCache,
@@ -316,6 +339,7 @@ mod tests {
     ) -> Option<egui::TextureHandle> {
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
         loop {
+            next_frame(ctx);
             if let Some(texture) = cache.get(ctx, resource) {
                 return Some(texture);
             }
@@ -419,6 +443,7 @@ mod tests {
         while cache.loading() > 0 {
             assert!(std::time::Instant::now() < deadline, "never prefetched");
             std::thread::sleep(std::time::Duration::from_millis(5));
+            next_frame(&ctx);
             cache.receive(&ctx);
         }
         assert_eq!(cache.cached(), 2, "each decoded once");
@@ -468,6 +493,42 @@ mod tests {
         cache.prefetch(&ctx, &many);
         assert_eq!(queued(&cache).len(), SCREENSHOT_CACHE_LIMIT);
         assert_eq!(queued(&cache)[0], many[0]);
+    }
+
+    #[test]
+    fn a_burst_of_screenshots_uploads_over_several_frames() {
+        let ctx = egui::Context::default();
+        fn tiny(_: &str) -> anyhow::Result<egui::ColorImage> {
+            Ok(egui::ColorImage::filled([1, 1], egui::Color32::BLACK))
+        }
+        let mut cache = ImageCache::with_decoder(&ctx, tiny);
+        let pictures = ["/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg", "/e.jpg"];
+        cache.prefetch(&ctx, &pictures);
+        let ready = |cache: &ImageCache| {
+            cache
+                .slots
+                .values()
+                .filter(|slot| matches!(slot, Slot::Ready(_)))
+                .count()
+        };
+        // Let every decode finish before the next frame picks them up.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while !cache.queue.pending.lock().unwrap().order.is_empty() {
+            assert!(std::time::Instant::now() < deadline, "never decoded");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        next_frame(&ctx);
+        cache.receive(&ctx);
+        cache.receive(&ctx);
+        assert_eq!(ready(&cache), MAX_UPLOADS_PER_FRAME, "the rest wait");
+        next_frame(&ctx);
+        cache.receive(&ctx);
+        assert_eq!(ready(&cache), 2 * MAX_UPLOADS_PER_FRAME);
+        next_frame(&ctx);
+        cache.receive(&ctx);
+        assert_eq!(ready(&cache), pictures.len());
     }
 
     #[test]

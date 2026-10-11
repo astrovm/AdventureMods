@@ -1065,12 +1065,17 @@ impl SetupFlow {
                                     ui.label(RichText::new(task.title).strong());
                                     widgets::caption(ui, task.subtitle());
                                 });
-                                let (rect, _) =
+                                let (rect, response) =
                                     ui.allocate_exact_size(Vec2::splat(36.0), egui::Sense::hover());
                                 match task.state {
                                     TaskState::Pending => {}
                                     TaskState::Running => {
-                                        ui.put(rect, egui::Spinner::new().size(28.0));
+                                        response.widget_info(|| {
+                                            egui::WidgetInfo::new(
+                                                egui::WidgetType::ProgressIndicator,
+                                            )
+                                        });
+                                        spinner(ui, rect, 28.0);
                                     }
                                     TaskState::Done => icon(ui, rect, "✔", theme::SUCCESS),
                                     TaskState::Failed => icon(ui, rect, "✖", theme::ERROR),
@@ -1241,7 +1246,7 @@ impl SetupFlow {
             let width = ui.available_width();
             let height = (width * 9.0 / 16.0).min(ui.available_height() * PICTURE_SHARE);
             let size = Vec2::new(height * 16.0 / 9.0, height);
-            let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+            let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
             ui.painter()
                 .rect_filled(rect, theme::CARD_RADIUS, theme::CARD);
             match images.get(ui.ctx(), picture) {
@@ -1254,7 +1259,12 @@ impl SetupFlow {
                 }
                 None if images.failed(picture) => {}
                 None => {
-                    ui.put(rect, egui::Spinner::new().size(40.0));
+                    // Painted, not added: a widget here would shift the ids
+                    // of the page buttons, and a click landing as the
+                    // picture loads would be lost.
+                    response
+                        .widget_info(|| egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator));
+                    spinner(ui, rect, 40.0);
                 }
             }
             let badge = if picture.contains("_before") {
@@ -1375,6 +1385,15 @@ fn step_progress(
     Box::new(move |downloaded, total| {
         publish_step_bytes(&tx, &samples, downloaded, total, "Downloading...");
     })
+}
+
+/// A spinner of `size` in the middle of `rect`. Painted only, so the widgets
+/// after it keep their ids while it comes and goes.
+fn spinner(ui: &Ui, rect: egui::Rect, size: f32) {
+    egui::Spinner::new().paint_at(
+        ui,
+        egui::Rect::from_center_size(rect.center(), Vec2::splat(size)),
+    );
 }
 
 fn icon(ui: &Ui, rect: egui::Rect, glyph: &str, color: egui::Color32) {
