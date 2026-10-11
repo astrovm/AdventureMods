@@ -54,6 +54,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases>
+    <release version="1.1.5" date="2026-10-11">
+      <description>
+        <p>Screenshots and covers show up right away.</p>
+        <ul>
+          <li>The Flatpak is now an optimized build, so the whole app runs faster</li>
+          <li>Mod screenshots load ahead of time, so hovering a mod or turning a page shows them instantly</li>
+          <li>Game covers appear on the first frame</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.4" date="2026-10-10">
       <description>
         <p>Fixes the mod preview ignoring the mouse.</p>

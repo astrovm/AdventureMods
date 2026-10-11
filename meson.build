@@ -4,6 +4,7 @@ project(
   version: run_command('sh', 'build-aux/cargo-version.sh', check: true).stdout().strip(),
   meson_version: '>= 1.2.0',
   license: 'MIT',
+  default_options: ['buildtype=release'],
 )
 
 base_id = 'io.github.astrovm.AdventureMods'

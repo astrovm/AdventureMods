@@ -1,7 +1,7 @@
 //! Covers and mod screenshots, decoded off the UI thread.
 
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Condvar, Mutex};
 
 use crate::steam::game::GameKind;
 
@@ -9,8 +9,12 @@ include!(concat!(env!("OUT_DIR"), "/assets.rs"));
 
 /// Screenshots stay this wide at most; more only costs memory.
 const MAX_WIDTH: u32 = 1280;
-/// Decoded screenshots kept around. Each is a few MB.
-const SCREENSHOT_CACHE_LIMIT: usize = 24;
+/// Decoded screenshots kept around. Each is a few MB. Room for every mod's
+/// first screenshot plus all of the one in view, so prefetching never evicts
+/// what it just loaded.
+pub const SCREENSHOT_CACHE_LIMIT: usize = 48;
+/// Threads decoding at once, at most.
+const MAX_WORKERS: usize = 4;
 
 /// Resource path of a game's Steam header image.
 pub fn cover_resource(kind: GameKind) -> &'static str {
@@ -82,15 +86,42 @@ enum Slot {
 
 type Decoded = (&'static str, anyhow::Result<egui::ColorImage>);
 
-/// Textures by resource path. Requests decode on a worker thread; the result
-/// shows up on a later frame.
+/// What the workers should decode next, most wanted first.
+#[derive(Default)]
+struct Queue {
+    pending: Mutex<Pending>,
+    added: Condvar,
+}
+
+#[derive(Default)]
+struct Pending {
+    order: VecDeque<&'static str>,
+    closed: bool,
+}
+
+impl Queue {
+    /// The next resource to decode, waiting for one. `None` once closed.
+    fn next(&self) -> Option<&'static str> {
+        let mut pending = self.pending.lock().unwrap();
+        loop {
+            if pending.closed {
+                return None;
+            }
+            if let Some(resource) = pending.order.pop_front() {
+                return Some(resource);
+            }
+            pending = self.added.wait(pending).unwrap();
+        }
+    }
+}
+
+/// Textures by resource path. Screenshots decode on worker threads and show
+/// up on a later frame; covers are small, so they decode right away.
 pub struct ImageCache {
     slots: HashMap<&'static str, Slot>,
     /// Screenshots, least recently used first. Covers are never evicted.
     recent: VecDeque<&'static str>,
-    /// What the worker should still decode; stale requests are skipped.
-    wanted: Arc<Mutex<HashSet<&'static str>>>,
-    requests: std::sync::mpsc::Sender<&'static str>,
+    queue: Arc<Queue>,
     results: std::sync::mpsc::Receiver<Decoded>,
     decode: fn(&str) -> anyhow::Result<egui::ColorImage>,
 }
@@ -104,25 +135,35 @@ impl ImageCache {
         ctx: &egui::Context,
         decode: fn(&str) -> anyhow::Result<egui::ColorImage>,
     ) -> Self {
-        let (requests, request_rx) = std::sync::mpsc::channel::<&'static str>();
+        // Leave a core for the UI.
+        let workers = std::thread::available_parallelism()
+            .map_or(1, |cores| cores.get() - 1)
+            .clamp(1, MAX_WORKERS);
+        Self::with_workers(ctx, decode, workers)
+    }
+
+    fn with_workers(
+        ctx: &egui::Context,
+        decode: fn(&str) -> anyhow::Result<egui::ColorImage>,
+        workers: usize,
+    ) -> Self {
         let (result_tx, results) = std::sync::mpsc::channel();
-        let wanted = Arc::new(Mutex::new(HashSet::new()));
-        let worker_wanted = wanted.clone();
-        let ctx = ctx.clone();
-        std::thread::spawn(move || {
-            for resource in request_rx {
-                if !worker_wanted.lock().unwrap().remove(resource) {
-                    continue;
+        let queue = Arc::new(Queue::default());
+        for _ in 0..workers {
+            let queue = queue.clone();
+            let result_tx = result_tx.clone();
+            let ctx = ctx.clone();
+            std::thread::spawn(move || {
+                while let Some(resource) = queue.next() {
+                    let _ = result_tx.send((resource, decode(resource)));
+                    ctx.request_repaint();
                 }
-                let _ = result_tx.send((resource, decode(resource)));
-                ctx.request_repaint();
-            }
-        });
+            });
+        }
         Self {
             slots: HashMap::new(),
             recent: VecDeque::new(),
-            wanted,
-            requests,
+            queue,
             results,
             decode,
         }
@@ -135,36 +176,58 @@ impl ImageCache {
         resource: &'static str,
     ) -> Option<egui::TextureHandle> {
         self.receive(ctx);
-        if !resource.contains("/covers/") {
-            self.recent.retain(|cached| *cached != resource);
-            self.recent.push_back(resource);
+        if is_cover(resource) {
+            if !self.slots.contains_key(resource) {
+                self.load_now(ctx, resource);
+            }
+        } else {
+            self.touch(resource);
         }
         match self.slots.get(resource) {
             Some(Slot::Ready(texture)) => Some(texture.clone()),
             Some(Slot::Loading | Slot::Failed) => None,
             None => {
                 self.slots.insert(resource, Slot::Loading);
-                self.wanted.lock().unwrap().insert(resource);
-                let _ = self.requests.send(resource);
+                let mut pending = self.queue.pending.lock().unwrap();
+                pending.order.push_front(resource);
+                self.queue.added.notify_one();
+                drop(pending);
                 self.evict();
                 None
             }
         }
     }
 
+    /// Decode `order` ahead of time, most wanted first, so the screenshots
+    /// show up the moment they are needed. Anything else still waiting to be
+    /// decoded is dropped, such as when another mod is shown.
+    pub fn prefetch(&mut self, ctx: &egui::Context, order: &[&'static str]) {
+        self.receive(ctx);
+        let order = &order[..order.len().min(SCREENSHOT_CACHE_LIMIT)];
+        let mut pending = self.queue.pending.lock().unwrap();
+        let queued = std::mem::take(&mut pending.order);
+        self.slots
+            .retain(|resource, slot| !matches!(slot, Slot::Loading) || order.contains(resource));
+        for &resource in order {
+            if !self.slots.contains_key(resource) {
+                self.slots.insert(resource, Slot::Loading);
+                pending.order.push_back(resource);
+            } else if queued.contains(&resource) && !pending.order.contains(&resource) {
+                pending.order.push_back(resource);
+            }
+        }
+        self.queue.added.notify_all();
+        drop(pending);
+        // The most wanted ends up the most recently used.
+        for &resource in order.iter().rev() {
+            self.touch(resource);
+        }
+        self.evict();
+    }
+
     /// Whether `resource` could not be decoded.
     pub fn failed(&self, resource: &str) -> bool {
         matches!(self.slots.get(resource), Some(Slot::Failed))
-    }
-
-    /// Stop decoding everything except `keep`, such as when another mod is shown.
-    pub fn retain_pending(&mut self, keep: &[&'static str]) {
-        self.wanted
-            .lock()
-            .unwrap()
-            .retain(|resource| keep.contains(resource));
-        self.slots
-            .retain(|resource, slot| !matches!(slot, Slot::Loading) || keep.contains(resource));
     }
 
     /// Decode `resource` right away on this thread.
@@ -202,6 +265,11 @@ impl ImageCache {
         self.slots.insert(resource, slot);
     }
 
+    fn touch(&mut self, resource: &'static str) {
+        self.recent.retain(|cached| *cached != resource);
+        self.recent.push_back(resource);
+    }
+
     fn evict(&mut self) {
         let excess = self.recent.len().saturating_sub(SCREENSHOT_CACHE_LIMIT);
         for evicted in self.recent.drain(..excess) {
@@ -213,6 +281,25 @@ impl ImageCache {
     pub fn cached(&self) -> usize {
         self.slots.len()
     }
+
+    #[cfg(test)]
+    pub fn loading(&self) -> usize {
+        self.slots
+            .values()
+            .filter(|slot| matches!(slot, Slot::Loading))
+            .count()
+    }
+}
+
+impl Drop for ImageCache {
+    fn drop(&mut self) {
+        self.queue.pending.lock().unwrap().closed = true;
+        self.queue.added.notify_all();
+    }
+}
+
+fn is_cover(resource: &str) -> bool {
+    resource.contains("/covers/")
 }
 
 #[cfg(test)]
@@ -305,37 +392,82 @@ mod tests {
     }
 
     #[test]
-    fn stale_requests_are_dropped_and_covers_load_now() {
+    fn covers_are_ready_on_the_first_frame() {
         let ctx = egui::Context::default();
-        fn slow(resource: &str) -> anyhow::Result<egui::ColorImage> {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            decode(resource)
+        fn never(_: &str) -> anyhow::Result<egui::ColorImage> {
+            anyhow::bail!("covers should not wait for a worker")
         }
-        let mut cache = ImageCache::with_decoder(&ctx, slow);
-        let busy = "/io/github/astrovm/AdventureMods/resources/images/sadx/dreamcast_conversion/dreamcast_conversion_after.jpg";
-        let skipped =
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/hd_gui/hdguiforsa2_0.jpg";
+        let mut cache = ImageCache::with_decoder(&ctx, never);
         let cover = cover_resource(GameKind::SADX);
+        let ((), logs) = crate::test_log::capture_logs(|| {
+            assert!(cache.get(&ctx, cover).is_none());
+        });
+        assert!(logs.contains("covers should not wait"), "{logs}");
 
-        // The worker is busy with the first while the others queue up.
-        cache.get(&ctx, busy);
-        cache.get(&ctx, skipped);
-        cache.get(&ctx, SCREENSHOT);
-        cache.retain_pending(&[SCREENSHOT]);
-        assert!(wait_for(&mut cache, &ctx, SCREENSHOT).is_some());
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        cache.receive(&ctx);
-        assert!(
-            !cache.slots.contains_key(busy),
-            "finished, but no longer wanted"
-        );
-        assert!(!cache.slots.contains_key(skipped), "never decoded");
-        // However the worker raced, a result nobody asked for is dropped.
-        cache.store(&ctx, skipped, decode(SCREENSHOT));
-        assert!(!cache.slots.contains_key(skipped));
-
-        cache.load_now(&ctx, cover);
+        let mut cache = ImageCache::new(&ctx);
         assert!(cache.get(&ctx, cover).is_some());
+        assert!(cache.get(&ctx, cover).is_some(), "decoded once");
+    }
+
+    #[test]
+    fn prefetched_screenshots_are_ready_before_they_are_shown() {
+        let ctx = egui::Context::default();
+        let mut cache = ImageCache::new(&ctx);
+        let next = "/io/github/astrovm/AdventureMods/resources/images/sadx/dreamcast_conversion/dreamcast_conversion_after.jpg";
+        cache.prefetch(&ctx, &[SCREENSHOT, next, SCREENSHOT]);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        while cache.loading() > 0 {
+            assert!(std::time::Instant::now() < deadline, "never prefetched");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            cache.receive(&ctx);
+        }
+        assert_eq!(cache.cached(), 2, "each decoded once");
+        assert!(cache.get(&ctx, next).is_some(), "no wait when shown");
+        assert!(cache.get(&ctx, SCREENSHOT).is_some());
+
+        // Asking again keeps what is decoded.
+        cache.prefetch(&ctx, &[next]);
+        assert!(matches!(cache.slots.get(next), Some(Slot::Ready(_))));
+    }
+
+    #[test]
+    fn prefetching_reorders_and_drops_what_is_no_longer_wanted() {
+        let ctx = egui::Context::default();
+        // No workers, so the queue only changes here.
+        let mut cache = ImageCache::with_workers(&ctx, decode, 0);
+        let [first, second, third, gone] = ["/a.jpg", "/b.jpg", "/c.jpg", "/d.jpg"];
+        cache.prefetch(&ctx, &[first, second, gone]);
+        cache.get(&ctx, third);
+        let queued = |cache: &ImageCache| -> Vec<&str> {
+            cache
+                .queue
+                .pending
+                .lock()
+                .unwrap()
+                .order
+                .iter()
+                .copied()
+                .collect()
+        };
+        assert_eq!(queued(&cache), [third, first, second, gone], "shown first");
+
+        cache.prefetch(&ctx, &[second, third, first]);
+        assert_eq!(queued(&cache), [second, third, first]);
+        assert!(!cache.slots.contains_key(gone), "no longer wanted");
+        // A result nobody waits for anymore is dropped.
+        cache.store(&ctx, gone, decode(SCREENSHOT));
+        assert!(!cache.slots.contains_key(gone));
+
+        // Never more than the cache holds, or it would evict what it loads.
+        let many: Vec<&'static str> =
+            crate::setup::common::recommended_mods_for_game(GameKind::SADX)
+                .iter()
+                .flat_map(|mod_entry| mod_entry.pictures.iter().copied())
+                .collect();
+        assert!(many.len() > SCREENSHOT_CACHE_LIMIT);
+        cache.prefetch(&ctx, &many);
+        assert_eq!(queued(&cache).len(), SCREENSHOT_CACHE_LIMIT);
+        assert_eq!(queued(&cache)[0], many[0]);
     }
 
     #[test]

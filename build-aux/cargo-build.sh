@@ -18,12 +18,14 @@ if [ -f "$MESON_BUILD_ROOT/src/config.rs" ]; then
     cp "$MESON_BUILD_ROOT/src/config.rs" "$MESON_SOURCE_ROOT/src/config.rs"
 fi
 
-if [ "$BUILDTYPE" = "release" ]; then
-    echo "RELEASE MODE"
-    cargo build --locked --manifest-path "$MESON_SOURCE_ROOT"/Cargo.toml --release && \
-        cp "$CARGO_TARGET_DIR"/release/"$APP_BIN" "$OUTPUT"
-else
+# Only an explicit debug build skips optimizations. flatpak-builder asks for
+# other build types (such as plain), and those ship to users.
+if [ "$BUILDTYPE" = "debug" ]; then
     echo "DEBUG MODE"
     cargo build --locked --manifest-path "$MESON_SOURCE_ROOT"/Cargo.toml && \
         cp "$CARGO_TARGET_DIR"/debug/"$APP_BIN" "$OUTPUT"
+else
+    echo "RELEASE MODE"
+    cargo build --locked --manifest-path "$MESON_SOURCE_ROOT"/Cargo.toml --release && \
+        cp "$CARGO_TARGET_DIR"/release/"$APP_BIN" "$OUTPUT"
 fi
