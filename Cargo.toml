@@ -1,6 +1,6 @@
 [package]
 name = "adventure-mods"
-version = "1.1.4"
+version = "1.1.5"
 edition = "2024"
 license = "MIT"
 
@@ -31,3 +31,11 @@ winit = { version = "0.30", default-features = false, features = ["x11", "waylan
 ctor = "1.0"
 log = "0.4"
 egui_kittest = "0.36"
+
+# Unoptimized, a screenshot takes most of a second to decode. Keep debug
+# builds and tests usable.
+[profile.dev.package.image]
+opt-level = 3
+
+[profile.dev.package.zune-jpeg]
+opt-level = 3

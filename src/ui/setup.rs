@@ -1065,12 +1065,17 @@ impl SetupFlow {
                                     ui.label(RichText::new(task.title).strong());
                                     widgets::caption(ui, task.subtitle());
                                 });
-                                let (rect, _) =
+                                let (rect, response) =
                                     ui.allocate_exact_size(Vec2::splat(36.0), egui::Sense::hover());
                                 match task.state {
                                     TaskState::Pending => {}
                                     TaskState::Running => {
-                                        ui.put(rect, egui::Spinner::new().size(28.0));
+                                        response.widget_info(|| {
+                                            egui::WidgetInfo::new(
+                                                egui::WidgetType::ProgressIndicator,
+                                            )
+                                        });
+                                        spinner(ui, rect, 28.0);
                                     }
                                     TaskState::Done => icon(ui, rect, "✔", theme::SUCCESS),
                                     TaskState::Failed => icon(ui, rect, "✖", theme::ERROR),
@@ -1217,9 +1222,13 @@ impl SetupFlow {
         if let Some(index) = moved(hovered, last.hovered).or(moved(focused, last.focused)) {
             self.show_preview(Some(index));
         }
-        if let Some(mod_entry) = self.preview_entry() {
-            images.retain_pending(mod_entry.pictures);
-        }
+        // Narrow windows have no preview to load pictures for.
+        let order = if wide {
+            prefetch_order(mods, self.preview.index, self.preview.page)
+        } else {
+            Vec::new()
+        };
+        images.prefetch(ui.ctx(), &order);
         if open_preset {
             self.open_picker(Picker::Preset);
         }
@@ -1237,7 +1246,7 @@ impl SetupFlow {
             let width = ui.available_width();
             let height = (width * 9.0 / 16.0).min(ui.available_height() * PICTURE_SHARE);
             let size = Vec2::new(height * 16.0 / 9.0, height);
-            let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+            let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
             ui.painter()
                 .rect_filled(rect, theme::CARD_RADIUS, theme::CARD);
             match images.get(ui.ctx(), picture) {
@@ -1250,7 +1259,12 @@ impl SetupFlow {
                 }
                 None if images.failed(picture) => {}
                 None => {
-                    ui.put(rect, egui::Spinner::new().size(40.0));
+                    // Painted, not added: a widget here would shift the ids
+                    // of the page buttons, and a click landing as the
+                    // picture loads would be lost.
+                    response
+                        .widget_info(|| egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator));
+                    spinner(ui, rect, 40.0);
                 }
             }
             let badge = if picture.contains("_before") {
@@ -1326,6 +1340,39 @@ impl SetupFlow {
     }
 }
 
+/// The screenshots the preview may show next, most likely first: the pages
+/// around the one in view, then each mod's first screenshot from the nearest
+/// rows out, then the rest of the mod's pages.
+fn prefetch_order(mods: &[ModEntry], index: Option<usize>, page: usize) -> Vec<&'static str> {
+    let mut order = Vec::new();
+    let mut add = |picture: Option<&&'static str>| {
+        if let Some(&picture) = picture
+            && !order.contains(&picture)
+        {
+            order.push(picture);
+        }
+    };
+    let pages = index.map_or(&[][..], |index| mods[index].pictures);
+    let count = pages.len();
+    if count > 0 {
+        for offset in [0, 1, count - 1] {
+            add(pages.get((page % count + offset) % count));
+        }
+    }
+    let index = index.unwrap_or(0);
+    for distance in 0..mods.len() {
+        for row in [index.checked_add(distance), index.checked_sub(distance)] {
+            add(row
+                .and_then(|row| mods.get(row))
+                .and_then(|entry| entry.pictures.first()));
+        }
+    }
+    for picture in pages {
+        add(Some(picture));
+    }
+    order
+}
+
 /// The most of the preview panel's height its picture takes: its share in
 /// the layout's window size, where the description and links fit under it.
 const PICTURE_SHARE: f32 = 0.47;
@@ -1338,6 +1385,15 @@ fn step_progress(
     Box::new(move |downloaded, total| {
         publish_step_bytes(&tx, &samples, downloaded, total, "Downloading...");
     })
+}
+
+/// A spinner of `size` in the middle of `rect`. Painted only, so the widgets
+/// after it keep their ids while it comes and goes.
+fn spinner(ui: &Ui, rect: egui::Rect, size: f32) {
+    egui::Spinner::new().paint_at(
+        ui,
+        egui::Rect::from_center_size(rect.center(), Vec2::splat(size)),
+    );
 }
 
 fn icon(ui: &Ui, rect: egui::Rect, glyph: &str, color: egui::Color32) {
