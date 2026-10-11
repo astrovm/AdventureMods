@@ -1217,9 +1217,13 @@ impl SetupFlow {
         if let Some(index) = moved(hovered, last.hovered).or(moved(focused, last.focused)) {
             self.show_preview(Some(index));
         }
-        if let Some(mod_entry) = self.preview_entry() {
-            images.retain_pending(mod_entry.pictures);
-        }
+        // Narrow windows have no preview to load pictures for.
+        let order = if wide {
+            prefetch_order(mods, self.preview.index, self.preview.page)
+        } else {
+            Vec::new()
+        };
+        images.prefetch(ui.ctx(), &order);
         if open_preset {
             self.open_picker(Picker::Preset);
         }
@@ -1324,6 +1328,39 @@ impl SetupFlow {
             }
         });
     }
+}
+
+/// The screenshots the preview may show next, most likely first: the pages
+/// around the one in view, then each mod's first screenshot from the nearest
+/// rows out, then the rest of the mod's pages.
+fn prefetch_order(mods: &[ModEntry], index: Option<usize>, page: usize) -> Vec<&'static str> {
+    let mut order = Vec::new();
+    let mut add = |picture: Option<&&'static str>| {
+        if let Some(&picture) = picture
+            && !order.contains(&picture)
+        {
+            order.push(picture);
+        }
+    };
+    let pages = index.map_or(&[][..], |index| mods[index].pictures);
+    let count = pages.len();
+    if count > 0 {
+        for offset in [0, 1, count - 1] {
+            add(pages.get((page % count + offset) % count));
+        }
+    }
+    let index = index.unwrap_or(0);
+    for distance in 0..mods.len() {
+        for row in [index.checked_add(distance), index.checked_sub(distance)] {
+            add(row
+                .and_then(|row| mods.get(row))
+                .and_then(|entry| entry.pictures.first()));
+        }
+    }
+    for picture in pages {
+        add(Some(picture));
+    }
+    order
 }
 
 /// The most of the preview panel's height its picture takes: its share in

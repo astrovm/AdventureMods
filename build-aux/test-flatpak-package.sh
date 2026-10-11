@@ -12,6 +12,11 @@ files_dir="$build_dir/files"
 metadata="$build_dir/metadata"
 
 test -x "$files_dir/bin/adventure-mods"
+# A debug build decodes screenshots and draws far slower.
+if grep -qa '/target/debug/' "$files_dir/bin/adventure-mods"; then
+    echo "adventure-mods is a debug build" >&2
+    exit 1
+fi
 test -x "$files_dir/bin/7zz"
 test -x "$files_dir/bin/hpatchz"
 test -f "$files_dir/share/applications/$app_id.desktop"

@@ -921,18 +921,72 @@ fn mods_without_screenshots_have_nothing_to_turn() {
 }
 
 #[test]
-fn narrow_windows_hide_the_preview() {
+fn narrow_windows_hide_the_preview_and_load_no_pictures() {
     let dir = game_dir(&["proton-ready"]);
     let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
     act(&mut harness, SetupFlow::on_next);
+    let mods = common::recommended_mods_for_game(GameKind::SA2);
+    let images = |harness: &Harness<'_, State>| {
+        let images = harness.state().images.as_ref().expect("drawn once");
+        (images.cached(), images.loading())
+    };
+    assert!(
+        images(&harness).0 >= mods.len(),
+        "every mod's first picture"
+    );
+
     harness.set_size(egui::vec2(700.0, 800.0));
     harness.run_steps(3);
-    let mods = common::recommended_mods_for_game(GameKind::SA2);
     assert!(
         harness
             .query_by_label(mods[0].full_description.unwrap())
             .is_none()
     );
+    assert_eq!(images(&harness).1, 0, "nothing left to decode");
+}
+
+#[test]
+fn the_preview_prefetches_the_pictures_it_may_show_next() {
+    for kind in [GameKind::SADX, GameKind::SA2] {
+        let mods = common::recommended_mods_for_game(kind);
+        for index in 0..mods.len() {
+            let order = prefetch_order(mods, Some(index), 0);
+            assert!(order.len() <= super::super::images::SCREENSHOT_CACHE_LIMIT);
+            let unique: std::collections::HashSet<_> = order.iter().collect();
+            assert_eq!(unique.len(), order.len(), "no duplicates");
+            for mod_entry in mods {
+                if let Some(first) = mod_entry.pictures.first() {
+                    assert!(order.contains(first), "{} first picture", mod_entry.name);
+                }
+            }
+            for picture in mods[index].pictures {
+                assert!(order.contains(picture), "every page of the mod in view");
+            }
+        }
+    }
+
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    let index = (1..mods.len() - 1)
+        .find(|&index| {
+            mods[index].pictures.len() > 3
+                && !mods[index - 1].pictures.is_empty()
+                && !mods[index + 1].pictures.is_empty()
+        })
+        .expect("a mod with many pictures between others");
+    let pages = mods[index].pictures;
+    let order = prefetch_order(mods, Some(index), 1);
+    // The page in view, the next one, the one before.
+    assert_eq!(order[..3], [pages[1], pages[2], pages[0]]);
+    // Then the rows right below and above.
+    assert_eq!(order[3], mods[index + 1].pictures[0]);
+    assert_eq!(order[4], mods[index - 1].pictures[0]);
+    assert_eq!(order.last(), pages.last());
+
+    // With nothing in view, the top of the list comes first.
+    let mods = common::recommended_mods_for_game(GameKind::SA2);
+    let order = prefetch_order(mods, None, 0);
+    assert_eq!(order[0], mods[0].pictures[0]);
+    assert_eq!(order[1], mods[1].pictures[0]);
 }
 
 #[test]
