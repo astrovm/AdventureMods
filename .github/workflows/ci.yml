@@ -256,7 +256,7 @@ jobs:
   # The one check the ruleset requires: green when every job passed or was
   # skipped, red when any failed or was cancelled.
   ci:
-    name: CI
+    name: CI / Required
     if: always()
     needs: [changes, test, coverage, flatpak, appimage]
     runs-on: ubuntu-26.04
