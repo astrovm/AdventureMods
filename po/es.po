@@ -516,7 +516,7 @@ msgstr ""
 
 #: src/steam/library.rs:472
 msgid "Failed to parse {path}"
-msgstr "No se pudo leer {path}"
+msgstr "No se pudo interpretar {path}"
 
 #: src/ui/app.rs:227
 msgid "Failed to detect Steam libraries: {err}"

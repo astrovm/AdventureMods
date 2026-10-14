@@ -436,27 +436,27 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         let result = (|| -> Result<()> {
             for (offset, action) in actions.into_iter().enumerate() {
                 let step_index = offset + 1;
-                let label = action.cli_title();
+                let label = tr(action.cli_title());
                 match action {
                     SetupAction::InstallDotnet => {
-                        run_setup_step(out, step_index, total_steps, label, || {
+                        run_setup_step(out, step_index, total_steps, &label, || {
                             runtime_installer::install_runtimes(&game_path, game_kind.app_id())
                         })?;
                     }
                     SetupAction::ConvertSteam => {
-                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                        run_download_step(out, step_index, total_steps, &label, |progress_fn| {
                             sadx::convert_steam_to_2004(&game_path, progress_fn)
                         })?;
                     }
                     SetupAction::InstallModManager => {
-                        run_download_step(out, step_index, total_steps, label, |progress_fn| {
+                        run_download_step(out, step_index, total_steps, &label, |progress_fn| {
                             common::install_mod_manager(&game_path, game_kind, progress_fn)
                         })?;
                     }
                     SetupAction::InstallMods => {
                         // Setup installs mods once, so the downloads are still pending here.
                         let _ = prefetch.take().map(|prefetch| prefetch.join());
-                        run_mod_install_step(out, step_index, total_steps, label, &mod_install)?;
+                        run_mod_install_step(out, step_index, total_steps, &label, &mod_install)?;
                     }
                 }
             }
