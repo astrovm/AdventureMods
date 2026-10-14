@@ -5,6 +5,8 @@ use egui::{
     TextStyle, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
 };
 
+use crate::i18n::tr;
+
 use super::{motion, theme};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,7 +120,7 @@ pub fn icon_button(ui: &mut Ui, icon: &str, label: &str) -> Response {
 
 /// A round "Back" button with a chevron pointing left.
 pub fn back_button(ui: &mut Ui) -> Response {
-    painted_icon_button(ui, "Back", |painter, rect, color| {
+    painted_icon_button(ui, &tr("Back"), |painter, rect, color| {
         let center = rect.center() + Vec2::new(-2.0, 0.0);
         let arm = 9.0;
         painter.line(

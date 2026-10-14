@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::i18n::{tr, tr_fmt};
 use anyhow::{Context, Result};
 
 use crate::external::{archive, download, proton};
@@ -292,7 +293,7 @@ fn install_manager_release(
 
     let manager_exe = extract_dir.join("SAModManager.exe");
     if !manager_exe.is_file() {
-        anyhow::bail!("SAModManager.exe not found in release archive");
+        anyhow::bail!(tr("SAModManager.exe not found in release archive"));
     }
 
     let dest_exe = game_path.join("SAModManager.exe");
@@ -406,7 +407,10 @@ fn install_loader_dll(game_path: &Path, game_kind: GameKind) -> Result<()> {
     let loader_dll = game_path.join("mods/.modloader").join(loader_dll_name);
 
     if !loader_dll.is_file() {
-        anyhow::bail!("Mod loader DLL not found at {}", loader_dll.display());
+        anyhow::bail!(tr_fmt(
+            "Mod loader DLL not found at {path}",
+            &[("path", &loader_dll.display())]
+        ));
     }
 
     if orig_dll_path.is_file() {
@@ -922,10 +926,10 @@ fn install_passthrough_mod(staging: &Path, mods_dir: &Path) -> Result<std::path:
     entries.sort_by_key(|entry| entry.file_name());
 
     if entries.len() != 1 || !entries[0].path().is_dir() {
-        anyhow::bail!(
-            "Expected archive to contain a single top-level mod directory, found {} entries",
-            entries.len()
-        );
+        anyhow::bail!(tr_fmt(
+            "Expected archive to contain a single top-level mod directory, found {count} entries",
+            &[("count", &entries.len())]
+        ));
     }
 
     let extracted_dir = entries.remove(0).path();

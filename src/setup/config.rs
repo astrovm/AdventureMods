@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::i18n::tr_fmt;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
@@ -49,7 +50,10 @@ impl SubtitleLanguage {
             "german" => Ok(Self::German),
             "spanish" => Ok(Self::Spanish),
             "italian" => Ok(Self::Italian),
-            _ => anyhow::bail!("Unknown subtitle language '{value}'"),
+            _ => anyhow::bail!(tr_fmt(
+                "Unknown subtitle language '{value}'",
+                &[("value", &value)]
+            )),
         }
     }
 
@@ -101,7 +105,10 @@ impl VoiceLanguage {
         match value.trim().to_ascii_lowercase().as_str() {
             "english" => Ok(Self::English),
             "japanese" => Ok(Self::Japanese),
-            _ => anyhow::bail!("Unknown voice language '{value}'"),
+            _ => anyhow::bail!(tr_fmt(
+                "Unknown voice language '{value}'",
+                &[("value", &value)]
+            )),
         }
     }
 

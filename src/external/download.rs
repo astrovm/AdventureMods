@@ -2,6 +2,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use crate::i18n::tr_fmt;
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use reqwest::{Client, Response, Url};
@@ -251,7 +252,10 @@ async fn head_file(url: &str) -> Result<Option<Response>> {
         .await
         .with_context(|| format!("Failed to HEAD {url}"))?;
     if !response.status().is_success() {
-        anyhow::bail!("HTTP error {} for {url}", response.status());
+        anyhow::bail!(tr_fmt(
+            "HTTP error {status} for {url}",
+            &[("status", &response.status()), ("url", &url)]
+        ));
     }
     if response_is_html(&response) {
         return Ok(None);
@@ -306,9 +310,10 @@ async fn fetch_download_response_from(
     }
 
     if response_is_html(&response) {
-        anyhow::bail!(
-            "Server returned HTML instead of a file for {url}. The download link may be broken"
-        );
+        anyhow::bail!(tr_fmt(
+            "Server returned HTML instead of a file for {url}. The download link may be broken",
+            &[("url", &url)]
+        ));
     }
 
     Ok(response)
@@ -326,7 +331,10 @@ async fn http_error<T>(response: Response, url: &str) -> Result<T> {
     } else {
         body.chars().take(200).collect()
     };
-    anyhow::bail!("HTTP error {} for {url}: {snippet}", status)
+    anyhow::bail!(tr_fmt(
+        "HTTP error {status} for {url}: {snippet}",
+        &[("status", &status), ("url", &url), ("snippet", &snippet)]
+    ))
 }
 
 fn response_is_html(response: &Response) -> bool {
@@ -346,9 +354,10 @@ fn gamebanana_file_id_from_url(url: &Url) -> Option<u64> {
 }
 
 fn unsupported_gamebanana_file_download<T>(file_id: u64) -> Result<T> {
-    anyhow::bail!(
-        "GameBanana file pages do not expose a supported headless download path for file {file_id}"
-    )
+    anyhow::bail!(tr_fmt(
+        "GameBanana file pages do not expose a supported headless download path for file {file_id}",
+        &[("file_id", &file_id)]
+    ))
 }
 
 #[cfg(test)]

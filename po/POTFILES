@@ -1,0 +1,16 @@
+src/cli.rs
+src/external/archive.rs
+src/external/download.rs
+src/external/proton.rs
+src/external/runtime_installer.rs
+src/setup/common.rs
+src/setup/config.rs
+src/setup/sadx_config.rs
+src/setup/steps.rs
+src/steam/library.rs
+src/ui/app.rs
+src/ui/dialogs.rs
+src/ui/progress.rs
+src/ui/setup.rs
+src/ui/welcome.rs
+src/ui/widgets.rs

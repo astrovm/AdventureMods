@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::i18n::tr_fmt;
 use anyhow::{Context, Result};
 
 use super::download;
@@ -167,9 +168,10 @@ pub fn install_runtimes(game_path: &Path, app_id: u32) -> Result<()> {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let code = output.status.code().unwrap_or(-1);
             if !is_success_or_reboot_code(code) {
-                anyhow::bail!(
-                    ".NET Desktop Runtime {major} installation failed (code {code}): {stderr}"
-                );
+                anyhow::bail!(tr_fmt(
+                    ".NET Desktop Runtime {major} installation failed (code {code}): {stderr}",
+                    &[("major", &major), ("code", &code), ("stderr", &stderr)]
+                ));
             }
         }
         tracing::info!(".NET Desktop Runtime {major} installed");

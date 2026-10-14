@@ -13,6 +13,7 @@ use super::welcome::{WelcomeAction, WelcomeScreen};
 use super::widgets::{self, ButtonKind, Tone};
 use super::{FolderPicker, UriOpener};
 use super::{motion, theme};
+use crate::i18n::{tr, tr_fmt};
 use crate::path_display::display_path;
 use crate::settings::{Settings, Value, WINDOW_HEIGHT_KEY, WINDOW_MAXIMIZED_KEY, WINDOW_WIDTH_KEY};
 use crate::setup::config;
@@ -222,7 +223,10 @@ impl AdventureModsApp {
             }
             Err(err) => {
                 tracing::error!("Failed to detect games: {err}");
-                self.show_status(format!("Failed to detect Steam libraries: {err}"), true);
+                self.show_status(
+                    tr_fmt("Failed to detect Steam libraries: {err}", &[("err", &err)]),
+                    true,
+                );
             }
         }
     }
@@ -265,9 +269,9 @@ impl AdventureModsApp {
                 "Granted folder is not a usable Steam library"
             );
             self.show_status(
-                format!(
-                    "That folder is not the requested Steam library. Select {} (it must contain a steamapps folder).",
-                    display_path(expected)
+                tr_fmt(
+                    "That folder is not the requested Steam library. Select {path} (it must contain a steamapps folder).",
+                    &[("path", &display_path(expected))],
                 ),
                 true,
             );
@@ -300,7 +304,10 @@ impl AdventureModsApp {
     ) {
         match result {
             Ok(report) => {
-                self.toast(ctx, format!("{} was restored.", kind.name()));
+                self.toast(
+                    ctx,
+                    tr_fmt("{game} was restored.", &[("game", &kind.name())]),
+                );
                 self.detect_games();
                 if report.needs_steam_verify {
                     self.dialog = Some(Dialog::SteamVerify(kind, steam_verify_dialog(kind)));
@@ -308,7 +315,13 @@ impl AdventureModsApp {
             }
             Err(err) => {
                 tracing::error!("Failed to restore {}: {err:#}", kind.name());
-                self.show_status(format!("Could not restore {}: {err}", kind.name()), true);
+                self.show_status(
+                    tr_fmt(
+                        "Could not restore {game}: {err}",
+                        &[("game", &kind.name()), ("err", &err)],
+                    ),
+                    true,
+                );
             }
         }
     }
@@ -647,7 +660,7 @@ impl AdventureModsApp {
                         if self.setup.is_some() {
                             return;
                         }
-                        if widgets::icon_button(ui, "ℹ", "About").clicked() {
+                        if widgets::icon_button(ui, "ℹ", &tr("About")).clicked() {
                             self.dialog = Some(Dialog::About(about_dialog()));
                         }
                         if self.scanning() {
@@ -655,7 +668,7 @@ impl AdventureModsApp {
                                 Vec2::splat(theme::TARGET_HEIGHT),
                                 egui::Spinner::new().size(26.0),
                             );
-                        } else if widgets::icon_button(ui, "⟳", "Scan Again").clicked() {
+                        } else if widgets::icon_button(ui, "⟳", &tr("Scan Again")).clicked() {
                             self.detect_games();
                         }
                     });
@@ -675,13 +688,13 @@ impl AdventureModsApp {
                 ui.horizontal(|ui| {
                     ui.set_min_height(theme::TARGET_HEIGHT);
                     if hints {
-                        widgets::pad_hint(ui, "A", theme::SUCCESS, "Select");
-                        widgets::pad_hint(ui, "B", theme::ERROR, "Back");
+                        widgets::pad_hint(ui, "A", theme::SUCCESS, &tr("Select"));
+                        widgets::pad_hint(ui, "B", theme::ERROR, &tr("Back"));
                         if self.setup.is_some() {
-                            widgets::pad_hint(ui, "X", theme::ACCENT_BRIGHT, "Other action");
-                            widgets::pad_hint(ui, "≡", theme::TEXT_DIM, "Continue");
+                            widgets::pad_hint(ui, "X", theme::ACCENT_BRIGHT, &tr("Other action"));
+                            widgets::pad_hint(ui, "≡", theme::TEXT_DIM, &tr("Continue"));
                         } else {
-                            widgets::pad_hint(ui, "Y", theme::WARNING, "Scan again");
+                            widgets::pad_hint(ui, "Y", theme::WARNING, &tr("Scan again"));
                         }
                     }
                     if let Some(setup) = &mut self.setup {
@@ -750,24 +763,22 @@ impl AdventureModsApp {
     }
 }
 
-fn profile_badge(profile: &str) -> &'static str {
+fn profile_badge(profile: &str) -> String {
     if profile == "development" {
-        "DEVEL"
+        tr("DEVEL")
     } else {
-        ""
+        String::new()
     }
 }
 
 fn restore_dialog(kind: GameKind) -> MessageDialog {
     MessageDialog::new(
         "restore",
-        format!("Restore the original {}?", kind.name()),
-        "This puts back the game's original launcher and removes the mod loader, \
-         so Steam starts the unmodded game. Downloaded mods stay in the mods folder \
-         and are reused if you set the game up again.",
+        tr_fmt("Restore the original {game}?", &[("game", &kind.name())]),
+        tr("This puts back the game's original launcher and removes the mod loader, so Steam starts the unmodded game. Downloaded mods stay in the mods folder and are reused if you set the game up again."),
     )
-    .button("Cancel", ButtonKind::Normal)
-    .button("Restore", ButtonKind::Destructive)
+    .button(&tr("Cancel"), ButtonKind::Normal)
+    .button(&tr("Restore"), ButtonKind::Destructive)
     .default_button(0)
 }
 
@@ -775,15 +786,11 @@ fn restore_dialog(kind: GameKind) -> MessageDialog {
 fn steam_verify_dialog(kind: GameKind) -> MessageDialog {
     MessageDialog::new(
         "steam-verify",
-        "Finish in Steam",
-        format!(
-            "Setup converted {} to the 2004 version. Let Steam verify the game files to \
-             get the original Steam version back.",
-            kind.name()
-        ),
+        tr("Finish in Steam"),
+        tr_fmt("Setup converted {game} to the 2004 version. Let Steam verify the game files to get the original Steam version back.", &[("game", &kind.name())]),
     )
-    .button("Later", ButtonKind::Normal)
-    .button("Verify in Steam", ButtonKind::Suggested)
+    .button(&tr("Later"), ButtonKind::Normal)
+    .button(&tr("Verify in Steam"), ButtonKind::Suggested)
     .default_button(1)
 }
 
@@ -791,24 +798,33 @@ fn about_dialog() -> MessageDialog {
     MessageDialog::new(
         "about",
         format!("{} {}", crate::config::APP_NAME, env!("CARGO_PKG_VERSION")),
-        "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.",
+        tr("The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux."),
     )
     .footer(made_by())
-    .button("Report an Issue", ButtonKind::Normal)
-    .button("Close", ButtonKind::Suggested)
+    .button(&tr("Report an Issue"), ButtonKind::Normal)
+    .button(&tr("Close"), ButtonKind::Suggested)
     .default_button(1)
 }
 
-/// "Made with ❤ by astro", with a red heart.
+/// "Made with ❤ by astro", with a red heart. The heart is kept as a
+/// placeholder so translators can move it, then colored where it lands.
 fn made_by() -> egui::text::LayoutJob {
     let mut job = egui::text::LayoutJob::default();
     let font = egui::FontId::proportional(20.0);
-    for (text, color) in [
-        ("Made with ", theme::TEXT_DIM),
-        ("❤", theme::ERROR),
-        (" by astro", theme::TEXT_DIM),
-    ] {
-        job.append(text, 0.0, egui::TextFormat::simple(font.clone(), color));
+    let text = tr_fmt("Made with {heart} by astro", &[("heart", &"❤")]);
+    for (index, part) in text.split('❤').enumerate() {
+        if index > 0 {
+            job.append(
+                "❤",
+                0.0,
+                egui::TextFormat::simple(font.clone(), theme::ERROR),
+            );
+        }
+        job.append(
+            part,
+            0.0,
+            egui::TextFormat::simple(font.clone(), theme::TEXT_DIM),
+        );
     }
     job
 }

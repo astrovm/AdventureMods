@@ -4,6 +4,7 @@ pub mod cli;
 pub mod config;
 pub mod display;
 pub mod external;
+pub mod i18n;
 pub mod path_display;
 pub mod settings;
 pub mod setup;

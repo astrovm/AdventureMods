@@ -1,0 +1,849 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: adventure-mods\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-14 12:17-0300\n"
+"PO-Revision-Date: 2026-10-14 00:00+0000\n"
+"Last-Translator: adventure-mods maintainers\n"
+"Language-Team: adventure-mods maintainers\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/cli.rs:260
+msgid "No supported games detected."
+msgstr "対応するゲームが見つかりません。"
+
+#: src/cli.rs:265
+msgid "Detected games:"
+msgstr "検出されたゲーム:"
+
+#: src/cli.rs:276
+msgid "Inaccessible Steam libraries:"
+msgstr "アクセスできない Steam ライブラリ:"
+
+#: src/cli.rs:292 src/cli.rs:1025
+msgid "Game: {game}"
+msgstr "ゲーム: {game}"
+
+#: src/cli.rs:296
+msgid "Presets:"
+msgstr "プリセット:"
+
+#: src/cli.rs:302
+msgid "Mods:"
+msgstr "Mod:"
+
+#: src/cli.rs:318
+msgid "Restoring {game} at {path}"
+msgstr "{path} の {game} を復元しています"
+
+#: src/cli.rs:328
+msgid "Nothing to restore: this game was not modified by setup."
+msgstr ""
+"復元するものがありません: このゲームはセットアップで変更されていません。"
+
+#: src/cli.rs:336
+msgid ""
+"The game was converted to the 2004 version. Verify its files in Steam to get "
+"the Steam version back: {uri}"
+msgstr ""
+"ゲームは 2004 版に変換されました。Steam の版に戻すには、Steam でファイルを検"
+"証してください: {uri}"
+
+#: src/cli.rs:340
+msgid "Restore complete!"
+msgstr "復元が完了しました！"
+
+#: src/cli.rs:409
+msgid "Setting up {game} at {path}"
+msgstr "{path} に {game} をセットアップしています"
+
+#: src/cli.rs:471
+msgid "Setup complete!"
+msgstr "セットアップが完了しました！"
+
+#: src/cli.rs:489
+msgid "Step {index}/{total}: {label}"
+msgstr "ステップ {index}/{total}: {label}"
+
+#: src/cli.rs:504 src/cli.rs:541 src/cli.rs:735 src/ui/setup.rs:127
+#: src/ui/setup.rs:737
+msgid "Done"
+msgstr "完了"
+
+#: src/cli.rs:618
+msgid "  {done} / {total} MB ({percent}%)"
+msgstr "  {done} / {total} MB ({percent}%)"
+
+#: src/cli.rs:628
+msgid "  {done} MB downloaded"
+msgstr "  {done} MB ダウンロード済み"
+
+#: src/cli.rs:636
+msgid "    {mod}: {done} / {total} MB ({percent}%)"
+msgstr "    {mod}: {done} / {total} MB ({percent}%)"
+
+#: src/cli.rs:648
+msgid "    {mod}: {done} MB"
+msgstr "    {mod}: {done} MB"
+
+#: src/cli.rs:697
+msgid "  Starting: {mod}"
+msgstr "  開始: {mod}"
+
+#: src/cli.rs:717
+msgid "  [{completed}/{total}] Installed: {mod}"
+msgstr "  [{completed}/{total}] インストール済み: {mod}"
+
+#: src/cli.rs:727
+msgid "  Generating mod config..."
+msgstr "  Mod の設定を生成しています..."
+
+#: src/cli.rs:752
+msgid "Subtitle language '{value}' is not supported for {game}."
+msgstr "字幕言語 '{value}' は {game} では対応していません。"
+
+#: src/cli.rs:764
+msgid "Subtitle language"
+msgstr "字幕言語"
+
+#: src/cli.rs:777
+msgid "Voice language"
+msgstr "音声言語"
+
+#: src/cli.rs:811
+msgid "Select game"
+msgstr "ゲームを選択"
+
+#: src/cli.rs:824 src/cli.rs:1074
+msgid "No supported games detected. Pass --game and --game-path."
+msgstr ""
+"対応するゲームが見つかりません。--game と --game-path を指定してください。"
+
+#: src/cli.rs:833
+msgid "Select installation"
+msgstr "インストール先を選択"
+
+#: src/cli.rs:869
+msgid "Select {game} installation"
+msgstr "{game} のインストール先を選択"
+
+#: src/cli.rs:883
+msgid "Cannot use both --preset and --mods at the same time"
+msgstr "--preset と --mods は同時に使用できません"
+
+#: src/cli.rs:886
+msgid "Cannot use --all-mods with --preset"
+msgstr "--all-mods は --preset と一緒に使用できません"
+
+#: src/cli.rs:889
+msgid "Cannot use --all-mods with --mods"
+msgstr "--all-mods は --mods と一緒に使用できません"
+
+#: src/cli.rs:927
+msgid "--mods requires at least one mod slug"
+msgstr "--mods には少なくとも 1 つの Mod スラッグが必要です"
+
+#: src/cli.rs:942
+msgid ""
+"Unknown mod slug '{slug}'. Use 'list-mods --game {game}' to see valid slugs."
+msgstr ""
+"不明な Mod スラッグ '{slug}' です。有効なスラッグは 'list-mods --game "
+"{game}' で確認してください。"
+
+#: src/cli.rs:971
+msgid "Install all recommended mods"
+msgstr "推奨 Mod をすべてインストール"
+
+#: src/cli.rs:976
+msgid "Choose mods manually"
+msgstr "Mod を手動で選択"
+
+#: src/cli.rs:978
+msgid "Choose setup mode"
+msgstr "セットアップ方法を選択"
+
+#: src/cli.rs:996
+msgid "Select mods (space to toggle, enter to confirm)"
+msgstr "Mod を選択 (スペースで切り替え、Enter で確定)"
+
+#: src/cli.rs:1002
+msgid "Select at least one mod."
+msgstr "Mod を 1 つ以上選択してください。"
+
+#: src/cli.rs:1010
+msgid "Invalid mod selection {number}"
+msgstr "無効な Mod の選択 {number}"
+
+#: src/cli.rs:1023
+msgid "Summary"
+msgstr "概要"
+
+#: src/cli.rs:1029
+msgid "Path: {path}"
+msgstr "パス: {path}"
+
+#: src/cli.rs:1033
+msgid "Resolution: {width}x{height}"
+msgstr "解像度: {width}x{height}"
+
+#: src/cli.rs:1037
+msgid "Subtitle language: {language}"
+msgstr "字幕言語: {language}"
+
+#: src/cli.rs:1041
+msgid "Voice language: {language}"
+msgstr "音声言語: {language}"
+
+#: src/cli.rs:1045
+msgid "Mods selected: {count}"
+msgstr "選択した Mod: {count}"
+
+#: src/cli.rs:1053
+msgid "Proceed with setup?"
+msgstr "セットアップを続行しますか？"
+
+#: src/cli.rs:1054
+msgid "Setup cancelled"
+msgstr "セットアップをキャンセルしました"
+
+#: src/cli.rs:1067
+msgid ""
+"--game-path requires --game in non-interactive mode.\n"
+"Pass --game sadx or --game sa2."
+msgstr ""
+"非対話モードでは --game-path に --game が必要です。\n"
+"--game sadx または --game sa2 を指定してください。"
+
+#: src/cli.rs:1082
+msgid "Multiple games detected ({games}). Pass --game to select one."
+msgstr ""
+"複数のゲームが検出されました ({games})。--game で 1 つ選択してください。"
+
+#: src/cli.rs:1099
+msgid "Game path does not exist or is not a directory: {path}"
+msgstr "ゲームのパスが存在しないか、フォルダーではありません: {path}"
+
+#: src/cli.rs:1114
+msgid ""
+"{path} does not appear to be a {game} installation (expected game executable)"
+msgstr ""
+"{path} は {game} のインストール先ではないようです (ゲームの実行ファイルがあり"
+"ません)"
+
+#: src/cli.rs:1148
+msgid "Multiple {game} installations detected. Pass --game-path to select one."
+msgstr ""
+"{game} のインストールが複数検出されました。--game-path で 1 つ選択してくださ"
+"い。"
+
+#: src/cli.rs:1163
+msgid ""
+"No mod selection specified. Pass --all-mods, --preset <name>, or --mods "
+"<slug1,slug2>.\n"
+"Use 'list-mods --game {game}' to see available mods and presets."
+msgstr ""
+"Mod の選択が指定されていません。--all-mods、--preset <名前>、または --mods "
+"<slug1,slug2> を指定してください。\n"
+"利用可能な Mod とプリセットは 'list-mods --game {game}' で確認できます。"
+
+#: src/cli.rs:1189
+msgid "Library folders file not found: {path}"
+msgstr "ライブラリフォルダーのファイルが見つかりません: {path}"
+
+#: src/cli.rs:1214
+msgid "{game} was not detected. Pass --game-path."
+msgstr "{game} が検出されませんでした。--game-path を指定してください。"
+
+#: src/cli.rs:1219
+msgid ""
+"{game} is in a Steam library that cannot be accessed: {paths}. Mount the "
+"drive, or grant access to it in the Adventure Mods window, or pass --steam-"
+"library or --game-path."
+msgstr ""
+"{game} はアクセスできない Steam ライブラリにあります: {paths}。ドライブをマウ"
+"ントするか、Adventure Mods のウィンドウでアクセスを許可するか、--steam-"
+"library または --game-path を指定してください。"
+
+#: src/cli.rs:1232
+msgid "Unknown game '{game}'. Use 'sadx' or 'sa2'."
+msgstr "不明なゲーム '{game}' です。'sadx' または 'sa2' を使用してください。"
+
+#: src/external/archive.rs:28
+msgid ""
+"Archive extraction failed for {archive} with {program}:\n"
+"{stdout}\n"
+"{stderr}"
+msgstr ""
+"{program} によるアーカイブ {archive} の展開に失敗しました:\n"
+"{stdout}\n"
+"{stderr}"
+
+#: src/external/download.rs:256
+msgid "HTTP error {status} for {url}"
+msgstr "{url} の HTTP エラー {status}"
+
+#: src/external/download.rs:314
+msgid ""
+"Server returned HTML instead of a file for {url}. The download link may be "
+"broken"
+msgstr ""
+"{url} にはファイルではなく HTML が返されました。ダウンロードリンクが壊れてい"
+"る可能性があります"
+
+#: src/external/download.rs:335
+msgid "HTTP error {status} for {url}: {snippet}"
+msgstr "{url} の HTTP エラー {status}: {snippet}"
+
+#: src/external/download.rs:358
+msgid ""
+"GameBanana file pages do not expose a supported headless download path for "
+"file {file_id}"
+msgstr ""
+"GameBanana のファイルページには、ファイル {file_id} をヘッドレスでダウンロー"
+"ドする方法がありません"
+
+#: src/external/proton.rs:145
+msgid ""
+"Steam has not created this game's Proton prefix. Open the game from Steam "
+"once, wait for Proton to finish setting up, then close it and try again."
+msgstr ""
+"Steam がこのゲームの Proton プレフィックスをまだ作成していません。Steam から"
+"ゲームを一度起動し、Proton のセットアップが終わるまで待ってから、ゲームを閉じ"
+"てもう一度試してください。"
+
+#: src/external/proton.rs:148
+msgid ""
+"This game's Proton prefix metadata is incomplete. Open the game from Steam "
+"once so Steam can repair it, then close the game and try again."
+msgstr ""
+"このゲームの Proton プレフィックスのメタデータが不完全です。Steam が修復でき"
+"るように、Steam からゲームを一度起動してから閉じて、もう一度試してください。"
+
+#: src/external/proton.rs:151
+msgid ""
+"Steam's Proton configuration for this game is missing or unreadable. Force "
+"Proton 10.0 under Properties → Compatibility, open the game once, then close "
+"it and try again."
+msgstr ""
+"このゲームの Steam の Proton 設定がないか、読み取れません。プロパティ → 互換"
+"性 で Proton 10.0 を強制し、ゲームを一度起動してから閉じて、もう一度試してく"
+"ださい。"
+
+#: src/external/proton.rs:157
+msgid ""
+"The Proton prefix uses {tool_name}, but its Wine executable is missing from "
+"{proton_dir}. Reinstall that Proton version in Steam, open the game once, "
+"then try again."
+msgstr ""
+"Proton プレフィックスは {tool_name} を使用していますが、その Wine 実行ファイ"
+"ルが {proton_dir} にありません。Steam でその Proton バージョンを再インストー"
+"ルし、ゲームを一度起動してから、もう一度試してください。"
+
+#: src/external/proton.rs:167
+msgid ""
+"This game's Proton prefix still uses {prefix_tool}, but Steam is configured "
+"to use {configured_tool}. Open the game from Steam once so Steam can update "
+"the prefix, then try again."
+msgstr ""
+"このゲームの Proton プレフィックスはまだ {prefix_tool} を使用していますが、"
+"Steam は {configured_tool} を使うよう設定されています。Steam がプレフィックス"
+"を更新できるように、Steam からゲームを一度起動してから、もう一度試してくださ"
+"い。"
+
+#: src/external/proton.rs:174
+msgid ""
+"Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot "
+"run SA Mod Manager. In Steam: Properties → Compatibility → force Proton "
+"10.0, launch the game once, close it, then try again."
+msgstr ""
+"Steam は {tool_name} (Proton/Wine {major}) を使うよう設定されていますが、これ"
+"では SA Mod Manager を実行できません。Steam で プロパティ → 互換性 → Proton "
+"10.0 を強制し、ゲームを一度起動して閉じてから、もう一度試してください。"
+
+#: src/external/proton.rs:178
+msgid ""
+"This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which "
+"cannot run SA Mod Manager. In Steam: Properties → Compatibility → force "
+"Proton 10.0, launch the game once, close it, then try again."
+msgstr ""
+"このゲームの Proton プレフィックスは {tool_name} (Proton/Wine {major}) を使用"
+"していますが、これでは SA Mod Manager を実行できません。Steam で プロパティ "
+"→ 互換性 → Proton 10.0 を強制し、ゲームを一度起動して閉じてから、もう一度試し"
+"てください。"
+
+#: src/external/proton.rs:589
+msgid "Steam's config.vdf could not be found for {path}"
+msgstr "{path} の Steam config.vdf が見つかりませんでした"
+
+#: src/external/runtime_installer.rs:172
+msgid ""
+".NET Desktop Runtime {major} installation failed (code {code}): {stderr}"
+msgstr ""
+".NET Desktop Runtime {major} のインストールに失敗しました (コード {code}): "
+"{stderr}"
+
+#: src/setup/common.rs:296
+msgid "SAModManager.exe not found in release archive"
+msgstr "リリースアーカイブに SAModManager.exe が見つかりません"
+
+#: src/setup/common.rs:411
+msgid "Mod loader DLL not found at {path}"
+msgstr "Mod ローダーの DLL が {path} にありません"
+
+#: src/setup/common.rs:930
+msgid ""
+"Expected archive to contain a single top-level mod directory, found {count} "
+"entries"
+msgstr ""
+"アーカイブには最上位に Mod フォルダーが 1 つだけ必要ですが、{count} 個のエン"
+"トリが見つかりました"
+
+#: src/setup/config.rs:54
+msgid "Unknown subtitle language '{value}'"
+msgstr "不明な字幕言語 '{value}'"
+
+#: src/setup/config.rs:109
+msgid "Unknown voice language '{value}'"
+msgstr "不明な音声言語 '{value}'"
+
+#: src/setup/sadx_config.rs:42
+msgid "Subtitle language '{language}' is not supported for SADX"
+msgstr "字幕言語 '{language}' は SADX では対応していません"
+
+#: src/setup/steps.rs:27
+msgid "Install .NET Runtime"
+msgstr ".NET Runtime をインストール"
+
+#: src/setup/steps.rs:28
+msgid "Convert Steam to 2004"
+msgstr "Steam を 2004 版に変換"
+
+#: src/setup/steps.rs:29
+msgid "Install Mod Manager & Loader"
+msgstr "Mod Manager と Loader をインストール"
+
+#: src/setup/steps.rs:30
+msgid "Install Mods & Generate Config"
+msgstr "Mod をインストールして設定を生成"
+
+#: src/setup/steps.rs:101
+msgid "Set Up Proton"
+msgstr "Proton をセットアップ"
+
+#: src/setup/steps.rs:104
+msgid ""
+"In Steam, open Sonic Adventure DX's Properties → Compatibility and force "
+"Proton 10.0. Launch the game once, close it, then check again."
+msgstr ""
+"Steam で Sonic Adventure DX のプロパティ → 互換性 を開き、Proton 10.0 を強制"
+"してください。ゲームを一度起動して閉じてから、もう一度確認してください。"
+
+#: src/setup/steps.rs:107
+msgid ""
+"In Steam, open Sonic Adventure 2's Properties → Compatibility and force "
+"Proton 10.0. Launch the game once, close it, then check again."
+msgstr ""
+"Steam で Sonic Adventure 2 のプロパティ → 互換性 を開き、Proton 10.0 を強制し"
+"てください。ゲームを一度起動して閉じてから、もう一度確認してください。"
+
+#: src/setup/steps.rs:114
+msgid "Choose Mods"
+msgstr "Mod を選択"
+
+#: src/setup/steps.rs:115
+msgid "Pick a preset or choose mods one by one."
+msgstr "プリセットを選ぶか、Mod を 1 つずつ選んでください。"
+
+#: src/setup/steps.rs:120
+msgid "Languages"
+msgstr "言語"
+
+#: src/setup/steps.rs:121
+msgid "Choose the languages for subtitles and voices."
+msgstr "字幕と音声の言語を選んでください。"
+
+#: src/setup/steps.rs:126
+msgid ".NET Runtimes"
+msgstr ".NET ランタイム"
+
+#: src/setup/steps.rs:127
+msgid "Versions 8 and 10, installed or updated"
+msgstr "バージョン 8 と 10、インストール済みまたは更新済み"
+
+#: src/setup/steps.rs:135
+msgid "2004 Version"
+msgstr "2004 版"
+
+#: src/setup/steps.rs:136
+msgid "Converts the Steam version for the mod loader"
+msgstr "Mod ローダー用に Steam 版を変換します"
+
+#: src/setup/steps.rs:144
+msgid "Mod Manager and Loader"
+msgstr "Mod Manager と Loader"
+
+#: src/setup/steps.rs:145
+msgid "Installed or updated to the latest release"
+msgstr "インストール済み、または最新版に更新済み"
+
+#: src/setup/steps.rs:150
+msgid "Mods"
+msgstr "Mod"
+
+#: src/setup/steps.rs:151
+msgid "Installed or updated, then set up"
+msgstr "インストール済みまたは更新済みのあと、セットアップします"
+
+#: src/setup/steps.rs:156
+msgid "Ready to Play"
+msgstr "プレイの準備完了"
+
+#: src/setup/steps.rs:159
+msgid ""
+"Start Sonic Adventure DX from Steam. The mod manager opens first, so you can "
+"turn mods on or off before playing."
+msgstr ""
+"Steam から Sonic Adventure DX を起動してください。先に Mod マネージャーが開く"
+"ので、プレイ前に Mod をオンまたはオフにできます。"
+
+#: src/setup/steps.rs:162
+msgid ""
+"Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can "
+"turn mods on or off before playing."
+msgstr ""
+"Steam から Sonic Adventure 2 を起動してください。先に Mod マネージャーが開く"
+"ので、プレイ前に Mod をオンまたはオフにできます。"
+
+#: src/steam/library.rs:472
+msgid "Failed to parse {path}"
+msgstr "{path} を解析できませんでした"
+
+#: src/ui/app.rs:227
+msgid "Failed to detect Steam libraries: {err}"
+msgstr "Steam ライブラリを検出できませんでした: {err}"
+
+#: src/ui/app.rs:273
+msgid ""
+"That folder is not the requested Steam library. Select {path} (it must "
+"contain a steamapps folder)."
+msgstr ""
+"そのフォルダーは要求された Steam ライブラリではありません。{path} を選択して"
+"ください (steamapps フォルダーを含んでいる必要があります)。"
+
+#: src/ui/app.rs:309
+msgid "{game} was restored."
+msgstr "{game} を復元しました。"
+
+#: src/ui/app.rs:320
+msgid "Could not restore {game}: {err}"
+msgstr "{game} を復元できませんでした: {err}"
+
+#: src/ui/app.rs:663
+msgid "About"
+msgstr "について"
+
+#: src/ui/app.rs:671
+msgid "Scan Again"
+msgstr "再スキャン"
+
+#: src/ui/app.rs:691
+msgid "Select"
+msgstr "選択"
+
+#: src/ui/app.rs:692 src/ui/widgets.rs:123
+msgid "Back"
+msgstr "戻る"
+
+#: src/ui/app.rs:694
+msgid "Other action"
+msgstr "その他の操作"
+
+#: src/ui/app.rs:695 src/ui/setup.rs:740 src/ui/setup.rs:746
+msgid "Continue"
+msgstr "続行"
+
+#: src/ui/app.rs:697
+msgid "Scan again"
+msgstr "再スキャン"
+
+#: src/ui/app.rs:768
+msgid "DEVEL"
+msgstr "DEVEL"
+
+#: src/ui/app.rs:777
+msgid "Restore the original {game}?"
+msgstr "元の {game} を復元しますか？"
+
+#: src/ui/app.rs:778
+msgid ""
+"This puts back the game's original launcher and removes the mod loader, so "
+"Steam starts the unmodded game. Downloaded mods stay in the mods folder and "
+"are reused if you set the game up again."
+msgstr ""
+"ゲームの元のランチャーを戻し、Mod ローダーを削除します。Steam は Mod なしの"
+"ゲームを起動します。ダウンロード済みの Mod は Mod フォルダーに残り、ゲームを"
+"もう一度セットアップするときに再利用されます。"
+
+#: src/ui/app.rs:780 src/ui/dialogs.rs:161 src/ui/setup.rs:714
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: src/ui/app.rs:781 src/ui/welcome.rs:125
+msgid "Restore"
+msgstr "復元"
+
+#: src/ui/app.rs:789
+msgid "Finish in Steam"
+msgstr "Steam で完了"
+
+#: src/ui/app.rs:790
+msgid ""
+"Setup converted {game} to the 2004 version. Let Steam verify the game files "
+"to get the original Steam version back."
+msgstr ""
+"セットアップで {game} を 2004 版に変換しました。Steam にゲームファイルを検証"
+"させて、元の Steam 版に戻してください。"
+
+#: src/ui/app.rs:792
+msgid "Later"
+msgstr "あとで"
+
+#: src/ui/app.rs:793 src/ui/welcome.rs:122
+msgid "Verify in Steam"
+msgstr "Steam で検証"
+
+#: src/ui/app.rs:801
+msgid ""
+"The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux."
+msgstr ""
+"Linux で Sonic Adventure DX と Sonic Adventure 2 を Mod するいちばん簡単な方"
+"法です。"
+
+#: src/ui/app.rs:804
+msgid "Report an Issue"
+msgstr "問題を報告"
+
+#: src/ui/app.rs:805
+msgid "Close"
+msgstr "閉じる"
+
+#: src/ui/app.rs:814
+msgid "Made with {heart} by astro"
+msgstr "astro が {heart} を込めて作成"
+
+#: src/ui/progress.rs:198
+msgid "Generating config... ({total}/{total})"
+msgstr "設定を生成しています... ({total}/{total})"
+
+#: src/ui/progress.rs:254 src/ui/progress.rs:420
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: src/ui/progress.rs:285
+msgid "{status} - {bytes_text}"
+msgstr "{status} - {bytes_text}"
+
+#: src/ui/progress.rs:292
+msgid "Starting {mod_name}..."
+msgstr "{mod_name} を開始しています..."
+
+#: src/ui/progress.rs:297
+msgid "Installed {mod_name} ({completed}/{total})"
+msgstr "{mod_name} をインストールしました ({completed}/{total})"
+
+#: src/ui/progress.rs:309
+msgid "{downloaded} / {total} MB"
+msgstr "{downloaded} / {total} MB"
+
+#: src/ui/progress.rs:338
+msgid "Downloading mods - {bytes_text}"
+msgstr "Mod をダウンロード中 - {bytes_text}"
+
+#: src/ui/progress.rs:415
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: src/ui/progress.rs:435
+msgid "No mods selected"
+msgstr "Mod が選択されていません"
+
+#: src/ui/progress.rs:438
+msgid "Checking download size…"
+msgstr "ダウンロードサイズを確認しています…"
+
+#: src/ui/progress.rs:458
+msgid ", 1 already installed"
+msgstr "、1 個はインストール済み"
+
+#: src/ui/progress.rs:459
+msgid ", {n} already installed"
+msgstr "、{n} 個はインストール済み"
+
+#: src/ui/progress.rs:463
+msgid "Everything selected is already installed"
+msgstr "選択したものはすべてインストール済みです"
+
+#: src/ui/progress.rs:466
+msgid "Download size unknown{installed_note}"
+msgstr "ダウンロードサイズ不明{installed_note}"
+
+#: src/ui/progress.rs:471
+msgid "At least {size} to download{installed_note}"
+msgstr "ダウンロードは少なくとも {size}{installed_note}"
+
+#: src/ui/progress.rs:479
+msgid "{size} to download{installed_note}"
+msgstr "ダウンロード {size}{installed_note}"
+
+#: src/ui/setup.rs:128
+msgid "Failed"
+msgstr "失敗"
+
+#: src/ui/setup.rs:410
+msgid "Downloading in the background"
+msgstr "バックグラウンドでダウンロード中"
+
+#: src/ui/setup.rs:474
+msgid "Finishing downloads…"
+msgstr "ダウンロードを完了しています…"
+
+#: src/ui/setup.rs:709
+msgid "Play in Steam"
+msgstr "Steam でプレイ"
+
+#: src/ui/setup.rs:712
+msgid "Cancelling…"
+msgstr "キャンセルしています…"
+
+#: src/ui/setup.rs:732
+msgid "Try Again"
+msgstr "再試行"
+
+#: src/ui/setup.rs:742
+msgid "Check Again"
+msgstr "再確認"
+
+#: src/ui/setup.rs:745 src/ui/welcome.rs:379
+msgid "Install"
+msgstr "インストール"
+
+#: src/ui/setup.rs:796
+msgid "Installing"
+msgstr "インストール中"
+
+#: src/ui/setup.rs:802
+msgid "{game} · Step {position} of {total}"
+msgstr "{game} · ステップ {position} / {total}"
+
+#: src/ui/setup.rs:901
+msgid "Something went wrong while going back. Please try again."
+msgstr "前に戻る際にエラーが発生しました。もう一度お試しください。"
+
+#: src/ui/setup.rs:927
+msgid "Something went wrong while continuing setup. Please try again."
+msgstr ""
+"セットアップを続行する際にエラーが発生しました。もう一度お試しください。"
+
+#: src/ui/setup.rs:939
+msgid "Something went wrong. Please try again."
+msgstr "エラーが発生しました。もう一度お試しください。"
+
+#: src/ui/setup.rs:953
+msgid "Something Went Wrong"
+msgstr "エラーが発生しました"
+
+#: src/ui/setup.rs:977
+msgid "Proton Is Ready"
+msgstr "Proton の準備ができました"
+
+#: src/ui/setup.rs:985
+msgid "Proton 10 Needed"
+msgstr "Proton 10 が必要です"
+
+#: src/ui/setup.rs:1032 src/ui/setup.rs:1187
+msgid "Preset"
+msgstr "プリセット"
+
+#: src/ui/setup.rs:1038 src/ui/setup.rs:1063
+msgid "Subtitles"
+msgstr "字幕"
+
+#: src/ui/setup.rs:1043 src/ui/setup.rs:1066
+msgid "Voices"
+msgstr "音声"
+
+#: src/ui/setup.rs:1121
+msgid "Starting…"
+msgstr "開始しています…"
+
+#: src/ui/setup.rs:1128
+msgid "Setup Didn't Finish"
+msgstr "セットアップが完了しませんでした"
+
+#: src/ui/setup.rs:1132
+msgid "Try again, or go back to change your choices."
+msgstr "もう一度試すか、戻って選択を変更してください。"
+
+#: src/ui/setup.rs:1133
+msgid "Details"
+msgstr "詳細"
+
+#: src/ui/setup.rs:1188
+msgid "Custom"
+msgstr "カスタム"
+
+#: src/ui/setup.rs:1298
+msgid "Before"
+msgstr "前"
+
+#: src/ui/setup.rs:1300
+msgid "After"
+msgstr "後"
+
+#: src/ui/setup.rs:1413
+msgid "Downloading..."
+msgstr "ダウンロード中..."
+
+#: src/ui/welcome.rs:40
+msgid "{path} (Needs access)"
+msgstr "{path} (アクセスが必要)"
+
+#: src/ui/welcome.rs:109
+msgid "Install it in Steam, then scan again."
+msgstr "Steam でインストールしてから、もう一度スキャンしてください。"
+
+#: src/ui/welcome.rs:111
+msgid "Let Steam verify the game files to finish restoring it."
+msgstr "Steam にゲームファイルを検証させて、復元を完了してください。"
+
+#: src/ui/welcome.rs:120
+msgid "Grant Access"
+msgstr "アクセスを許可"
+
+#: src/ui/welcome.rs:122 src/ui/welcome.rs:127
+msgid "Set Up"
+msgstr "セットアップ"
+
+#: src/ui/welcome.rs:125
+msgid "Change Mods"
+msgstr "Mod を変更"
+
+#: src/ui/welcome.rs:380
+msgid "Choose which install to set up"
+msgstr "セットアップするインストール先を選択"
+
+#: src/ui/welcome.rs:417
+msgid "{game} Install"
+msgstr "{game} のインストール"
+
+#: src/ui/welcome.rs:504
+msgid ""
+"Adventure Mods needs access to the Steam library with {games}. Use Grant "
+"Access on the game below."
+msgstr ""
+"Adventure Mods には {games} がある Steam ライブラリへのアクセスが必要です。下"
+"のゲームで「アクセスを許可」を使ってください。"

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Output;
 
+use crate::i18n::{tr, tr_fmt};
 use anyhow::{Context, Result};
 
 use super::flatpak;
@@ -140,34 +141,43 @@ pub fn ensure_state_ready(state: Result<PrefixState>) -> Result<()> {
         // Unknown labels still allow installs (custom tools / test fixtures), but
         // steam_config_message warns the user to prefer Proton 10.0.
         PrefixState::Ready | PrefixState::UnknownProton { .. } => Ok(()),
-        PrefixState::MissingPrefix => anyhow::bail!(
+        PrefixState::MissingPrefix => anyhow::bail!(tr(
             "Steam has not created this game's Proton prefix. Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
-        ),
-        PrefixState::MissingMetadata => anyhow::bail!(
+        )),
+        PrefixState::MissingMetadata => anyhow::bail!(tr(
             "This game's Proton prefix metadata is incomplete. Open the game from Steam once so Steam can repair it, then close the game and try again."
-        ),
-        PrefixState::SteamConfigIncomplete => anyhow::bail!(
+        )),
+        PrefixState::SteamConfigIncomplete => anyhow::bail!(tr(
             "Steam's Proton configuration for this game is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then close it and try again."
-        ),
+        )),
         PrefixState::ProtonUnavailable {
             tool_name,
             proton_dir,
-        } => anyhow::bail!(
-            "The Proton prefix uses {tool_name}, but its Wine executable is missing from {}. Reinstall that Proton version in Steam, open the game once, then try again.",
-            proton_dir.display()
-        ),
+        } => anyhow::bail!(tr_fmt(
+            "The Proton prefix uses {tool_name}, but its Wine executable is missing from {proton_dir}. Reinstall that Proton version in Steam, open the game once, then try again.",
+            &[
+                ("tool_name", &tool_name),
+                ("proton_dir", &proton_dir.display())
+            ]
+        )),
         PrefixState::ConfigMismatch {
             prefix_tool,
             configured_tool,
-        } => anyhow::bail!(
-            "This game's Proton prefix still uses {prefix_tool}, but Steam is configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then try again."
-        ),
-        PrefixState::UnsupportedConfiguredProton { tool_name, major } => anyhow::bail!(
-            "Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
-        ),
-        PrefixState::UnsupportedProton { tool_name, major } => anyhow::bail!(
-            "This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
-        ),
+        } => anyhow::bail!(tr_fmt(
+            "This game's Proton prefix still uses {prefix_tool}, but Steam is configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then try again.",
+            &[
+                ("prefix_tool", &prefix_tool),
+                ("configured_tool", &configured_tool)
+            ]
+        )),
+        PrefixState::UnsupportedConfiguredProton { tool_name, major } => anyhow::bail!(tr_fmt(
+            "Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again.",
+            &[("tool_name", &tool_name), ("major", &major)]
+        )),
+        PrefixState::UnsupportedProton { tool_name, major } => anyhow::bail!(tr_fmt(
+            "This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again.",
+            &[("tool_name", &tool_name), ("major", &major)]
+        )),
     }
 }
 
@@ -575,10 +585,10 @@ fn steam_client_root(game_path: &Path) -> Result<PathBuf> {
         }
     }
 
-    anyhow::bail!(
-        "Steam's config.vdf could not be found for {}",
-        game_path.display()
-    )
+    anyhow::bail!(tr_fmt(
+        "Steam's config.vdf could not be found for {path}",
+        &[("path", &game_path.display())]
+    ))
 }
 
 fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {

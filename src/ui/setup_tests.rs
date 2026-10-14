@@ -1037,7 +1037,10 @@ fn a_panicking_button_shows_a_recoverable_error() {
 
     harness.get_by_label("Something Went Wrong");
     harness.get_by_label("Something broke.");
-    assert_eq!(harness.state_mut().flow.next_label(), Some("Try Again"));
+    assert_eq!(
+        harness.state_mut().flow.next_label(),
+        Some("Try Again".to_owned())
+    );
     assert_eq!(harness.state().flow.secondary(), None);
 
     std::fs::remove_file(dir.path().join("panic-steam")).unwrap();
@@ -1079,7 +1082,7 @@ fn a_panicking_back_button_shows_an_error() {
         setup.error.as_deref(),
         Some("Something went wrong while going back. Please try again.")
     );
-    assert_eq!(setup.next_label(), Some("Try Again"));
+    assert_eq!(setup.next_label(), Some("Try Again".to_owned()));
 }
 
 #[test]

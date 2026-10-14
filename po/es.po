@@ -1,0 +1,845 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: adventure-mods\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-14 12:17-0300\n"
+"PO-Revision-Date: 2026-10-14 00:00+0000\n"
+"Last-Translator: adventure-mods maintainers\n"
+"Language-Team: adventure-mods maintainers\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/cli.rs:260
+msgid "No supported games detected."
+msgstr "No se detectaron juegos compatibles."
+
+#: src/cli.rs:265
+msgid "Detected games:"
+msgstr "Juegos detectados:"
+
+#: src/cli.rs:276
+msgid "Inaccessible Steam libraries:"
+msgstr "Bibliotecas de Steam inaccesibles:"
+
+#: src/cli.rs:292 src/cli.rs:1025
+msgid "Game: {game}"
+msgstr "Juego: {game}"
+
+#: src/cli.rs:296
+msgid "Presets:"
+msgstr "Presets:"
+
+#: src/cli.rs:302
+msgid "Mods:"
+msgstr "Mods:"
+
+#: src/cli.rs:318
+msgid "Restoring {game} at {path}"
+msgstr "Restaurando {game} en {path}"
+
+#: src/cli.rs:328
+msgid "Nothing to restore: this game was not modified by setup."
+msgstr "Nada que restaurar: el setup no modificó este juego."
+
+#: src/cli.rs:336
+msgid ""
+"The game was converted to the 2004 version. Verify its files in Steam to get "
+"the Steam version back: {uri}"
+msgstr ""
+"El juego se convirtió a la versión 2004. Verificá sus archivos en Steam para "
+"recuperar la versión de Steam: {uri}"
+
+#: src/cli.rs:340
+msgid "Restore complete!"
+msgstr "¡Restauración completa!"
+
+#: src/cli.rs:409
+msgid "Setting up {game} at {path}"
+msgstr "Configurando {game} en {path}"
+
+#: src/cli.rs:471
+msgid "Setup complete!"
+msgstr "¡Configuración completa!"
+
+#: src/cli.rs:489
+msgid "Step {index}/{total}: {label}"
+msgstr "Paso {index}/{total}: {label}"
+
+#: src/cli.rs:504 src/cli.rs:541 src/cli.rs:735 src/ui/setup.rs:127
+#: src/ui/setup.rs:737
+msgid "Done"
+msgstr "Listo"
+
+#: src/cli.rs:618
+msgid "  {done} / {total} MB ({percent}%)"
+msgstr "  {done} / {total} MB ({percent}%)"
+
+#: src/cli.rs:628
+msgid "  {done} MB downloaded"
+msgstr "  {done} MB descargados"
+
+#: src/cli.rs:636
+msgid "    {mod}: {done} / {total} MB ({percent}%)"
+msgstr "    {mod}: {done} / {total} MB ({percent}%)"
+
+#: src/cli.rs:648
+msgid "    {mod}: {done} MB"
+msgstr "    {mod}: {done} MB"
+
+#: src/cli.rs:697
+msgid "  Starting: {mod}"
+msgstr "  Iniciando: {mod}"
+
+#: src/cli.rs:717
+msgid "  [{completed}/{total}] Installed: {mod}"
+msgstr "  [{completed}/{total}] Instalado: {mod}"
+
+#: src/cli.rs:727
+msgid "  Generating mod config..."
+msgstr "  Generando configuración de mods..."
+
+#: src/cli.rs:752
+msgid "Subtitle language '{value}' is not supported for {game}."
+msgstr "El idioma de subtítulos '{value}' no es compatible con {game}."
+
+#: src/cli.rs:764
+msgid "Subtitle language"
+msgstr "Idioma de subtítulos"
+
+#: src/cli.rs:777
+msgid "Voice language"
+msgstr "Idioma de voces"
+
+#: src/cli.rs:811
+msgid "Select game"
+msgstr "Seleccioná el juego"
+
+#: src/cli.rs:824 src/cli.rs:1074
+msgid "No supported games detected. Pass --game and --game-path."
+msgstr "No se detectaron juegos compatibles. Pasá --game y --game-path."
+
+#: src/cli.rs:833
+msgid "Select installation"
+msgstr "Seleccioná la instalación"
+
+#: src/cli.rs:869
+msgid "Select {game} installation"
+msgstr "Seleccioná la instalación de {game}"
+
+#: src/cli.rs:883
+msgid "Cannot use both --preset and --mods at the same time"
+msgstr "No se pueden usar --preset y --mods al mismo tiempo"
+
+#: src/cli.rs:886
+msgid "Cannot use --all-mods with --preset"
+msgstr "No se puede usar --all-mods con --preset"
+
+#: src/cli.rs:889
+msgid "Cannot use --all-mods with --mods"
+msgstr "No se puede usar --all-mods con --mods"
+
+#: src/cli.rs:927
+msgid "--mods requires at least one mod slug"
+msgstr "--mods necesita al menos un identificador de mod"
+
+#: src/cli.rs:942
+msgid ""
+"Unknown mod slug '{slug}'. Use 'list-mods --game {game}' to see valid slugs."
+msgstr ""
+"Identificador de mod desconocido '{slug}'. Usá 'list-mods --game {game}' "
+"para ver los válidos."
+
+#: src/cli.rs:971
+msgid "Install all recommended mods"
+msgstr "Instalar todos los mods recomendados"
+
+#: src/cli.rs:976
+msgid "Choose mods manually"
+msgstr "Elegir mods manualmente"
+
+#: src/cli.rs:978
+msgid "Choose setup mode"
+msgstr "Elegí el modo de configuración"
+
+#: src/cli.rs:996
+msgid "Select mods (space to toggle, enter to confirm)"
+msgstr "Seleccioná mods (espacio para marcar, enter para confirmar)"
+
+#: src/cli.rs:1002
+msgid "Select at least one mod."
+msgstr "Seleccioná al menos un mod."
+
+#: src/cli.rs:1010
+msgid "Invalid mod selection {number}"
+msgstr "Selección de mod inválida {number}"
+
+#: src/cli.rs:1023
+msgid "Summary"
+msgstr "Resumen"
+
+#: src/cli.rs:1029
+msgid "Path: {path}"
+msgstr "Ruta: {path}"
+
+#: src/cli.rs:1033
+msgid "Resolution: {width}x{height}"
+msgstr "Resolución: {width}x{height}"
+
+#: src/cli.rs:1037
+msgid "Subtitle language: {language}"
+msgstr "Idioma de subtítulos: {language}"
+
+#: src/cli.rs:1041
+msgid "Voice language: {language}"
+msgstr "Idioma de voces: {language}"
+
+#: src/cli.rs:1045
+msgid "Mods selected: {count}"
+msgstr "Mods seleccionados: {count}"
+
+#: src/cli.rs:1053
+msgid "Proceed with setup?"
+msgstr "¿Continuar con la configuración?"
+
+#: src/cli.rs:1054
+msgid "Setup cancelled"
+msgstr "Configuración cancelada"
+
+#: src/cli.rs:1067
+msgid ""
+"--game-path requires --game in non-interactive mode.\n"
+"Pass --game sadx or --game sa2."
+msgstr ""
+"--game-path necesita --game en modo no interactivo.\n"
+"Pasá --game sadx o --game sa2."
+
+#: src/cli.rs:1082
+msgid "Multiple games detected ({games}). Pass --game to select one."
+msgstr "Se detectaron varios juegos ({games}). Pasá --game para elegir uno."
+
+#: src/cli.rs:1099
+msgid "Game path does not exist or is not a directory: {path}"
+msgstr "La ruta del juego no existe o no es una carpeta: {path}"
+
+#: src/cli.rs:1114
+msgid ""
+"{path} does not appear to be a {game} installation (expected game executable)"
+msgstr ""
+"{path} no parece ser una instalación de {game} (falta el ejecutable del "
+"juego)"
+
+#: src/cli.rs:1148
+msgid "Multiple {game} installations detected. Pass --game-path to select one."
+msgstr ""
+"Se detectaron varias instalaciones de {game}. Pasá --game-path para elegir "
+"una."
+
+#: src/cli.rs:1163
+msgid ""
+"No mod selection specified. Pass --all-mods, --preset <name>, or --mods "
+"<slug1,slug2>.\n"
+"Use 'list-mods --game {game}' to see available mods and presets."
+msgstr ""
+"No se especificó una selección de mods. Pasá --all-mods, --preset <nombre> o "
+"--mods <slug1,slug2>.\n"
+"Usá 'list-mods --game {game}' para ver los mods y presets disponibles."
+
+#: src/cli.rs:1189
+msgid "Library folders file not found: {path}"
+msgstr "No se encontró el archivo de carpetas de bibliotecas: {path}"
+
+#: src/cli.rs:1214
+msgid "{game} was not detected. Pass --game-path."
+msgstr "No se detectó {game}. Pasá --game-path."
+
+#: src/cli.rs:1219
+msgid ""
+"{game} is in a Steam library that cannot be accessed: {paths}. Mount the "
+"drive, or grant access to it in the Adventure Mods window, or pass --steam-"
+"library or --game-path."
+msgstr ""
+"{game} está en una biblioteca de Steam a la que no se puede acceder: "
+"{paths}. Montá la unidad o dale acceso desde la ventana de Adventure Mods, o "
+"pasá --steam-library o --game-path."
+
+#: src/cli.rs:1232
+msgid "Unknown game '{game}'. Use 'sadx' or 'sa2'."
+msgstr "Juego desconocido '{game}'. Usá 'sadx' o 'sa2'."
+
+#: src/external/archive.rs:28
+msgid ""
+"Archive extraction failed for {archive} with {program}:\n"
+"{stdout}\n"
+"{stderr}"
+msgstr ""
+"Falló la extracción del archivo {archive} con {program}:\n"
+"{stdout}\n"
+"{stderr}"
+
+#: src/external/download.rs:256
+msgid "HTTP error {status} for {url}"
+msgstr "Error HTTP {status} para {url}"
+
+#: src/external/download.rs:314
+msgid ""
+"Server returned HTML instead of a file for {url}. The download link may be "
+"broken"
+msgstr ""
+"El servidor devolvió HTML en lugar de un archivo para {url}. Es posible que "
+"el enlace de descarga esté roto"
+
+#: src/external/download.rs:335
+msgid "HTTP error {status} for {url}: {snippet}"
+msgstr "Error HTTP {status} para {url}: {snippet}"
+
+#: src/external/download.rs:358
+msgid ""
+"GameBanana file pages do not expose a supported headless download path for "
+"file {file_id}"
+msgstr ""
+"Las páginas de archivos de GameBanana no ofrecen una descarga compatible sin "
+"interfaz para el archivo {file_id}"
+
+#: src/external/proton.rs:145
+msgid ""
+"Steam has not created this game's Proton prefix. Open the game from Steam "
+"once, wait for Proton to finish setting up, then close it and try again."
+msgstr ""
+"Steam todavía no creó el prefijo de Proton de este juego. Abrí el juego "
+"desde Steam una vez, esperá a que Proton termine de configurarse, cerralo y "
+"volvé a intentar."
+
+#: src/external/proton.rs:148
+msgid ""
+"This game's Proton prefix metadata is incomplete. Open the game from Steam "
+"once so Steam can repair it, then close the game and try again."
+msgstr ""
+"Los metadatos del prefijo de Proton de este juego están incompletos. Abrí el "
+"juego desde Steam una vez para que Steam lo repare, cerralo y volvé a "
+"intentar."
+
+#: src/external/proton.rs:151
+msgid ""
+"Steam's Proton configuration for this game is missing or unreadable. Force "
+"Proton 10.0 under Properties → Compatibility, open the game once, then close "
+"it and try again."
+msgstr ""
+"Falta la configuración de Proton de Steam para este juego o no se puede "
+"leer. Forzá Proton 10.0 en Propiedades → Compatibilidad, abrí el juego una "
+"vez, cerralo y volvé a intentar."
+
+#: src/external/proton.rs:157
+msgid ""
+"The Proton prefix uses {tool_name}, but its Wine executable is missing from "
+"{proton_dir}. Reinstall that Proton version in Steam, open the game once, "
+"then try again."
+msgstr ""
+"El prefijo de Proton usa {tool_name}, pero su ejecutable de Wine no está en "
+"{proton_dir}. Reinstalá esa versión de Proton desde Steam, abrí el juego una "
+"vez y volvé a intentar."
+
+#: src/external/proton.rs:167
+msgid ""
+"This game's Proton prefix still uses {prefix_tool}, but Steam is configured "
+"to use {configured_tool}. Open the game from Steam once so Steam can update "
+"the prefix, then try again."
+msgstr ""
+"El prefijo de Proton de este juego todavía usa {prefix_tool}, pero Steam "
+"está configurado para usar {configured_tool}. Abrí el juego desde Steam una "
+"vez para que Steam actualice el prefijo y volvé a intentar."
+
+#: src/external/proton.rs:174
+msgid ""
+"Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot "
+"run SA Mod Manager. In Steam: Properties → Compatibility → force Proton "
+"10.0, launch the game once, close it, then try again."
+msgstr ""
+"Steam está configurado para usar {tool_name} (Proton/Wine {major}), que no "
+"puede ejecutar SA Mod Manager. En Steam: Propiedades → Compatibilidad → "
+"forzá Proton 10.0, abrí el juego una vez, cerralo y volvé a intentar."
+
+#: src/external/proton.rs:178
+msgid ""
+"This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which "
+"cannot run SA Mod Manager. In Steam: Properties → Compatibility → force "
+"Proton 10.0, launch the game once, close it, then try again."
+msgstr ""
+"El prefijo de Proton de este juego usa {tool_name} (Proton/Wine {major}), "
+"que no puede ejecutar SA Mod Manager. En Steam: Propiedades → Compatibilidad "
+"→ forzá Proton 10.0, abrí el juego una vez, cerralo y volvé a intentar."
+
+#: src/external/proton.rs:589
+msgid "Steam's config.vdf could not be found for {path}"
+msgstr "No se encontró config.vdf de Steam en {path}"
+
+#: src/external/runtime_installer.rs:172
+msgid ""
+".NET Desktop Runtime {major} installation failed (code {code}): {stderr}"
+msgstr ""
+"Falló la instalación de .NET Desktop Runtime {major} (código {code}): "
+"{stderr}"
+
+#: src/setup/common.rs:296
+msgid "SAModManager.exe not found in release archive"
+msgstr "No se encontró SAModManager.exe en el archivo de la versión"
+
+#: src/setup/common.rs:411
+msgid "Mod loader DLL not found at {path}"
+msgstr "No se encontró la DLL del cargador de mods en {path}"
+
+#: src/setup/common.rs:930
+msgid ""
+"Expected archive to contain a single top-level mod directory, found {count} "
+"entries"
+msgstr ""
+"Se esperaba que el archivo tuviera una única carpeta de mod en el nivel "
+"superior, pero tiene {count} entradas"
+
+#: src/setup/config.rs:54
+msgid "Unknown subtitle language '{value}'"
+msgstr "Idioma de subtítulos desconocido '{value}'"
+
+#: src/setup/config.rs:109
+msgid "Unknown voice language '{value}'"
+msgstr "Idioma de voces desconocido '{value}'"
+
+#: src/setup/sadx_config.rs:42
+msgid "Subtitle language '{language}' is not supported for SADX"
+msgstr "El idioma de subtítulos '{language}' no es compatible con SADX"
+
+#: src/setup/steps.rs:27
+msgid "Install .NET Runtime"
+msgstr "Instalar .NET Runtime"
+
+#: src/setup/steps.rs:28
+msgid "Convert Steam to 2004"
+msgstr "Convertir Steam a 2004"
+
+#: src/setup/steps.rs:29
+msgid "Install Mod Manager & Loader"
+msgstr "Instalar Mod Manager y Loader"
+
+#: src/setup/steps.rs:30
+msgid "Install Mods & Generate Config"
+msgstr "Instalar mods y generar configuración"
+
+#: src/setup/steps.rs:101
+msgid "Set Up Proton"
+msgstr "Configurar Proton"
+
+#: src/setup/steps.rs:104
+msgid ""
+"In Steam, open Sonic Adventure DX's Properties → Compatibility and force "
+"Proton 10.0. Launch the game once, close it, then check again."
+msgstr ""
+"En Steam, abrí Propiedades → Compatibilidad de Sonic Adventure DX y forzá "
+"Proton 10.0. Abrí el juego una vez, cerralo y volvé a revisar."
+
+#: src/setup/steps.rs:107
+msgid ""
+"In Steam, open Sonic Adventure 2's Properties → Compatibility and force "
+"Proton 10.0. Launch the game once, close it, then check again."
+msgstr ""
+"En Steam, abrí Propiedades → Compatibilidad de Sonic Adventure 2 y forzá "
+"Proton 10.0. Abrí el juego una vez, cerralo y volvé a revisar."
+
+#: src/setup/steps.rs:114
+msgid "Choose Mods"
+msgstr "Elegir mods"
+
+#: src/setup/steps.rs:115
+msgid "Pick a preset or choose mods one by one."
+msgstr "Elegí un preset o elegí los mods uno por uno."
+
+#: src/setup/steps.rs:120
+msgid "Languages"
+msgstr "Idiomas"
+
+#: src/setup/steps.rs:121
+msgid "Choose the languages for subtitles and voices."
+msgstr "Elegí los idiomas para subtítulos y voces."
+
+#: src/setup/steps.rs:126
+msgid ".NET Runtimes"
+msgstr "Runtimes de .NET"
+
+#: src/setup/steps.rs:127
+msgid "Versions 8 and 10, installed or updated"
+msgstr "Versiones 8 y 10, instaladas o actualizadas"
+
+#: src/setup/steps.rs:135
+msgid "2004 Version"
+msgstr "Versión 2004"
+
+#: src/setup/steps.rs:136
+msgid "Converts the Steam version for the mod loader"
+msgstr "Convierte la versión de Steam para el cargador de mods"
+
+#: src/setup/steps.rs:144
+msgid "Mod Manager and Loader"
+msgstr "Mod Manager y Loader"
+
+#: src/setup/steps.rs:145
+msgid "Installed or updated to the latest release"
+msgstr "Instalado o actualizado a la última versión"
+
+#: src/setup/steps.rs:150
+msgid "Mods"
+msgstr "Mods"
+
+#: src/setup/steps.rs:151
+msgid "Installed or updated, then set up"
+msgstr "Instalados o actualizados, y después configurados"
+
+#: src/setup/steps.rs:156
+msgid "Ready to Play"
+msgstr "Listo para jugar"
+
+#: src/setup/steps.rs:159
+msgid ""
+"Start Sonic Adventure DX from Steam. The mod manager opens first, so you can "
+"turn mods on or off before playing."
+msgstr ""
+"Iniciá Sonic Adventure DX desde Steam. Primero se abre el gestor de mods, "
+"así podés activar o desactivar mods antes de jugar."
+
+#: src/setup/steps.rs:162
+msgid ""
+"Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can "
+"turn mods on or off before playing."
+msgstr ""
+"Iniciá Sonic Adventure 2 desde Steam. Primero se abre el gestor de mods, así "
+"podés activar o desactivar mods antes de jugar."
+
+#: src/steam/library.rs:472
+msgid "Failed to parse {path}"
+msgstr "No se pudo leer {path}"
+
+#: src/ui/app.rs:227
+msgid "Failed to detect Steam libraries: {err}"
+msgstr "No se pudieron detectar las bibliotecas de Steam: {err}"
+
+#: src/ui/app.rs:273
+msgid ""
+"That folder is not the requested Steam library. Select {path} (it must "
+"contain a steamapps folder)."
+msgstr ""
+"Esa carpeta no es la biblioteca de Steam pedida. Seleccioná {path} (tiene "
+"que contener una carpeta steamapps)."
+
+#: src/ui/app.rs:309
+msgid "{game} was restored."
+msgstr "{game} fue restaurado."
+
+#: src/ui/app.rs:320
+msgid "Could not restore {game}: {err}"
+msgstr "No se pudo restaurar {game}: {err}"
+
+#: src/ui/app.rs:663
+msgid "About"
+msgstr "Acerca de"
+
+#: src/ui/app.rs:671
+msgid "Scan Again"
+msgstr "Buscar de nuevo"
+
+#: src/ui/app.rs:691
+msgid "Select"
+msgstr "Seleccionar"
+
+#: src/ui/app.rs:692 src/ui/widgets.rs:123
+msgid "Back"
+msgstr "Atrás"
+
+#: src/ui/app.rs:694
+msgid "Other action"
+msgstr "Otra acción"
+
+#: src/ui/app.rs:695 src/ui/setup.rs:740 src/ui/setup.rs:746
+msgid "Continue"
+msgstr "Continuar"
+
+#: src/ui/app.rs:697
+msgid "Scan again"
+msgstr "Buscar de nuevo"
+
+#: src/ui/app.rs:768
+msgid "DEVEL"
+msgstr "DEVEL"
+
+#: src/ui/app.rs:777
+msgid "Restore the original {game}?"
+msgstr "¿Restaurar el {game} original?"
+
+#: src/ui/app.rs:778
+msgid ""
+"This puts back the game's original launcher and removes the mod loader, so "
+"Steam starts the unmodded game. Downloaded mods stay in the mods folder and "
+"are reused if you set the game up again."
+msgstr ""
+"Esto vuelve a poner el lanzador original del juego y quita el cargador de "
+"mods, así Steam inicia el juego sin modificar. Los mods descargados quedan "
+"en la carpeta de mods y se reutilizan si volvés a configurar el juego."
+
+#: src/ui/app.rs:780 src/ui/dialogs.rs:161 src/ui/setup.rs:714
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: src/ui/app.rs:781 src/ui/welcome.rs:125
+msgid "Restore"
+msgstr "Restaurar"
+
+#: src/ui/app.rs:789
+msgid "Finish in Steam"
+msgstr "Terminar en Steam"
+
+#: src/ui/app.rs:790
+msgid ""
+"Setup converted {game} to the 2004 version. Let Steam verify the game files "
+"to get the original Steam version back."
+msgstr ""
+"La configuración convirtió {game} a la versión 2004. Dejá que Steam "
+"verifique los archivos del juego para recuperar la versión original de Steam."
+
+#: src/ui/app.rs:792
+msgid "Later"
+msgstr "Más tarde"
+
+#: src/ui/app.rs:793 src/ui/welcome.rs:122
+msgid "Verify in Steam"
+msgstr "Verificar en Steam"
+
+#: src/ui/app.rs:801
+msgid ""
+"The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux."
+msgstr ""
+"La forma más fácil de modificar Sonic Adventure DX y Sonic Adventure 2 en "
+"Linux."
+
+#: src/ui/app.rs:804
+msgid "Report an Issue"
+msgstr "Reportar un problema"
+
+#: src/ui/app.rs:805
+msgid "Close"
+msgstr "Cerrar"
+
+#: src/ui/app.rs:814
+msgid "Made with {heart} by astro"
+msgstr "Hecho con {heart} por astro"
+
+#: src/ui/progress.rs:198
+msgid "Generating config... ({total}/{total})"
+msgstr "Generando configuración... ({total}/{total})"
+
+#: src/ui/progress.rs:254 src/ui/progress.rs:420
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: src/ui/progress.rs:285
+msgid "{status} - {bytes_text}"
+msgstr "{status} - {bytes_text}"
+
+#: src/ui/progress.rs:292
+msgid "Starting {mod_name}..."
+msgstr "Iniciando {mod_name}..."
+
+#: src/ui/progress.rs:297
+msgid "Installed {mod_name} ({completed}/{total})"
+msgstr "{mod_name} instalado ({completed}/{total})"
+
+#: src/ui/progress.rs:309
+msgid "{downloaded} / {total} MB"
+msgstr "{downloaded} / {total} MB"
+
+#: src/ui/progress.rs:338
+msgid "Downloading mods - {bytes_text}"
+msgstr "Descargando mods - {bytes_text}"
+
+#: src/ui/progress.rs:415
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: src/ui/progress.rs:435
+msgid "No mods selected"
+msgstr "No hay mods seleccionados"
+
+#: src/ui/progress.rs:438
+msgid "Checking download size…"
+msgstr "Calculando el tamaño de descarga…"
+
+#: src/ui/progress.rs:458
+msgid ", 1 already installed"
+msgstr ", 1 ya instalado"
+
+#: src/ui/progress.rs:459
+msgid ", {n} already installed"
+msgstr ", {n} ya instalados"
+
+#: src/ui/progress.rs:463
+msgid "Everything selected is already installed"
+msgstr "Todo lo seleccionado ya está instalado"
+
+#: src/ui/progress.rs:466
+msgid "Download size unknown{installed_note}"
+msgstr "Tamaño de descarga desconocido{installed_note}"
+
+#: src/ui/progress.rs:471
+msgid "At least {size} to download{installed_note}"
+msgstr "Al menos {size} para descargar{installed_note}"
+
+#: src/ui/progress.rs:479
+msgid "{size} to download{installed_note}"
+msgstr "{size} para descargar{installed_note}"
+
+#: src/ui/setup.rs:128
+msgid "Failed"
+msgstr "Falló"
+
+#: src/ui/setup.rs:410
+msgid "Downloading in the background"
+msgstr "Descargando en segundo plano"
+
+#: src/ui/setup.rs:474
+msgid "Finishing downloads…"
+msgstr "Terminando descargas…"
+
+#: src/ui/setup.rs:709
+msgid "Play in Steam"
+msgstr "Jugar en Steam"
+
+#: src/ui/setup.rs:712
+msgid "Cancelling…"
+msgstr "Cancelando…"
+
+#: src/ui/setup.rs:732
+msgid "Try Again"
+msgstr "Intentar de nuevo"
+
+#: src/ui/setup.rs:742
+msgid "Check Again"
+msgstr "Revisar de nuevo"
+
+#: src/ui/setup.rs:745 src/ui/welcome.rs:379
+msgid "Install"
+msgstr "Instalar"
+
+#: src/ui/setup.rs:796
+msgid "Installing"
+msgstr "Instalando"
+
+#: src/ui/setup.rs:802
+msgid "{game} · Step {position} of {total}"
+msgstr "{game} · Paso {position} de {total}"
+
+#: src/ui/setup.rs:901
+msgid "Something went wrong while going back. Please try again."
+msgstr "Algo salió mal al volver. Probá de nuevo."
+
+#: src/ui/setup.rs:927
+msgid "Something went wrong while continuing setup. Please try again."
+msgstr "Algo salió mal al continuar la configuración. Probá de nuevo."
+
+#: src/ui/setup.rs:939
+msgid "Something went wrong. Please try again."
+msgstr "Algo salió mal. Probá de nuevo."
+
+#: src/ui/setup.rs:953
+msgid "Something Went Wrong"
+msgstr "Algo salió mal"
+
+#: src/ui/setup.rs:977
+msgid "Proton Is Ready"
+msgstr "Proton está listo"
+
+#: src/ui/setup.rs:985
+msgid "Proton 10 Needed"
+msgstr "Hace falta Proton 10"
+
+#: src/ui/setup.rs:1032 src/ui/setup.rs:1187
+msgid "Preset"
+msgstr "Preset"
+
+#: src/ui/setup.rs:1038 src/ui/setup.rs:1063
+msgid "Subtitles"
+msgstr "Subtítulos"
+
+#: src/ui/setup.rs:1043 src/ui/setup.rs:1066
+msgid "Voices"
+msgstr "Voces"
+
+#: src/ui/setup.rs:1121
+msgid "Starting…"
+msgstr "Iniciando…"
+
+#: src/ui/setup.rs:1128
+msgid "Setup Didn't Finish"
+msgstr "La configuración no terminó"
+
+#: src/ui/setup.rs:1132
+msgid "Try again, or go back to change your choices."
+msgstr "Probá de nuevo o volvé atrás para cambiar tus elecciones."
+
+#: src/ui/setup.rs:1133
+msgid "Details"
+msgstr "Detalles"
+
+#: src/ui/setup.rs:1188
+msgid "Custom"
+msgstr "Personalizado"
+
+#: src/ui/setup.rs:1298
+msgid "Before"
+msgstr "Antes"
+
+#: src/ui/setup.rs:1300
+msgid "After"
+msgstr "Después"
+
+#: src/ui/setup.rs:1413
+msgid "Downloading..."
+msgstr "Descargando..."
+
+#: src/ui/welcome.rs:40
+msgid "{path} (Needs access)"
+msgstr "{path} (requiere acceso)"
+
+#: src/ui/welcome.rs:109
+msgid "Install it in Steam, then scan again."
+msgstr "Instalalo en Steam y después buscá de nuevo."
+
+#: src/ui/welcome.rs:111
+msgid "Let Steam verify the game files to finish restoring it."
+msgstr ""
+"Dejá que Steam verifique los archivos del juego para terminar de restaurarlo."
+
+#: src/ui/welcome.rs:120
+msgid "Grant Access"
+msgstr "Dar acceso"
+
+#: src/ui/welcome.rs:122 src/ui/welcome.rs:127
+msgid "Set Up"
+msgstr "Configurar"
+
+#: src/ui/welcome.rs:125
+msgid "Change Mods"
+msgstr "Cambiar mods"
+
+#: src/ui/welcome.rs:380
+msgid "Choose which install to set up"
+msgstr "Elegí qué instalación configurar"
+
+#: src/ui/welcome.rs:417
+msgid "{game} Install"
+msgstr "Instalación de {game}"
+
+#: src/ui/welcome.rs:504
+msgid ""
+"Adventure Mods needs access to the Steam library with {games}. Use Grant "
+"Access on the game below."
+msgstr ""
+"Adventure Mods necesita acceso a la biblioteca de Steam con {games}. Usá Dar "
+"acceso en el juego de abajo."

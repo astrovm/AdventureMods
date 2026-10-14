@@ -766,6 +766,8 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
 
     let binary = env!("CARGO_BIN_EXE_adventure-mods");
     let output = Command::new(binary)
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .args([
             "setup",
             "--game",
@@ -806,6 +808,8 @@ fn interactive_setup_can_be_cancelled_via_tty() {
     );
 
     let mut child = Command::new(script)
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .args(["-qfec", &command, "/dev/null"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -902,6 +906,8 @@ fn interactive_sa2_setup_completes_via_tty() {
     );
 
     let mut child = Command::new(script)
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .args(["-qfec", &command, "/dev/null"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1020,6 +1026,8 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
     );
 
     let mut child = Command::new(script)
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .args(["-qfec", &command, "/dev/null"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -1579,6 +1587,8 @@ fn setup_surfaces_steam_conversion_failures() {
 fn gui_launch_without_a_display_exits_with_an_error() {
     let tmp = tempfile::tempdir().unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_adventure-mods"))
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .current_dir(tmp.path())
         .env_remove("DISPLAY")
         .env_remove("WAYLAND_DISPLAY")
@@ -1602,6 +1612,8 @@ fn run_on_tty(args: &str, input: &[u8]) -> Option<(bool, String)> {
     Command::new("script").arg("--version").output().ok()?;
     let command = format!("\"{}\" {args}", env!("CARGO_BIN_EXE_adventure-mods"));
     let mut child = Command::new("script")
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .args(["-qfec", &command, "/dev/null"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

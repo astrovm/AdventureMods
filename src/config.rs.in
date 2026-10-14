@@ -1,3 +1,4 @@
 pub const APP_ID: &str = @APP_ID@;
 pub const APP_NAME: &str = @APP_NAME@;
 pub const PROFILE: &str = @PROFILE@;
+pub const LOCALEDIR: &str = @LOCALEDIR@;

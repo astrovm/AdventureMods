@@ -9,6 +9,7 @@ use super::dialogs::{Answer, ChoiceDialog};
 use super::images::{self, ImageCache, cover_resource};
 use super::widgets::{self, ButtonKind, Tone};
 use super::{motion, theme};
+use crate::i18n::{tr, tr_fmt};
 use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
@@ -35,7 +36,10 @@ impl GameInstallOption {
         if self.is_accessible() {
             display_path(self.path())
         } else {
-            format!("{} (Needs access)", display_path(self.path()))
+            tr_fmt(
+                "{path} (Needs access)",
+                &[("path", &display_path(self.path()))],
+            )
         }
     }
 }
@@ -100,25 +104,27 @@ impl GameCard {
 
     /// A line under the name, only when the user has to do something the
     /// buttons don't already say.
-    fn note(&self) -> Option<&'static str> {
+    fn note(&self) -> Option<String> {
         match self.selected_option() {
-            None => Some("Install it in Steam, then scan again."),
-            Some(GameInstallOption::Detected(_)) if self.steam_repair => {
-                Some("Let Steam verify the game files to finish restoring it.")
-            }
+            None => Some(tr("Install it in Steam, then scan again.")),
+            Some(GameInstallOption::Detected(_)) if self.steam_repair => Some(tr(
+                "Let Steam verify the game files to finish restoring it.",
+            )),
             Some(_) => None,
         }
     }
 
     /// The main button's label and, when there is one, the second button's.
-    fn actions(&self) -> Option<(&'static str, Option<&'static str>)> {
+    fn actions(&self) -> Option<(String, Option<String>)> {
         match self.selected_option()? {
-            GameInstallOption::Inaccessible(_) => Some(("Grant Access", None)),
+            GameInstallOption::Inaccessible(_) => Some((tr("Grant Access"), None)),
             GameInstallOption::Detected(_) if self.steam_repair => {
-                Some(("Verify in Steam", Some("Set Up")))
+                Some((tr("Verify in Steam"), Some(tr("Set Up"))))
             }
-            GameInstallOption::Detected(_) if self.modded => Some(("Change Mods", Some("Restore"))),
-            GameInstallOption::Detected(_) => Some(("Set Up", None)),
+            GameInstallOption::Detected(_) if self.modded => {
+                Some((tr("Change Mods"), Some(tr("Restore"))))
+            }
+            GameInstallOption::Detected(_) => Some((tr("Set Up"), None)),
         }
     }
 
@@ -370,8 +376,8 @@ impl WelcomeScreen {
             && let Some(option) = card.selected_option()
         {
             ui.allocate_ui(Vec2::new(ui.available_width().min(520.0), 0.0), |ui| {
-                if widgets::choice_row(ui, "Install", &option.selector_label())
-                    .on_hover_text("Choose which install to set up")
+                if widgets::choice_row(ui, &tr("Install"), &option.selector_label())
+                    .on_hover_text(tr("Choose which install to set up"))
                     .clicked()
                 {
                     open_picker = true;
@@ -383,7 +389,7 @@ impl WelcomeScreen {
         {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                let response = widgets::button_sized(ui, primary, ButtonKind::Suggested, 220.0)
+                let response = widgets::button_sized(ui, &primary, ButtonKind::Suggested, 220.0)
                     .on_hover_text(display_path(option.path()));
                 if std::mem::take(&mut self.focus_first) {
                     response.request_focus();
@@ -392,7 +398,7 @@ impl WelcomeScreen {
                     action = card.primary_action();
                 }
                 if let Some(secondary) = secondary
-                    && widgets::button_sized(ui, secondary, ButtonKind::Normal, 160.0).clicked()
+                    && widgets::button_sized(ui, &secondary, ButtonKind::Normal, 160.0).clicked()
                 {
                     action = card.secondary_action();
                 }
@@ -408,7 +414,7 @@ impl WelcomeScreen {
                 index,
                 ChoiceDialog::new(
                     "install-picker",
-                    format!("{} Install", card.kind.name()),
+                    tr_fmt("{game} Install", &[("game", &card.kind.name())]),
                     options,
                     Some(card.selected),
                 ),
@@ -494,9 +500,9 @@ fn inaccessible_alert(inaccessible: &[InaccessibleGame]) -> Option<String> {
         }
     }
     (!names.is_empty()).then(|| {
-        format!(
-            "Adventure Mods needs access to the Steam library with {}. Use Grant Access on the game below.",
-            names.join(" and ")
+        tr_fmt(
+            "Adventure Mods needs access to the Steam library with {games}. Use Grant Access on the game below.",
+            &[("games", &names.join(" and "))],
         )
     })
 }
@@ -596,7 +602,7 @@ mod tests {
         assert_eq!(cards[1].state, CardState::Detected);
         assert_eq!(
             cards[0].note(),
-            Some("Install it in Steam, then scan again.")
+            Some("Install it in Steam, then scan again.".to_owned())
         );
         assert!(cards[0].actions().is_none());
         assert!(cards[0].primary_action().is_none());
@@ -613,7 +619,7 @@ mod tests {
         let card = &cards[0];
         assert_eq!(card.state, CardState::Inaccessible);
         assert_eq!(card.note(), None, "the Grant Access button says it");
-        assert_eq!(card.actions(), Some(("Grant Access", None)));
+        assert_eq!(card.actions(), Some(("Grant Access".to_owned(), None)));
         assert_eq!(
             card.primary_action(),
             Some(WelcomeAction::GrantAccess("/mnt/steam".into()))
@@ -674,9 +680,12 @@ mod tests {
         assert!(card.steam_repair);
         assert_eq!(
             card.note(),
-            Some("Let Steam verify the game files to finish restoring it.")
+            Some("Let Steam verify the game files to finish restoring it.".to_owned())
         );
-        assert_eq!(card.actions(), Some(("Verify in Steam", Some("Set Up"))));
+        assert_eq!(
+            card.actions(),
+            Some(("Verify in Steam".to_owned(), Some("Set Up".to_owned())))
+        );
         assert_eq!(
             card.primary_action(),
             Some(WelcomeAction::VerifyInSteam(GameKind::SADX))
@@ -693,7 +702,10 @@ mod tests {
         card.steam_repair = false;
         card.modded = true;
         assert_eq!(card.note(), None);
-        assert_eq!(card.actions(), Some(("Change Mods", Some("Restore"))));
+        assert_eq!(
+            card.actions(),
+            Some(("Change Mods".to_owned(), Some("Restore".to_owned())))
+        );
         assert_eq!(
             card.secondary_action(),
             Some(WelcomeAction::ConfirmRestore(GameKind::SADX, path))

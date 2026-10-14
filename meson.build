@@ -32,6 +32,8 @@ conf.set('APP_NAME_RAW', app_name)
 conf.set_quoted('APP_ID', app_id)
 conf.set_quoted('APP_NAME', app_name)
 conf.set_quoted('PROFILE', profile)
+conf.set_quoted('LOCALEDIR', prefix / get_option('localedir'))
 
 subdir('data')
+subdir('po')
 subdir('src')

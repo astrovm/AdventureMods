@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use crate::i18n::{tr, tr_fmt};
 use crate::setup::{common, config, pipeline};
 
 pub(crate) enum ProgressMsg {
@@ -193,7 +194,10 @@ impl ProgressState {
                 ProgressDisplay {
                     fraction: Some(1.0),
                     pulse: false,
-                    text: format!("Generating config... ({total}/{total})"),
+                    text: tr_fmt(
+                        "Generating config... ({total}/{total})",
+                        &[("total", &total)],
+                    ),
                 }
             }
         };
@@ -247,7 +251,7 @@ pub(crate) fn format_mb_value(bytes: u64) -> String {
 }
 
 pub(crate) fn format_mb(bytes: u64) -> String {
-    format!("{} MB", format_mb_value(bytes))
+    tr_fmt("{size} MB", &[("size", &format_mb_value(bytes))])
 }
 
 pub(crate) fn mod_download_fraction(
@@ -277,24 +281,36 @@ pub(crate) fn format_step_download_text(
     if status.is_empty() {
         bytes_text
     } else {
-        format!("{status} - {bytes_text}")
+        tr_fmt(
+            "{status} - {bytes_text}",
+            &[("status", &status), ("bytes_text", &bytes_text)],
+        )
     }
 }
 
 pub(crate) fn mod_download_start_text(mod_name: &str) -> String {
-    format!("Starting {mod_name}...")
+    tr_fmt("Starting {mod_name}...", &[("mod_name", &mod_name)])
 }
 
 pub(crate) fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) -> String {
-    format!("Installed {mod_name} ({completed}/{total})")
+    tr_fmt(
+        "Installed {mod_name} ({completed}/{total})",
+        &[
+            ("mod_name", &mod_name),
+            ("completed", &completed),
+            ("total", &total),
+        ],
+    )
 }
 
 pub(crate) fn format_download_bytes_text(downloaded: u64, total: Option<u64>) -> String {
     if let Some(total) = total {
-        format!(
-            "{} / {} MB",
-            format_mb_value(downloaded),
-            format_mb_value(total)
+        tr_fmt(
+            "{downloaded} / {total} MB",
+            &[
+                ("downloaded", &format_mb_value(downloaded)),
+                ("total", &format_mb_value(total)),
+            ],
         )
     } else {
         format_mb(downloaded)
@@ -318,7 +334,10 @@ pub(crate) fn mod_download_progress_update(
     ModDownloadProgressUpdate {
         fraction: mod_download_fraction(completed, total, downloaded, total_bytes),
         pulse: total_bytes.is_none(),
-        text: format!("Downloading mods - {bytes_text}"),
+        text: tr_fmt(
+            "Downloading mods - {bytes_text}",
+            &[("bytes_text", &bytes_text)],
+        ),
     }
 }
 
@@ -392,9 +411,18 @@ pub(crate) fn resolution_or_fallback(resolution: Option<(u32, u32)>) -> (u32, u3
 
 pub(crate) fn format_download_size(bytes: u64) -> String {
     if bytes >= 1_000_000_000 {
-        format!("{:.1} GB", bytes as f64 / 1_000_000_000.0)
+        tr_fmt(
+            "{size} GB",
+            &[("size", &format!("{:.1}", bytes as f64 / 1_000_000_000.0))],
+        )
     } else {
-        format!("{} MB", (bytes as f64 / 1_000_000.0).ceil().max(1.0) as u64)
+        tr_fmt(
+            "{size} MB",
+            &[(
+                "size",
+                &((bytes as f64 / 1_000_000.0).ceil().max(1.0) as u64),
+            )],
+        )
     }
 }
 
@@ -404,10 +432,10 @@ pub(crate) fn download_size_text(
     selected: &[usize],
 ) -> String {
     if selected.is_empty() {
-        return "No mods selected".to_owned();
+        return tr("No mods selected");
     }
     let Some(estimates) = estimates else {
-        return "Checking download size…".to_owned();
+        return tr("Checking download size…");
     };
 
     let chosen: Vec<_> = selected
@@ -427,23 +455,32 @@ pub(crate) fn download_size_text(
 
     let installed_note = match installed {
         0 => String::new(),
-        1 => ", 1 already installed".to_owned(),
-        n => format!(", {n} already installed"),
+        1 => tr(", 1 already installed"),
+        n => tr_fmt(", {n} already installed", &[("n", &n)]),
     };
 
     if to_download.is_empty() {
-        "Everything selected is already installed".to_owned()
+        tr("Everything selected is already installed")
     } else if known == 0 {
-        format!("Download size unknown{installed_note}")
+        tr_fmt(
+            "Download size unknown{installed_note}",
+            &[("installed_note", &installed_note)],
+        )
     } else if unknown {
-        format!(
-            "At least {} to download{installed_note}",
-            format_download_size(known)
+        tr_fmt(
+            "At least {size} to download{installed_note}",
+            &[
+                ("size", &format_download_size(known)),
+                ("installed_note", &installed_note),
+            ],
         )
     } else {
-        format!(
-            "{} to download{installed_note}",
-            format_download_size(known)
+        tr_fmt(
+            "{size} to download{installed_note}",
+            &[
+                ("size", &format_download_size(known)),
+                ("installed_note", &installed_note),
+            ],
         )
     }
 }

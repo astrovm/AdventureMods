@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 fn run_app(home: &Path, configure: impl FnOnce(&mut Command)) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_adventure-mods"));
     command
+        .env("LC_ALL", "C")
+        .env("LANGUAGE", "en")
         .env("HOME", home)
         .env("XDG_CONFIG_HOME", home.join("config"))
         .env("XDG_DATA_HOME", home.join("data"))

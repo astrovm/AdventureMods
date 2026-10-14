@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
+use crate::i18n::tr_fmt;
 use anyhow::{Context, Result};
 
 const ARCHIVE_PROGRAM: &str = "7zz";
@@ -23,13 +24,15 @@ pub fn extract(archive: &Path, dest: &Path) -> Result<()> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        anyhow::bail!(
-            "Archive extraction failed for {} with {}:\n{}\n{}",
-            archive.display(),
-            program.display(),
-            stdout,
-            stderr,
-        );
+        anyhow::bail!(tr_fmt(
+            "Archive extraction failed for {archive} with {program}:\n{stdout}\n{stderr}",
+            &[
+                ("archive", &archive.display()),
+                ("program", &program.display()),
+                ("stdout", &stdout),
+                ("stderr", &stderr),
+            ]
+        ));
     }
 
     Ok(())

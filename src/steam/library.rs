@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use crate::i18n::tr_fmt;
 use crate::steam::game::{Game, GameKind};
 use crate::steam::vdf;
 use anyhow::Context;
@@ -466,8 +467,12 @@ pub fn detect_games_from_vdf_strict(
     let content = std::fs::read_to_string(vdf_path)
         .with_context(|| format!("Failed to read {}", vdf_path.display()))?;
 
-    let root = vdf::parse(&content)
-        .ok_or_else(|| anyhow::anyhow!("Failed to parse {}", vdf_path.display()))?;
+    let root = vdf::parse(&content).ok_or_else(|| {
+        anyhow::anyhow!(tr_fmt(
+            "Failed to parse {path}",
+            &[("path", &vdf_path.display())]
+        ))
+    })?;
 
     Ok(detect_games_from_parsed_vdfs(&[root], extra_libraries))
 }

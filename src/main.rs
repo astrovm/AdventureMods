@@ -5,6 +5,7 @@ use adventure_mods::ui::app::{AdventureModsApp, EframeApp, Services, WindowState
 use adventure_mods::ui::gamepad::Gamepad;
 
 fn main() -> ExitCode {
+    adventure_mods::i18n::init();
     run_application(std::env::args().collect(), run_gui)
 }
 

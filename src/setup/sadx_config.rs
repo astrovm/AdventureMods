@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::i18n::tr_fmt;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
@@ -37,10 +38,10 @@ fn validate_language_selection(language_selection: config::LanguageSelection) ->
     if !config::SubtitleLanguage::supported_for(GameKind::SADX)
         .contains(&language_selection.subtitle)
     {
-        anyhow::bail!(
-            "Subtitle language '{}' is not supported for SADX",
-            language_selection.subtitle.as_str()
-        );
+        anyhow::bail!(tr_fmt(
+            "Subtitle language '{language}' is not supported for SADX",
+            &[("language", &language_selection.subtitle.as_str())]
+        ));
     }
 
     Ok(())

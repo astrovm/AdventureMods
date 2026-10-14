@@ -3,6 +3,8 @@
 
 use egui::{Id, Modal, RichText};
 
+use crate::i18n::tr;
+
 use super::theme;
 use super::widgets::{self, ButtonKind};
 
@@ -156,7 +158,7 @@ impl ChoiceDialog {
                         }
                         ui.add_space(widgets::FOCUS_RING_OUTSET);
                     });
-                if widgets::button(ui, "Cancel", ButtonKind::Normal).clicked() {
+                if widgets::button(ui, &tr("Cancel"), ButtonKind::Normal).clicked() {
                     picked = Some(usize::MAX);
                 }
                 picked
