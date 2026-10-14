@@ -61,7 +61,19 @@ fn fill(template: &str, args: &[(&str, &dyn Display)]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::fill;
+    use super::{fill, trn};
+
+    #[test]
+    fn trn_picks_singular_only_for_one() {
+        assert_eq!(trn("one mod", "many mods", 1), "one mod");
+        assert_eq!(trn("one mod", "many mods", 0), "many mods");
+        assert_eq!(trn("one mod", "many mods", 2), "many mods");
+    }
+
+    #[test]
+    fn trn_clamps_counts_too_large_for_gettext() {
+        assert_eq!(trn("one mod", "many mods", u64::MAX), "many mods");
+    }
 
     #[test]
     fn fill_replaces_named_placeholders_and_keeps_other_braces() {
