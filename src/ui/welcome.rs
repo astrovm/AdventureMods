@@ -13,6 +13,7 @@ use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
+use crate::{tr, trc, trf};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum GameInstallOption {
@@ -35,7 +36,7 @@ impl GameInstallOption {
         if self.is_accessible() {
             display_path(self.path())
         } else {
-            format!("{} (Needs access)", display_path(self.path()))
+            trf!("{path} (Needs access)", path = display_path(self.path()))
         }
     }
 }
@@ -102,10 +103,10 @@ impl GameCard {
     /// buttons don't already say.
     fn note(&self) -> Option<&'static str> {
         match self.selected_option() {
-            None => Some("Install it in Steam, then scan again."),
-            Some(GameInstallOption::Detected(_)) if self.steam_repair => {
-                Some("Let Steam verify the game files to finish restoring it.")
-            }
+            None => Some(tr!("Install it in Steam, then scan again.")),
+            Some(GameInstallOption::Detected(_)) if self.steam_repair => Some(tr!(
+                "Let Steam verify the game files to finish restoring it."
+            )),
             Some(_) => None,
         }
     }
@@ -113,12 +114,14 @@ impl GameCard {
     /// The main button's label and, when there is one, the second button's.
     fn actions(&self) -> Option<(&'static str, Option<&'static str>)> {
         match self.selected_option()? {
-            GameInstallOption::Inaccessible(_) => Some(("Grant Access", None)),
+            GameInstallOption::Inaccessible(_) => Some((tr!("Grant Access"), None)),
             GameInstallOption::Detected(_) if self.steam_repair => {
-                Some(("Verify in Steam", Some("Set Up")))
+                Some((tr!("Verify in Steam"), Some(tr!("Set Up"))))
             }
-            GameInstallOption::Detected(_) if self.modded => Some(("Change Mods", Some("Restore"))),
-            GameInstallOption::Detected(_) => Some(("Set Up", None)),
+            GameInstallOption::Detected(_) if self.modded => {
+                Some((tr!("Change Mods"), Some(tr!("Restore"))))
+            }
+            GameInstallOption::Detected(_) => Some((tr!("Set Up"), None)),
         }
     }
 
@@ -231,7 +234,7 @@ impl WelcomeScreen {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() / 2.0 - 60.0);
                 ui.add(egui::Spinner::new().size(48.0));
-                ui.label(RichText::new("Looking for your games…").color(theme::TEXT_DIM));
+                ui.label(RichText::new(tr!("Looking for your games…")).color(theme::TEXT_DIM));
             });
             return None;
         };
@@ -370,9 +373,13 @@ impl WelcomeScreen {
             && let Some(option) = card.selected_option()
         {
             ui.allocate_ui(Vec2::new(ui.available_width().min(520.0), 0.0), |ui| {
-                if widgets::choice_row(ui, "Install", &option.selector_label())
-                    .on_hover_text("Choose which install to set up")
-                    .clicked()
+                if widgets::choice_row(
+                    ui,
+                    trc!("game install location", "Install"),
+                    &option.selector_label(),
+                )
+                .on_hover_text(tr!("Choose which install to set up"))
+                .clicked()
                 {
                     open_picker = true;
                 }
@@ -408,7 +415,7 @@ impl WelcomeScreen {
                 index,
                 ChoiceDialog::new(
                     "install-picker",
-                    format!("{} Install", card.kind.name()),
+                    trf!("{game} Install", game = card.kind.name()),
                     options,
                     Some(card.selected),
                 ),
@@ -493,12 +500,18 @@ fn inaccessible_alert(inaccessible: &[InaccessibleGame]) -> Option<String> {
             names.push(name);
         }
     }
-    (!names.is_empty()).then(|| {
-        format!(
-            "Adventure Mods needs access to the Steam library with {}. Use Grant Access on the game below.",
-            names.join(" and ")
-        )
-    })
+    let games = match names[..] {
+        [] => return None,
+        [game] => game.to_owned(),
+        // There are only two games.
+        [first, second, ..] => trf!("{first} and {second}", first = first, second = second),
+    };
+    // Translators: {button} is the label of the game's button, "Grant Access".
+    Some(trf!(
+        "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below.",
+        games = games,
+        button = tr!("Grant Access")
+    ))
 }
 
 fn build_game_cards(result: &DetectionResult) -> Vec<GameCard> {

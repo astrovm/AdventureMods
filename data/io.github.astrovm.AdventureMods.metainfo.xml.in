@@ -3,7 +3,7 @@
   <id>@APP_ID_RAW@</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
-  <name>Adventure Mods</name>
+  <name translate="no">Adventure Mods</name>
   <summary>Set up Sonic Adventure mods</summary>
   <description>
     <p>
@@ -20,13 +20,14 @@
       <li>Configures native resolution, window mode, and optimal settings</li>
       <li>Lets you choose subtitle and voice language during setup</li>
       <li>Works with a controller, a keyboard, a mouse, or touch, including Steam Deck Game Mode</li>
+      <li>In English, Spanish, French, German, Italian, and Japanese</li>
     </ul>
   </description>
   <url type="homepage">https://github.com/astrovm/AdventureMods</url>
   <url type="bugtracker">https://github.com/astrovm/AdventureMods/issues</url>
   <url type="vcs-browser">https://github.com/astrovm/AdventureMods</url>
   <developer id="io.github.astrovm">
-    <name>astrovm</name>
+    <name translate="no">astrovm</name>
   </developer>
   <launchable type="desktop-id">@APP_ID_RAW@.desktop</launchable>
   <supports>
@@ -53,7 +54,18 @@
     <color type="primary" scheme_preference="light">#62a0ea</color>
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
-  <releases>
+  <releases translate="no">
+    <release version="1.2.0" date="2026-10-15">
+      <description>
+        <p>Adventure Mods now speaks Spanish, French, German, Italian, and Japanese.</p>
+        <ul>
+          <li>The app follows your system language</li>
+          <li>Every screen, message, and mod description is translated, and so is the command line</li>
+          <li>Sizes and decimals are written the way your language writes them</li>
+          <li>Japanese text has its own font, so it never shows as boxes</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.1.5" date="2026-10-11">
       <description>
         <p>The app opens faster, and screenshots and covers show up right away.</p>

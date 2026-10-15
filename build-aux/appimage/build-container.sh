@@ -16,7 +16,7 @@ podman run --rm \
 	bash -c '
 		apt-get update -qq
 		apt-get install -y -qq \
-			build-essential pkg-config meson libudev-dev \
+			build-essential pkg-config meson gettext libudev-dev \
 			desktop-file-utils appstream \
 			wget unzip file libfuse2t64 curl git sudo zsync
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet

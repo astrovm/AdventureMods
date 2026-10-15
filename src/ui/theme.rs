@@ -185,7 +185,7 @@ pub fn apply(ctx: &egui::Context) {
 }
 
 /// Rubik in three weights, with arrows and egui's fonts behind it for symbols,
-/// plus the glyphs of "日本語" for the Japanese language option.
+/// and Noto Sans JP last for Japanese text.
 fn fonts() -> egui::FontDefinitions {
     let mut fonts = egui::FontDefinitions::default();
     for (name, bytes) in [
@@ -206,8 +206,12 @@ fn fonts() -> egui::FontDefinitions {
             &include_bytes!("../../data/fonts/NotoSansMath-Arrows.ttf")[..],
         ),
         (
-            "japanese-label",
-            &include_bytes!("../../data/fonts/NotoSansCJK-JapaneseLabel.otf")[..],
+            "japanese-medium",
+            &include_bytes!("../../data/fonts/NotoSansJP-Medium-Subset.otf")[..],
+        ),
+        (
+            "japanese-bold",
+            &include_bytes!("../../data/fonts/NotoSansJP-Bold-Subset.otf")[..],
         ),
     ] {
         fonts.font_data.insert(
@@ -216,19 +220,22 @@ fn fonts() -> egui::FontDefinitions {
         );
     }
     let fallbacks = fonts.families[&FontFamily::Proportional].clone();
-    for (family, first) in [
-        (FontFamily::Proportional, "rubik-medium"),
-        (bold(), "rubik-bold"),
-        (heavy(), "rubik-extrabold"),
+    for (family, first, japanese) in [
+        (FontFamily::Proportional, "rubik-medium", "japanese-medium"),
+        (bold(), "rubik-bold", "japanese-bold"),
+        (heavy(), "rubik-extrabold", "japanese-bold"),
     ] {
         // Rubik has no arrows, as in "Properties → Compatibility".
         let mut chain = vec![first.to_owned(), "arrows".to_owned()];
         chain.extend(fallbacks.iter().cloned());
+        chain.push(japanese.to_owned());
         fonts.families.insert(family, chain);
     }
-    for family in fonts.families.values_mut() {
-        family.push("japanese-label".to_owned());
-    }
+    fonts
+        .families
+        .entry(FontFamily::Monospace)
+        .or_default()
+        .push("japanese-medium".to_owned());
     fonts
 }
 
@@ -289,17 +296,24 @@ mod tests {
     }
 
     #[test]
-    fn the_japanese_label_has_glyphs() {
+    fn every_family_draws_every_translation() {
         let ctx = egui::Context::default();
         apply(&ctx);
         let mut output = ctx.run_ui(Default::default(), |_| {});
         output.textures_delta.clear();
 
-        let has_glyphs = ctx.fonts_mut(|fonts| {
-            "日本語"
-                .chars()
-                .all(|c| fonts.has_glyph(&FontId::new(20.0, FontFamily::Proportional), c))
-        });
-        assert!(has_glyphs);
+        // "日本語" labels the Japanese option in every language.
+        let texts = crate::i18n::all_translations().chain([("en", "日本語")]);
+        for (code, text) in texts {
+            for family in [FontFamily::Proportional, bold(), heavy()] {
+                let font = FontId::new(20.0, family);
+                let missing: String = ctx.fonts_mut(|fonts| {
+                    text.chars()
+                        .filter(|c| !c.is_control() && !fonts.has_glyph(&font, *c))
+                        .collect()
+                });
+                assert!(missing.is_empty(), "{code}: {font:?} lacks {missing:?}");
+            }
+        }
     }
 }

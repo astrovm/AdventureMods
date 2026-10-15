@@ -14,6 +14,7 @@ use crate::setup::steps::{self, SetupAction};
 use crate::setup::{common, config as setup_config, pipeline, sadx};
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{self, DetectionResult};
+use crate::{i18n, tr, trf};
 
 struct CliOutput<'a> {
     writer: &'a mut dyn Write,
@@ -256,12 +257,12 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
     let result = detect_games_strict(&args)?;
 
     if result.games.is_empty() && result.inaccessible.is_empty() {
-        out.writeln("No supported games detected.")?;
+        out.writeln(tr!("No supported games detected."))?;
         return Ok(());
     }
 
     if !result.games.is_empty() {
-        out.heading("Detected games:")?;
+        out.heading(tr!("Detected games:"))?;
         for game in &result.games {
             out.writeln(&format!(
                 "- {}: {}",
@@ -272,7 +273,7 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
     }
 
     if !result.inaccessible.is_empty() {
-        out.heading("Inaccessible Steam libraries:")?;
+        out.heading(tr!("Inaccessible Steam libraries:"))?;
         for game in &result.inaccessible {
             out.writeln(&format!(
                 "- {}: {}",
@@ -288,21 +289,21 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
 fn run_list_mods(game: &str, out: &mut CliOutput) -> Result<()> {
     let game_kind = parse_game_kind(game)?;
     banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
-    out.writeln(&format!("Game: {}", game_kind.name()))?;
+    out.writeln(&trf!("Game: {game}", game = game_kind.name()))?;
 
     let presets = common::presets_for_game(game_kind);
     if !presets.is_empty() {
-        out.heading("Presets:")?;
+        out.heading(tr!("Presets:"))?;
         for preset in presets {
-            out.bold_item(preset.name, preset.description)?;
+            out.bold_item(preset.name, i18n::translate(preset.description))?;
         }
     }
 
-    out.heading("Mods:")?;
+    out.heading(tr!("Mods:"))?;
     for mod_entry in common::recommended_mods_for_game(game_kind) {
         out.bold_item(
             &format!("{} [{}]", mod_entry.name, mod_entry.slug),
-            mod_entry.description,
+            i18n::translate(mod_entry.description),
         )?;
     }
 
@@ -313,26 +314,27 @@ fn run_restore(args: RestoreArgs, out: &mut CliOutput) -> Result<()> {
     let game_kind = parse_game_kind(&args.game)?;
     let game_path = resolve_game_path_from(args.game_path.as_ref(), &args.detect, game_kind)?;
     banner::print_header(&mut out.writer, env!("CARGO_PKG_VERSION"), out.use_color)?;
-    out.writeln(&format!(
-        "Restoring {} at {}",
-        game_kind.name(),
-        out.path(&display_path(&game_path))
+    out.writeln(&trf!(
+        "Restoring {game} at {path}",
+        game = game_kind.name(),
+        path = out.path(&display_path(&game_path))
     ))?;
 
     let report = crate::setup::restore::restore_original_game(&game_path, game_kind)?;
     if report.changes.is_empty() && !report.needs_steam_verify {
-        out.writeln("Nothing to restore: this game was not modified by setup.")?;
+        let nothing = tr!("Nothing to restore: this game was not modified by setup.");
+        out.writeln(nothing)?;
     }
     for change in &report.changes {
         out.writeln(&format!("  {change}"))?;
     }
     if report.needs_steam_verify {
-        out.writeln(&format!(
-            "The game was converted to the 2004 version. Verify its files in Steam to get the Steam version back: {}",
-            crate::setup::restore::steam_verify_uri(game_kind)
+        out.writeln(&trf!(
+            "The game was converted to the 2004 version. Verify its files in Steam to get the Steam version back: {uri}",
+            uri = crate::setup::restore::steam_verify_uri(game_kind)
         ))?;
     }
-    out.success("Restore complete!")?;
+    out.success(tr!("Restore complete!"))?;
     Ok(())
 }
 
@@ -400,10 +402,10 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
         confirm_setup_summary(out, &summary, &prompt)?;
     }
 
-    out.writeln(&format!(
-        "Setting up {} at {}",
-        game_kind.name(),
-        out.path(&display_path(&game_path))
+    out.writeln(&trf!(
+        "Setting up {game} at {path}",
+        game = game_kind.name(),
+        path = out.path(&display_path(&game_path))
     ))?;
     out.writeln("")?;
 
@@ -461,7 +463,7 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     })?;
     persist_cli_language_selection(game_kind, language_selection);
 
-    out.success("Setup complete!")?;
+    out.success(tr!("Setup complete!"))?;
     Ok(())
 }
 
@@ -478,7 +480,12 @@ fn setup_is_fully_specified(args: &SetupArgs) -> bool {
 }
 
 fn step_heading(index: usize, total: usize, label: &str) -> String {
-    format!("Step {index}/{total}: {label}")
+    trf!(
+        "Step {index}/{total}: {label}",
+        index = index,
+        total = total,
+        label = label
+    )
 }
 
 fn run_setup_step<T>(
@@ -491,7 +498,7 @@ fn run_setup_step<T>(
     let heading = step_heading(index, total, label);
     out.heading(&heading)?;
     let value = action()?;
-    out.writeln("Done")?;
+    out.writeln(tr!("Done"))?;
     out.writeln("")?;
     Ok(value)
 }
@@ -528,7 +535,7 @@ fn run_download_step<T>(
     let value = action(progress_fn);
     eprint!("{}", lines.lock().unwrap().end_line());
     let value = value?;
-    out.writeln("Done")?;
+    out.writeln(tr!("Done"))?;
     out.writeln("")?;
     Ok(value)
 }
@@ -602,29 +609,35 @@ impl ProgressLines {
 }
 
 fn download_progress_text(_key: &str, downloaded: u64, total_bytes: Option<u64>) -> String {
-    let downloaded_mb = downloaded as f64 / 1_048_576.0;
     match total_bytes {
-        Some(tb) => format!(
-            "  {:.1} / {:.1} MB ({:.0}%)",
-            downloaded_mb,
-            tb as f64 / 1_048_576.0,
-            downloaded as f64 / tb as f64 * 100.0,
+        Some(total) => format!("  {}", bytes_of_total(downloaded, total)),
+        None => format!(
+            "  {}",
+            trf!("{size} MB downloaded", size = megabytes(downloaded))
         ),
-        None => format!("  {downloaded_mb:.1} MB downloaded"),
     }
 }
 
 fn mod_progress_text(mod_name: &str, downloaded: u64, total_bytes: Option<u64>) -> String {
-    let downloaded_mb = downloaded as f64 / 1_048_576.0;
-    match total_bytes {
-        Some(tb) => format!(
-            "    {mod_name}: {:.1} / {:.1} MB ({:.0}%)",
-            downloaded_mb,
-            tb as f64 / 1_048_576.0,
-            downloaded as f64 / tb as f64 * 100.0,
-        ),
-        None => format!("    {mod_name}: {downloaded_mb:.1} MB"),
-    }
+    let progress = match total_bytes {
+        Some(total) => bytes_of_total(downloaded, total),
+        None => trf!("{size} MB", size = megabytes(downloaded)),
+    };
+    format!("    {mod_name}: {progress}")
+}
+
+fn megabytes(bytes: u64) -> String {
+    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
+}
+
+/// Like "1.5 / 3.0 MB (50%)".
+fn bytes_of_total(downloaded: u64, total: u64) -> String {
+    trf!(
+        "{done} / {total} MB ({percent}%)",
+        done = megabytes(downloaded),
+        total = megabytes(total),
+        percent = format!("{:.0}", downloaded as f64 / total as f64 * 100.0)
+    )
 }
 
 struct ModInstallStep<'a> {
@@ -670,7 +683,8 @@ fn run_mod_install_step(
                 pipeline::InstallProgress::Started { mod_name } => {
                     eprint!("{}", lines.end_line());
                     lines.reset(mod_name);
-                    let _ = out.dim_writeln(&format!("  Starting: {mod_name}"));
+                    let _ = out
+                        .dim_writeln(&format!("  {}", trf!("Starting: {name}", name = mod_name)));
                 }
                 pipeline::InstallProgress::DownloadingMod {
                     mod_name,
@@ -689,11 +703,14 @@ fn run_mod_install_step(
                 } => {
                     eprint!("{}", lines.end_line());
                     lines.reset(mod_name);
-                    let _ = out.writeln(&format!("  [{completed}/{total}] Installed: {mod_name}"));
+                    let _ = out.writeln(&format!(
+                        "  [{completed}/{total}] {}",
+                        trf!("Installed: {name}", name = mod_name)
+                    ));
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
                     eprint!("{}", lines.end_line());
-                    let _ = out.writeln("  Generating mod config...");
+                    let _ = out.writeln(&format!("  {}", tr!("Generating mod config…")));
                 }
             }
             Ok(())
@@ -701,7 +718,7 @@ fn run_mod_install_step(
     );
     eprint!("{}", lines.end_line());
     result?;
-    out.writeln("Done")?;
+    out.writeln(tr!("Done"))?;
     out.writeln("")?;
     Ok(())
 }
@@ -717,11 +734,11 @@ fn resolve_setup_languages(
     if let Some(value) = &args.subtitle_language {
         let subtitle = setup_config::SubtitleLanguage::parse(value)?;
         if !setup_config::SubtitleLanguage::supported_for(game_kind).contains(&subtitle) {
-            bail!(
-                "Subtitle language '{}' is not supported for {}.",
-                value,
-                game_kind.name()
-            );
+            bail!(trf!(
+                "Subtitle language '{value}' is not supported for {game}.",
+                value = value,
+                game = game_kind.name()
+            ));
         }
         selection.subtitle = subtitle;
     } else if let Some(p) = prompt {
@@ -731,7 +748,7 @@ fn resolve_setup_languages(
             .iter()
             .position(|&l| l == selection.subtitle)
             .unwrap_or(0);
-        let selected = p.select("Subtitle language", &labels, default_index)?;
+        let selected = p.select(tr!("Subtitle language"), &labels, default_index)?;
         selection.subtitle = options[selected];
     }
 
@@ -744,7 +761,7 @@ fn resolve_setup_languages(
             .iter()
             .position(|&l| l == selection.voice)
             .unwrap_or(0);
-        let selected = p.select("Voice language", &labels, default_index)?;
+        let selected = p.select(tr!("Voice language"), &labels, default_index)?;
         selection.voice = options[selected];
     }
 
@@ -778,7 +795,7 @@ fn resolve_game_kind_rich(
     if args.game_path.is_some() {
         let options = [GameKind::SADX, GameKind::SA2];
         let labels: Vec<String> = options.iter().map(|g| g.name().to_string()).collect();
-        let selection = prompt.select("Select game", &labels, 0)?;
+        let selection = prompt.select(tr!("Select game"), &labels, 0)?;
         return Ok(options[selection]);
     }
 
@@ -790,7 +807,9 @@ fn resolve_game_kind_rich(
         return Ok(result.games[0].kind);
     }
     if result.games.is_empty() {
-        bail!("No supported games detected. Pass --game and --game-path.");
+        bail!(tr!(
+            "No supported games detected. Pass --game and --game-path."
+        ));
     }
 
     let items: Vec<String> = result
@@ -798,7 +817,7 @@ fn resolve_game_kind_rich(
         .iter()
         .map(|game| format!("{} ({})", game.kind.name(), display_path(&game.path)))
         .collect();
-    let selection = prompt.select("Select installation", &items, 0)?;
+    let selection = prompt.select(tr!("Select installation"), &items, 0)?;
     Ok(result.games[selection].kind)
 }
 
@@ -834,7 +853,7 @@ fn resolve_game_path_rich(
         _ => {
             let items: Vec<String> = games.iter().map(|game| display_path(&game.path)).collect();
             let selection = prompt.select(
-                &format!("Select {} installation", game_kind.name()),
+                &trf!("Select {game} installation", game = game_kind.name()),
                 &items,
                 0,
             )?;
@@ -848,13 +867,13 @@ fn resolve_setup_mods_from_flags(
     game_kind: GameKind,
 ) -> Result<Option<Vec<&'static common::ModEntry>>> {
     if args.mods.is_some() && args.preset.is_some() {
-        bail!("Cannot use both --preset and --mods at the same time");
+        bail!(tr!("Cannot use both --preset and --mods at the same time"));
     }
     if args.all_mods && args.preset.is_some() {
-        bail!("Cannot use --all-mods with --preset");
+        bail!(tr!("Cannot use --all-mods with --preset"));
     }
     if args.all_mods && args.mods.is_some() {
-        bail!("Cannot use --all-mods with --mods");
+        bail!(tr!("Cannot use --all-mods with --mods"));
     }
     if args.all_mods {
         return Ok(Some(
@@ -892,7 +911,7 @@ fn parse_mods_flag(mods: &str) -> Result<Vec<&str>> {
         .collect();
 
     if parsed.is_empty() {
-        bail!("--mods requires at least one mod slug");
+        bail!(tr!("--mods requires at least one mod slug"));
     }
 
     Ok(parsed)
@@ -906,11 +925,11 @@ fn resolve_mod_identifier(
         .iter()
         .find(|mod_entry| mod_entry.slug.eq_ignore_ascii_case(identifier))
         .ok_or_else(|| {
-            anyhow!(
-                "Unknown mod slug '{}'. Use 'list-mods --game {}' to see valid slugs.",
-                identifier,
-                game_kind_arg(game_kind)
-            )
+            anyhow!(trf!(
+                "Unknown mod slug '{slug}'. Use 'list-mods --game {game}' to see valid slugs.",
+                slug = identifier,
+                game = game_kind_arg(game_kind)
+            ))
         })
 }
 
@@ -933,18 +952,22 @@ fn resolve_setup_mods_rich(
     let presets = common::presets_for_game(game_kind);
     let mut options = Vec::new();
     for preset in presets {
-        options.push(format!("{} - {}", preset.name, preset.description));
+        options.push(format!(
+            "{} - {}",
+            preset.name,
+            i18n::translate(preset.description)
+        ));
     }
     let all_recommended_index = if presets.is_empty() {
         let idx = options.len();
-        options.push("Install all recommended mods".to_string());
+        options.push(tr!("Install all recommended mods").to_owned());
         Some(idx)
     } else {
         None
     };
-    options.push("Choose mods manually".to_string());
+    options.push(tr!("Choose mods manually").to_owned());
 
-    let selection = prompt.select("Choose setup mode", &options, 0)?;
+    let selection = prompt.select(tr!("Choose setup mode"), &options, 0)?;
 
     if selection < presets.len() {
         return pipeline::resolve_selected_mods(game_kind, Some(presets[selection].name), &[]);
@@ -958,24 +981,30 @@ fn resolve_setup_mods_rich(
     let mods = common::recommended_mods_for_game(game_kind);
     let items: Vec<String> = mods
         .iter()
-        .map(|mod_entry| format!("{} - {}", mod_entry.name, mod_entry.description))
+        .map(|mod_entry| {
+            format!(
+                "{} - {}",
+                mod_entry.name,
+                i18n::translate(mod_entry.description)
+            )
+        })
         .collect();
     let defaults = vec![true; items.len()];
     let selections = prompt.multi_select(
-        "Select mods (space to toggle, enter to confirm)",
+        tr!("Select mods (space to toggle, enter to confirm)"),
         &items,
         &defaults,
     )?;
 
     if selections.is_empty() {
-        bail!("Select at least one mod.");
+        bail!(tr!("Select at least one mod."));
     }
 
     selections
         .into_iter()
         .map(|index| {
             mods.get(index)
-                .ok_or_else(|| anyhow!("Invalid mod selection {}", index + 1))
+                .ok_or_else(|| anyhow!(trf!("Invalid mod selection {number}", number = index + 1)))
         })
         .collect()
 }
@@ -985,29 +1014,36 @@ fn confirm_setup_summary(
     summary: &SetupSummary<'_>,
     prompt: &dyn Prompt,
 ) -> Result<()> {
-    out.heading("Summary")?;
-    out.writeln(&format!("Game: {}", summary.game_kind.name()))?;
-    out.writeln(&format!(
-        "Path: {}",
-        out.path(&display_path(summary.game_path))
+    out.heading(tr!("Summary"))?;
+    out.writeln(&trf!("Game: {game}", game = summary.game_kind.name()))?;
+    out.writeln(&trf!(
+        "Path: {path}",
+        path = out.path(&display_path(summary.game_path))
     ))?;
-    out.writeln(&format!("Resolution: {}x{}", summary.width, summary.height))?;
-    out.writeln(&format!(
-        "Subtitle language: {}",
-        summary.language_selection.subtitle.label()
+    out.writeln(&trf!(
+        "Resolution: {width}x{height}",
+        width = summary.width,
+        height = summary.height
     ))?;
-    out.writeln(&format!(
-        "Voice language: {}",
-        summary.language_selection.voice.label()
+    out.writeln(&trf!(
+        "Subtitle language: {language}",
+        language = summary.language_selection.subtitle.label()
     ))?;
-    out.writeln(&format!("Mods selected: {}", summary.selected_mods.len()))?;
+    out.writeln(&trf!(
+        "Voice language: {language}",
+        language = summary.language_selection.voice.label()
+    ))?;
+    out.writeln(&trf!(
+        "Mods selected: {count}",
+        count = summary.selected_mods.len()
+    ))?;
     for mod_entry in summary.selected_mods {
         out.writeln(&format!("- {}", mod_entry.name))?;
     }
     out.writeln("")?;
 
-    if !prompt.confirm("Proceed with setup?", true)? {
-        bail!("Setup cancelled");
+    if !prompt.confirm(tr!("Proceed with setup?"), true)? {
+        bail!(tr!("Setup cancelled"));
     }
 
     Ok(())
@@ -1019,35 +1055,39 @@ fn resolve_game_kind(args: &SetupArgs) -> Result<GameKind> {
     }
 
     if args.game_path.is_some() {
-        bail!(
+        bail!(tr!(
             "--game-path requires --game in non-interactive mode.\nPass --game sadx or --game sa2."
-        );
+        ));
     }
 
     let result = detect_games_strict(&args.detect)?;
     if result.games.is_empty() {
-        bail!("No supported games detected. Pass --game and --game-path.");
+        bail!(tr!(
+            "No supported games detected. Pass --game and --game-path."
+        ));
     }
     if result.games.len() == 1 {
         return Ok(result.games[0].kind);
     }
 
-    bail!(
-        "Multiple games detected ({}). Pass --game to select one.",
-        result
+    bail!(trf!(
+        "Multiple games detected ({games}). Pass --game to select one.",
+        games = result
             .games
             .iter()
             .map(|g| g.kind.name())
             .collect::<Vec<_>>()
             .join(", ")
-    );
+    ));
 }
 
 fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()> {
     anyhow::ensure!(
         path.is_dir(),
-        "Game path does not exist or is not a directory: {}",
-        path.display()
+        trf!(
+            "Game path does not exist or is not a directory: {path}",
+            path = path.display()
+        )
     );
 
     let has_game_marker = match game_kind {
@@ -1059,9 +1099,11 @@ fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()>
 
     anyhow::ensure!(
         has_game_marker,
-        "{} does not appear to be a {} installation (expected game executable)",
-        path.display(),
-        game_kind.name(),
+        trf!(
+            "{path} does not appear to be a {game} installation (expected game executable)",
+            path = path.display(),
+            game = game_kind.name()
+        )
     );
 
     Ok(())
@@ -1092,10 +1134,10 @@ fn resolve_game_path_from(
     match games.len() {
         0 => Err(not_detected_error(game_kind, &detected)),
         1 => Ok(games.remove(0).path),
-        _ => bail!(
-            "Multiple {} installations detected. Pass --game-path to select one.",
-            game_kind.name()
-        ),
+        _ => bail!(trf!(
+            "Multiple {game} installations detected. Pass --game-path to select one.",
+            game = game_kind.name()
+        )),
     }
 }
 
@@ -1107,11 +1149,11 @@ fn resolve_setup_mods(
         return Ok(selected);
     }
 
-    bail!(
+    bail!(trf!(
         "No mod selection specified. Pass --all-mods, --preset <name>, or --mods <slug1,slug2>.\n\
-          Use 'list-mods --game {}' to see available mods and presets.",
-        game_kind_arg(game_kind)
-    )
+         Use 'list-mods --game {game}' to see available mods and presets.",
+        game = game_kind_arg(game_kind)
+    ))
 }
 
 fn detect_games_strict(args: &DetectArgs) -> Result<DetectionResult> {
@@ -1134,8 +1176,10 @@ fn detect_games_with_saved_libraries(
         Some(path) => {
             anyhow::ensure!(
                 path.is_file(),
-                "Library folders file not found: {}",
-                path.display()
+                trf!(
+                    "Library folders file not found: {path}",
+                    path = path.display()
+                )
             );
             library::detect_games_from_vdf_strict(path, &args.steam_libraries)
         }
@@ -1157,21 +1201,27 @@ fn not_detected_error(game_kind: GameKind, result: &DetectionResult) -> anyhow::
         .map(|game| display_path(&game.library_path))
         .collect();
     if inaccessible.is_empty() {
-        return anyhow!("{} was not detected. Pass --game-path.", game_kind.name());
+        return anyhow!(trf!(
+            "{game} was not detected. Pass --game-path.",
+            game = game_kind.name()
+        ));
     }
-    anyhow!(
-        "{} is in a Steam library that cannot be accessed: {}. Mount the drive, or grant \
+    anyhow!(trf!(
+        "{game} is in a Steam library that cannot be accessed: {paths}. Mount the drive, or grant \
          access to it in the Adventure Mods window, or pass --steam-library or --game-path.",
-        game_kind.name(),
-        inaccessible.join(", ")
-    )
+        game = game_kind.name(),
+        paths = inaccessible.join(", ")
+    ))
 }
 
 fn parse_game_kind(raw: &str) -> Result<GameKind> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "sadx" => Ok(GameKind::SADX),
         "sa2" => Ok(GameKind::SA2),
-        other => bail!("Unknown game '{}'. Use 'sadx' or 'sa2'.", other),
+        other => bail!(trf!(
+            "Unknown game '{game}'. Use 'sadx' or 'sa2'.",
+            game = other
+        )),
     }
 }
 

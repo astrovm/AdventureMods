@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use crate::steam::game::GameKind;
+use crate::{tr, trf};
 
 use super::common::{find_file_icase, sadx_data_dir};
 
@@ -65,14 +66,16 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         if backup.is_file() {
             std::fs::rename(&backup, &exe_path)
                 .with_context(|| format!("Failed to restore {}", exe_path.display()))?;
-            report.changes.push(format!("Restored {exe}"));
+            report.changes.push(trf!("Restored {file}", file = exe));
         }
     }
 
     let manager_copy = game_path.join("SAModManager.exe");
     if manager_copy.is_file() {
         removal_result(std::fs::remove_file(&manager_copy), &manager_copy)?;
-        report.changes.push("Removed SAModManager.exe".to_owned());
+        report
+            .changes
+            .push(trf!("Removed {file}", file = "SAModManager.exe"));
     }
 
     if let Some((data_dll, orig_dll)) = data_dll_paths(game_path, game_kind)
@@ -80,9 +83,9 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
     {
         std::fs::rename(&orig_dll, &data_dll)
             .with_context(|| format!("Failed to restore {}", data_dll.display()))?;
-        report.changes.push(format!(
-            "Restored {}",
-            data_dll
+        report.changes.push(trf!(
+            "Restored {file}",
+            file = data_dll
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default()
@@ -95,7 +98,9 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
     let loader_dir = game_path.join("mods/.modloader");
     if loader_dir.is_dir() {
         removal_result(std::fs::remove_dir_all(&loader_dir), &loader_dir)?;
-        report.changes.push("Removed the mod loader".to_owned());
+        report
+            .changes
+            .push(tr!("Removed the mod loader").to_owned());
     }
 
     // Steam verification brings back the Steam files but leaves sonic.exe,
@@ -106,7 +111,9 @@ pub fn restore_original_game(game_path: &Path, game_kind: GameKind) -> Result<Re
         std::fs::write(game_path.join(STEAM_REPAIR_MARKER), "")
             .context("Failed to mark the game as waiting for a Steam repair")?;
         std::fs::remove_file(game_path.join("sonic.exe")).context("Failed to remove sonic.exe")?;
-        report.changes.push("Removed sonic.exe".to_owned());
+        report
+            .changes
+            .push(trf!("Removed {file}", file = "sonic.exe"));
     }
     // Also true when an earlier restore already removed sonic.exe but Steam
     // has not repaired the files yet.

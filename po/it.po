@@ -1,0 +1,1151 @@
+# Italian translations for Adventure Mods.
+# This file is distributed under the same license as Adventure Mods.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: adventure-mods\n"
+"Report-Msgid-Bugs-To: https://github.com/astrovm/AdventureMods/issues\n"
+"PO-Revision-Date: 2026-10-15 00:00+0000\n"
+"Last-Translator: astro <https://github.com/astrovm>\n"
+"Language-Team: Italian <https://github.com/astrovm/AdventureMods/issues>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/cli.rs
+msgid "No supported games detected."
+msgstr "Nessun gioco supportato trovato."
+
+#: src/cli.rs
+msgid "Detected games:"
+msgstr "Giochi trovati:"
+
+#: src/cli.rs
+msgid "Inaccessible Steam libraries:"
+msgstr "Librerie di Steam non accessibili:"
+
+#: src/cli.rs
+#, rust-format
+msgid "Game: {game}"
+msgstr "Gioco: {game}"
+
+#: src/cli.rs
+msgid "Presets:"
+msgstr "Preset:"
+
+#: src/cli.rs
+msgid "Mods:"
+msgstr "Mod:"
+
+#: src/cli.rs
+#, rust-format
+msgid "Restoring {game} at {path}"
+msgstr "Ripristino di {game} in {path}"
+
+#: src/cli.rs
+msgid "Nothing to restore: this game was not modified by setup."
+msgstr "Niente da ripristinare: la configurazione non ha modificato questo gioco."
+
+#: src/cli.rs
+#, rust-format
+msgid "The game was converted to the 2004 version. Verify its files in Steam to get the Steam version back: {uri}"
+msgstr "Il gioco è stato convertito alla versione del 2004. Verifica i suoi file su Steam per riavere la versione di Steam: {uri}"
+
+#: src/cli.rs
+msgid "Restore complete!"
+msgstr "Ripristino completato!"
+
+#: src/cli.rs
+#, rust-format
+msgid "Setting up {game} at {path}"
+msgstr "Configurazione di {game} in {path}"
+
+#: src/cli.rs
+msgid "Setup complete!"
+msgstr "Configurazione completata!"
+
+#: src/cli.rs
+#, rust-format
+msgid "Step {index}/{total}: {label}"
+msgstr "Passo {index}/{total}: {label}"
+
+#: src/cli.rs src/ui/setup.rs
+msgid "Done"
+msgstr "Fatto"
+
+#: src/cli.rs
+#, rust-format
+msgid "{size} MB downloaded"
+msgstr "{size} MB scaricati"
+
+#: src/cli.rs src/ui/progress.rs
+#, rust-format
+msgid "{size} MB"
+msgstr "{size} MB"
+
+#: src/cli.rs
+#, rust-format
+msgid "{done} / {total} MB ({percent}%)"
+msgstr "{done} / {total} MB ({percent}%)"
+
+#: src/cli.rs
+#, rust-format
+msgid "Starting: {name}"
+msgstr "Avvio: {name}"
+
+#: src/cli.rs
+#, rust-format
+msgid "Installed: {name}"
+msgstr "Installato: {name}"
+
+#: src/cli.rs
+msgid "Generating mod config…"
+msgstr "Generazione della configurazione dei mod…"
+
+#: src/cli.rs
+#, rust-format
+msgid "Subtitle language '{value}' is not supported for {game}."
+msgstr "La lingua dei sottotitoli '{value}' non è disponibile per {game}."
+
+#: src/cli.rs
+msgid "Subtitle language"
+msgstr "Lingua dei sottotitoli"
+
+#: src/cli.rs
+msgid "Voice language"
+msgstr "Lingua delle voci"
+
+#: src/cli.rs
+msgid "Select game"
+msgstr "Scegli il gioco"
+
+#: src/cli.rs
+msgid "No supported games detected. Pass --game and --game-path."
+msgstr "Nessun gioco supportato trovato. Indica --game e --game-path."
+
+#: src/cli.rs
+msgid "Select installation"
+msgstr "Scegli l'installazione"
+
+#: src/cli.rs
+#, rust-format
+msgid "Select {game} installation"
+msgstr "Scegli l'installazione di {game}"
+
+#: src/cli.rs
+msgid "Cannot use both --preset and --mods at the same time"
+msgstr "Non puoi usare --preset e --mods insieme"
+
+#: src/cli.rs
+msgid "Cannot use --all-mods with --preset"
+msgstr "Non puoi usare --all-mods con --preset"
+
+#: src/cli.rs
+msgid "Cannot use --all-mods with --mods"
+msgstr "Non puoi usare --all-mods con --mods"
+
+#: src/cli.rs
+msgid "--mods requires at least one mod slug"
+msgstr "--mods richiede almeno uno slug di mod"
+
+#: src/cli.rs
+#, rust-format
+msgid "Unknown mod slug '{slug}'. Use 'list-mods --game {game}' to see valid slugs."
+msgstr "Slug di mod sconosciuto: '{slug}'. Usa 'list-mods --game {game}' per vedere gli slug validi."
+
+#: src/cli.rs
+msgid "Install all recommended mods"
+msgstr "Installa tutti i mod consigliati"
+
+#: src/cli.rs
+msgid "Choose mods manually"
+msgstr "Scegli i mod a mano"
+
+#: src/cli.rs
+msgid "Choose setup mode"
+msgstr "Scegli come configurare"
+
+#: src/cli.rs
+msgid "Select mods (space to toggle, enter to confirm)"
+msgstr "Scegli i mod (spazio per selezionare, invio per confermare)"
+
+#: src/cli.rs
+msgid "Select at least one mod."
+msgstr "Scegli almeno un mod."
+
+#: src/cli.rs
+#, rust-format
+msgid "Invalid mod selection {number}"
+msgstr "Selezione della mod non valida: {number}"
+
+#: src/cli.rs
+msgid "Summary"
+msgstr "Riepilogo"
+
+#: src/cli.rs
+#, rust-format
+msgid "Path: {path}"
+msgstr "Percorso: {path}"
+
+#: src/cli.rs
+#, rust-format
+msgid "Resolution: {width}x{height}"
+msgstr "Risoluzione: {width}x{height}"
+
+#: src/cli.rs
+#, rust-format
+msgid "Subtitle language: {language}"
+msgstr "Lingua dei sottotitoli: {language}"
+
+#: src/cli.rs
+#, rust-format
+msgid "Voice language: {language}"
+msgstr "Lingua delle voci: {language}"
+
+#: src/cli.rs
+#, rust-format
+msgid "Mods selected: {count}"
+msgstr "Mod scelti: {count}"
+
+#: src/cli.rs
+msgid "Proceed with setup?"
+msgstr "Procedere con la configurazione?"
+
+#: src/cli.rs
+msgid "Setup cancelled"
+msgstr "Configurazione annullata"
+
+#: src/cli.rs
+msgid ""
+"--game-path requires --game in non-interactive mode.\n"
+"Pass --game sadx or --game sa2."
+msgstr ""
+"--game-path richiede --game in modalità non interattiva.\n"
+"Indica --game sadx o --game sa2."
+
+#: src/cli.rs
+#, rust-format
+msgid "Multiple games detected ({games}). Pass --game to select one."
+msgstr "Trovati più giochi ({games}). Indica --game per sceglierne uno."
+
+#: src/cli.rs
+#, rust-format
+msgid "Multiple {game} installations detected. Pass --game-path to select one."
+msgstr "Trovate più installazioni di {game}. Indica --game-path per sceglierne una."
+
+#: src/cli.rs
+#, rust-format
+msgid ""
+"No mod selection specified. Pass --all-mods, --preset <name>, or --mods <slug1,slug2>.\n"
+"Use 'list-mods --game {game}' to see available mods and presets."
+msgstr ""
+"Nessuna scelta di mod indicata. Indica --all-mods, --preset <nome> o --mods <slug1,slug2>.\n"
+"Usa 'list-mods --game {game}' per vedere i mod e i preset disponibili."
+
+#: src/cli.rs
+#, rust-format
+msgid "{game} was not detected. Pass --game-path."
+msgstr "{game} non è stato trovato. Indica --game-path."
+
+#: src/cli.rs
+#, rust-format
+msgid "{game} is in a Steam library that cannot be accessed: {paths}. Mount the drive, or grant access to it in the Adventure Mods window, or pass --steam-library or --game-path."
+msgstr "{game} si trova in una libreria di Steam non accessibile: {paths}. Monta il disco, consenti l'accesso nella finestra di Adventure Mods oppure passa --steam-library o --game-path."
+
+#: src/cli.rs
+#, rust-format
+msgid "Unknown game '{game}'. Use 'sadx' or 'sa2'."
+msgstr "Gioco sconosciuto: '{game}'. Usa 'sadx' o 'sa2'."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "The Proton prefix for {game} is ready. You can continue right away."
+msgstr "Il prefisso Proton di {game} è pronto. Puoi continuare subito."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "Steam has not created a Proton prefix for {game}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and check again here."
+msgstr "Steam non ha ancora creato un prefisso Proton per {game}. Forza Proton 10.0 in Proprietà → Compatibilità, avvia il gioco una volta, aspetta che finisca la preparazione, chiudilo e controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "The Proton prefix metadata for {game} is incomplete. Force Proton 10.0 if needed, open the game from Steam once so Steam can repair it, then check again here."
+msgstr "I metadati del prefisso Proton di {game} sono incompleti. Forza Proton 10.0 se serve, avvia il gioco una volta da Steam così Steam può ripararlo, poi controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "Steam's Proton configuration for {game} is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then check again here."
+msgstr "La configurazione di Proton di Steam per {game} manca o non è leggibile. Forza Proton 10.0 in Proprietà → Compatibilità, avvia il gioco una volta e controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "{game} uses {tool_name}, but that Proton installation is unavailable. Install Proton 10.0 in Steam, force it for this game, open the game once, then check again here."
+msgstr "{game} usa {tool_name}, ma quell'installazione di Proton non è disponibile. Installa Proton 10.0 su Steam, forzalo per questo gioco, avvia il gioco una volta e controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "{game} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then check again here."
+msgstr "{game} ha ancora un prefisso Proton di {prefix_tool}, ma ora Steam è configurato per usare {configured_tool}. Avvia il gioco una volta da Steam così Steam può aggiornare il prefisso, poi controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "Steam is configured to use {tool_name} (Proton/Wine {major}) for {game}, which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
+msgstr "Steam è configurato per usare {tool_name} (Proton/Wine {major}) per {game}, che non può eseguire SA Mod Manager. Su Steam: Proprietà → Compatibilità → forza Proton 10.0. Avvia il gioco una volta, chiudilo e controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "{game} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
+msgstr "{game} usa {tool_name} (Proton/Wine {major}). SA Mod Manager non si avvia con Proton 11 o successivi (inclusi Hotfix, Experimental e molte build personalizzate). Su Steam: Proprietà → Compatibilità → forza Proton 10.0. Avvia il gioco una volta, chiudilo e controlla di nuovo qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "{game} is using {tool_name}, but Adventure Mods could not tell which Proton/Wine major version that is. SA Mod Manager needs Proton 10.0; Proton 11 and newer will not launch it. If this is not Proton 10.0, force Proton 10.0 under Properties → Compatibility, launch once, close it, then continue here."
+msgstr "{game} usa {tool_name}, ma Adventure Mods non è riuscito a capire di quale versione principale di Proton/Wine si tratti. SA Mod Manager richiede Proton 10.0; Proton 11 e successivi non lo avviano. Se non è Proton 10.0, forza Proton 10.0 in Proprietà → Compatibilità, avvia il gioco una volta, chiudilo e continua qui."
+
+#: src/external/proton.rs
+#, rust-format
+msgid "Force Proton 10.0 for {game} in Steam, open it once, then close it and check again here."
+msgstr "Forza Proton 10.0 per {game} su Steam, avvialo una volta, chiudilo e controlla di nuovo qui."
+
+#: src/external/proton.rs
+msgid "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
+msgstr "Mancano i metadati del prefisso Proton di questo gioco. Avvia il gioco una volta da Steam e riprova."
+
+#: src/main.rs
+#, rust-format
+msgid "Could not open the window: {error}"
+msgstr "Impossibile aprire la finestra: {error}"
+
+#: src/setup/pipeline.rs
+#, rust-format
+msgid "Failed to install mods: {mods}"
+msgstr "Impossibile installare le mod: {mods}"
+
+#: src/setup/pipeline.rs
+#, rust-format
+msgid "Unknown mod '{name}' for {game}"
+msgstr "Mod sconosciuto: '{name}' per {game}"
+
+#: src/setup/pipeline.rs
+#, rust-format
+msgid "Unknown preset '{name}' for {game}"
+msgstr "Preset sconosciuto: '{name}' per {game}"
+
+#: src/setup/restore.rs
+#, rust-format
+msgid "Restored {file}"
+msgstr "{file} ripristinato"
+
+#: src/setup/restore.rs
+#, rust-format
+msgid "Removed {file}"
+msgstr "{file} rimosso"
+
+#: src/setup/restore.rs
+msgid "Removed the mod loader"
+msgstr "Loader dei mod rimosso"
+
+#: src/setup/sa2_catalog.rs
+msgid "Comprehensive graphics restoration and enhancement for SA2 PC."
+msgstr "Ripristino e miglioramento grafico completo per SA2 su PC."
+
+#: src/setup/sa2_catalog.rs
+msgid "SA2 Render Fix is an essential mod for Sonic Adventure 2 on PC that repairs numerous graphical bugs and oversights. It fixes transparency sorting issues, back-face culling, and broken material properties while restoring features like Cart billboards and Dreamcast-style specular highlights. It also merges several specialized fixes like the Eggman Lighting Fix to achieve a visual style closer to the original 2001 Dreamcast release."
+msgstr "SA2 Render Fix è un mod essenziale per Sonic Adventure 2 su PC che ripara tantissimi bug e sviste grafiche. Corregge l'ordinamento delle trasparenze, il back-face culling e le proprietà dei materiali difettose, e ripristina elementi come i billboard di Cart e i riflessi speculari in stile Dreamcast. Integra anche diverse correzioni specifiche, come l'Eggman Lighting Fix, per avvicinarsi allo stile visivo dell'uscita originale del 2001 su Dreamcast."
+
+#: src/setup/sa2_catalog.rs
+msgid "A more faithful English translation of the Japanese script."
+msgstr "Una traduzione inglese più fedele al copione giapponese."
+
+#: src/setup/sa2_catalog.rs
+msgid "This mod replaces the original English localization with a new script that is more faithful to the original Japanese dialogue. Based on Windii's translations, it corrects creative liberties and errors found in the official localization. It is intended to be played with Japanese voices for the most authentic experience and includes compatibility with various restoration mods."
+msgstr "Questo mod sostituisce la localizzazione inglese originale con un nuovo copione più fedele ai dialoghi giapponesi originali. Basato sulle traduzioni di Windii, corregge le libertà creative e gli errori della localizzazione ufficiale. È pensato per giocare con le voci giapponesi, per l'esperienza più autentica, ed è compatibile con vari mod di restauro."
+
+#: src/setup/sa2_catalog.rs
+msgid "High-definition replacements for the game's 2D UI elements."
+msgstr "Sostituzioni in alta definizione per gli elementi 2D dell'interfaccia."
+
+#: src/setup/sa2_catalog.rs
+msgid "HD GUI: SA2 Edition replaces the game's low-resolution HUD, menu icons, and item boxes with high-definition versions that match the Dreamcast original's aesthetic. It covers gameplay HUDs, menu screens (Title, Stage Select, etc.), and includes a DLL for automatic configuration based on your active mods, such as NoBattle or Battle DLC."
+msgstr "HD GUI: SA2 Edition sostituisce l'HUD, le icone dei menu e le scatole degli oggetti a bassa risoluzione con versioni in alta definizione fedeli all'estetica dell'originale Dreamcast. Copre l'HUD di gioco e le schermate dei menu (titolo, selezione livello, ecc.) e include una DLL che si configura da sola in base ai mod attivi, come NoBattle o Battle DLC."
+
+#: src/setup/sa2_catalog.rs
+msgid "Restores the original 'Impress' font from the Dreamcast version."
+msgstr "Ripristina il font 'Impress' originale della versione Dreamcast."
+
+#: src/setup/sa2_catalog.rs
+msgid "IMPRESSive replaces the Comic Sans-like font in the PC version of SA2 with the 'Impress' font used in the original Japanese Dreamcast release. It includes custom character widths for natural spacing and supports all European languages. It is designed for compatibility with the SA2 Render Fix font API."
+msgstr "IMPRESSive sostituisce il font simile al Comic Sans della versione PC di SA2 con il font 'Impress' dell'uscita giapponese originale su Dreamcast. Include larghezze dei caratteri su misura per una spaziatura naturale e supporta tutte le lingue europee. È pensato per funzionare con l'API dei font di SA2 Render Fix."
+
+#: src/setup/sa2_catalog.rs
+msgid "Adds independent volume sliders for Music, SFX, and Voices."
+msgstr "Aggiunge cursori del volume separati per musica, effetti e voci."
+
+#: src/setup/sa2_catalog.rs
+msgid "This mod addresses SA2's notorious sound mixing issues by adding separate volume controls for music, sound effects, and character voices. It also includes 3D audio fixes for positional sound and master volume settings, allowing players to create a balanced mix that prevents music from drowning out dialogue."
+msgstr "Questo mod risolve i famigerati problemi di mixaggio audio di SA2 aggiungendo controlli del volume separati per musica, effetti sonori e voci. Include anche correzioni dell'audio 3D per il suono posizionale e un volume generale, così puoi creare un mix equilibrato in cui la musica non copre i dialoghi."
+
+#: src/setup/sa2_catalog.rs
+msgid "Overhauls mech footstep and targeting sounds for a less grating experience."
+msgstr "Rifà i suoni dei passi e della mira dei mech, così danno meno fastidio."
+
+#: src/setup/sa2_catalog.rs
+msgid "Mech Sound Improvement makes the mech-based levels for Tails and Eggman much more pleasant by lowering the volume of intrusive footsteps and replacing the high-pitched targeting whine with a softer sound. It also introduces snappier lock-on sound effects and adjusted pitch for various mech noises."
+msgstr "Mech Sound Improvement rende molto più piacevoli i livelli in mech di Tails ed Eggman: abbassa il volume dei passi invadenti e sostituisce il fischio acuto della mira con un suono più morbido. Aggiunge anche effetti di aggancio più secchi e regola il tono di vari rumori dei mech."
+
+#: src/setup/sa2_catalog.rs
+msgid "Dependency mod providing a common interface for SDL2 library."
+msgstr "Mod di dipendenza che offre un'interfaccia comune per la libreria SDL2."
+
+#: src/setup/sa2_catalog.rs
+msgid "SASDL (Simple Adventure SDL) is a background mod that allows other mods to use the SDL2 library for features like modern controller support without conflicting with each other. It is a mandatory dependency for mods like SA2 Input Controls."
+msgstr "SASDL (Simple Adventure SDL) è un mod in background che permette ad altri mod di usare la libreria SDL2, per esempio per il supporto ai controller moderni, senza entrare in conflitto tra loro. È una dipendenza obbligatoria per mod come SA2 Input Controls."
+
+#: src/setup/sa2_catalog.rs
+msgid "Complete overhaul of the input system for modern controllers and sensitivity."
+msgstr "Revisione completa dei controlli per controller moderni e sensibilità."
+
+#: src/setup/sa2_catalog.rs
+msgid "SA2 Input Controls fixes long-standing issues with the game's sensitivity, particularly the rail grinding sensitivity. It implements proper circular deadzones, adds native support for PlayStation and Switch controllers via SDL2, and allows for full keyboard remapping. It also restores full 360-degree analog precision that was hindered by the original axial deadzones."
+msgstr "SA2 Input Controls risolve problemi di sensibilità di vecchia data, soprattutto sui binari. Introduce vere zone morte circolari, aggiunge il supporto nativo ai controller PlayStation e Switch tramite SDL2 e permette di riassegnare tutta la tastiera. Ripristina anche la piena precisione analogica a 360 gradi limitata dalle zone morte assiali originali."
+
+#: src/setup/sa2_catalog.rs
+msgid "Restores SA1-style simultaneous tracking for treasure hunting."
+msgstr "Ripristina il tracciamento simultaneo in stile SA1 per la caccia al tesoro."
+
+#: src/setup/sa2_catalog.rs
+msgid "Better Radar improves the treasure-hunting mechanics by allowing the radar to track all three items simultaneously, rather than forcing a specific order. It adds new color indicators (blue and pink) for distance tracking and increases the tempo of the radar sound/animation as you get closer to a shard."
+msgstr "Better Radar migliora la caccia al tesoro: il radar traccia tutti e tre i pezzi insieme invece di imporre un ordine. Aggiunge nuovi indicatori colorati (blu e rosa) per la distanza e accelera suono e animazione del radar man mano che ti avvicini a un frammento."
+
+#: src/setup/sa2_catalog.rs
+msgid "Fluidity and physics refinements for Sonic and Shadow."
+msgstr "Fluidità e fisica migliorate per Sonic e Shadow."
+
+#: src/setup/sa2_catalog.rs
+msgid "HedgePanel refines the speed characters' mechanics by allowing them to maintain momentum during somersaults and adding an upward bounce after Light Attacks to prevent accidental falls. It also fixes the 'low bounce' physics bug and adds automatic prompts for Magic Hands when in range of an enemy."
+msgstr "HedgePanel perfeziona le meccaniche dei personaggi veloci: mantengono lo slancio durante le capriole e rimbalzano verso l'alto dopo gli attacchi leggeri per evitare cadute accidentali. Corregge anche il bug del 'rimbalzo basso' e mostra in automatico i suggerimenti delle Magic Hands quando un nemico è a portata."
+
+#: src/setup/sa2_catalog.rs src/setup/sadx_catalog.rs
+msgid "Modernizes Sonic and Shadow's movesets with new and restored abilities."
+msgstr "Rinnova le mosse di Sonic e Shadow con abilità nuove e ripristinate."
+
+#: src/setup/sa2_catalog.rs src/setup/sadx_catalog.rs
+msgid "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack."
+msgstr "Sonic: New Tricks ti permette di distribuire le azioni di Sonic su più tasti (separando salto, rimbalzo e Light Dash). Ripristina il potente Spin Dash di SA1 e la palla del salto, migliora il Bounce Bracelet e permette a Shadow e Metal Sonic di usare abilità che prima non avevano, come l'attacco rimbalzo."
+
+#: src/setup/sa2_catalog.rs
+msgid "Corrects localization errors and ambiguities in the hint system."
+msgstr "Corregge errori di localizzazione e ambiguità nel sistema di indizi."
+
+#: src/setup/sa2_catalog.rs
+msgid "Retranslated Hints replaces the original English stage clues with accurate translations of the Japanese text. It famously fixes the reversed 'siht ekil' hints in Mad Space and improves Omochao's dialogue across almost every stage, making the treasure-hunting segments significantly less frustrating."
+msgstr "Retranslated Hints sostituisce gli indizi originali in inglese con traduzioni accurate del testo giapponese. È famoso per aver corretto gli indizi al contrario 'siht ekil' di Mad Space e migliora i dialoghi di Omochao in quasi ogni livello, rendendo la caccia al tesoro molto meno frustrante."
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores Dreamcast visuals and features"
+msgstr "Ripristina grafica e funzioni del Dreamcast"
+
+#: src/setup/sadx_catalog.rs
+msgid "A massive restoration project that reverts the graphical and environmental changes made in the DX port. It replaces SADX level models and textures with original Dreamcast assets, restores vertex colors, and brings back the original title screens and UI elements for the definitive 1998 experience."
+msgstr "Un enorme progetto di restauro che annulla le modifiche grafiche e ambientali del port DX. Sostituisce modelli e texture dei livelli di SADX con le risorse originali del Dreamcast, ripristina i colori dei vertici e riporta le schermate del titolo e gli elementi dell'interfaccia originali per l'esperienza definitiva del 1998."
+
+#: src/setup/sadx_catalog.rs
+msgid "Comprehensive bug fix mod for the PC port"
+msgstr "Mod completo di correzione dei bug per il port PC"
+
+#: src/setup/sadx_catalog.rs
+msgid "The foundational bug-fix mod for the PC version of SADX. It addresses hundreds of technical oversights, including broken collision, incorrect object placement, scripting errors, and transparency issues that were not present in the original Dreamcast version."
+msgstr "Il mod di base per la correzione dei bug della versione PC di SADX. Risolve centinaia di sviste tecniche, tra cui collisioni rotte, oggetti nel posto sbagliato, errori negli script e problemi di trasparenza assenti nella versione Dreamcast originale."
+
+#: src/setup/sadx_catalog.rs
+msgid "Dreamcast-accurate lighting engine"
+msgstr "Motore di illuminazione fedele al Dreamcast"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the original palette-based lighting system from the Dreamcast version of Sonic Adventure. It replaces the flat lighting of the DX ports with dynamic lighting that makes characters and environments react to light sources with vibrant color depth."
+msgstr "Ripristina il sistema di illuminazione a palette originale della versione Dreamcast di Sonic Adventure. Sostituisce l'illuminazione piatta dei port DX con un'illuminazione dinamica che fa reagire personaggi e ambienti alle fonti di luce con colori intensi."
+
+#: src/setup/sadx_catalog.rs
+msgid "Enables Steam achievements with mods"
+msgstr "Attiva gli obiettivi di Steam con i mod"
+
+#: src/setup/sadx_catalog.rs
+msgid "A specialized mod that bridges the gap between modded/downgraded versions of the game and the Steam API. It allows players to earn all 15 official Steam achievements while playing with the SADX Mod Loader and other enhancements."
+msgstr "Un mod specifico che collega le versioni moddate o retrocesse del gioco all'API di Steam. Permette di ottenere tutti i 15 obiettivi ufficiali di Steam giocando con il SADX Mod Loader e altri miglioramenti."
+
+#: src/setup/sadx_catalog.rs
+msgid "Smooth first-person camera (analog instead of 8-directional)"
+msgstr "Telecamera in prima persona fluida (analogica invece che a 8 direzioni)"
+
+#: src/setup/sadx_catalog.rs
+msgid "Improves the game's camera behavior by smoothing out transitions and movements. It reduces the jittery or 'snapping' feel of the original SADX camera, making the gameplay experience feel more modern and less nauseating."
+msgstr "Migliora il comportamento della telecamera ammorbidendo transizioni e movimenti. Riduce l'effetto scattoso o a 'salti' della telecamera originale di SADX, per un gioco più moderno e meno nauseante."
+
+#: src/setup/sadx_catalog.rs
+msgid "Accurate frame rate limiter"
+msgstr "Limitatore di frame rate preciso"
+
+#: src/setup/sadx_catalog.rs
+msgid "A critical utility that locks the game's framerate to 60 FPS. Since SADX physics are tied to the framerate, this mod prevents the game from running at double speed on high-refresh-rate monitors, ensuring stable and intended gameplay speed."
+msgstr "Uno strumento fondamentale che blocca il gioco a 60 FPS. Dato che la fisica di SADX dipende dal frame rate, questo mod evita che il gioco vada a velocità doppia sui monitor ad alta frequenza e garantisce una velocità di gioco stabile e corretta."
+
+#: src/setup/sadx_catalog.rs
+msgid "Restored and improved sound effects"
+msgstr "Effetti sonori ripristinati e migliorati"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the high-quality soundscape of the original 1998 release. It replaces compressed PC audio with high-fidelity samples from the Dreamcast version, fixes sound trigger bugs, and improves 3D positional audio handling."
+msgstr "Ripristina il paesaggio sonoro di alta qualità dell'uscita originale del 1998. Sostituisce l'audio compresso del PC con campioni ad alta fedeltà della versione Dreamcast, corregge bug nell'attivazione dei suoni e migliora l'audio posizionale 3D."
+
+#: src/setup/sadx_catalog.rs
+msgid "High-quality ADX audio replacement"
+msgstr "Sostituzione audio ADX di alta qualità"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the use of high-quality .adx audio files for music and voices. Unlike the standard .wma files used in the PC port, .adx files allow for perfect, seamless loops and higher overall audio fidelity without gaps in the soundtrack."
+msgstr "Torna a usare file audio .adx di alta qualità per musica e voci. A differenza dei file .wma del port PC, i file .adx permettono loop perfetti e continui e una fedeltà audio più alta, senza vuoti nella colonna sonora."
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the ocean wave effect in Emerald Coast"
+msgstr "Ripristina l'effetto delle onde a Emerald Coast"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the specific 'shiny' and opaque water textures used in the original 2003 GameCube/PC DX release. This mod is for players who prefer the DX-era water aesthetics over the transparent Dreamcast-style water."
+msgstr "Ripristina le texture dell'acqua opache e 'lucide' dell'uscita DX originale del 2003 su GameCube e PC. Questo mod è per chi preferisce l'acqua dell'epoca DX all'acqua trasparente in stile Dreamcast."
+
+#: src/setup/sadx_catalog.rs
+msgid "Dreamcast-style motion blur effect"
+msgstr "Effetto di motion blur in stile Dreamcast"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the iconic 'onion skinning' motion blur effect seen when characters move at high speeds in the original Dreamcast version. This visual trail was removed in the DX ports and is a staple of the classic Sonic Adventure look."
+msgstr "Ripristina l'iconico motion blur a scia che si vede quando i personaggi corrono ad alta velocità nella versione Dreamcast originale. Questa scia è stata tolta nei port DX ed è un classico del look di Sonic Adventure."
+
+#: src/setup/sadx_catalog.rs
+msgid "Original Dreamcast character models"
+msgstr "Modelli originali dei personaggi del Dreamcast"
+
+#: src/setup/sadx_catalog.rs
+msgid "Replaces the high-poly, glossy character models of the DX version with their original lower-poly designs from the 1998 Dreamcast version. It includes original models for the entire main cast, Eggman, Tikal, and Metal Sonic."
+msgstr "Sostituisce i modelli dei personaggi lucidi e ricchi di poligoni della versione DX con i design originali, con meno poligoni, della versione Dreamcast del 1998. Include i modelli originali di tutto il cast principale, di Eggman, Tikal e Metal Sonic."
+
+#: src/setup/sadx_catalog.rs
+msgid "High-fidelity refinements for the default DX character models."
+msgstr "Miglioramenti ad alta fedeltà per i modelli dei personaggi DX."
+
+#: src/setup/sadx_catalog.rs
+msgid "DX Characters Refined improves the default character models introduced in the DX port rather than replacing them. It features updated topology, UV mapping, and textures for the main cast, along with a massive animation update that fixes over 200 bugged animations inherited from the Dreamcast models."
+msgstr "DX Characters Refined migliora i modelli dei personaggi introdotti dal port DX invece di sostituirli. Offre topologia, mappatura UV e texture aggiornate per il cast principale, oltre a un grande aggiornamento delle animazioni che corregge più di 200 animazioni difettose ereditate dai modelli Dreamcast."
+
+#: src/setup/sadx_catalog.rs
+msgid "Restored Dreamcast downloadable content"
+msgstr "Contenuti scaricabili del Dreamcast ripristinati"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the original Dreamcast-exclusive seasonal and promotional online events. This includes holiday events like Christmas and Halloween, as well as scavenger hunts and challenges that were originally only available via the Dreamcast's online features."
+msgstr "Ripristina gli eventi online stagionali e promozionali esclusivi del Dreamcast. Include eventi festivi come Natale e Halloween, oltre a cacce al tesoro e sfide che prima erano disponibili solo tramite le funzioni online del Dreamcast."
+
+#: src/setup/sadx_catalog.rs
+msgid "Press a button to hear character commentary about the current stage"
+msgstr "Premi un tasto per sentire il commento del personaggio sul livello"
+
+#: src/setup/sadx_catalog.rs
+msgid "Allows players to manually trigger character idle dialogue by pressing a dedicated button. This allows players to hear the characters' thoughts on the story, their location, or current mission without waiting for the idle timer to run out."
+msgstr "Permette di attivare a mano le battute di attesa dei personaggi con un tasto dedicato. Così puoi sentire cosa pensano i personaggi della storia, del luogo o della missione senza aspettare che scada il timer di inattività."
+
+#: src/setup/sadx_catalog.rs
+msgid "Press X+Y to hide the pause menu for screenshots"
+msgstr "Premi X+Y per nascondere il menu di pausa e fare screenshot"
+
+#: src/setup/sadx_catalog.rs
+msgid "A simple but effective tool for virtual photographers. By pressing a specific button combination while the game is paused, players can hide the entire pause menu and HUD to capture clean, unobstructed screenshots of the game world."
+msgstr "Uno strumento semplice ma efficace per i fotografi virtuali. Con una combinazione di tasti a gioco in pausa nascondi tutto il menu di pausa e l'HUD per fare screenshot puliti e senza ostacoli del mondo di gioco."
+
+#: src/setup/sadx_catalog.rs
+msgid "Change the time of day by taking the train after beating the story"
+msgstr "Cambia l'ora del giorno prendendo il treno dopo aver finito la storia"
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores the dynamic time-of-day system for Hub Worlds. As the player travels between Station Square and the Mystic Ruins, the clock advances, changing the lighting and atmosphere between Day, Evening, and Night to reflect the passage of time."
+msgstr "Ripristina il sistema dinamico dell'ora del giorno nelle aree centrali. Quando viaggi tra Station Square e Mystic Ruins, l'orologio avanza e cambia luce e atmosfera tra giorno, sera e notte per mostrare il passare del tempo."
+
+#: src/setup/sadx_catalog.rs
+msgid "Faithful translation of the Japanese script for SADX."
+msgstr "Traduzione fedele del copione giapponese per SADX."
+
+#: src/setup/sadx_catalog.rs
+msgid "This mod replaces the English script with Windii's faithful translation of the original Japanese dialogue. It corrects numerous localization errors and 'Americanizations,' providing a more accurate narrative experience. It is recommended for use with Japanese voices."
+msgstr "Questo mod sostituisce il copione inglese con la traduzione fedele di Windii dei dialoghi giapponesi originali. Corregge molti errori di localizzazione e 'americanizzazioni', per una narrazione più accurata. Consigliato con le voci giapponesi."
+
+#: src/setup/sadx_catalog.rs
+msgid "Expanded limits and contextual improvements for the gameplay HUD."
+msgstr "Limiti estesi e miglioramenti contestuali per l'HUD di gioco."
+
+#: src/setup/sadx_catalog.rs
+msgid "HUD Plus enhances the UI by increasing the ring and life counter limits and displaying collected Chao animals in the pause menu. It also includes contextual changes like hiding the ring HUD in specific stages where it's not needed and adding a score counter to the main screen."
+msgstr "HUD Plus migliora l'interfaccia: alza i limiti dei contatori di anelli e vite e mostra nel menu di pausa gli animali Chao raccolti. Aggiunge anche modifiche contestuali, come nascondere il contatore degli anelli nei livelli dove non serve e aggiungere un contatore del punteggio nella schermata principale."
+
+#: src/setup/sadx_catalog.rs
+msgid "High resolution GUI textures for menus, HUD and icons"
+msgstr "Texture dell'interfaccia ad alta risoluzione per menu, HUD e icone"
+
+#: src/setup/sadx_catalog.rs
+msgid "A complete high-resolution texture overhaul for the game's user interface. It replaces every menu texture, HUD element, and font with crisp, HD versions that are faithful to the original UI designs while looking great on modern displays."
+msgstr "Una revisione completa ad alta risoluzione delle texture dell'interfaccia del gioco. Sostituisce ogni texture dei menu, elemento dell'HUD e font con versioni HD nitide, fedeli ai design originali e bellissime sugli schermi moderni."
+
+#: src/setup/sadx_catalog.rs
+msgid "Enables character face and mouth animations during gameplay."
+msgstr "Attiva le animazioni di volto e bocca dei personaggi durante il gioco."
+
+#: src/setup/sadx_catalog.rs
+msgid "Active Mouths enables mouth and facial animations for characters when they speak idle lines or react to the environment in-game, features previously restricted to cutscenes. It includes synced mouth movements for voice clips and environmental reactions like drowning or clearing a stage."
+msgstr "Active Mouths attiva le animazioni della bocca e del volto quando i personaggi dicono battute di attesa o reagiscono all'ambiente durante il gioco, cose prima limitate ai filmati. Include movimenti della bocca sincronizzati con le voci e reazioni all'ambiente come annegare o completare un livello."
+
+#: src/setup/sadx_catalog.rs
+msgid "Major improvements to Tails' behavior as a follower."
+msgstr "Grandi miglioramenti al comportamento di Tails quando ti segue."
+
+#: src/setup/sadx_catalog.rs
+msgid "Better Tails AI makes Tails much more useful and interactive. He can now follow you into Hub Worlds and Boss Fights, pet Chao alongside the player, and sit in vehicles. It also adds a fast travel system in Hub Worlds and improves his flight speed to better keep up with Sonic."
+msgstr "Better Tails AI rende Tails molto più utile e interattivo. Ora può seguirti nelle aree centrali e nelle battaglie con i boss, coccolare i Chao con te e salire sui veicoli. Aggiunge anche un sistema di viaggio rapido nelle aree centrali e aumenta la sua velocità di volo per stare dietro a Sonic."
+
+#: src/setup/sadx_catalog.rs
+msgid "Playable Super Sonic in action stages"
+msgstr "Super Sonic giocabile nei livelli d'azione"
+
+#: src/setup/sadx_catalog.rs
+msgid "A gameplay overhaul that enables Super Sonic for use in regular Action Stages after completing the story. It includes improved mechanics, fixed animations, and the ability to transform at will during normal levels."
+msgstr "Una revisione del gameplay che rende Super Sonic giocabile nei normali livelli d'azione dopo aver finito la storia. Include meccaniche migliorate, animazioni corrette e la possibilità di trasformarsi quando vuoi nei livelli normali."
+
+#: src/setup/sadx_catalog.rs
+msgid "Adds local 4-player split-screen support to SADX."
+msgstr "Aggiunge a SADX lo schermo condiviso locale per 4 giocatori."
+
+#: src/setup/sadx_catalog.rs
+msgid "The SADX Multiplayer mod adds local split-screen support for up to 4 players. It overhauls systems like fishing, hunting, and shooting to work in a multiplayer environment and supports both Co-op and Battle modes across various trial stages."
+msgstr "Il mod SADX Multiplayer aggiunge lo schermo condiviso locale per un massimo di 4 giocatori. Adatta al multigiocatore sistemi come la pesca, la caccia al tesoro e lo sparo e supporta le modalità cooperativa e sfida in vari livelli di prova."
+
+#: src/setup/sadx_catalog.rs
+msgid "Allows taking your Chao out of the gardens and into action stages."
+msgstr "Ti permette di portare i tuoi Chao fuori dai giardini, nei livelli d'azione."
+
+#: src/setup/sadx_catalog.rs
+msgid "Also known as Chao Partner, this mod allows you to take your Chao with you into levels and hub worlds. Your Chao will follow you, attack nearby enemies based on its stats, and can be petted or dropped at will. It includes a water fix to allow Chao to 'swim' in standard level water."
+msgstr "Conosciuto anche come Chao Partner, questo mod ti permette di portare il tuo Chao nei livelli e nelle aree centrali. Il tuo Chao ti segue, attacca i nemici vicini in base alle sue statistiche e puoi coccolarlo o lasciarlo quando vuoi. Include una correzione dell'acqua che permette ai Chao di 'nuotare' nell'acqua dei livelli."
+
+#: src/setup/sadx_catalog.rs
+msgid "Restores cut content and fixes bugs in the PC version."
+msgstr "Ripristina contenuti tagliati e corregge bug della versione PC."
+
+#: src/setup/sadx_catalog.rs
+msgid "This mod restores various beta elements like unused voice clips and animations while fixing hundreds of small bugs in the PC port. It adds 'Extra' mode layouts with restored level objects and improves visual elements like the Nightopian Egg and environmental sound effects."
+msgstr "Questo mod ripristina vari elementi della beta, come voci e animazioni inutilizzate, e corregge centinaia di piccoli bug del port PC. Aggiunge disposizioni dei livelli della modalità 'Extra' con oggetti ripristinati e migliora dettagli visivi come l'uovo di Nightopian e gli effetti sonori ambientali."
+
+#: src/setup/sadx_catalog.rs
+msgid "Swaps the music tracks for the Perfect Chaos boss phases."
+msgstr "Scambia le musiche delle fasi della battaglia contro Perfect Chaos."
+
+#: src/setup/sadx_catalog.rs
+msgid "This mod swaps the music for Phase 1 and Phase 2 of the final boss fight. It is commonly used to ensure 'Open Your Heart' plays during the main gameplay segment of the fight, restoring the intended musical progression from the original Dreamcast release."
+msgstr "Questo mod scambia la musica della fase 1 e della fase 2 della battaglia finale. Si usa di solito perché 'Open Your Heart' suoni durante la parte principale della battaglia, seguendo la progressione musicale voluta dall'uscita Dreamcast originale."
+
+#: src/setup/sadx_catalog.rs
+msgid "HD upscaled video cutscenes"
+msgstr "Filmati riscalati in HD"
+
+#: src/setup/sadx_catalog.rs
+msgid "Upscales the game's original pre-rendered cinematic cutscenes to 1080p using AI neural networks. This mod removes compression artifacts and blurriness, making the transition between gameplay and cutscenes feel much more seamless on HD monitors."
+msgstr "Riscala i filmati pre-renderizzati originali del gioco a 1080p con reti neurali. Questo mod elimina gli artefatti di compressione e la sfocatura, rendendo il passaggio tra gioco e filmati molto più fluido sui monitor HD."
+
+#: src/setup/sadx_catalog.rs
+msgid "AI upscaled textures for both vanilla and Dreamcast Conversion assets"
+msgstr "Texture riscalate con l'IA per le risorse originali e per quelle di Dreamcast Conversion"
+
+#: src/setup/sadx_catalog.rs
+msgid "Uses AI technology like ESRGAN to upscale the game's textures to high definition. It sharpens the environment and character textures significantly while strictly preserving the original art style and color palette of the game."
+msgstr "Usa tecnologie di IA come ESRGAN per portare le texture del gioco in alta definizione. Rende molto più nitide le texture degli ambienti e dei personaggi, rispettando rigorosamente lo stile artistico e la tavolozza dei colori originali."
+
+#: src/setup/sadx_catalog.rs
+msgid "Combines authentic Dreamcast levels and lighting with high-fidelity 'Refined' DX characters and DX-style water for a balanced modern-classic mix."
+msgstr "Unisce livelli e illuminazione autentici del Dreamcast con i personaggi DX 'Refined' ad alta fedeltà e l'acqua in stile DX, per un mix equilibrato tra moderno e classico."
+
+#: src/setup/sadx_catalog.rs
+msgid "Provides a total visual restoration of the 1998 Dreamcast experience, including classic low-poly character models and original environmental effects."
+msgstr "Un restauro visivo totale dell'esperienza Dreamcast del 1998, con i classici modelli dei personaggi a pochi poligoni e gli effetti ambientali originali."
+
+#: src/setup/steps.rs
+msgid "Install .NET Runtime"
+msgstr "Installa il runtime .NET"
+
+#: src/setup/steps.rs
+msgid "Convert Steam to 2004"
+msgstr "Converti Steam alla versione del 2004"
+
+#: src/setup/steps.rs
+msgid "Install Mod Manager & Loader"
+msgstr "Installa il gestore e il loader dei mod"
+
+#: src/setup/steps.rs
+msgid "Install Mods & Generate Config"
+msgstr "Installa i mod e genera la configurazione"
+
+#: src/setup/steps.rs
+msgid "Set Up Proton"
+msgstr "Configura Proton"
+
+#: src/setup/steps.rs
+msgid "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+msgstr "Su Steam apri Proprietà → Compatibilità di Sonic Adventure DX e forza Proton 10.0. Avvia il gioco una volta, chiudilo e poi controlla di nuovo."
+
+#: src/setup/steps.rs
+msgid "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+msgstr "Su Steam apri Proprietà → Compatibilità di Sonic Adventure 2 e forza Proton 10.0. Avvia il gioco una volta, chiudilo e poi controlla di nuovo."
+
+#: src/setup/steps.rs
+msgid "Choose Mods"
+msgstr "Scegli i mod"
+
+#: src/setup/steps.rs
+msgid "Pick a preset or choose mods one by one."
+msgstr "Scegli un preset o scegli i mod uno per uno."
+
+#: src/setup/steps.rs
+msgid "Languages"
+msgstr "Lingue"
+
+#: src/setup/steps.rs
+msgid "Choose the languages for subtitles and voices."
+msgstr "Scegli le lingue di sottotitoli e voci."
+
+#: src/setup/steps.rs
+msgid ".NET Runtimes"
+msgstr "Runtime .NET"
+
+#: src/setup/steps.rs
+msgid "Versions 8 and 10, installed or updated"
+msgstr "Versioni 8 e 10, installate o aggiornate"
+
+#: src/setup/steps.rs
+msgid "2004 Version"
+msgstr "Versione del 2004"
+
+#: src/setup/steps.rs
+msgid "Converts the Steam version for the mod loader"
+msgstr "Converte la versione di Steam per il loader dei mod"
+
+#: src/setup/steps.rs
+msgid "Mod Manager and Loader"
+msgstr "Gestore e loader dei mod"
+
+#: src/setup/steps.rs
+msgid "Installed or updated to the latest release"
+msgstr "Installati o aggiornati all'ultima versione"
+
+#: src/setup/steps.rs
+msgid "Mods"
+msgstr "Mod"
+
+#: src/setup/steps.rs
+msgid "Installed or updated, then set up"
+msgstr "Installati o aggiornati, poi configurati"
+
+#: src/setup/steps.rs
+msgid "Ready to Play"
+msgstr "Pronto per giocare"
+
+#: src/setup/steps.rs
+msgid "Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+msgstr "Avvia Sonic Adventure DX da Steam. Prima si apre il gestore dei mod, così puoi attivare o disattivare i mod prima di giocare."
+
+#: src/setup/steps.rs
+msgid "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+msgstr "Avvia Sonic Adventure 2 da Steam. Prima si apre il gestore dei mod, così puoi attivare o disattivare i mod prima di giocare."
+
+#: src/ui/app.rs
+#, rust-format
+msgid "Failed to detect Steam libraries: {error}"
+msgstr "Impossibile trovare le librerie di Steam: {error}"
+
+#: src/ui/app.rs
+#, rust-format
+msgid "That folder is not the requested Steam library. Select {path} (it must contain a steamapps folder)."
+msgstr "Questa cartella non è la libreria di Steam richiesta. Scegli {path} (deve contenere una cartella steamapps)."
+
+#: src/ui/app.rs
+#, rust-format
+msgid "{game} was restored."
+msgstr "{game} è stato ripristinato."
+
+#: src/ui/app.rs
+#, rust-format
+msgid "Could not restore {game}: {error}"
+msgstr "Impossibile ripristinare {game}: {error}"
+
+#: src/ui/app.rs
+msgid "About"
+msgstr "Informazioni"
+
+#: src/ui/app.rs
+msgid "Scan Again"
+msgstr "Cerca di nuovo"
+
+#: src/ui/app.rs
+msgid "Select"
+msgstr "Scegli"
+
+#: src/ui/app.rs src/ui/widgets.rs
+msgid "Back"
+msgstr "Indietro"
+
+#: src/ui/app.rs
+msgid "Other action"
+msgstr "Altra azione"
+
+#: src/ui/app.rs src/ui/setup.rs
+msgid "Continue"
+msgstr "Continua"
+
+#: src/ui/app.rs
+msgid "Scan again"
+msgstr "Cerca di nuovo"
+
+#: src/ui/app.rs
+#, rust-format
+msgid "Restore the original {game}?"
+msgstr "Ripristinare {game} originale?"
+
+#: src/ui/app.rs
+msgid "This puts back the game's original launcher and removes the mod loader, so Steam starts the unmodded game. Downloaded mods stay in the mods folder and are reused if you set the game up again."
+msgstr "Rimette il launcher originale del gioco e rimuove il loader dei mod, così Steam avvia il gioco senza mod. I mod scaricati restano nella cartella mods e vengono riusati se configuri di nuovo il gioco."
+
+#: src/ui/app.rs src/ui/dialogs.rs src/ui/setup.rs
+msgid "Cancel"
+msgstr "Annulla"
+
+#: src/ui/app.rs src/ui/welcome.rs
+msgid "Restore"
+msgstr "Ripristina"
+
+#: src/ui/app.rs
+msgid "Finish in Steam"
+msgstr "Completa su Steam"
+
+#: src/ui/app.rs
+#, rust-format
+msgid "Setup converted {game} to the 2004 version. Let Steam verify the game files to get the original Steam version back."
+msgstr "La configurazione ha convertito {game} alla versione del 2004. Lascia che Steam verifichi i file del gioco per riavere la versione originale di Steam."
+
+#: src/ui/app.rs
+msgid "Later"
+msgstr "Più tardi"
+
+#: src/ui/app.rs src/ui/welcome.rs
+msgid "Verify in Steam"
+msgstr "Verifica su Steam"
+
+#: src/ui/app.rs
+msgid "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux."
+msgstr "Il modo più semplice per moddare Sonic Adventure DX e Sonic Adventure 2 su Linux."
+
+#: src/ui/app.rs
+msgid "Report an Issue"
+msgstr "Segnala un problema"
+
+#: src/ui/app.rs
+msgid "Close"
+msgstr "Chiudi"
+
+#. Translators: {heart} is a red heart.
+#: src/ui/app.rs
+#, rust-format
+msgid "Made with {heart} by astro"
+msgstr "Fatto con {heart} da astro"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Generating config… ({total}/{total})"
+msgstr "Generazione della configurazione… ({total}/{total})"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "{status} - {progress}"
+msgstr "{status} - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Starting {name}…"
+msgstr "Avvio di {name}…"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Installed {name} ({completed}/{total})"
+msgstr "{name} installato ({completed}/{total})"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "{done} / {total} MB"
+msgstr "{done} / {total} MB"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Downloading mods - {progress}"
+msgstr "Download dei mod - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "{size} GB"
+msgstr "{size} GB"
+
+#: src/ui/progress.rs
+msgid "No mods selected"
+msgstr "Nessun mod scelto"
+
+#: src/ui/progress.rs
+msgid "Checking download size…"
+msgstr "Calcolo della dimensione del download…"
+
+#: src/ui/progress.rs
+msgid "Everything selected is already installed"
+msgstr "Tutto ciò che hai scelto è già installato"
+
+#: src/ui/progress.rs
+msgid "Download size unknown"
+msgstr "Dimensione del download sconosciuta"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "At least {size} to download"
+msgstr "Almeno {size} da scaricare"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "{size} to download"
+msgstr "{size} da scaricare"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "{download}, {n} already installed"
+msgid_plural "{download}, {n} already installed"
+msgstr[0] "{download}, {n} già installato"
+msgstr[1] "{download}, {n} già installati"
+
+#: src/ui/setup.rs
+msgid "Failed"
+msgstr "Non riuscito"
+
+#: src/ui/setup.rs
+msgid "Play in Steam"
+msgstr "Gioca su Steam"
+
+#: src/ui/setup.rs
+msgid "Cancelling…"
+msgstr "Annullamento…"
+
+#: src/ui/setup.rs
+msgid "Downloading in the background"
+msgstr "Download in background"
+
+#: src/ui/setup.rs
+msgid "Finishing downloads…"
+msgstr "Completamento dei download…"
+
+#: src/ui/setup.rs
+msgid "Try Again"
+msgstr "Riprova"
+
+#: src/ui/setup.rs
+msgid "Check Again"
+msgstr "Controlla di nuovo"
+
+#: src/ui/setup.rs
+msgid "Install"
+msgstr "Installa"
+
+#: src/ui/setup.rs
+msgid "Installing"
+msgstr "Installazione"
+
+#: src/ui/setup.rs
+#, rust-format
+msgid "{game} · Step {position} of {total}"
+msgstr "{game} · Passo {position} di {total}"
+
+#: src/ui/setup.rs
+msgid "Something went wrong while going back. Please try again."
+msgstr "Qualcosa è andato storto tornando indietro. Riprova."
+
+#: src/ui/setup.rs
+msgid "Something went wrong while continuing setup. Please try again."
+msgstr "Qualcosa è andato storto continuando la configurazione. Riprova."
+
+#: src/ui/setup.rs
+msgid "Something went wrong. Please try again."
+msgstr "Qualcosa è andato storto. Riprova."
+
+#: src/ui/setup.rs
+msgid "Something Went Wrong"
+msgstr "Qualcosa è andato storto"
+
+#: src/ui/setup.rs
+msgid "Proton Is Ready"
+msgstr "Proton è pronto"
+
+#: src/ui/setup.rs
+msgid "Proton 10 Needed"
+msgstr "Serve Proton 10"
+
+#: src/ui/setup.rs
+msgid "Preset"
+msgstr "Preset"
+
+#: src/ui/setup.rs
+msgid "Subtitles"
+msgstr "Sottotitoli"
+
+#: src/ui/setup.rs
+msgid "Voices"
+msgstr "Voci"
+
+#: src/ui/setup.rs
+msgid "Starting…"
+msgstr "Avvio…"
+
+#: src/ui/setup.rs
+msgid "Setup Didn't Finish"
+msgstr "La configurazione non è finita"
+
+#: src/ui/setup.rs
+msgid "Try again, or go back to change your choices."
+msgstr "Riprova, o torna indietro per cambiare le tue scelte."
+
+#: src/ui/setup.rs
+msgid "Details"
+msgstr "Dettagli"
+
+#: src/ui/setup.rs
+msgid "Custom"
+msgstr "Personalizzato"
+
+#: src/ui/setup.rs
+msgid "Before"
+msgstr "Prima"
+
+#: src/ui/setup.rs
+msgid "After"
+msgstr "Dopo"
+
+#: src/ui/setup.rs
+msgid "Downloading…"
+msgstr "Download…"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "{path} (Needs access)"
+msgstr "{path} (serve l'accesso)"
+
+#: src/ui/welcome.rs
+msgid "Install it in Steam, then scan again."
+msgstr "Installalo su Steam, poi cerca di nuovo."
+
+#: src/ui/welcome.rs
+msgid "Let Steam verify the game files to finish restoring it."
+msgstr "Lascia che Steam verifichi i file del gioco per completare il ripristino."
+
+#: src/ui/welcome.rs
+msgid "Grant Access"
+msgstr "Consenti accesso"
+
+#: src/ui/welcome.rs
+msgid "Set Up"
+msgstr "Configura"
+
+#: src/ui/welcome.rs
+msgid "Change Mods"
+msgstr "Cambia mod"
+
+#: src/ui/welcome.rs
+msgid "Looking for your games…"
+msgstr "Ricerca dei tuoi giochi…"
+
+#: src/ui/welcome.rs
+msgctxt "game install location"
+msgid "Install"
+msgstr "Installazione"
+
+#: src/ui/welcome.rs
+msgid "Choose which install to set up"
+msgstr "Scegli quale installazione configurare"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "{game} Install"
+msgstr "Installazione di {game}"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "{first} and {second}"
+msgstr "{first} e {second}"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
+msgstr "Adventure Mods ha bisogno di accedere alla libreria di Steam che contiene {games}. Usa {button} sul gioco qui sotto."
+
+#: data/io.github.astrovm.AdventureMods.desktop.in
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Set up Sonic Adventure mods"
+msgstr "Configura i mod di Sonic Adventure"
+
+#: data/io.github.astrovm.AdventureMods.desktop.in
+msgid "sonic;adventure;mods;sadx;sa2;"
+msgstr "sonic;adventure;mods;sadx;sa2;gioco;"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Adventure Mods"
+msgstr "Adventure Mods"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux. Finds your Steam installs, downloads community mods, and handles mod managers, runtimes, resolution, load order, and language settings so you can play right away."
+msgstr "Il modo più semplice per moddare Sonic Adventure DX e Sonic Adventure 2 su Linux. Trova le tue installazioni di Steam, scarica i mod della community e si occupa di gestori dei mod, runtime, risoluzione, ordine di caricamento e lingue, così puoi giocare subito."
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Detects SADX and SA2 across all Steam library folders"
+msgstr "Trova SADX e SA2 in tutte le cartelle delle librerie di Steam"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "29 SADX mods and 12 SA2 mods"
+msgstr "29 mod per SADX e 12 per SA2"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "SADX presets: DX Enhanced and Dreamcast Restoration"
+msgstr "Preset per SADX: DX Enhanced e Dreamcast Restoration"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Installs mod managers, mods, and dependencies in one step"
+msgstr "Installa gestori dei mod, mod e dipendenze in un solo passo"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Configures native resolution, window mode, and optimal settings"
+msgstr "Imposta la risoluzione nativa, la modalità finestra e le impostazioni ottimali"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Lets you choose subtitle and voice language during setup"
+msgstr "Ti fa scegliere la lingua di sottotitoli e voci durante la configurazione"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Works with a controller, a keyboard, a mouse, or touch, including Steam Deck Game Mode"
+msgstr "Funziona con controller, tastiera, mouse o touch, anche nella modalità Gioco di Steam Deck"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "In English, Spanish, French, German, Italian, and Japanese"
+msgstr "In inglese, spagnolo, francese, tedesco, italiano e giapponese"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Your games, ready to set up"
+msgstr "I tuoi giochi, pronti da configurare"
+
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
+msgid "Mod selection with previews and presets"
+msgstr "Scelta dei mod con anteprime e preset"

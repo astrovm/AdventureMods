@@ -12,6 +12,8 @@ fn run_app(home: &Path, configure: impl FnOnce(&mut Command)) -> Output {
         .env("XDG_CONFIG_HOME", home.join("config"))
         .env("XDG_DATA_HOME", home.join("data"))
         .env("ADVENTURE_MODS_QUIT_AFTER_FIRST_FRAME", "1")
+        .env("LC_ALL", "C.UTF-8")
+        .env_remove("LANGUAGE")
         .env_remove("WAYLAND_DISPLAY")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -57,4 +59,20 @@ fn without_a_display_the_app_explains_why_it_cannot_start() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Could not open the window"), "{stderr}");
+}
+
+#[test]
+fn the_app_speaks_the_language_of_the_locale() {
+    let home = tempfile::tempdir().unwrap();
+
+    let output = run_app(home.path(), |command| {
+        command.env("LC_ALL", "fr_FR.UTF-8").env_remove("DISPLAY");
+    });
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Impossible d’ouvrir la fenêtre"),
+        "{stderr}"
+    );
 }

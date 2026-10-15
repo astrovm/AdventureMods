@@ -8,8 +8,9 @@ the arrows U+2190 to U+2199, which Rubik lacks.
 Source: https://github.com/notofonts/math
 Copyright 2022 The Noto Project Authors (https://github.com/notofonts/math)
 
-NotoSansCJK-JapaneseLabel.otf is a subset of Noto Sans CJK JP Regular holding
-only the glyphs of "日本語", the label of the Japanese language option.
+NotoSansJP-Medium-Subset.otf and NotoSansJP-Bold-Subset.otf are subsets of
+Noto Sans JP holding the kana, the full-width forms and the characters of the
+app's Japanese text. build-aux/subset-japanese-fonts.sh makes them.
 Source: https://github.com/notofonts/noto-cjk
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
 

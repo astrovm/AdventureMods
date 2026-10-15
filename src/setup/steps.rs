@@ -1,4 +1,5 @@
 use crate::steam::game::GameKind;
+use crate::tr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StepId {
@@ -23,10 +24,10 @@ pub enum SetupAction {
 impl SetupAction {
     pub fn cli_title(self) -> &'static str {
         match self {
-            Self::InstallDotnet => "Install .NET Runtime",
-            Self::ConvertSteam => "Convert Steam to 2004",
-            Self::InstallModManager => "Install Mod Manager & Loader",
-            Self::InstallMods => "Install Mods & Generate Config",
+            Self::InstallDotnet => tr!("Install .NET Runtime"),
+            Self::ConvertSteam => tr!("Convert Steam to 2004"),
+            Self::InstallModManager => tr!("Install Mod Manager & Loader"),
+            Self::InstallMods => tr!("Install Mods & Generate Config"),
         }
     }
 }
@@ -97,33 +98,37 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     let mut steps = vec![
         SetupStep {
             id: StepId::SteamConfig,
-            title: "Set Up Proton",
+            title: tr!("Set Up Proton"),
             description: match kind {
                 GameKind::SADX => {
-                    "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+                    tr!(
+                        "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+                    )
                 }
                 GameKind::SA2 => {
-                    "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+                    tr!(
+                        "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
+                    )
                 }
             },
             kind: StepKind::Info,
         },
         SetupStep {
             id: StepId::SelectMods,
-            title: "Choose Mods",
-            description: "Pick a preset or choose mods one by one.",
+            title: tr!("Choose Mods"),
+            description: tr!("Pick a preset or choose mods one by one."),
             kind: StepKind::ModSelection,
         },
         SetupStep {
             id: StepId::LanguageOptions,
-            title: "Languages",
-            description: "Choose the languages for subtitles and voices.",
+            title: tr!("Languages"),
+            description: tr!("Choose the languages for subtitles and voices."),
             kind: StepKind::Info,
         },
         SetupStep {
             id: StepId::Dotnet,
-            title: ".NET Runtimes",
-            description: "Versions 8 and 10, installed or updated",
+            title: tr!(".NET Runtimes"),
+            description: tr!("Versions 8 and 10, installed or updated"),
             kind: StepKind::Auto,
         },
     ];
@@ -131,8 +136,8 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     if kind == GameKind::SADX {
         steps.push(SetupStep {
             id: StepId::ConvertSteam,
-            title: "2004 Version",
-            description: "Converts the Steam version for the mod loader",
+            title: tr!("2004 Version"),
+            description: tr!("Converts the Steam version for the mod loader"),
             kind: StepKind::Download,
         });
     }
@@ -140,25 +145,25 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
     steps.extend([
         SetupStep {
             id: StepId::InstallModManager,
-            title: "Mod Manager and Loader",
-            description: "Installed or updated to the latest release",
+            title: tr!("Mod Manager and Loader"),
+            description: tr!("Installed or updated to the latest release"),
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::DownloadMods,
-            title: "Mods",
-            description: "Installed or updated, then set up",
+            title: tr!("Mods"),
+            description: tr!("Installed or updated, then set up"),
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::Complete,
-            title: "Ready to Play",
+            title: tr!("Ready to Play"),
             description: match kind {
                 GameKind::SADX => {
-                    "Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+                    tr!("Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing.")
                 }
                 GameKind::SA2 => {
-                    "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+                    tr!("Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing.")
                 }
             },
             kind: StepKind::Info,

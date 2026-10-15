@@ -27,6 +27,7 @@ use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
 use crate::setup::pipeline::{self, InstallProgress};
 use crate::setup::steps::{self, SetupStep, StepId, StepKind};
 use crate::steam::game::{Game, GameKind};
+use crate::{i18n, tr, trf};
 
 /// Looks up how many bytes installing a mod downloads.
 pub type DownloadSizeFn = fn(&ModEntry) -> Option<u64>;
@@ -116,8 +117,8 @@ struct InstallTask {
 impl InstallTask {
     fn subtitle(&self) -> &'static str {
         match self.state {
-            TaskState::Done => "Done",
-            TaskState::Failed => "Failed",
+            TaskState::Done => tr!("Done"),
+            TaskState::Failed => tr!("Failed"),
             TaskState::Pending => self.pending_note.unwrap_or(self.description),
             TaskState::Running => self.description,
         }
@@ -200,6 +201,24 @@ struct RunningTask {
     result: Receiver<anyhow::Result<()>>,
     progress: async_channel::Receiver<ProgressMsg>,
     samples: Arc<ProgressSamples>,
+}
+
+/// The footer's second button.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Secondary {
+    PlayInSteam,
+    Cancel,
+    Cancelling,
+}
+
+impl Secondary {
+    fn label(self) -> &'static str {
+        match self {
+            Self::PlayInSteam => tr!("Play in Steam"),
+            Self::Cancel => tr!("Cancel"),
+            Self::Cancelling => tr!("Cancelling…"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -399,7 +418,7 @@ impl SetupFlow {
             .position(|step| step.id == StepId::DownloadMods)
             && let Some(install) = &mut self.install
         {
-            install.set_pending_note(mods_step, "Downloading in the background");
+            install.set_pending_note(mods_step, tr!("Downloading in the background"));
         }
     }
 
@@ -463,7 +482,7 @@ impl SetupFlow {
             install.progress.display = Some(ProgressDisplay {
                 fraction: None,
                 pulse: true,
-                text: "Finishing downloads…".to_owned(),
+                text: tr!("Finishing downloads…").to_owned(),
             });
         }
         let mods = common::recommended_mods_for_game(self.game.kind);
@@ -691,19 +710,18 @@ impl SetupFlow {
         )));
     }
 
-    /// The secondary button's label and whether it can be pressed.
-    fn secondary(&self) -> Option<(&'static str, bool)> {
+    fn secondary(&self) -> Option<Secondary> {
         if self.error.is_some() {
             return None;
         }
         let step = self.step()?;
         if self.is_last_step() {
-            Some(("Play in Steam", true))
+            Some(Secondary::PlayInSteam)
         } else if step.id == StepId::DownloadMods && self.busy() {
             Some(if self.cancelling {
-                ("Cancelling…", false)
+                Secondary::Cancelling
             } else {
-                ("Cancel", true)
+                Secondary::Cancel
             })
         } else {
             None
@@ -712,30 +730,30 @@ impl SetupFlow {
 
     fn on_secondary(&mut self) {
         match self.secondary() {
-            Some(("Play in Steam", _)) => self.play_in_steam(),
-            Some(("Cancel", true)) => self.cancel_download(),
-            _ => {}
+            Some(Secondary::PlayInSteam) => self.play_in_steam(),
+            Some(Secondary::Cancel) => self.cancel_download(),
+            Some(Secondary::Cancelling) | None => {}
         }
     }
 
     /// The main button's label, or `None` while work runs.
     fn next_label(&mut self) -> Option<&'static str> {
         if self.error.is_some() {
-            return Some("Try Again");
+            return Some(tr!("Try Again"));
         }
         let step = self.step()?.clone();
         Some(match step.kind {
             StepKind::Auto | StepKind::Download => return None,
-            _ if self.is_last_step() => "Done",
+            _ if self.is_last_step() => tr!("Done"),
             StepKind::Info if step.id == StepId::SteamConfig => {
                 if self.steam_status().ready {
-                    "Continue"
+                    tr!("Continue")
                 } else {
-                    "Check Again"
+                    tr!("Check Again")
                 }
             }
-            StepKind::Info if self.next_screen_is_work(step.id) => "Install",
-            StepKind::Info | StepKind::ModSelection => "Continue",
+            StepKind::Info if self.next_screen_is_work(step.id) => tr!("Install"),
+            StepKind::Info | StepKind::ModSelection => tr!("Continue"),
         })
     }
 
@@ -785,12 +803,17 @@ impl SetupFlow {
         let game_name = self.game.kind.name();
         let title = match self.step() {
             Some(step) if step.id == StepId::Complete => game_name,
-            Some(step) if step.kind.is_work() => "Installing",
+            Some(step) if step.kind.is_work() => tr!("Installing"),
             Some(step) => step.title,
             None => game_name,
         };
         let subtitle = match self.screen_position() {
-            Some((position, total)) => format!("{game_name} · Step {position} of {total}"),
+            Some((position, total)) => trf!(
+                "{game} · Step {position} of {total}",
+                game = game_name,
+                position = position,
+                total = total
+            ),
             None => String::new(),
         };
         (title.to_owned(), subtitle)
@@ -883,7 +906,7 @@ impl SetupFlow {
     pub fn back(&mut self) {
         self.guarded(
             "setup back button",
-            "Something went wrong while going back. Please try again.",
+            tr!("Something went wrong while going back. Please try again."),
             Self::on_back,
         );
     }
@@ -909,19 +932,20 @@ impl SetupFlow {
                 if response.clicked() {
                     self.guarded(
                         "setup next button",
-                        "Something went wrong while continuing setup. Please try again.",
+                        tr!("Something went wrong while continuing setup. Please try again."),
                         Self::on_next,
                     );
                 }
             }
-            if let Some((label, enabled)) = secondary {
+            if let Some(secondary) = secondary {
+                let enabled = secondary != Secondary::Cancelling;
                 let response = ui.add_enabled_ui(enabled, |ui| {
-                    widgets::button_sized(ui, label, ButtonKind::Normal, 180.0)
+                    widgets::button_sized(ui, secondary.label(), ButtonKind::Normal, 180.0)
                 });
                 if response.inner.clicked() {
                     self.guarded(
                         "setup secondary button",
-                        "Something went wrong. Please try again.",
+                        tr!("Something went wrong. Please try again."),
                         Self::on_secondary,
                     );
                 }
@@ -935,7 +959,7 @@ impl SetupFlow {
         if self.error.is_some() && !self.on_work_step() {
             let message = self.error.clone().unwrap_or_default();
             centered(ui, |ui| {
-                widgets::status_page(ui, "✖", Tone::Error, "Something Went Wrong", &message);
+                widgets::status_page(ui, "✖", Tone::Error, tr!("Something Went Wrong"), &message);
             });
             return;
         }
@@ -955,9 +979,21 @@ impl SetupFlow {
                 };
                 centered(ui, |ui| {
                     if status.ready {
-                        widgets::status_page(ui, "✔", Tone::Success, "Proton Is Ready", &message);
+                        widgets::status_page(
+                            ui,
+                            "✔",
+                            Tone::Success,
+                            tr!("Proton Is Ready"),
+                            &message,
+                        );
                     } else {
-                        widgets::status_page(ui, "⚠", Tone::Warning, "Proton 10 Needed", &message);
+                        widgets::status_page(
+                            ui,
+                            "⚠",
+                            Tone::Warning,
+                            tr!("Proton 10 Needed"),
+                            &message,
+                        );
                     }
                 });
             }
@@ -1002,18 +1038,18 @@ impl SetupFlow {
             Picker::Preset => {
                 let presets = common::presets_for_game(self.game.kind);
                 (
-                    "Preset",
+                    tr!("Preset"),
                     presets.iter().map(|preset| preset.name).collect(),
                     self.matching_preset(),
                 )
             }
             Picker::Subtitles => (
-                "Subtitles",
+                tr!("Subtitles"),
                 subtitle_language_labels(self.game.kind),
                 Some(subtitle_language_index(self.game.kind, self.languages.subtitle) as usize),
             ),
             Picker::Voices => (
-                "Voices",
+                tr!("Voices"),
                 voice_language_labels(),
                 Some(voice_language_index(self.languages.voice) as usize),
             ),
@@ -1021,7 +1057,12 @@ impl SetupFlow {
         let options = options.into_iter().map(String::from).collect();
         self.picker = Some((
             target,
-            ChoiceDialog::new(&format!("setup-picker-{title}"), title, options, selected),
+            ChoiceDialog::new(
+                &format!("setup-picker-{target:?}"),
+                title,
+                options,
+                selected,
+            ),
         ));
     }
 
@@ -1033,10 +1074,10 @@ impl SetupFlow {
             ui.set_max_width(560.0);
             ui.add(egui::Label::new(description).wrap());
             ui.add_space(8.0);
-            if widgets::choice_row(ui, "Subtitles", subtitle).clicked() {
+            if widgets::choice_row(ui, tr!("Subtitles"), subtitle).clicked() {
                 open = Some(Picker::Subtitles);
             }
-            if widgets::choice_row(ui, "Voices", voice).clicked() {
+            if widgets::choice_row(ui, tr!("Voices"), voice).clicked() {
                 open = Some(Picker::Voices);
             }
         });
@@ -1091,19 +1132,19 @@ impl SetupFlow {
                         display.text.clone(),
                         display.pulse,
                     ),
-                    None => (0.0, "Starting…".to_owned(), true),
+                    None => (0.0, tr!("Starting…").to_owned(), true),
                 };
                 widgets::progress_bar(ui, fraction, &text, animate);
             }
             if let Some(error) = &install.error {
                 ui.add_space(8.0);
                 ui.label(
-                    RichText::new("Setup Didn't Finish")
+                    RichText::new(tr!("Setup Didn't Finish"))
                         .heading()
                         .color(theme::ERROR),
                 );
-                ui.label("Try again, or go back to change your choices.");
-                egui::CollapsingHeader::new("Details")
+                ui.label(tr!("Try again, or go back to change your choices."));
+                egui::CollapsingHeader::new(tr!("Details"))
                     .id_salt("setup-error-details")
                     .show(ui, |ui| {
                         ui.add(
@@ -1157,15 +1198,15 @@ impl SetupFlow {
                 if !presets.is_empty() {
                     if widgets::choice_row(
                         ui,
-                        "Preset",
-                        preset.map_or("Custom", |preset| preset.name),
+                        tr!("Preset"),
+                        preset.map_or(tr!("Custom"), |preset| preset.name),
                     )
                     .clicked()
                     {
                         open_preset = true;
                     }
                     if let Some(preset) = preset {
-                        widgets::caption(ui, preset.description);
+                        widgets::caption(ui, i18n::translate(preset.description));
                     }
                 }
                 let list_height = ui.available_height() - 40.0;
@@ -1181,7 +1222,7 @@ impl SetupFlow {
                                 ui,
                                 &mut checked,
                                 mod_entry.name,
-                                mod_entry.description,
+                                i18n::translate(mod_entry.description),
                             );
                             if response.changed() {
                                 self.set_mod_selected(index, checked);
@@ -1268,9 +1309,9 @@ impl SetupFlow {
                 }
             }
             let badge = if picture.contains("_before") {
-                Some("Before")
+                Some(tr!("Before"))
             } else if picture.contains("_after") {
-                Some("After")
+                Some(tr!("After"))
             } else {
                 None
             };
@@ -1319,8 +1360,10 @@ impl SetupFlow {
             .max_height(150.0)
             .show(ui, |ui| {
                 ui.add(
-                    egui::Label::new(mod_entry.full_description.unwrap_or(mod_entry.description))
-                        .wrap(),
+                    egui::Label::new(i18n::translate(
+                        mod_entry.full_description.unwrap_or(mod_entry.description),
+                    ))
+                    .wrap(),
                 );
             });
         ui.horizontal_wrapped(|ui| {
@@ -1383,7 +1426,7 @@ fn step_progress(
     samples: Arc<ProgressSamples>,
 ) -> ProgressFn {
     Box::new(move |downloaded, total| {
-        publish_step_bytes(&tx, &samples, downloaded, total, "Downloading...");
+        publish_step_bytes(&tx, &samples, downloaded, total, tr!("Downloading…"));
     })
 }
 
