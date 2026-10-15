@@ -73,7 +73,6 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             curl \
-            gettext \
             pkg-config \
             libudev-dev \
             libegl1 \
@@ -92,13 +91,6 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
-      - name: Check translations
-        run: |
-          xgettext --version | head -n 1
-          sh build-aux/update-po.sh
-          git diff --exit-code po/
-          for po in po/*.po; do msgfmt --check --output-file=/dev/null "$po"; done
-
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
 
@@ -113,6 +105,34 @@ jobs:
 
       - name: Test version lookup
         run: sh build-aux/test-cargo-version.sh
+
+  translations:
+    # The catalogs in po/ must match the text in the code. Reading Rust needs
+    # GNU gettext 0.24 or newer, which Ubuntu does not have yet.
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    container:
+      image: docker.io/library/archlinux:base
+
+    steps:
+      - name: Install gettext
+        run: pacman -Syu --noconfirm --needed gettext git grep sed
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the catalogs are up to date
+        run: |
+          xgettext --version | head -n 1
+          git config --global --add safe.directory "$PWD"
+          sh build-aux/update-po.sh
+          git diff --exit-code po/
+
+      - name: Check the catalogs are valid
+        run: |
+          for po in po/*.po; do
+            msgfmt --check --output-file=/dev/null "$po"
+          done
 
   coverage:
     # 100% line coverage is a required PR signal; main is protected by PR-only changes.
@@ -266,7 +286,7 @@ jobs:
   ci:
     name: CI / Required
     if: always()
-    needs: [changes, test, coverage, flatpak, appimage]
+    needs: [changes, test, translations, coverage, flatpak, appimage]
     runs-on: ubuntu-26.04
     steps:
       - name: Check job results
