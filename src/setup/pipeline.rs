@@ -267,10 +267,10 @@ fn install_mods_and_generate_config(
         .collect();
 
     if !failed_mods.is_empty() {
-        return Err(anyhow!(
-            "Failed to install mods: {}",
-            failed_mods.join("; ")
-        ));
+        return Err(anyhow!(trf!(
+            "Failed to install mods: {mods}",
+            mods = failed_mods.join("; ")
+        )));
     }
 
     if let Some(error) = callback_error {

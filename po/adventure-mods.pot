@@ -179,6 +179,11 @@ msgid "Select at least one mod."
 msgstr ""
 
 #: src/cli.rs
+#, rust-format
+msgid "Invalid mod selection {number}"
+msgstr ""
+
+#: src/cli.rs
 msgid "Summary"
 msgstr ""
 
@@ -310,6 +315,11 @@ msgstr ""
 #: src/main.rs
 #, rust-format
 msgid "Could not open the window: {error}"
+msgstr ""
+
+#: src/setup/pipeline.rs
+#, rust-format
+msgid "Failed to install mods: {mods}"
 msgstr ""
 
 #: src/setup/pipeline.rs
@@ -1079,7 +1089,7 @@ msgstr ""
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to the Steam library with {games}. Use Grant Access on the game below."
+msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr ""
 
 #: data/io.github.astrovm.AdventureMods.desktop.in

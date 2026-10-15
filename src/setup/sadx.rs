@@ -129,9 +129,10 @@ pub fn convert_steam_to_2004(
             tracing::error!(
                 "Source file mismatch detected. This usually happens if the game is already modded or corrupted."
             );
-            anyhow::bail!(
-                "Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}"
-            );
+            anyhow::bail!(crate::trf!(
+                "Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}",
+                stderr = stderr
+            ));
         }
 
         anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");

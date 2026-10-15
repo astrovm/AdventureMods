@@ -506,10 +506,11 @@ fn inaccessible_alert(inaccessible: &[InaccessibleGame]) -> Option<String> {
         // There are only two games.
         [first, second, ..] => trf!("{first} and {second}", first = first, second = second),
     };
-    // Translators: "Grant Access" is the label of the game's button.
+    // Translators: {button} is the label of the game's button, "Grant Access".
     Some(trf!(
-        "Adventure Mods needs access to the Steam library with {games}. Use Grant Access on the game below.",
-        games = games
+        "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below.",
+        games = games,
+        button = tr!("Grant Access")
     ))
 }
 

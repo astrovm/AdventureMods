@@ -304,19 +304,16 @@ mod tests {
 
         // "日本語" labels the Japanese option in every language.
         let texts = crate::i18n::all_translations().chain([("en", "日本語")]);
-        let mut missing = std::collections::BTreeSet::new();
         for (code, text) in texts {
             for family in [FontFamily::Proportional, bold(), heavy()] {
                 let font = FontId::new(20.0, family);
-                ctx.fonts_mut(|fonts| {
-                    for c in text.chars().filter(|c| !c.is_control()) {
-                        if !fonts.has_glyph(&font, c) {
-                            missing.insert((code, c, format!("{:?}", font.family)));
-                        }
-                    }
+                let missing: String = ctx.fonts_mut(|fonts| {
+                    text.chars()
+                        .filter(|c| !c.is_control() && !fonts.has_glyph(&font, *c))
+                        .collect()
                 });
+                assert!(missing.is_empty(), "{code}: {font:?} lacks {missing:?}");
             }
         }
-        assert!(missing.is_empty(), "missing glyphs: {missing:?}");
     }
 }

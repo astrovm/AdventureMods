@@ -290,10 +290,10 @@ pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
 
     // A ready prefix has metadata; it can only vanish if Steam rewrites the
     // prefix between the two reads.
-    let mapped =
-        find_proton_from_prefix_metadata(game_path, app_id)?.context(tr!(
-            "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
-        ))?;
+    let missing = tr!(
+        "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
+    );
+    let mapped = find_proton_from_prefix_metadata(game_path, app_id)?.context(missing)?;
     tracing::info!(
         "Selected Proton from prefix metadata for app {} at {}",
         app_id,

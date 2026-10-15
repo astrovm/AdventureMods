@@ -322,9 +322,8 @@ fn run_restore(args: RestoreArgs, out: &mut CliOutput) -> Result<()> {
 
     let report = crate::setup::restore::restore_original_game(&game_path, game_kind)?;
     if report.changes.is_empty() && !report.needs_steam_verify {
-        out.writeln(tr!(
-            "Nothing to restore: this game was not modified by setup."
-        ))?;
+        let nothing = tr!("Nothing to restore: this game was not modified by setup.");
+        out.writeln(nothing)?;
     }
     for change in &report.changes {
         out.writeln(&format!("  {change}"))?;
@@ -1005,7 +1004,7 @@ fn resolve_setup_mods_rich(
         .into_iter()
         .map(|index| {
             mods.get(index)
-                .ok_or_else(|| anyhow!("Invalid mod selection {}", index + 1))
+                .ok_or_else(|| anyhow!(trf!("Invalid mod selection {number}", number = index + 1)))
         })
         .collect()
 }
