@@ -381,14 +381,6 @@ msgid "Fixes many graphics bugs in the PC version, like see-through objects draw
 msgstr "PC版の多くのグラフィックの不具合を直します。たとえば、透明な物が間違った順番で描かれる問題や、抜けているエフェクトなどです。光る面の反射や、元のテクスチャーとライティングなど、ドリームキャスト版の細部も戻します。"
 
 #: src/setup/sa2_catalog.rs
-msgid "A new English story translation, closer to the Japanese script."
-msgstr "日本語の台本に近い、新しいストーリーの英語訳です。"
-
-#: src/setup/sa2_catalog.rs
-msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
-msgstr "ストーリーの英語テキストを、Windiiさんの字幕をもとにした、元の日本語の台本に近い翻訳に置き換えます。字幕がなかった動画やセリフにも字幕を追加します。"
-
-#: src/setup/sa2_catalog.rs
 msgid "Sharper menus, HUD and icons."
 msgstr "メニュー、HUD、アイコンがくっきりします。"
 
@@ -453,12 +445,12 @@ msgid "Sonic keeps his speed in somersaults, you no longer slow down by falling 
 msgstr "宙返り中もソニックの勢いが落ちず、レールから落ちても減速しなくなり、ライトアタックでもホーミングアタックのように上に跳ね返ります。ホーミングアタックの跳ね返りが低くなりすぎることはなく、マジックハンドのヒントも自動で出ます。調整はそれぞれオフにできます。"
 
 #: src/setup/sa2_catalog.rs
-msgid "New moves for Sonic and remappable actions."
-msgstr "ソニックの新しい技と、割り当てを変えられるアクション。"
+msgid "A new English story translation, closer to the Japanese script."
+msgstr "日本語の台本に近い、新しいストーリーの英語訳です。"
 
 #: src/setup/sa2_catalog.rs
-msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
-msgstr "SA1のスピンダッシュ、より速く高いバウンド、箱を壊せる攻撃を増やします。シャドウもバウンドを使えます。ライトダッシュ、バウンド、宙返り、スピンダッシュをB、X、Yに割り当てられ、スピードタイプのキャラでもテイルスとエッグマンのほとんどのステージをクリアできます。"
+msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
+msgstr "ストーリーの英語テキストを、Windiiさんの字幕をもとにした、元の日本語の台本に近い翻訳に置き換えます。字幕がなかった動画やセリフにも字幕を追加します。"
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes the hints in treasure-hunting stages."
@@ -467,6 +459,14 @@ msgstr "宝探しステージのヒントを直します。"
 #: src/setup/sa2_catalog.rs
 msgid "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
 msgstr "宝探しのヒントを日本語のテキストから訳し直します。間違った場所、抜けている情報、誤字が直り、ヒントはオモチャオと同じ場所の名前を使います。"
+
+#: src/setup/sa2_catalog.rs
+msgid "New moves for Sonic and remappable actions."
+msgstr "ソニックの新しい技と、割り当てを変えられるアクション。"
+
+#: src/setup/sa2_catalog.rs
+msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
+msgstr "SA1のスピンダッシュ、より速く高いバウンド、箱を壊せる攻撃を増やします。シャドウもバウンドを使えます。ライトダッシュ、バウンド、宙返り、スピンダッシュをB、X、Yに割り当てられ、スピードタイプのキャラでもテイルスとエッグマンのほとんどのステージをクリアできます。"
 
 #: src/setup/sadx.rs
 #, rust-format
@@ -666,14 +666,6 @@ msgid "After you finish the Super Sonic story, jump and press the action button 
 msgstr "スーパーソニックのストーリーをクリアしたあと、リングが50個以上あるときにジャンプしてアクションボタンを押すと、どのステージでもスーパーソニックになれます。スーパーソニックはソニックの技をすべて使えます。"
 
 #: src/setup/sadx_catalog.rs
-msgid "Local split-screen for up to 4 players."
-msgstr "最大4人のローカル画面分割。"
-
-#: src/setup/sadx_catalog.rs
-msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
-msgstr "アクションステージに、協力と対戦の最大4人のローカル画面分割を追加します。釣り、宝探し、シューティングにも対応します。"
-
-#: src/setup/sadx_catalog.rs
 msgid "Take your Chao into stages."
 msgstr "チャオをステージに連れて行けます。"
 
@@ -712,6 +704,14 @@ msgstr "AIでアップスケールした、くっきりしたテクスチャー�
 #: src/setup/sadx_catalog.rs
 msgid "Textures for almost the whole game, upscaled with AI for high-resolution screens. It has a version for Dreamcast Conversion and one for the original game."
 msgstr "ゲームのほぼすべてのテクスチャーを、高解像度の画面向けにAIでアップスケールしたものです。Dreamcast Conversion用と元のゲーム用があります。"
+
+#: src/setup/sadx_catalog.rs
+msgid "Local split-screen for up to 4 players."
+msgstr "最大4人のローカル画面分割。"
+
+#: src/setup/sadx_catalog.rs
+msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
+msgstr "アクションステージに、協力と対戦の最大4人のローカル画面分割を追加します。釣り、宝探し、シューティングにも対応します。"
 
 #: src/setup/sadx_catalog.rs
 msgid "Dreamcast levels and lighting with the improved DX characters and DX-style water, plus HD textures, videos and menus, and extra gameplay mods."

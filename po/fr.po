@@ -381,14 +381,6 @@ msgid "Fixes many graphics bugs in the PC version, like see-through objects draw
 msgstr "Corrige de nombreux bugs graphiques de la version PC, comme des objets transparents affichés dans le mauvais ordre et des effets manquants. Ramène aussi des détails de la version Dreamcast, comme les reflets sur les surfaces brillantes et les textures et l’éclairage d’origine."
 
 #: src/setup/sa2_catalog.rs
-msgid "A new English story translation, closer to the Japanese script."
-msgstr "Une nouvelle traduction anglaise de l’histoire, plus proche du script japonais."
-
-#: src/setup/sa2_catalog.rs
-msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
-msgstr "Remplace le texte anglais de l’histoire par une traduction plus proche du script japonais d’origine, basée sur les sous-titres de Windii. Ajoute aussi des sous-titres aux vidéos et aux répliques qui n’en avaient pas."
-
-#: src/setup/sa2_catalog.rs
 msgid "Sharper menus, HUD and icons."
 msgstr "Menus, HUD et icônes plus nets."
 
@@ -453,12 +445,12 @@ msgid "Sonic keeps his speed in somersaults, you no longer slow down by falling 
 msgstr "Sonic garde sa vitesse pendant les saltos, vous ne ralentissez plus en tombant des rails, et les Light Attacks vous font rebondir vers le haut comme les Homing Attacks. Les rebonds du Homing Attack ne sont jamais trop bas, et l’indication Magic Hands apparaît toute seule. Chaque réglage peut être désactivé."
 
 #: src/setup/sa2_catalog.rs
-msgid "New moves for Sonic and remappable actions."
-msgstr "De nouveaux mouvements pour Sonic et des actions réassignables."
+msgid "A new English story translation, closer to the Japanese script."
+msgstr "Une nouvelle traduction anglaise de l’histoire, plus proche du script japonais."
 
 #: src/setup/sa2_catalog.rs
-msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
-msgstr "Ajoute le Spin Dash de SA1, un Bounce plus rapide et plus haut, et plus d’attaques qui cassent les caisses. Shadow peut aussi utiliser le Bounce. Vous pouvez mettre Light Dash, Bounce, Somersault et Spin Dash sur B, X ou Y, et les personnages rapides peuvent finir la plupart des niveaux de Tails et d’Eggman."
+msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
+msgstr "Remplace le texte anglais de l’histoire par une traduction plus proche du script japonais d’origine, basée sur les sous-titres de Windii. Ajoute aussi des sous-titres aux vidéos et aux répliques qui n’en avaient pas."
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes the hints in treasure-hunting stages."
@@ -467,6 +459,14 @@ msgstr "Corrige les indices des niveaux de chasse au trésor."
 #: src/setup/sa2_catalog.rs
 msgid "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
 msgstr "Retraduit les indices de chasse au trésor à partir du texte japonais. Les mauvaises zones, les détails manquants et les fautes de frappe sont corrigés, et les indices utilisent les mêmes noms de zones qu’Omochao."
+
+#: src/setup/sa2_catalog.rs
+msgid "New moves for Sonic and remappable actions."
+msgstr "De nouveaux mouvements pour Sonic et des actions réassignables."
+
+#: src/setup/sa2_catalog.rs
+msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
+msgstr "Ajoute le Spin Dash de SA1, un Bounce plus rapide et plus haut, et plus d’attaques qui cassent les caisses. Shadow peut aussi utiliser le Bounce. Vous pouvez mettre Light Dash, Bounce, Somersault et Spin Dash sur B, X ou Y, et les personnages rapides peuvent finir la plupart des niveaux de Tails et d’Eggman."
 
 #: src/setup/sadx.rs
 #, rust-format
@@ -666,14 +666,6 @@ msgid "After you finish the Super Sonic story, jump and press the action button 
 msgstr "Une fois l’histoire de Super Sonic terminée, sautez et appuyez sur le bouton d’action avec 50 anneaux ou plus pour devenir Super Sonic dans n’importe quel niveau. Super Sonic peut utiliser tous les mouvements de Sonic."
 
 #: src/setup/sadx_catalog.rs
-msgid "Local split-screen for up to 4 players."
-msgstr "Écran partagé local jusqu’à 4 joueurs."
-
-#: src/setup/sadx_catalog.rs
-msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
-msgstr "Ajoute l’écran partagé local jusqu’à 4 joueurs en modes coopératif et combat dans les niveaux d’épreuve, y compris la pêche, la chasse au trésor et le tir."
-
-#: src/setup/sadx_catalog.rs
 msgid "Take your Chao into stages."
 msgstr "Emmenez votre Chao dans les niveaux."
 
@@ -712,6 +704,14 @@ msgstr "Des textures plus nettes, agrandies par IA."
 #: src/setup/sadx_catalog.rs
 msgid "Textures for almost the whole game, upscaled with AI for high-resolution screens. It has a version for Dreamcast Conversion and one for the original game."
 msgstr "Des textures pour presque tout le jeu, agrandies par IA pour les écrans haute résolution. Il existe une version pour Dreamcast Conversion et une pour le jeu d’origine."
+
+#: src/setup/sadx_catalog.rs
+msgid "Local split-screen for up to 4 players."
+msgstr "Écran partagé local jusqu’à 4 joueurs."
+
+#: src/setup/sadx_catalog.rs
+msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
+msgstr "Ajoute l’écran partagé local jusqu’à 4 joueurs en modes coopératif et combat dans les niveaux d’épreuve, y compris la pêche, la chasse au trésor et le tir."
 
 #: src/setup/sadx_catalog.rs
 msgid "Dreamcast levels and lighting with the improved DX characters and DX-style water, plus HD textures, videos and menus, and extra gameplay mods."

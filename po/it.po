@@ -381,14 +381,6 @@ msgid "Fixes many graphics bugs in the PC version, like see-through objects draw
 msgstr "Corregge molti difetti grafici della versione PC, come oggetti trasparenti disegnati nell’ordine sbagliato ed effetti mancanti. Riporta anche dettagli della versione Dreamcast, come i riflessi sulle superfici lucide e le texture e l’illuminazione originali."
 
 #: src/setup/sa2_catalog.rs
-msgid "A new English story translation, closer to the Japanese script."
-msgstr "Una nuova traduzione inglese della storia, più vicina al copione giapponese."
-
-#: src/setup/sa2_catalog.rs
-msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
-msgstr "Sostituisce il testo inglese della storia con una traduzione più vicina al copione giapponese originale, basata sui sottotitoli di Windii. Aggiunge anche i sottotitoli a video e battute che non li avevano."
-
-#: src/setup/sa2_catalog.rs
 msgid "Sharper menus, HUD and icons."
 msgstr "Menu, HUD e icone più nitidi."
 
@@ -453,12 +445,12 @@ msgid "Sonic keeps his speed in somersaults, you no longer slow down by falling 
 msgstr "Sonic mantiene lo slancio durante le capriole, non perdi più velocità cadendo dalle rotaie e i Light Attack ti fanno rimbalzare verso l’alto come gli Homing Attack. I rimbalzi degli Homing Attack non sono mai troppo bassi, e il suggerimento delle Magic Hands appare da solo. Ogni modifica si può disattivare."
 
 #: src/setup/sa2_catalog.rs
-msgid "New moves for Sonic and remappable actions."
-msgstr "Nuove mosse per Sonic e azioni riassegnabili."
+msgid "A new English story translation, closer to the Japanese script."
+msgstr "Una nuova traduzione inglese della storia, più vicina al copione giapponese."
 
 #: src/setup/sa2_catalog.rs
-msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
-msgstr "Aggiunge lo Spin Dash di SA1, un Bounce più veloce e più alto e altri attacchi che rompono le casse. Anche Shadow può usare il Bounce. Puoi assegnare Light Dash, Bounce, Somersault e Spin Dash a B, X o Y, e i personaggi veloci possono finire la maggior parte dei livelli di Tails ed Eggman."
+msgid "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
+msgstr "Sostituisce il testo inglese della storia con una traduzione più vicina al copione giapponese originale, basata sui sottotitoli di Windii. Aggiunge anche i sottotitoli a video e battute che non li avevano."
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes the hints in treasure-hunting stages."
@@ -467,6 +459,14 @@ msgstr "Corregge gli indizi nei livelli di caccia al tesoro."
 #: src/setup/sa2_catalog.rs
 msgid "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
 msgstr "Ritraduce gli indizi della caccia al tesoro dal testo giapponese. Sono corretti i luoghi sbagliati, i dettagli mancanti e gli errori di battitura, e gli indizi usano gli stessi nomi dei luoghi di Omochao."
+
+#: src/setup/sa2_catalog.rs
+msgid "New moves for Sonic and remappable actions."
+msgstr "Nuove mosse per Sonic e azioni riassegnabili."
+
+#: src/setup/sa2_catalog.rs
+msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
+msgstr "Aggiunge lo Spin Dash di SA1, un Bounce più veloce e più alto e altri attacchi che rompono le casse. Anche Shadow può usare il Bounce. Puoi assegnare Light Dash, Bounce, Somersault e Spin Dash a B, X o Y, e i personaggi veloci possono finire la maggior parte dei livelli di Tails ed Eggman."
 
 #: src/setup/sadx.rs
 #, rust-format
@@ -666,14 +666,6 @@ msgid "After you finish the Super Sonic story, jump and press the action button 
 msgstr "Dopo aver finito la storia di Super Sonic, salta e premi il tasto azione con 50 anelli o più per diventare Super Sonic in qualsiasi livello. Super Sonic può usare tutte le mosse di Sonic."
 
 #: src/setup/sadx_catalog.rs
-msgid "Local split-screen for up to 4 players."
-msgstr "Schermo condiviso locale fino a 4 giocatori."
-
-#: src/setup/sadx_catalog.rs
-msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
-msgstr "Aggiunge lo schermo condiviso locale fino a 4 giocatori in modalità cooperativa e sfida nei livelli d’azione, compresi pesca, caccia al tesoro e tiro."
-
-#: src/setup/sadx_catalog.rs
 msgid "Take your Chao into stages."
 msgstr "Porta il tuo Chao nei livelli."
 
@@ -712,6 +704,14 @@ msgstr "Texture più nitide, ingrandite con l’IA."
 #: src/setup/sadx_catalog.rs
 msgid "Textures for almost the whole game, upscaled with AI for high-resolution screens. It has a version for Dreamcast Conversion and one for the original game."
 msgstr "Texture per quasi tutto il gioco, ingrandite con l’IA per schermi ad alta risoluzione. C’è una versione per Dreamcast Conversion e una per il gioco originale."
+
+#: src/setup/sadx_catalog.rs
+msgid "Local split-screen for up to 4 players."
+msgstr "Schermo condiviso locale fino a 4 giocatori."
+
+#: src/setup/sadx_catalog.rs
+msgid "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
+msgstr "Aggiunge lo schermo condiviso locale fino a 4 giocatori in modalità cooperativa e sfida nei livelli d’azione, compresi pesca, caccia al tesoro e tiro."
 
 #: src/setup/sadx_catalog.rs
 msgid "Dreamcast levels and lighting with the improved DX characters and DX-style water, plus HD textures, videos and menus, and extra gameplay mods."

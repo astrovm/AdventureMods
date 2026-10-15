@@ -501,3 +501,55 @@ fn prefetch_stops_downloading_once_cancelled() {
     assert_eq!(gets(&log), 1);
     assert_eq!(env.cached_archives(), 0);
 }
+
+/// Mods load in the order setup lists them, and some mods need to load last.
+fn load_order(kind: GameKind, preset: Option<&str>) -> Vec<&'static str> {
+    match preset {
+        Some(name) => resolve_selected_mods(kind, Some(name), &[]).unwrap(),
+        None => common::recommended_mods_for_game(kind).iter().collect(),
+    }
+    .iter()
+    .map(|entry| entry.name)
+    .collect()
+}
+
+#[test]
+fn presets_load_mods_in_catalog_order() {
+    for kind in [GameKind::SADX, GameKind::SA2] {
+        let catalog = load_order(kind, None);
+        for preset in common::presets_for_game(kind) {
+            let mut sorted = load_order(kind, Some(preset.name));
+            sorted.sort_by_key(|name| catalog.iter().position(|entry| entry == name));
+            assert_eq!(
+                load_order(kind, Some(preset.name)),
+                sorted,
+                "{}",
+                preset.name
+            );
+        }
+    }
+}
+
+#[test]
+fn mods_that_must_load_last_do() {
+    // Multiplayer's page: "placed below most of the mods".
+    assert_eq!(
+        load_order(GameKind::SADX, None).last(),
+        Some(&"Multiplayer")
+    );
+    for preset in common::presets_for_game(GameKind::SADX) {
+        assert_eq!(
+            load_order(GameKind::SADX, Some(preset.name)).last(),
+            Some(&"Multiplayer"),
+            "{}",
+            preset.name
+        );
+    }
+    // New Tricks goes at the bottom, with the retranslations right above it
+    // so no other mod overwrites their text.
+    assert!(load_order(GameKind::SA2, None).ends_with(&[
+        "Retranslated Story -COMPLETE-",
+        "Retranslated Hints",
+        "Sonic: New Tricks",
+    ]));
+}
