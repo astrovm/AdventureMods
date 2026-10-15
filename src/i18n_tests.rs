@@ -131,6 +131,16 @@ msgstr "Guardado"
 }
 
 #[test]
+fn a_comment_starts_the_next_message_without_a_blank_line() {
+    let source = "msgid \"A\"\nmsgstr \"a\"\n#, fuzzy\nmsgid \"B\"\nmsgstr \"b\"\n";
+    let entries = entries(source);
+
+    assert_eq!(entries.len(), 2);
+    assert!(!entries[0].fuzzy);
+    assert!(entries[1].fuzzy);
+}
+
+#[test]
 fn the_parser_ignores_text_it_does_not_know() {
     let source =
         "msgid \"A\"\nmsgstr[x] \"bad index\"\nmsgstr[2] \"third\"\nstray\nmsgstr \"first\"\n";
