@@ -1,7 +1,7 @@
 //! Log capture for tests that assert on the diagnostics users see.
 //!
-//! winit's Wayland stack turns on tracing's `log` feature, so every `tracing`
-//! macro also expands a fallback that forwards to the `log` crate while no
+//! tracing's `log` feature (a dev-dependency) makes every `tracing` macro
+//! also expand a fallback that forwards to the `log` crate while no
 //! tracing subscriber exists. Coverage credits the macro arguments to that
 //! fallback, so tests never install a tracing subscriber: a `log` logger,
 //! enabled for every level, records the events instead.

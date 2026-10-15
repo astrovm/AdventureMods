@@ -274,7 +274,7 @@ impl WelcomeScreen {
         let painter = ctx.layer_painter(egui::LayerId::background());
         for (index, card) in self.cards.iter().enumerate() {
             let shown = ctx.animate_bool_with_time_and_easing(
-                egui::Id::new(("backdrop", card.kind)),
+                egui::Id::unique(("backdrop", card.kind)),
                 index == self.selected && card.state != CardState::Missing,
                 motion::SCREEN as f32 * 2.0,
                 motion::ease_out,
@@ -328,7 +328,7 @@ impl WelcomeScreen {
                 for index in 0..self.cards.len() {
                     let card = &self.cards[index];
                     let grow = ui.ctx().animate_bool_with_time_and_easing(
-                        egui::Id::new(("tile-grow", card.kind)),
+                        egui::Id::unique(("tile-grow", card.kind)),
                         index == self.selected,
                         motion::QUICK * 2.0,
                         motion::ease_out,
@@ -337,9 +337,8 @@ impl WelcomeScreen {
                     let size = Vec2::new(width, width * 215.0 / 460.0);
                     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
                     let name = card.kind.name();
-                    response.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, name)
-                    });
+                    response
+                        .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, name));
                     let highlight = motion::highlight(ui, &response);
                     paint_tile(ui, rect, card, images, grow, highlight);
                     if response.gained_focus() {

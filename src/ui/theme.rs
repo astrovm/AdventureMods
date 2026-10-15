@@ -228,6 +228,8 @@ fn fonts() -> egui::FontDefinitions {
         // Rubik has no arrows, as in "Properties → Compatibility".
         let mut chain = vec![first.to_owned(), "arrows".to_owned()];
         chain.extend(fallbacks.iter().cloned());
+        // Only Hack has "≡", the menu button hint.
+        chain.push("Hack".to_owned());
         chain.push(japanese.to_owned());
         fonts.families.insert(family, chain);
     }
@@ -277,7 +279,30 @@ mod tests {
     }
 
     #[test]
-    fn every_family_draws_arrows() {
+    fn fonts_set_after_text_was_laid_out_load_on_the_next_frame() {
+        let ctx = egui::Context::default();
+        let mut families = Vec::new();
+        let mut fonts = Vec::new();
+        for _ in 0..2 {
+            let mut output = ctx.run_ui(Default::default(), |ui| {
+                // Text laid out this frame defers new fonts to the next one.
+                ui.label("before the theme");
+                ui.set_style(egui::Style::default());
+                apply_ui(ui);
+                families.push(ui.style().text_styles[&title_style()].family.clone());
+                fonts.push(font(ui.ctx(), 20.0, heavy()).family);
+            });
+            output.textures_delta.clear();
+        }
+
+        // The discarded first pass reruns with the fonts loaded.
+        let expected = vec![FontFamily::Proportional, heavy(), heavy()];
+        assert_eq!(families, expected);
+        assert_eq!(fonts, expected);
+    }
+
+    #[test]
+    fn every_family_draws_arrows_and_icons() {
         let ctx = egui::Context::default();
         apply(&ctx);
         let mut output = ctx.run_ui(Default::default(), |_| {});
@@ -286,7 +311,7 @@ mod tests {
         for family in [FontFamily::Proportional, bold(), heavy()] {
             let font = FontId::new(20.0, family);
             let missing: Vec<char> = ctx.fonts_mut(|fonts| {
-                "→←↗‹›…"
+                "→←↗‹›…≡ℹ"
                     .chars()
                     .filter(|c| !fonts.has_glyph(&font, *c))
                     .collect()

@@ -1118,9 +1118,7 @@ impl SetupFlow {
                                     TaskState::Pending => {}
                                     TaskState::Running => {
                                         response.widget_info(|| {
-                                            egui::WidgetInfo::new(
-                                                egui::WidgetType::ProgressIndicator,
-                                            )
+                                            egui::WidgetInfo::new(egui::Role::ProgressIndicator)
                                         });
                                         spinner(ui, rect, 28.0);
                                     }
@@ -1309,8 +1307,7 @@ impl SetupFlow {
                     // Painted, not added: a widget here would shift the ids
                     // of the page buttons, and a click landing as the
                     // picture loads would be lost.
-                    response
-                        .widget_info(|| egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator));
+                    response.widget_info(|| egui::WidgetInfo::new(egui::Role::ProgressIndicator));
                     spinner(ui, rect, 40.0);
                 }
             }
@@ -1462,7 +1459,7 @@ fn centered(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
         .auto_shrink(false)
         .show(ui, |ui| {
             // Centering needs the content's height, so use last frame's.
-            let id = ui.id().with("content-height");
+            let id = ui.scope_id().with("content-height");
             let last = ui.data(|data| data.get_temp::<f32>(id)).unwrap_or(0.0);
             ui.add_space(((ui.available_height() - last) / 2.0).max(24.0));
             let height = ui.vertical_centered(add).response.rect.height();

@@ -1,8 +1,8 @@
 //! Big, controller-friendly building blocks shared by every screen.
 
 use egui::{
-    Align2, Color32, CornerRadius, FontSelection, Frame, Margin, Response, RichText, Sense, Stroke,
-    TextStyle, Ui, Vec2, WidgetInfo, WidgetText, WidgetType,
+    Align2, Color32, CornerRadius, FontSelection, Frame, Margin, Response, RichText, Role, Sense,
+    Stroke, TextStyle, Ui, Vec2, WidgetInfo, WidgetText,
 };
 
 use super::{motion, theme};
@@ -61,7 +61,7 @@ pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Re
         theme::TARGET_HEIGHT,
     );
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, galley.text()));
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, enabled, galley.text()));
 
     let (fill, lit) = match kind {
         ButtonKind::Suggested => (theme::ACCENT, theme::ACCENT_BRIGHT),
@@ -141,7 +141,7 @@ fn painted_icon_button(
     let size = Vec2::splat(theme::TARGET_HEIGHT);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     let enabled = ui.is_enabled();
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, enabled, label));
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, enabled, label));
     let highlight = motion::highlight(ui, &response);
     let press = motion::press(ui, &response);
     let painter = ui.painter();
@@ -270,7 +270,7 @@ pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) 
         response.mark_changed();
     }
     let value = *checked;
-    response.widget_info(|| WidgetInfo::selected(WidgetType::Checkbox, true, value, title));
+    response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, value, title));
 
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
@@ -342,7 +342,7 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 64.0), Sense::click());
     response.widget_info(|| {
-        let mut info = WidgetInfo::labeled(WidgetType::ComboBox, true, title);
+        let mut info = WidgetInfo::labeled(Role::ComboBox, true, title);
         info.current_text_value = Some(value.to_owned());
         info
     });
@@ -385,7 +385,7 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
 pub fn progress_bar(ui: &mut Ui, fraction: f32, text: &str, pulse: bool) -> Response {
     let size = Vec2::new(ui.available_width(), 36.0);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::ProgressIndicator, true, text));
+    response.widget_info(|| WidgetInfo::labeled(Role::ProgressIndicator, true, text));
     let shown = ui.ctx().animate_value_with_time(
         response.id.with("fraction"),
         fraction.clamp(0.0, 1.0),
