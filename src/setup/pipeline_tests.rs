@@ -553,3 +553,11 @@ fn mods_that_must_load_last_do() {
         "Sonic: New Tricks",
     ]));
 }
+
+#[test]
+fn sadx_skips_adx_audio() {
+    // ADX Audio swaps .wma music and voices for ADX ones, but the Steam copy
+    // already ships ADX (see steam_sadx_already_ships_adx_audio). It was a
+    // 533 MB download that changed nothing.
+    assert!(!load_order(GameKind::SADX, None).contains(&"ADX Audio"));
+}
