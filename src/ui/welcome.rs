@@ -13,7 +13,7 @@ use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
 use crate::steam::library::{DetectionResult, InaccessibleGame};
-use crate::{tr, trc, trf};
+use crate::{tr, trf};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum GameInstallOption {
@@ -373,13 +373,9 @@ impl WelcomeScreen {
             && let Some(option) = card.selected_option()
         {
             ui.allocate_ui(Vec2::new(ui.available_width().min(520.0), 0.0), |ui| {
-                if widgets::choice_row(
-                    ui,
-                    trc!("game install location", "Install"),
-                    &option.selector_label(),
-                )
-                .on_hover_text(tr!("Choose which install to set up"))
-                .clicked()
+                if widgets::choice_row(ui, tr!("Installation"), &option.selector_label())
+                    .on_hover_text(tr!("Choose which installation to set up"))
+                    .clicked()
                 {
                     open_picker = true;
                 }
@@ -415,7 +411,7 @@ impl WelcomeScreen {
                 index,
                 ChoiceDialog::new(
                     "install-picker",
-                    trf!("{game} Install", game = card.kind.name()),
+                    trf!("{game} Installation", game = card.kind.name()),
                     options,
                     Some(card.selected),
                 ),
@@ -762,7 +758,7 @@ mod tests {
             inaccessible: vec![inaccessible(GameKind::SA2, "/mnt/steam")],
         }));
 
-        harness.get_by_label("Install").click();
+        harness.get_by_label("Installation").click();
         harness.run_steps(4);
         harness.get_by_label("/mnt/steam (Needs access)").click();
         harness.run_steps(4);
@@ -770,7 +766,7 @@ mod tests {
         harness.get_by_label("Grant Access");
 
         // A dismissed picker changes nothing.
-        harness.get_by_label("Install").click();
+        harness.get_by_label("Installation").click();
         harness.run_steps(4);
         harness.key_press(egui::Key::Escape);
         harness.run_steps(4);

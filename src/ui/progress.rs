@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use crate::i18n;
 use crate::setup::{common, config, pipeline};
 use crate::{tr, trf, trn};
 
@@ -195,7 +194,7 @@ impl ProgressState {
                 ProgressDisplay {
                     fraction: Some(1.0),
                     pulse: false,
-                    text: trf!("Generating config… ({total}/{total})", total = total),
+                    text: trf!("Saving settings… ({total}/{total})", total = total),
                 }
             }
         };
@@ -245,7 +244,7 @@ pub(crate) fn completed_mod_fraction(completed: usize, total: usize) -> f64 {
 }
 
 pub(crate) fn format_mb_value(bytes: u64) -> String {
-    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
+    format!("{:.1}", bytes as f64 / 1_048_576.0)
 }
 
 pub(crate) fn format_mb(bytes: u64) -> String {
@@ -288,7 +287,7 @@ pub(crate) fn format_step_download_text(
 }
 
 pub(crate) fn mod_download_start_text(mod_name: &str) -> String {
-    trf!("Starting {name}…", name = mod_name)
+    trf!("Installing {name}…", name = mod_name)
 }
 
 pub(crate) fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) -> String {
@@ -405,7 +404,7 @@ pub(crate) fn format_download_size(bytes: u64) -> String {
     if bytes >= 1_000_000_000 {
         trf!(
             "{size} GB",
-            size = i18n::decimal(bytes as f64 / 1_000_000_000.0, 1)
+            size = format!("{:.1}", bytes as f64 / 1_000_000_000.0)
         )
     } else {
         trf!(
@@ -676,7 +675,7 @@ mod tests {
     fn mod_download_start_text_is_uniform() {
         assert_eq!(
             mod_download_start_text("Render Fix"),
-            "Starting Render Fix…"
+            "Installing Render Fix…"
         );
     }
 
@@ -728,7 +727,7 @@ mod tests {
             mod_name: "Alpha".to_string(),
             total: 2,
         });
-        assert_eq!(state.display.as_ref().unwrap().text, "Starting Alpha…");
+        assert_eq!(state.display.as_ref().unwrap().text, "Installing Alpha…");
 
         state
             .active_downloads
@@ -909,6 +908,20 @@ mod tests {
             "Everything selected is already installed"
         );
         assert_eq!(format_download_size(1), "1 MB");
+    }
+
+    #[test]
+    fn sizes_use_a_decimal_point_in_every_language() {
+        for language in &crate::i18n::LANGUAGES {
+            let _guard = crate::i18n::use_language(language.code);
+            let size = format_download_size(1_500_000_000);
+            assert!(
+                size.starts_with("1.5\u{a0}") || size.starts_with("1.5 "),
+                "{}: {size}",
+                language.code
+            );
+            assert_eq!(format_mb_value(1_572_864), "1.5", "{}", language.code);
+        }
     }
 
     #[test]

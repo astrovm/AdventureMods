@@ -108,19 +108,19 @@ enum TaskState {
 struct InstallTask {
     step: usize,
     title: &'static str,
-    description: &'static str,
+    description: String,
     /// Shown instead of the description while the task waits its turn.
     pending_note: Option<&'static str>,
     state: TaskState,
 }
 
 impl InstallTask {
-    fn subtitle(&self) -> &'static str {
+    fn subtitle(&self) -> &str {
         match self.state {
             TaskState::Done => tr!("Done"),
             TaskState::Failed => tr!("Failed"),
-            TaskState::Pending => self.pending_note.unwrap_or(self.description),
-            TaskState::Running => self.description,
+            TaskState::Pending => self.pending_note.unwrap_or(&self.description),
+            TaskState::Running => &self.description,
         }
     }
 }
@@ -143,7 +143,7 @@ impl InstallView {
             .map(|(step, info)| InstallTask {
                 step,
                 title: info.title,
-                description: info.description,
+                description: info.description.clone(),
                 pending_note: None,
                 state: TaskState::Pending,
             })
@@ -334,6 +334,11 @@ impl SetupFlow {
 
     fn is_last_step(&self) -> bool {
         self.current + 1 >= self.steps.len()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn skip_to_the_last_step(&mut self) {
+        self.current = self.steps.len() - 1;
     }
 
     fn on_work_step(&self) -> bool {
@@ -728,6 +733,18 @@ impl SetupFlow {
         }
     }
 
+    /// What X does on a controller right now, if anything.
+    pub fn pad_action_label(&self) -> Option<&'static str> {
+        self.secondary()
+            .filter(|secondary| *secondary != Secondary::Cancelling)
+            .map(Secondary::label)
+    }
+
+    /// What Start does on a controller right now, if anything.
+    pub fn pad_next_label(&mut self) -> Option<&'static str> {
+        self.next_label()
+    }
+
     fn on_secondary(&mut self) {
         match self.secondary() {
             Some(Secondary::PlayInSteam) => self.play_in_steam(),
@@ -904,17 +921,14 @@ impl SetupFlow {
 
     /// Go back a screen, as the header's back button or B does.
     pub fn back(&mut self) {
-        self.guarded(
-            "setup back button",
-            tr!("Something went wrong while going back. Please try again."),
-            Self::on_back,
-        );
+        self.guarded("setup back button", Self::on_back);
     }
 
-    /// Run a button's `action`, turning a panic into an error the user can retry.
-    fn guarded(&mut self, label: &'static str, message: &str, action: fn(&mut Self)) {
+    /// Run a button's `action`, turning a panic into an error the user can
+    /// retry. The log names the button.
+    fn guarded(&mut self, label: &'static str, action: fn(&mut Self)) {
         if super::catch_ui_panic(label, || action(self)).is_err() {
-            self.show_error(message);
+            self.show_error(tr!("Something went wrong. Please try again."));
         }
     }
 
@@ -930,11 +944,7 @@ impl SetupFlow {
                     response.request_focus();
                 }
                 if response.clicked() {
-                    self.guarded(
-                        "setup next button",
-                        tr!("Something went wrong while continuing setup. Please try again."),
-                        Self::on_next,
-                    );
+                    self.guarded("setup next button", Self::on_next);
                 }
             }
             if let Some(secondary) = secondary {
@@ -943,11 +953,7 @@ impl SetupFlow {
                     widgets::button_sized(ui, secondary.label(), ButtonKind::Normal, 180.0)
                 });
                 if response.inner.clicked() {
-                    self.guarded(
-                        "setup secondary button",
-                        tr!("Something went wrong. Please try again."),
-                        Self::on_secondary,
-                    );
+                    self.guarded("setup secondary button", Self::on_secondary);
                 }
             }
         });
@@ -970,7 +976,7 @@ impl SetupFlow {
             StepKind::Auto | StepKind::Download => self.show_install(ui),
             StepKind::ModSelection => self.show_mod_selection(ui, images),
             StepKind::Info if step.id == StepId::SteamConfig => {
-                let description = step.description;
+                let description = &step.description;
                 let status = self.steam_status().clone();
                 let message = if status.message.is_empty() {
                     description.to_owned()
@@ -991,7 +997,7 @@ impl SetupFlow {
                             ui,
                             "⚠",
                             Tone::Warning,
-                            tr!("Proton 10 Needed"),
+                            tr!("Proton 10.0 Needed"),
                             &message,
                         );
                     }
@@ -1000,7 +1006,7 @@ impl SetupFlow {
             StepKind::Info if self.is_last_step() => self.show_complete(ui, images, &step),
             StepKind::Info => {
                 if step.id == StepId::LanguageOptions {
-                    self.show_languages(ui, step.description);
+                    self.show_languages(ui, &step.description);
                 }
             }
         }
@@ -1172,7 +1178,7 @@ impl SetupFlow {
                     .text_style(theme::title_style())
                     .strong(),
             );
-            ui.add(egui::Label::new(step.description).wrap());
+            ui.add(egui::Label::new(step.description.as_str()).wrap());
         });
     }
 

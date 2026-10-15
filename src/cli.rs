@@ -1,7 +1,7 @@
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow, bail, ensure};
 use clap::error::ErrorKind;
 use clap::{Args, Parser, Subcommand};
 use console::Style;
@@ -627,7 +627,7 @@ fn mod_progress_text(mod_name: &str, downloaded: u64, total_bytes: Option<u64>) 
 }
 
 fn megabytes(bytes: u64) -> String {
-    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
+    format!("{:.1}", bytes as f64 / 1_048_576.0)
 }
 
 /// Like "1.5 / 3.0 MB (50%)".
@@ -683,8 +683,10 @@ fn run_mod_install_step(
                 pipeline::InstallProgress::Started { mod_name } => {
                     eprint!("{}", lines.end_line());
                     lines.reset(mod_name);
-                    let _ = out
-                        .dim_writeln(&format!("  {}", trf!("Starting: {name}", name = mod_name)));
+                    let _ = out.dim_writeln(&format!(
+                        "  {}",
+                        trf!("Installing: {name}", name = mod_name)
+                    ));
                 }
                 pipeline::InstallProgress::DownloadingMod {
                     mod_name,
@@ -710,7 +712,7 @@ fn run_mod_install_step(
                 }
                 pipeline::InstallProgress::GeneratingConfig => {
                     eprint!("{}", lines.end_line());
-                    let _ = out.writeln(&format!("  {}", tr!("Generating mod config…")));
+                    let _ = out.writeln(&format!("  {}", tr!("Saving mod settings…")));
                 }
             }
             Ok(())
@@ -1082,7 +1084,7 @@ fn resolve_game_kind(args: &SetupArgs) -> Result<GameKind> {
 }
 
 fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()> {
-    anyhow::ensure!(
+    ensure!(
         path.is_dir(),
         trf!(
             "Game path does not exist or is not a directory: {path}",
@@ -1097,7 +1099,7 @@ fn validate_game_path(game_kind: GameKind, path: &std::path::Path) -> Result<()>
         GameKind::SA2 => path.join("sonic2app.exe").is_file(),
     };
 
-    anyhow::ensure!(
+    ensure!(
         has_game_marker,
         trf!(
             "{path} does not appear to be a {game} installation (expected game executable)",
@@ -1174,7 +1176,7 @@ fn detect_games_with_saved_libraries(
 ) -> Result<DetectionResult> {
     match &args.libraryfolders_vdf {
         Some(path) => {
-            anyhow::ensure!(
+            ensure!(
                 path.is_file(),
                 trf!(
                     "Library folders file not found: {path}",

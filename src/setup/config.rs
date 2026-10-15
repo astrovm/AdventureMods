@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::Serialize;
 
 use super::common::ModEntry;
@@ -50,7 +50,7 @@ impl SubtitleLanguage {
             "german" => Ok(Self::German),
             "spanish" => Ok(Self::Spanish),
             "italian" => Ok(Self::Italian),
-            _ => anyhow::bail!(trf!("Unknown subtitle language '{value}'", value = value)),
+            _ => bail!(trf!("Unknown subtitle language '{value}'", value = value)),
         }
     }
 
@@ -102,7 +102,7 @@ impl VoiceLanguage {
         match value.trim().to_ascii_lowercase().as_str() {
             "english" => Ok(Self::English),
             "japanese" => Ok(Self::Japanese),
-            _ => anyhow::bail!(trf!("Unknown voice language '{value}'", value = value)),
+            _ => bail!(trf!("Unknown voice language '{value}'", value = value)),
         }
     }
 

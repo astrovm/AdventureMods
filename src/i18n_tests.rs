@@ -244,8 +244,7 @@ fn language_lists_the_preferences_in_order() {
 #[test]
 fn english_is_the_default_in_tests() {
     assert_eq!(tr!("Cancel"), "Cancel");
-    assert_eq!(trc!("game install location", "Install"), "Install");
-    assert_eq!(decimal(1.5, 1), "1.5");
+    assert_eq!(tr!("Installation"), "Installation");
 }
 
 #[test]
@@ -253,12 +252,13 @@ fn text_shows_in_the_chosen_language() {
     let _spanish = use_language("es");
     assert_eq!(tr!("Cancel"), "Cancelar");
     assert_eq!(tr!("Install"), "Instalar");
-    assert_eq!(trc!("game install location", "Install"), "Instalación");
+    assert_eq!(tr!("Installation"), "Instalación");
+    // Text marked with a context the catalog doesn't have stays in English.
+    assert_eq!(trc!("button", "Install"), "Install");
     assert_eq!(
         trf!("Restore the original {game}?", game = "Sonic Adventure 2"),
         "¿Restaurar Sonic Adventure 2 original?"
     );
-    assert_eq!(decimal(1.5, 1), "1,5");
 }
 
 #[test]
@@ -384,6 +384,111 @@ fn every_catalog_translates_exactly_the_template() {
     }
 }
 
+/// The Rust source files that mark text, as `update-po.sh` picks them.
+fn marking_sources(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if path.is_dir() {
+            marking_sources(&path, files);
+        } else if name.ends_with(".rs") && !name.ends_with("_tests.rs") && name != "i18n.rs" {
+            files.push(path);
+        }
+    }
+}
+
+/// The Rust string literal at the start of `code`, and the code after it.
+fn string_literal(code: &str) -> Option<(String, &str)> {
+    let mut chars = code.strip_prefix('"')?.char_indices();
+    let mut text = String::new();
+    while let Some((index, c)) = chars.next() {
+        match c {
+            '"' => return Some((text, &code[index + 2..])),
+            '\\' => match chars.next()?.1 {
+                'n' => text.push('\n'),
+                't' => text.push('\t'),
+                // A line continuation skips the next line's indentation.
+                '\n' => {
+                    let rest = chars.as_str();
+                    let skipped = rest.len() - rest.trim_start().len();
+                    for _ in rest[..skipped].chars() {
+                        chars.next();
+                    }
+                }
+                other => text.push(other),
+            },
+            c => text.push(c),
+        }
+    }
+    None
+}
+
+/// Every text the code marks for translation, by context and English text,
+/// with where it is.
+fn marked_texts() -> Vec<((String, String), String)> {
+    let mut files = Vec::new();
+    marking_sources(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut files,
+    );
+    let mut texts = Vec::new();
+    for file in files {
+        let code = std::fs::read_to_string(&file).unwrap();
+        for (start, _) in code.match_indices("!(") {
+            let name = code[..start]
+                .rsplit(|c: char| !c.is_alphanumeric() && c != '_')
+                .next()
+                .unwrap();
+            if !["tr", "trc", "trf", "trn", "tr_noop"].contains(&name) {
+                continue;
+            }
+            let Some((first, rest)) = string_literal(code[start + 2..].trim_start()) else {
+                continue;
+            };
+            let key = if name == "trc" {
+                let rest = rest.trim_start().strip_prefix(',').unwrap().trim_start();
+                (first, string_literal(rest).unwrap().0)
+            } else {
+                (String::new(), first)
+            };
+            let line = code[..start].lines().count();
+            texts.push((key, format!("{}:{line}", file.display())));
+        }
+    }
+    texts
+}
+
+#[test]
+fn the_template_has_every_marked_text() {
+    let texts = marked_texts();
+    assert!(texts.len() > 200, "found only {} texts", texts.len());
+    let template = messages(TEMPLATE);
+    // xgettext skips text inside path-qualified macros such as
+    // `anyhow::bail!(tr!(...))`; import the macro and call it plainly.
+    let missing: Vec<_> = texts
+        .iter()
+        .filter(|(key, _)| !template.contains_key(key))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "run build-aux/update-po.sh: {missing:#?}"
+    );
+}
+
+#[test]
+fn string_literals_read_like_rust() {
+    assert_eq!(
+        string_literal(
+            r#""a \"b\" \\ \n\t\
+            c" rest"#
+        ),
+        Some(("a \"b\" \\ \n\tc".to_owned(), " rest"))
+    );
+    assert_eq!(string_literal("not a string"), None);
+    assert_eq!(string_literal(r#""unterminated"#), None);
+    assert_eq!(string_literal(r#""dangling \"#), None);
+}
+
 #[test]
 fn translations_keep_the_placeholders() {
     for language in &LANGUAGES {
@@ -440,19 +545,6 @@ fn plural_rules_match_the_catalog_headers() {
             header_field(language.source, "Language").as_deref(),
             Some(language.code)
         );
-    }
-}
-
-#[test]
-fn only_languages_with_a_comma_write_decimals_with_it() {
-    for language in &LANGUAGES {
-        let _guard = use_language(language.code);
-        let expected = if language.code == "ja" {
-            "2.50"
-        } else {
-            "2,50"
-        };
-        assert_eq!(decimal(2.5, 2), expected, "{}", language.code);
     }
 }
 
@@ -546,12 +638,5 @@ proptest! {
     ) {
         let locale = format!("{code}{rest}");
         prop_assert_eq!(language_code(&locale), code.as_str());
-    }
-
-    #[test]
-    fn a_comma_decimal_only_swaps_the_point(value in -1.0e9_f64..1.0e9, places in 0_usize..4) {
-        let english = decimal(value, places);
-        let _spanish = use_language("es");
-        prop_assert_eq!(decimal(value, places), english.replace('.', ","));
     }
 }

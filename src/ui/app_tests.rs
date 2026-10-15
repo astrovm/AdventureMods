@@ -448,7 +448,8 @@ fn controllers_navigate_and_show_button_hints() {
     app.set_gamepad(Gamepad::fake(rx, true));
     let mut harness = harness(app);
     run_until(&mut harness, "scan", scanned);
-    harness.get_by_label("Scan again");
+    // The header button and Y's hint.
+    assert_eq!(harness.query_all_by_label("Scan Again").count(), 2);
 
     // Y scans again; it is ignored while a dialog is open. eframe feeds the
     // controller from its input hook, which the harness does not run.
@@ -481,7 +482,20 @@ fn controllers_navigate_and_show_button_hints() {
     harness.key_press(egui::Key::Enter);
     harness.run_steps(2);
     assert!(harness.state().setup.is_some());
-    harness.get_by_label("Other action");
+    // Start does what the footer button does; X has nothing to do yet.
+    assert_eq!(harness.query_all_by_label("Check Again").count(), 2);
+    assert_eq!(harness.query_all_by_label("Select").count(), 1);
+    assert!(harness.query_by_label("Cancel").is_none());
+
+    // On the last step X plays the game: its button and its hint.
+    harness
+        .state_mut()
+        .setup
+        .as_mut()
+        .unwrap()
+        .skip_to_the_last_step();
+    harness.run_steps(2);
+    assert_eq!(harness.query_all_by_label("Play in Steam").count(), 2);
 }
 
 #[test]

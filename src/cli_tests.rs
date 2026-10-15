@@ -2125,3 +2125,12 @@ fn progress_lines_dim_the_text_when_color_is_enabled() {
     assert_eq!(text, format!("{}\n", dim.apply_to("  1.0 MB downloaded")));
     assert!(text.contains('\x1b'), "{text:?}");
 }
+
+#[test]
+fn download_sizes_use_a_decimal_point_in_every_language() {
+    for language in &crate::i18n::LANGUAGES {
+        let _guard = crate::i18n::use_language(language.code);
+        let text = super::download_progress_text("", 1_572_864, Some(3_145_728));
+        assert!(text.contains("1.5 / 3.0"), "{}: {text}", language.code);
+    }
+}
