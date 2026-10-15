@@ -195,7 +195,7 @@ impl ProgressState {
                 ProgressDisplay {
                     fraction: Some(1.0),
                     pulse: false,
-                    text: trf!("Generating config… ({total}/{total})", total = total),
+                    text: trf!("Saving settings… ({total}/{total})", total = total),
                 }
             }
         };
@@ -288,7 +288,7 @@ pub(crate) fn format_step_download_text(
 }
 
 pub(crate) fn mod_download_start_text(mod_name: &str) -> String {
-    trf!("Starting {name}…", name = mod_name)
+    trf!("Installing {name}…", name = mod_name)
 }
 
 pub(crate) fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) -> String {
@@ -676,7 +676,7 @@ mod tests {
     fn mod_download_start_text_is_uniform() {
         assert_eq!(
             mod_download_start_text("Render Fix"),
-            "Starting Render Fix…"
+            "Installing Render Fix…"
         );
     }
 
@@ -728,7 +728,7 @@ mod tests {
             mod_name: "Alpha".to_string(),
             total: 2,
         });
-        assert_eq!(state.display.as_ref().unwrap().text, "Starting Alpha…");
+        assert_eq!(state.display.as_ref().unwrap().text, "Installing Alpha…");
 
         state
             .active_downloads

@@ -9,9 +9,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-render-fix/releases/latest/download/sa2-render-fix.7z",
         },
-        description: tr_noop!("Comprehensive graphics restoration and enhancement for SA2 PC."),
+        description: tr_noop!("Fixes many graphics bugs and brings back Dreamcast visuals."),
         full_description: Some(tr_noop!(
-            "SA2 Render Fix is an essential mod for Sonic Adventure 2 on PC that repairs numerous graphical bugs and oversights. It fixes transparency sorting issues, back-face culling, and broken material properties while restoring features like Cart billboards and Dreamcast-style specular highlights. It also merges several specialized fixes like the Eggman Lighting Fix to achieve a visual style closer to the original 2001 Dreamcast release."
+            "Fixes many graphics bugs in the PC version, like see-through objects drawn in the wrong order and missing effects. It also brings back details from the Dreamcast version, such as shine on shiny surfaces and the original textures and lighting."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/render_fix/sa2-render-fix_0.jpg",
@@ -44,9 +44,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 437858,
         },
-        description: tr_noop!("A more faithful English translation of the Japanese script."),
+        description: tr_noop!("A new English story translation, closer to the Japanese script."),
         full_description: Some(tr_noop!(
-            "This mod replaces the original English localization with a new script that is more faithful to the original Japanese dialogue. Based on Windii's translations, it corrects creative liberties and errors found in the official localization. It is intended to be played with Japanese voices for the most authentic experience and includes compatibility with various restoration mods."
+            "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_0.jpg",
@@ -73,9 +73,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 33171,
         },
-        description: tr_noop!("High-definition replacements for the game's 2D UI elements."),
+        description: tr_noop!("Sharper menus, HUD and icons."),
         full_description: Some(tr_noop!(
-            "HD GUI: SA2 Edition replaces the game's low-resolution HUD, menu icons, and item boxes with high-definition versions that match the Dreamcast original's aesthetic. It covers gameplay HUDs, menu screens (Title, Stage Select, etc.), and includes a DLL for automatic configuration based on your active mods, such as NoBattle or Battle DLC."
+            "Replaces blurry HUD, menu, item box and logo graphics with sharper versions that stay close to the originals. It adjusts itself when the Battle DLC is on or off. Chao World, 2-player mode and the credits keep the original graphics."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/hd_gui/hdguiforsa2_0.jpg",
@@ -102,9 +102,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 469542,
         },
-        description: tr_noop!("Restores the original 'Impress' font from the Dreamcast version."),
+        description: tr_noop!("Swaps the game's font for the rounder 'Impress' font."),
         full_description: Some(tr_noop!(
-            "IMPRESSive replaces the Comic Sans-like font in the PC version of SA2 with the 'Impress' font used in the original Japanese Dreamcast release. It includes custom character widths for natural spacing and supports all European languages. It is designed for compatibility with the SA2 Render Fix font API."
+            "Replaces the game's Comic Sans-like font with the 'Impress' font from the Japanese version. It works with English, French, German, Spanish and Italian text."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/impressive/impressive_0.jpg",
@@ -127,9 +127,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 381193,
         },
-        description: tr_noop!("Adds independent volume sliders for Music, SFX, and Voices."),
+        description: tr_noop!("Separate volume for music, sound effects and voices."),
         full_description: Some(tr_noop!(
-            "This mod addresses SA2's notorious sound mixing issues by adding separate volume controls for music, sound effects, and character voices. It also includes 3D audio fixes for positional sound and master volume settings, allowing players to create a balanced mix that prevents music from drowning out dialogue."
+            "Lets you set the volume of music, sound effects, voices and cutscenes separately. The default mix matches the Dreamcast version. It also fixes several sound bugs and can play sounds from the side they come from."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/volume_controls/sa2volumecontrols_0.jpg",
@@ -148,11 +148,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 412706,
         },
-        description: tr_noop!(
-            "Overhauls mech footstep and targeting sounds for a less grating experience."
-        ),
+        description: tr_noop!("Quieter mech footsteps and a softer targeting sound."),
         full_description: Some(tr_noop!(
-            "Mech Sound Improvement makes the mech-based levels for Tails and Eggman much more pleasant by lowering the volume of intrusive footsteps and replacing the high-pitched targeting whine with a softer sound. It also introduces snappier lock-on sound effects and adjusted pitch for various mech noises."
+            "Makes Tails' and Eggman's mech stages easier on the ears. Footsteps are quieter, the constant targeting whine is nearly gone, and locking on has a crisper sound."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/mech_sound/mechsoundimprovement_0.jpg",
@@ -169,9 +167,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-sdl-loader/releases/latest/download/sasdl.7z",
         },
-        description: tr_noop!("Dependency mod providing a common interface for SDL2 library."),
+        description: tr_noop!("A helper other mods need. It does nothing on its own."),
         full_description: Some(tr_noop!(
-            "SASDL (Simple Adventure SDL) is a background mod that allows other mods to use the SDL2 library for features like modern controller support without conflicting with each other. It is a mandatory dependency for mods like SA2 Input Controls."
+            "Lets other mods use the SDL2 library without clashing with each other. It does nothing by itself, but SA2 Input Controls needs it."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/sasdl/sasdl_0.jpg",
@@ -195,11 +193,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://github.com/shaddatic/sa2b-input-controls/releases/latest/download/sa2-input-controls.7z",
         },
-        description: tr_noop!(
-            "Complete overhaul of the input system for modern controllers and sensitivity."
-        ),
+        description: tr_noop!("Smoother analog controls and easier rail grinding."),
         full_description: Some(tr_noop!(
-            "SA2 Input Controls fixes long-standing issues with the game's sensitivity, particularly the rail grinding sensitivity. It implements proper circular deadzones, adds native support for PlayStation and Switch controllers via SDL2, and allows for full keyboard remapping. It also restores full 360-degree analog precision that was hindered by the original axial deadzones."
+            "Rewrites the game's controls. The analog stick moves smoothly in every direction instead of sticking to 8 directions, and rail grinding is much easier. Most controllers work right away, and every keyboard key can be changed."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/input_controls/sa2-input-controls_0.jpg",
@@ -225,9 +221,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         source: ModSource::DirectUrl {
             url: "https://github.com/kellsnc/SA2BetterRadar/releases/latest/download/SA2BetterRadar.7z",
         },
-        description: tr_noop!("Restores SA1-style simultaneous tracking for treasure hunting."),
+        description: tr_noop!("The treasure radar tracks all three pieces at once."),
         full_description: Some(tr_noop!(
-            "Better Radar improves the treasure-hunting mechanics by allowing the radar to track all three items simultaneously, rather than forcing a specific order. It adds new color indicators (blue and pink) for distance tracking and increases the tempo of the radar sound/animation as you get closer to a shard."
+            "Upgrades the radar in treasure-hunting stages. It tracks all three pieces at the same time, adds blue and pink indicators and a sound for each piece, and its animation speeds up with the beeps. Each change can be turned off."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/better_radar/sa2betterradar_0.jpg",
@@ -247,9 +243,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 48950,
         },
-        description: tr_noop!("Fluidity and physics refinements for Sonic and Shadow."),
+        description: tr_noop!("Small tweaks that make Sonic and Shadow feel smoother."),
         full_description: Some(tr_noop!(
-            "HedgePanel refines the speed characters' mechanics by allowing them to maintain momentum during somersaults and adding an upward bounce after Light Attacks to prevent accidental falls. It also fixes the 'low bounce' physics bug and adds automatic prompts for Magic Hands when in range of an enemy."
+            "Sonic keeps his speed in somersaults, you no longer slow down by falling off rails, and Light Attacks bounce you up like Homing Attacks. Homing Attack bounces are never too low, and the Magic Hands prompt shows up by itself. Each tweak can be turned off."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/hedgepanel/hedgepanel_0.jpg",
@@ -267,11 +263,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 48941,
         },
-        description: tr_noop!(
-            "Modernizes Sonic and Shadow's movesets with new and restored abilities."
-        ),
+        description: tr_noop!("New moves for Sonic and remappable actions."),
         full_description: Some(tr_noop!(
-            "Sonic: New Tricks allows players to remap Sonic's actions across multiple buttons (separating Jump, Bounce, and Light Dash). It restores the powerful SA1 Spin Dash and jump ball form, enhances the Bounce Bracelet, and allows Shadow and Metal Sonic to use abilities they previously lacked, such as the Bounce attack."
+            "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that break boxes. Shadow can use Bounce too. You can put Light Dash, Bounce, Somersault and Spin Dash on B, X or Y, and speed characters can finish most Tails and Eggman stages."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/new_tricks/sonicnewtricks_0.jpg",
@@ -298,9 +292,9 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 350607,
         },
-        description: tr_noop!("Corrects localization errors and ambiguities in the hint system."),
+        description: tr_noop!("Correct hints in treasure-hunting stages."),
         full_description: Some(tr_noop!(
-            "Retranslated Hints replaces the original English stage clues with accurate translations of the Japanese text. It famously fixes the reversed 'siht ekil' hints in Mad Space and improves Omochao's dialogue across almost every stage, making the treasure-hunting segments significantly less frustrating."
+            "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
         )),
         pictures: &[
             "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_0.jpg",

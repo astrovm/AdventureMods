@@ -1174,14 +1174,14 @@ fn setup_installs_selected_mods_from_cli_flags() {
     );
     assert!(output.contains("Step 1/3: Install .NET Runtime\nDone\n"));
     assert!(output.contains("Step 2/3: Install Mod Manager & Loader\nDone\n"));
-    assert!(output.contains("Step 3/3: Install Mods & Generate Config"));
-    assert!(output.contains("Starting: SA2 Render Fix"));
+    assert!(output.contains("Step 3/3: Install Mods"));
+    assert!(output.contains("Installing: SA2 Render Fix"));
     // Mods download concurrently, so either one may finish first.
     assert!(output.contains("] Installed: SA2 Render Fix"));
     assert!(output.contains("] Installed: HD GUI: SA2 Edition"));
     assert!(output.contains("[1/2] Installed: "));
     assert!(output.contains("[2/2] Installed: "));
-    assert!(output.contains("Generating mod config"));
+    assert!(output.contains("Saving mod settings"));
 }
 
 #[test]

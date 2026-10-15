@@ -25,9 +25,9 @@ impl SetupAction {
     pub fn cli_title(self) -> &'static str {
         match self {
             Self::InstallDotnet => tr!("Install .NET Runtime"),
-            Self::ConvertSteam => tr!("Convert Steam to 2004"),
+            Self::ConvertSteam => tr!("Convert to the 2004 Version"),
             Self::InstallModManager => tr!("Install Mod Manager & Loader"),
-            Self::InstallMods => tr!("Install Mods & Generate Config"),
+            Self::InstallMods => tr!("Install Mods"),
         }
     }
 }
@@ -137,7 +137,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         steps.push(SetupStep {
             id: StepId::ConvertSteam,
             title: tr!("2004 Version"),
-            description: tr!("Converts the Steam version for the mod loader"),
+            description: tr!("The Steam version, converted so mods can load"),
             kind: StepKind::Download,
         });
     }
@@ -152,7 +152,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: StepId::DownloadMods,
             title: tr!("Mods"),
-            description: tr!("Installed or updated, then set up"),
+            description: tr!("Downloaded and set up with your choices"),
             kind: StepKind::Download,
         },
         SetupStep {

@@ -688,11 +688,16 @@ impl AdventureModsApp {
                     if hints {
                         widgets::pad_hint(ui, "A", theme::SUCCESS, tr!("Select"));
                         widgets::pad_hint(ui, "B", theme::ERROR, tr!("Back"));
-                        if self.setup.is_some() {
-                            widgets::pad_hint(ui, "X", theme::ACCENT_BRIGHT, tr!("Other action"));
-                            widgets::pad_hint(ui, "≡", theme::TEXT_DIM, tr!("Continue"));
+                        // X and Start name what they do on this screen.
+                        if let Some(setup) = &mut self.setup {
+                            if let Some(label) = setup.pad_action_label() {
+                                widgets::pad_hint(ui, "X", theme::ACCENT_BRIGHT, label);
+                            }
+                            if let Some(label) = setup.pad_next_label() {
+                                widgets::pad_hint(ui, "≡", theme::TEXT_DIM, label);
+                            }
                         } else {
-                            widgets::pad_hint(ui, "Y", theme::WARNING, tr!("Scan again"));
+                            widgets::pad_hint(ui, "Y", theme::WARNING, tr!("Scan Again"));
                         }
                     }
                     if let Some(setup) = &mut self.setup {

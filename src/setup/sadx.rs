@@ -1,8 +1,9 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 
 use crate::external::{archive, download};
+use crate::trf;
 
 #[cfg(test)]
 use super::common::ModSource;
@@ -80,7 +81,7 @@ pub fn convert_steam_to_2004(
 
     let patch_file = extract_dir.join("patch_steam_inst.dat");
     if !patch_file.is_file() {
-        anyhow::bail!("patch_steam_inst.dat not found in steam_tools.7z");
+        bail!("patch_steam_inst.dat not found in steam_tools.7z");
     }
 
     // Apply the directory diff patch using hpatchz (bundled in the Flatpak)
@@ -129,13 +130,13 @@ pub fn convert_steam_to_2004(
             tracing::error!(
                 "Source file mismatch detected. This usually happens if the game is already modded or corrupted."
             );
-            anyhow::bail!(crate::trf!(
+            bail!(trf!(
                 "Steam-to-2004 conversion failed. Your game installation might be modified or corrupted. Please verify game integrity in Steam and try again.\n\nDetails:\n{stderr}",
                 stderr = stderr
             ));
         }
 
-        anyhow::bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
+        bail!("Steam-to-2004 conversion failed:\n{stdout}\n{stderr}");
     }
 
     // hpatchz writes a complete output tree rather than patching in place.
@@ -213,11 +214,11 @@ mod tests {
     }
 
     #[test]
-    fn sonic_new_tricks_uses_sadx_image_set() {
+    fn new_tricks_uses_sadx_image_set() {
         let new_tricks = RECOMMENDED_MODS
             .iter()
-            .find(|m| m.name == "Sonic: New Tricks")
-            .expect("Sonic: New Tricks entry missing");
+            .find(|m| m.name == "New Tricks")
+            .expect("New Tricks entry missing");
 
         assert_eq!(new_tricks.pictures.len(), 8);
         for picture in new_tricks.pictures {

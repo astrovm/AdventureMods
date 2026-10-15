@@ -728,6 +728,18 @@ impl SetupFlow {
         }
     }
 
+    /// What X does on a controller right now, if anything.
+    pub fn pad_action_label(&self) -> Option<&'static str> {
+        self.secondary()
+            .filter(|secondary| *secondary != Secondary::Cancelling)
+            .map(Secondary::label)
+    }
+
+    /// What Start does on a controller right now, if anything.
+    pub fn pad_next_label(&mut self) -> Option<&'static str> {
+        self.next_label()
+    }
+
     fn on_secondary(&mut self) {
         match self.secondary() {
             Some(Secondary::PlayInSteam) => self.play_in_steam(),
@@ -991,7 +1003,7 @@ impl SetupFlow {
                             ui,
                             "⚠",
                             Tone::Warning,
-                            tr!("Proton 10 Needed"),
+                            tr!("Proton 10.0 Needed"),
                             &message,
                         );
                     }

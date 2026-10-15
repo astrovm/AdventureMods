@@ -301,6 +301,11 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
     assert_eq!(harness.state().flow.title().0, "Sonic Adventure 2");
     assert_eq!(harness.state().flow.title().1, "");
     assert!(!harness.state().flow.can_go_back());
+    assert_eq!(
+        harness.state().flow.pad_action_label(),
+        Some("Play in Steam")
+    );
+    assert_eq!(harness.state_mut().flow.pad_next_label(), Some("Done"));
     press(&mut harness, "Play in Steam");
     harness.state_mut().flow.handle_pad(PadButton::Action);
     press(&mut harness, "Done");
@@ -319,7 +324,7 @@ fn the_proton_step_checks_again_until_steam_is_ready() {
     let dir = game_dir(&["quiet-steam"]);
     let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
 
-    harness.get_by_label("Proton 10 Needed");
+    harness.get_by_label("Proton 10.0 Needed");
     // Without a message from Steam's config, the step explains what to do.
     harness.get_by_label(steps::steps_for_game(GameKind::SA2)[0].description);
     press(&mut harness, "Check Again");
@@ -558,11 +563,16 @@ fn cancelling_the_mod_download_waits_for_it_and_goes_back() {
     harness.state_mut().flow.on_back();
     harness.state_mut().flow.handle_pad(PadButton::Start);
     assert_eq!(step_id(harness.state()), StepId::DownloadMods);
+    // A controller's X cancels, and Start does nothing here.
+    assert_eq!(harness.state().flow.pad_action_label(), Some("Cancel"));
+    assert_eq!(harness.state_mut().flow.pad_next_label(), None);
 
     harness.get_by_label("Cancel").click();
     harness.step();
     harness.step();
     harness.get_by_label("Cancelling…");
+    // X has nothing left to do while it cancels.
+    assert_eq!(harness.state().flow.pad_action_label(), None);
     run_until(&mut harness, "back to choices", |state| {
         step_id(state) == StepId::LanguageOptions
     });
@@ -1042,7 +1052,7 @@ fn a_panicking_button_shows_a_recoverable_error() {
 
     std::fs::remove_file(dir.path().join("panic-steam")).unwrap();
     press(&mut harness, "Try Again");
-    harness.get_by_label("Proton 10 Needed");
+    harness.get_by_label("Proton 10.0 Needed");
 }
 
 #[test]

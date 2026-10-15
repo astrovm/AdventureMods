@@ -81,7 +81,7 @@ It works with a controller too, so you can use it from the couch or in Steam Dec
 - **Lots of mods.** Includes 29 SADX mods and 12 SA2 mods.
 - **SADX presets.** DX Enhanced and Dreamcast Restoration.
 - **One step.** Installs mod managers, mods and dependencies together.
-- **Good settings.** Sets native resolution, window mode and optimal settings.
+- **Good settings.** Sets your screen resolution, window mode and recommended settings.
 - **Your languages.** Saves subtitle and voice language per game.
 - **Couch friendly.** Big text and buttons, with full controller support.
 - **Speaks your language.** English, Spanish, French, German, Italian and Japanese, following your system language.
