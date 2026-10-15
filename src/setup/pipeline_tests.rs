@@ -555,6 +555,37 @@ fn mods_that_must_load_last_do() {
 }
 
 #[test]
+fn mods_that_must_load_first_do() {
+    // Enhanced Chao World's page: "at the top of your mod loader".
+    assert_eq!(
+        load_order(GameKind::SA2, None).first(),
+        Some(&"Enhanced Chao World")
+    );
+}
+
+#[test]
+fn mods_load_after_the_mods_they_build_on() {
+    let loads_before = |kind, first, second| {
+        let order = load_order(kind, None);
+        let position = |name| order.iter().position(|entry| *entry == name).unwrap();
+        position(first) < position(second)
+    };
+    // Cutscene Revamp Extensions' page: "needs to be loaded below Render Fix".
+    assert!(loads_before(
+        GameKind::SA2,
+        "SA2 Render Fix",
+        "Cutscene Revamp Extensions"
+    ));
+    // AI HD Textures also replaces the flashback textures (ICM00C3 and
+    // others), so the widescreen ones must load after it to win.
+    assert!(loads_before(
+        GameKind::SADX,
+        "AI HD Textures",
+        "16:9 Flashbacks"
+    ));
+}
+
+#[test]
 fn sadx_skips_adx_audio() {
     // ADX Audio swaps .wma music and voices for ADX ones, but the Steam copy
     // already ships ADX (see steam_sadx_already_ships_adx_audio). It was a

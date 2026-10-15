@@ -373,12 +373,28 @@ msgid "Removed the mod loader"
 msgstr "Mod-Loader entfernt"
 
 #: src/setup/sa2_catalog.rs
+msgid "A big Chao World overhaul."
+msgstr "Eine große Überarbeitung von Chao World."
+
+#: src/setup/sa2_catalog.rs
+msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
+msgstr "Überarbeitet Chao World mit neu gestalteten Gärten, einer besseren Kamera, einem Menü zum Anpassen deiner Chao, einem Markt, Teleportieren zwischen den Gärten und vielen Fehlerkorrekturen. Fast alles lässt sich in den Mod-Einstellungen ausschalten."
+
+#: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs and brings back Dreamcast visuals."
 msgstr "Behebt viele Grafikfehler und bringt die Dreamcast-Optik zurück."
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs in the PC version, like see-through objects drawn in the wrong order and missing effects. It also brings back details from the Dreamcast version, such as shine on shiny surfaces and the original textures and lighting."
 msgstr "Behebt viele Grafikfehler der PC-Version, etwa durchsichtige Objekte in falscher Reihenfolge und fehlende Effekte. Bringt außerdem Details der Dreamcast-Version zurück, wie Spiegelungen auf glänzenden Flächen und die originalen Texturen und Beleuchtung."
+
+#: src/setup/sa2_catalog.rs
+msgid "Extra options for Render Fix's cutscenes."
+msgstr "Zusätzliche Optionen für die Zwischensequenzen von Render Fix."
+
+#: src/setup/sa2_catalog.rs
+msgid "Adds options to Render Fix's Dreamcast cutscenes: Sonic's shoes from The Trial, Amy's eyeliner, retimed voice lines and The Trial's opening music. They all start off, so turn on the ones you want in the mod's settings."
+msgstr "Fügt den Dreamcast-Zwischensequenzen von Render Fix Optionen hinzu: Sonics Schuhe aus The Trial, Amys Eyeliner, neu getimte Sätze und die Eröffnungsmusik aus The Trial. Alle sind anfangs aus, also schalte die gewünschten in den Mod-Einstellungen ein."
 
 #: src/setup/sa2_catalog.rs
 msgid "Sharper menus, HUD and icons."
@@ -443,6 +459,22 @@ msgstr "Kleine Anpassungen, damit Sonic und Shadow sich flüssiger spielen."
 #: src/setup/sa2_catalog.rs
 msgid "Sonic keeps his speed in somersaults, you no longer slow down by falling off rails, and Light Attacks bounce you up like Homing Attacks. Homing Attack bounces are never too low, and the Magic Hands prompt shows up by itself. Each tweak can be turned off."
 msgstr "Sonic behält beim Salto seinen Schwung, du verlierst beim Fallen von Schienen kein Tempo mehr und Light Attacks lassen dich wie Homing Attacks nach oben abprallen. Homing-Attack-Abpraller sind nie zu niedrig, und der Magic-Hands-Hinweis erscheint von selbst. Jede Anpassung lässt sich abschalten."
+
+#: src/setup/sa2_catalog.rs
+msgid "Objects and levels stay visible farther away."
+msgstr "Objekte und Level bleiben aus größerer Entfernung sichtbar."
+
+#: src/setup/sa2_catalog.rs
+msgid "Draws objects and level parts 5 times farther away than before. If the game slows down or enemies act strangely in the distance, turn on Clip object logic in the mod's settings."
+msgstr "Zeichnet Objekte und Levelteile 5-mal weiter entfernt als vorher. Wenn das Spiel langsamer wird oder Gegner in der Ferne sich seltsam verhalten, schalte Clip object logic in den Mod-Einstellungen ein."
+
+#: src/setup/sa2_catalog.rs
+msgid "Fixes odd mistakes in the levels."
+msgstr "Behebt seltsame Fehler in den Leveln."
+
+#: src/setup/sa2_catalog.rs
+msgid "Fixes small mistakes in the levels, like missing or broken Gold Beetles and out-of-bounds Rings that make the automatic A-Rank impossible. It also fixes mistakes in the English and Spanish hints of the hunting levels."
+msgstr "Behebt kleine Fehler in den Leveln, etwa fehlende oder kaputte Gold Beetles und Ringe außerhalb der Karte, die den automatischen A-Rang unmöglich machen. Korrigiert außerdem Fehler in den englischen und spanischen Hinweisen der Schatzsuche-Level."
 
 #: src/setup/sa2_catalog.rs
 msgid "A new English story translation, closer to the Japanese script."
@@ -674,6 +706,22 @@ msgid "A set of optional extras: unused voice lines and sound effects, beta obje
 msgstr "Eine Sammlung optionaler Extras: ungenutzte Sätze und Soundeffekte, Beta-Objekte und -Effekte sowie Korrekturen für einige Zwischensequenzen und Objekte. Jedes lässt sich ein- oder ausschalten."
 
 #: src/setup/sadx_catalog.rs
+msgid "Smoother, better-timed cutscenes."
+msgstr "Flüssigere, besser getimte Zwischensequenzen."
+
+#: src/setup/sadx_catalog.rs
+msgid "Fixes awkward pauses, bad timing, missing lip sync and characters moving the wrong way in the story cutscenes. Red Mountain's ending cutscene needs Fixes, Adds, and Beta Restores."
+msgstr "Behebt holprige Pausen, schlechtes Timing, fehlende Lippensynchronität und Charaktere, die sich in die falsche Richtung bewegen, in den Zwischensequenzen der Story. Die Schlusssequenz von Red Mountain braucht Fixes, Adds, and Beta Restores."
+
+#: src/setup/sadx_catalog.rs
+msgid "Subtitles for voice lines that had none."
+msgstr "Untertitel für Sätze, die keine hatten."
+
+#: src/setup/sadx_catalog.rs
+msgid "Shows subtitles for most voice lines that had no text, like character select, idle chatter, announcers, bosses and Sky Chase. It has text for every game language, including an English set that matches the retranslation."
+msgstr "Zeigt Untertitel für die meisten Sätze ohne Text, etwa bei der Charakterauswahl, beim Warten, bei Ansagen, Bossen und Sky Chase. Es hat Text für jede Sprache des Spiels, darunter eine englische Fassung passend zur Neuübersetzung."
+
+#: src/setup/sadx_catalog.rs
 msgid "Swaps the two songs of the final boss fight."
 msgstr "Tauscht die zwei Lieder im Endkampf."
 
@@ -696,6 +744,14 @@ msgstr "Schärfere, mit KI hochskalierte Texturen."
 #: src/setup/sadx_catalog.rs
 msgid "Textures for almost the whole game, upscaled with AI for high-resolution screens. It has a version for Dreamcast Conversion and one for the original game."
 msgstr "Texturen für fast das ganze Spiel, mit KI für hochauflösende Bildschirme hochskaliert. Es gibt eine Version für Dreamcast Conversion und eine für das Originalspiel."
+
+#: src/setup/sadx_catalog.rs
+msgid "Amy and Gamma's flashbacks fit widescreens."
+msgstr "Die Rückblenden von Amy und Gamma passen auf Breitbildschirme."
+
+#: src/setup/sadx_catalog.rs
+msgid "Amy and Gamma's flashbacks no longer look stretched on widescreens. It replaces their images with new 16:9 ones, and adds black bars to the few it couldn't replace."
+msgstr "Die Rückblenden von Amy und Gamma wirken auf Breitbildschirmen nicht mehr gestreckt. Ihre Bilder werden durch neue in 16:9 ersetzt, und die wenigen, die sich nicht ersetzen ließen, bekommen schwarze Balken."
 
 #: src/setup/sadx_catalog.rs
 msgid "Local split-screen for up to 4 players."
@@ -1129,8 +1185,8 @@ msgid "Detects SADX and SA2 across all Steam library folders"
 msgstr "Erkennt SADX und SA2 in allen Steam-Bibliotheksordnern"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
-msgid "28 SADX mods and 12 SA2 mods"
-msgstr "28 Mods für SADX und 12 für SA2"
+msgid "31 SADX mods and 16 SA2 mods"
+msgstr "31 Mods für SADX und 16 für SA2"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "SADX presets: DX Enhanced and Dreamcast Restoration"
