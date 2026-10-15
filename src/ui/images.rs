@@ -513,9 +513,14 @@ mod tests {
         };
         // Let every decode finish before the next frame picks them up.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-        while !cache.queue.pending.lock().unwrap().order.is_empty() {
-            assert!(std::time::Instant::now() < deadline, "never decoded");
+        // Sleep first, so every line runs however fast the decodes are and
+        // line coverage does not depend on timing.
+        loop {
             std::thread::sleep(std::time::Duration::from_millis(5));
+            assert!(std::time::Instant::now() < deadline, "never decoded");
+            if cache.queue.pending.lock().unwrap().order.is_empty() {
+                break;
+            }
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
 
