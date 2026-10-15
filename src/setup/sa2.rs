@@ -5,7 +5,7 @@ mod tests {
     use super::super::common::ModSource;
     use super::*;
 
-    crate::recommended_mods_tests!(12);
+    crate::recommended_mods_tests!(16);
 
     #[test]
     fn sonic_new_tricks_uses_sa2_image_folder() {

@@ -554,6 +554,60 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         }],
     },
     ModEntry {
+        name: "Tweaked Cutscenes",
+        slug: "tweaked-cutscenes",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 470664,
+        },
+        description: tr_noop!("Smoother, better-timed cutscenes."),
+        full_description: Some(tr_noop!(
+            "Fixes awkward pauses, bad timing, missing lip sync and characters moving the wrong way in the story cutscenes. Red Mountain's ending cutscene needs Fixes, Adds, and Beta Restores."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/tweaked_cutscenes/tweaked-cutscenes_7.jpg",
+        ],
+        dir_name: Some("Tweaked Cutscenes"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/470664",
+        }],
+    },
+    ModEntry {
+        name: "Extra Subtitles",
+        slug: "extra-subtitles",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 499212,
+        },
+        description: tr_noop!("Subtitles for voice lines that had none."),
+        full_description: Some(tr_noop!(
+            "Shows subtitles for most voice lines that had no text, like character select, idle chatter, announcers, bosses and Sky Chase. It has text for every game language, including an English set that matches the retranslation."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/extra_subtitles/extra-subtitles_7.jpg",
+        ],
+        dir_name: Some("Extra Subtitles"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/499212",
+        }],
+    },
+    ModEntry {
         name: "Perfect Chaos Music Swap",
         slug: "perfect-chaos-music-swap",
         source: ModSource::GameBananaItem {
@@ -637,6 +691,36 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
     },
     ModEntry {
+        name: "16:9 Flashbacks",
+        slug: "16-9-flashbacks",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/Kesnos-ho/16-9-Unstretched-Flashbacks/releases/latest/download/Flashback.widescreen.fix.7z",
+        },
+        description: tr_noop!("Amy and Gamma's flashbacks fit widescreens."),
+        full_description: Some(tr_noop!(
+            "Amy and Gamma's flashbacks no longer look stretched on widescreens. It replaces their images with new 16:9 ones, and adds black bars to the few it couldn't replace."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_5.jpg",
+        ],
+        dir_name: Some("Flashback widescreen fix"),
+        links: &[
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/9537",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/Kesnos-ho/16-9-Unstretched-Flashbacks",
+            },
+        ],
+    },
+    ModEntry {
         name: "Multiplayer",
         slug: "multiplayer",
         source: ModSource::DirectUrl {
@@ -703,9 +787,12 @@ pub const PRESETS: &[ModPreset] = &[
             "Super Sonic",
             "Chao Gameplay",
             "Fixes, Adds, and Beta Restores",
+            "Tweaked Cutscenes",
+            "Extra Subtitles",
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
+            "16:9 Flashbacks",
             "Multiplayer",
         ],
     },
@@ -736,9 +823,12 @@ pub const PRESETS: &[ModPreset] = &[
             "Super Sonic",
             "Chao Gameplay",
             "Fixes, Adds, and Beta Restores",
+            "Tweaked Cutscenes",
+            "Extra Subtitles",
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
+            "16:9 Flashbacks",
             "Multiplayer",
         ],
     },

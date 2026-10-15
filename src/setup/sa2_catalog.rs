@@ -4,6 +4,35 @@ use super::common::{ModEntry, ModLink, ModSource};
 
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
+        name: "Enhanced Chao World",
+        slug: "enhanced-chao-world",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 48915,
+        },
+        description: tr_noop!("A big Chao World overhaul."),
+        full_description: Some(tr_noop!(
+            "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_9.jpg",
+        ],
+        dir_name: Some("!EnhancedChaoWorld"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/48915",
+        }],
+    },
+    ModEntry {
         name: "SA2 Render Fix",
         slug: "sa2-render-fix",
         source: ModSource::DirectUrl {
@@ -36,6 +65,31 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
                 url: "https://github.com/shaddatic/sa2b-render-fix",
             },
         ],
+    },
+    ModEntry {
+        name: "Cutscene Revamp Extensions",
+        slug: "cutscene-revamp-extensions",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 684473,
+        },
+        description: tr_noop!("Extra options for Render Fix's cutscenes."),
+        full_description: Some(tr_noop!(
+            "Adds options to Render Fix's Dreamcast cutscenes: Sonic's shoes from The Trial, Amy's eyeliner, retimed voice lines and The Trial's opening music. They all start off, so turn on the ones you want in the mod's settings."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/cutscene_revamp_extensions/cutscene-revamp-extensions_5.jpg",
+        ],
+        dir_name: Some("Cutscene Revamp Extensions"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/684473",
+        }],
     },
     ModEntry {
         name: "HD GUI: SA2 Edition",
@@ -225,6 +279,56 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         links: &[ModLink {
             label: "GameBanana",
             url: "https://gamebanana.com/mods/48950",
+        }],
+    },
+    ModEntry {
+        name: "Higher Draw Distance",
+        slug: "higher-draw-distance",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sa2b-limit-break/releases/latest/download/sa2b-limit-break.7z",
+        },
+        description: tr_noop!("Objects and levels stay visible farther away."),
+        full_description: Some(tr_noop!(
+            "Draws objects and level parts 5 times farther away than before. If the game slows down or enemies act strangely in the distance, turn on Clip object logic in the mod's settings."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/higher_draw_distance/higher-draw-distance_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/higher_draw_distance/higher-draw-distance_1.jpg",
+        ],
+        dir_name: Some("sa2b-limit-break"),
+        links: &[
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/48947",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kellsnc/sa2b-limit-break",
+            },
+        ],
+    },
+    ModEntry {
+        name: "Level Oddity Patch",
+        slug: "level-oddity-patch",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 48894,
+        },
+        description: tr_noop!("Fixes odd mistakes in the levels."),
+        full_description: Some(tr_noop!(
+            "Fixes small mistakes in the levels, like missing or broken Gold Beetles and out-of-bounds Rings that make the automatic A-Rank impossible. It also fixes mistakes in the English and Spanish hints of the hunting levels."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/level_oddity_patch/level-oddity-patch_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/level_oddity_patch/level-oddity-patch_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/level_oddity_patch/level-oddity-patch_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/level_oddity_patch/level-oddity-patch_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/level_oddity_patch/level-oddity-patch_4.jpg",
+        ],
+        dir_name: Some("OddityPatch"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/48894",
         }],
     },
     ModEntry {
