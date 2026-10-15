@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::support::scripts;
+use crate::support::{scripts, steam_install};
 
 #[allow(dead_code)]
 pub struct SteamFixture {
@@ -27,15 +27,7 @@ pub fn create_sa2_fixture() -> SteamFixture {
     let script_dir = temp_dir.path().join("scripts");
     let wine_log = temp_dir.path().join("wine.log");
 
-    std::fs::create_dir_all(game_path.join("resource/gd_PC/DLL/Win32")).unwrap();
-    std::fs::create_dir_all(game_path.join("mods")).unwrap();
-    std::fs::write(game_path.join("Launcher.exe"), b"launcher").unwrap();
-    std::fs::write(game_path.join("sonic2app.exe"), b"game").unwrap();
-    std::fs::write(
-        game_path.join("resource/gd_PC/DLL/Win32/Data_DLL.dll"),
-        b"original-dll",
-    )
-    .unwrap();
+    steam_install::lay_out(&game_path, steam_install::SA2);
 
     std::fs::create_dir_all(compatdata.join("pfx/drive_c")).unwrap();
     std::fs::write(compatdata.join("version"), b"TestProton\n").unwrap();
@@ -144,13 +136,7 @@ pub fn create_sadx_fixture() -> SteamFixture {
     let script_dir = temp_dir.path().join("scripts");
     let wine_log = temp_dir.path().join("wine.log");
 
-    std::fs::create_dir_all(game_path.join("system")).unwrap();
-    std::fs::create_dir_all(game_path.join("mods")).unwrap();
-    std::fs::create_dir_all(game_path.join("SoundData/VOICE_JP/WMA")).unwrap();
-    std::fs::create_dir_all(game_path.join("SoundData/VOICE_US/WMA")).unwrap();
-    std::fs::create_dir_all(game_path.join("SoundData/SE")).unwrap();
-    std::fs::write(game_path.join("Sonic Adventure DX.exe"), b"sadx").unwrap();
-    std::fs::write(game_path.join("system/CHRMODELS.dll"), b"original-dll").unwrap();
+    steam_install::lay_out(&game_path, steam_install::SADX);
 
     std::fs::create_dir_all(compatdata.join("pfx/drive_c")).unwrap();
     std::fs::write(compatdata.join("version"), b"TestProton\n").unwrap();
