@@ -292,7 +292,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             item_type: "Mod",
             item_id: 350607,
         },
-        description: tr_noop!("Correct hints in treasure-hunting stages."),
+        description: tr_noop!("Fixes the hints in treasure-hunting stages."),
         full_description: Some(tr_noop!(
             "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
         )),

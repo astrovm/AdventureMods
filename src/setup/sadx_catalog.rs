@@ -96,7 +96,7 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         },
         description: tr_noop!("Smoother first-person view."),
         full_description: Some(tr_noop!(
-            "Makes looking around in first-person view with the right stick smooth. It also flips the right stick's up and down."
+            "Makes looking around in first-person view with the right stick smooth. It also inverts up and down on the right stick."
         )),
         pictures: &[],
         dir_name: Some("smooth-cam"),

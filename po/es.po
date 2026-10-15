@@ -494,8 +494,8 @@ msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that
 msgstr "Agrega el Spin Dash de SA1, un Bounce más rápido y alto, y más ataques que rompen cajas. Shadow también puede usar Bounce. Podés poner Light Dash, Bounce, Somersault y Spin Dash en B, X o Y, y los personajes veloces pueden terminar la mayoría de los niveles de Tails y Eggman."
 
 #: src/setup/sa2_catalog.rs
-msgid "Correct hints in treasure-hunting stages."
-msgstr "Pistas correctas en los niveles de búsqueda de tesoros."
+msgid "Fixes the hints in treasure-hunting stages."
+msgstr "Corrige las pistas de los niveles de búsqueda de tesoros."
 
 #: src/setup/sa2_catalog.rs
 msgid "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
@@ -551,7 +551,7 @@ msgid "Smoother first-person view."
 msgstr "Vista en primera persona más suave."
 
 #: src/setup/sadx_catalog.rs
-msgid "Makes looking around in first-person view with the right stick smooth. It also flips the right stick's up and down."
+msgid "Makes looking around in first-person view with the right stick smooth. It also inverts up and down on the right stick."
 msgstr "Hace que mirar alrededor en primera persona con el stick derecho sea suave. También invierte el arriba y abajo del stick derecho."
 
 #: src/setup/sadx_catalog.rs

@@ -493,8 +493,8 @@ msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that
 msgstr "SA1のスピンダッシュ、より速く高いバウンド、箱を壊せる攻撃を増やします。シャドウもバウンドを使えます。ライトダッシュ、バウンド、宙返り、スピンダッシュをB、X、Yに割り当てられ、スピードタイプのキャラでもテイルスとエッグマンのほとんどのステージをクリアできます。"
 
 #: src/setup/sa2_catalog.rs
-msgid "Correct hints in treasure-hunting stages."
-msgstr "宝探しステージで正しいヒントが出ます。"
+msgid "Fixes the hints in treasure-hunting stages."
+msgstr "宝探しステージのヒントを直します。"
 
 #: src/setup/sa2_catalog.rs
 msgid "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
@@ -550,7 +550,7 @@ msgid "Smoother first-person view."
 msgstr "なめらかな一人称視点。"
 
 #: src/setup/sadx_catalog.rs
-msgid "Makes looking around in first-person view with the right stick smooth. It also flips the right stick's up and down."
+msgid "Makes looking around in first-person view with the right stick smooth. It also inverts up and down on the right stick."
 msgstr "右スティックでの一人称視点の見回しをなめらかにします。右スティックの上下も反転します。"
 
 #: src/setup/sadx_catalog.rs
@@ -1200,7 +1200,7 @@ msgstr "Modマネージャー、Mod、必要なものを一度にインストー
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "Sets your screen resolution, window mode, and recommended settings"
-msgstr "画面の解像度、ウィンドウモード、おすすめの設定を設定します"
+msgstr "画面の解像度とウィンドウモードを設定し、おすすめの設定を適用します"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "Lets you choose subtitle and voice language during setup"

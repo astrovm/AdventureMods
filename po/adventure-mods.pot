@@ -492,7 +492,7 @@ msgid "Adds the SA1 Spin Dash, a faster and higher Bounce, and more attacks that
 msgstr ""
 
 #: src/setup/sa2_catalog.rs
-msgid "Correct hints in treasure-hunting stages."
+msgid "Fixes the hints in treasure-hunting stages."
 msgstr ""
 
 #: src/setup/sa2_catalog.rs
@@ -545,7 +545,7 @@ msgid "Smoother first-person view."
 msgstr ""
 
 #: src/setup/sadx_catalog.rs
-msgid "Makes looking around in first-person view with the right stick smooth. It also flips the right stick's up and down."
+msgid "Makes looking around in first-person view with the right stick smooth. It also inverts up and down on the right stick."
 msgstr ""
 
 #: src/setup/sadx_catalog.rs
