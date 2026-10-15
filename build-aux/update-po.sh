@@ -29,7 +29,9 @@ xgettext $package --join-existing --from-code=UTF-8 --add-location=file --no-wra
 # when the text does.
 sed -i.bak '/^"POT-Creation-Date: /d' "$pot" && rm "$pot.bak"
 
+# Text that left the code leaves the catalogs too.
 while read -r lang; do
 	msgmerge --quiet --update --backup=none --no-fuzzy-matching \
 		--add-location=file --no-wrap "po/$lang.po" "$pot"
+	msgattrib --no-obsolete --add-location=file --no-wrap --output-file="po/$lang.po" "po/$lang.po"
 done < po/LINGUAS

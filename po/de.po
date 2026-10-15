@@ -1093,7 +1093,8 @@ msgstr "{first} und {second}"
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods braucht Zugriff auf die Steam-Bibliothek mit {games}. Nutze „{button}“ beim Spiel unten."
 
-#: data/io.github.astrovm.AdventureMods.desktop.in data/io.github.astrovm.AdventureMods.metainfo.xml.in
+#: data/io.github.astrovm.AdventureMods.desktop.in
+#: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "Set up Sonic Adventure mods"
 msgstr "Mods für Sonic Adventure einrichten"
 
