@@ -1617,7 +1617,7 @@ fn the_cli_speaks_the_language_of_the_locale() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Juego: Sonic Adventure 2"), "{stdout}");
     assert!(
-        stdout.contains("Restauración y mejora gráfica completa para SA2 en PC."),
+        stdout.contains("Arregla muchos errores gráficos y recupera el aspecto de Dreamcast."),
         "{stdout}"
     );
 }

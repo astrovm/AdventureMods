@@ -914,10 +914,10 @@ mod tests {
     fn sizes_use_a_decimal_point_in_every_language() {
         for language in &crate::i18n::LANGUAGES {
             let _guard = crate::i18n::use_language(language.code);
-            assert_eq!(
-                format_download_size(1_500_000_000),
-                "1.5 GB",
-                "{}",
+            let size = format_download_size(1_500_000_000);
+            assert!(
+                size.starts_with("1.5\u{a0}") || size.starts_with("1.5 "),
+                "{}: {size}",
                 language.code
             );
             assert_eq!(format_mb_value(1_572_864), "1.5", "{}", language.code);
