@@ -539,14 +539,6 @@ msgid "Replaces almost all sound effects with higher-quality versions from the D
 msgstr "Reemplaza casi todos los efectos de sonido por versiones de mejor calidad de la versión de Dreamcast y arregla varios errores de sonido."
 
 #: src/setup/sadx_catalog.rs
-msgid "Higher-quality music and voices."
-msgstr "Música y voces de mejor calidad."
-
-#: src/setup/sadx_catalog.rs
-msgid "Replaces the PC version's .wma music and voices with higher-quality ones from the Dreamcast and GameCube versions."
-msgstr "Reemplaza la música y las voces .wma de la versión de PC por otras de mejor calidad de las versiones de Dreamcast y GameCube."
-
-#: src/setup/sadx_catalog.rs
 msgid "Brings back the ocean waves in Emerald Coast."
 msgstr "Recupera las olas del mar en Emerald Coast."
 
@@ -1138,8 +1130,8 @@ msgid "Detects SADX and SA2 across all Steam library folders"
 msgstr "Detecta SADX y SA2 en todas las carpetas de bibliotecas de Steam"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
-msgid "29 SADX mods and 12 SA2 mods"
-msgstr "29 mods para SADX y 12 para SA2"
+msgid "28 SADX mods and 12 SA2 mods"
+msgstr "28 mods para SADX y 12 para SA2"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "SADX presets: DX Enhanced and Dreamcast Restoration"

@@ -137,20 +137,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         links: &[],
     },
     ModEntry {
-        name: "ADX Audio",
-        slug: "adx-audio",
-        source: ModSource::DirectUrl {
-            url: "https://dcmods.unreliable.network/owncloud/data/PiKeyAr/files/Setup/data/ADXAudio.7z",
-        },
-        description: tr_noop!("Higher-quality music and voices."),
-        full_description: Some(tr_noop!(
-            "Replaces the PC version's .wma music and voices with higher-quality ones from the Dreamcast and GameCube versions."
-        )),
-        pictures: &[],
-        dir_name: Some("ADXAudio"),
-        links: &[],
-    },
-    ModEntry {
         name: "SADX Style Water",
         slug: "sadx-style-water",
         source: ModSource::DirectUrl {
@@ -702,7 +688,6 @@ pub const PRESETS: &[ModPreset] = &[
             "Smooth Camera",
             "Frame Limit",
             "Sound Overhaul",
-            "ADX Audio",
             "SADX Style Water",
             "Onion Blur",
             "DX Characters Refined",
@@ -737,7 +722,6 @@ pub const PRESETS: &[ModPreset] = &[
             "Smooth Camera",
             "Frame Limit",
             "Sound Overhaul",
-            "ADX Audio",
             "Onion Blur",
             "Dreamcast Characters Pack",
             "Dreamcast DLC",
