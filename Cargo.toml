@@ -20,8 +20,8 @@ serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 console = "0.16"
 dialoguer = "0.12"
-eframe = { version = "0.36", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
-egui = "0.36"
+eframe = { version = "0.37", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "x11"] }
+egui = "0.37"
 gilrs = "0.11"
 rfd = "0.17"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
@@ -30,7 +30,7 @@ winit = { version = "0.30", default-features = false, features = ["x11", "waylan
 [dev-dependencies]
 ctor = "1.0"
 log = "0.4"
-egui_kittest = "0.36"
+egui_kittest = "0.37"
 proptest = { version = "1.12", default-features = false, features = ["std"] }
 
 # Unoptimized, a screenshot takes most of a second to decode. Keep debug
