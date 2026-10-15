@@ -3,6 +3,7 @@
 pub mod http_server;
 pub mod scripts;
 pub mod steam_fixture;
+pub mod steam_install;
 
 use std::sync::{Mutex, MutexGuard};
 

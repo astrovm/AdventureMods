@@ -106,6 +106,9 @@ jobs:
       - name: Test version lookup
         run: sh build-aux/test-cargo-version.sh
 
+      - name: Test Steam manifest script
+        run: sh build-aux/test-steam-manifest.sh
+
   translations:
     # The catalogs in po/ must match the text in the code. Reading Rust needs
     # GNU gettext 0.24 or newer, which Ubuntu does not have yet.
