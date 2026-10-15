@@ -71,7 +71,7 @@ impl ScreenTransition {
 
 /// A stable key for `value`, for [`ScreenTransition`].
 pub fn key(value: impl std::hash::Hash + std::fmt::Debug) -> u64 {
-    Id::new(value).value()
+    Id::unique(value).value()
 }
 
 #[cfg(test)]

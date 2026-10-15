@@ -32,7 +32,7 @@ pub struct MessageDialog {
 impl MessageDialog {
     pub fn new(id: &str, heading: impl Into<String>, body: impl Into<String>) -> Self {
         Self {
-            id: Id::new(id),
+            id: Id::unique(id),
             heading: heading.into(),
             body: body.into(),
             footer: None,
@@ -109,7 +109,7 @@ impl ChoiceDialog {
         selected: Option<usize>,
     ) -> Self {
         Self {
-            id: Id::new(id),
+            id: Id::unique(id),
             title: title.into(),
             options,
             selected,

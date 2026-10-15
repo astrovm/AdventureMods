@@ -228,6 +228,8 @@ fn fonts() -> egui::FontDefinitions {
         // Rubik has no arrows, as in "Properties → Compatibility".
         let mut chain = vec![first.to_owned(), "arrows".to_owned()];
         chain.extend(fallbacks.iter().cloned());
+        // Only Hack has "≡", the menu button hint.
+        chain.push("Hack".to_owned());
         chain.push(japanese.to_owned());
         fonts.families.insert(family, chain);
     }
@@ -277,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn every_family_draws_arrows() {
+    fn every_family_draws_arrows_and_icons() {
         let ctx = egui::Context::default();
         apply(&ctx);
         let mut output = ctx.run_ui(Default::default(), |_| {});
@@ -286,7 +288,7 @@ mod tests {
         for family in [FontFamily::Proportional, bold(), heavy()] {
             let font = FontId::new(20.0, family);
             let missing: Vec<char> = ctx.fonts_mut(|fonts| {
-                "→←↗‹›…"
+                "→←↗‹›…≡ℹ"
                     .chars()
                     .filter(|c| !fonts.has_glyph(&font, *c))
                     .collect()

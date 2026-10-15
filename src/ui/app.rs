@@ -737,7 +737,7 @@ impl AdventureModsApp {
             return;
         }
         let now = ctx.input(|input| input.time);
-        egui::Area::new(egui::Id::new("toasts"))
+        egui::Area::new(egui::Id::unique("toasts"))
             .anchor(Align2::CENTER_BOTTOM, Vec2::new(0.0, -110.0))
             .interactable(false)
             .show(ctx, |ui| {
