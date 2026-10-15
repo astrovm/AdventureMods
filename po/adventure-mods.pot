@@ -274,75 +274,43 @@ msgid "Unknown game '{game}'. Use 'sadx' or 'sa2'."
 msgstr ""
 
 #: src/external/proton.rs
-msgid "Steam hasn't set up this game for Proton yet. Launch the game once from Steam, wait for it to start, then close it and try again."
-msgstr ""
-
-#: src/external/proton.rs
-msgid "Steam's Proton files for this game are incomplete. Launch the game once from Steam so it can repair them, then close it and try again."
-msgstr ""
-
-#: src/external/proton.rs
-msgid "Adventure Mods couldn't read which Proton version Steam uses for this game. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
-msgstr ""
-
-#: src/external/proton.rs
-#, rust-format
-msgid "This game uses {tool_name}, but it's missing from {path}. Reinstall it in Steam, launch the game once, then try again."
-msgstr ""
-
-#: src/external/proton.rs
-#, rust-format
-msgid "This game was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then try again."
-msgstr ""
-
-#: src/external/proton.rs
-#, rust-format
-msgid "Steam is set to run this game with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
-msgstr ""
-
-#: src/external/proton.rs
-#, rust-format
-msgid "This game was last run with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
-msgstr ""
-
-#: src/external/proton.rs
 #, rust-format
 msgid "{game} is ready for Proton. You can continue."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "Steam hasn't set up {game} for Proton yet. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once and wait for it to start, then close it and check again."
+msgid "Steam hasn't set up {game} for Proton yet. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once and wait for it to start, then close it and try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "Steam's Proton files for {game} are incomplete. Force Proton 10.0 if needed, launch the game once from Steam so it can repair them, then check again."
+msgid "Steam's Proton files for {game} are incomplete. Force Proton 10.0 if needed, launch the game once from Steam so it can repair them, then try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "Adventure Mods couldn't read which Proton version Steam uses for {game}. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, then check again."
+msgid "Adventure Mods couldn't read which Proton version Steam uses for {game}. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, then try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "{game} is set to use {tool_name}, but it isn't installed. In Steam, install Proton 10.0 and force it for this game, launch the game once, then check again."
+msgid "{game} is set to use {tool_name}, but it isn't installed. In Steam, install Proton 10.0 and force it for this game, launch the game once, then try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "{game} was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then check again."
+msgid "{game} was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "Steam is set to run {game} with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then check again."
+msgid "Steam is set to run {game} with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
 msgstr ""
 
 #: src/external/proton.rs
 #, rust-format
-msgid "{game} was last run with {tool_name} (version {major}). SA Mod Manager doesn't start on Proton 11 or newer, including Hotfix, Experimental and many custom builds. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then check again."
+msgid "{game} was last run with {tool_name} (version {major}). SA Mod Manager doesn't start on Proton 11 or newer, including Hotfix, Experimental and many custom builds. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
 msgstr ""
 
 #: src/external/proton.rs
@@ -350,9 +318,9 @@ msgstr ""
 msgid "{game} is set to use {tool_name}, and Adventure Mods can't tell which Proton version it is. SA Mod Manager needs Proton 10.0 and doesn't start on Proton 11 or newer. If this isn't Proton 10.0, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then continue."
 msgstr ""
 
-#: src/external/proton.rs
+#: src/external/proton.rs src/setup/steps.rs
 #, rust-format
-msgid "In Steam, force Proton 10.0 for {game}, launch it once, close it, then check again."
+msgid "In Steam, open {game}'s Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then try again."
 msgstr ""
 
 #: src/external/proton.rs
@@ -769,14 +737,6 @@ msgid "Set Up Proton"
 msgstr ""
 
 #: src/setup/steps.rs
-msgid "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
-msgstr ""
-
-#: src/setup/steps.rs
-msgid "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
-msgstr ""
-
-#: src/setup/steps.rs
 msgid "Choose Mods"
 msgstr ""
 
@@ -829,11 +789,8 @@ msgid "Ready to Play"
 msgstr ""
 
 #: src/setup/steps.rs
-msgid "Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing."
-msgstr ""
-
-#: src/setup/steps.rs
-msgid "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing."
+#, rust-format
+msgid "Start {game} from Steam. The mod manager opens first, so you can turn mods on or off before playing."
 msgstr ""
 
 #: src/ui/app.rs
@@ -1039,14 +996,6 @@ msgstr ""
 #: src/ui/setup.rs
 #, rust-format
 msgid "{game} · Step {position} of {total}"
-msgstr ""
-
-#: src/ui/setup.rs
-msgid "Something went wrong while going back. Please try again."
-msgstr ""
-
-#: src/ui/setup.rs
-msgid "Something went wrong while continuing setup. Please try again."
 msgstr ""
 
 #: src/ui/setup.rs

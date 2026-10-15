@@ -5,6 +5,7 @@ use std::process::Output;
 use anyhow::{Context, Result, bail};
 
 use super::flatpak;
+use crate::steam::game::GameKind;
 use crate::steam::library::{self, try_canonicalize};
 use crate::steam::vdf;
 use crate::{tr, trf};
@@ -132,50 +133,22 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
 }
 
 pub fn ensure_prefix_ready(game_path: &Path, app_id: u32) -> Result<()> {
-    ensure_state_ready(prefix_state(game_path, app_id))
+    ensure_state_ready(&game_name(app_id), prefix_state(game_path, app_id))
 }
 
-/// Like [`ensure_prefix_ready`] for a state that was already inspected.
-pub fn ensure_state_ready(state: Result<PrefixState>) -> Result<()> {
+/// The game's name for messages. Other apps show as their ID.
+fn game_name(app_id: u32) -> String {
+    GameKind::from_app_id(app_id).map_or_else(|| app_id.to_string(), |kind| kind.name().to_owned())
+}
+
+/// Like [`ensure_prefix_ready`] for a state that was already inspected. A
+/// state that blocks setup fails with the same advice the setup screen shows.
+pub fn ensure_state_ready(game_name: &str, state: Result<PrefixState>) -> Result<()> {
     match state? {
         // Unknown labels still allow installs (custom tools / test fixtures), but
         // steam_config_message warns the user to prefer Proton 10.0.
         PrefixState::Ready | PrefixState::UnknownProton { .. } => Ok(()),
-        PrefixState::MissingPrefix => bail!(tr!(
-            "Steam hasn't set up this game for Proton yet. Launch the game once from Steam, wait for it to start, then close it and try again."
-        )),
-        PrefixState::MissingMetadata => bail!(tr!(
-            "Steam's Proton files for this game are incomplete. Launch the game once from Steam so it can repair them, then close it and try again."
-        )),
-        PrefixState::SteamConfigIncomplete => bail!(tr!(
-            "Adventure Mods couldn't read which Proton version Steam uses for this game. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again."
-        )),
-        PrefixState::ProtonUnavailable {
-            tool_name,
-            proton_dir,
-        } => bail!(trf!(
-            "This game uses {tool_name}, but it's missing from {path}. Reinstall it in Steam, launch the game once, then try again.",
-            tool_name = tool_name,
-            path = proton_dir.display()
-        )),
-        PrefixState::ConfigMismatch {
-            prefix_tool,
-            configured_tool,
-        } => bail!(trf!(
-            "This game was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then try again.",
-            prefix_tool = prefix_tool,
-            configured_tool = configured_tool
-        )),
-        PrefixState::UnsupportedConfiguredProton { tool_name, major } => bail!(trf!(
-            "Steam is set to run this game with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again.",
-            tool_name = tool_name,
-            major = major
-        )),
-        PrefixState::UnsupportedProton { tool_name, major } => bail!(trf!(
-            "This game was last run with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again.",
-            tool_name = tool_name,
-            major = major
-        )),
+        state => bail!(steam_config_message_for_state(game_name, &Ok(state))),
     }
 }
 
@@ -191,19 +164,19 @@ pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixStat
             game = game_name
         ),
         Ok(PrefixState::MissingPrefix) => trf!(
-            "Steam hasn't set up {game} for Proton yet. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once and wait for it to start, then close it and check again.",
+            "Steam hasn't set up {game} for Proton yet. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once and wait for it to start, then close it and try again.",
             game = game_name
         ),
         Ok(PrefixState::MissingMetadata) => trf!(
-            "Steam's Proton files for {game} are incomplete. Force Proton 10.0 if needed, launch the game once from Steam so it can repair them, then check again.",
+            "Steam's Proton files for {game} are incomplete. Force Proton 10.0 if needed, launch the game once from Steam so it can repair them, then try again.",
             game = game_name
         ),
         Ok(PrefixState::SteamConfigIncomplete) => trf!(
-            "Adventure Mods couldn't read which Proton version Steam uses for {game}. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, then check again.",
+            "Adventure Mods couldn't read which Proton version Steam uses for {game}. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, then try again.",
             game = game_name
         ),
         Ok(PrefixState::ProtonUnavailable { tool_name, .. }) => trf!(
-            "{game} is set to use {tool_name}, but it isn't installed. In Steam, install Proton 10.0 and force it for this game, launch the game once, then check again.",
+            "{game} is set to use {tool_name}, but it isn't installed. In Steam, install Proton 10.0 and force it for this game, launch the game once, then try again.",
             game = game_name,
             tool_name = tool_name
         ),
@@ -211,19 +184,19 @@ pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixStat
             prefix_tool,
             configured_tool,
         }) => trf!(
-            "{game} was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then check again.",
+            "{game} was last run with {prefix_tool}, but Steam now uses {configured_tool}. Launch the game once from Steam so it can update, then try again.",
             game = game_name,
             prefix_tool = prefix_tool,
             configured_tool = configured_tool
         ),
         Ok(PrefixState::UnsupportedConfiguredProton { tool_name, major }) => trf!(
-            "Steam is set to run {game} with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then check again.",
+            "Steam is set to run {game} with {tool_name} (version {major}), which can't run SA Mod Manager. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again.",
             game = game_name,
             tool_name = tool_name,
             major = major
         ),
         Ok(PrefixState::UnsupportedProton { tool_name, major }) => trf!(
-            "{game} was last run with {tool_name} (version {major}). SA Mod Manager doesn't start on Proton 11 or newer, including Hotfix, Experimental and many custom builds. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then check again.",
+            "{game} was last run with {tool_name} (version {major}). SA Mod Manager doesn't start on Proton 11 or newer, including Hotfix, Experimental and many custom builds. In Steam, force Proton 10.0 in Properties → Compatibility, launch the game once, close it, then try again.",
             game = game_name,
             tool_name = tool_name,
             major = major
@@ -236,7 +209,7 @@ pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixStat
         Err(err) => {
             tracing::warn!("Failed to inspect Proton prefix state: {err}");
             trf!(
-                "In Steam, force Proton 10.0 for {game}, launch it once, close it, then check again.",
+                "In Steam, open {game}'s Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then try again.",
                 game = game_name
             )
         }
@@ -947,7 +920,10 @@ mod tests {
         );
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(format!("{error:#}").contains("can't run SA Mod Manager"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
 
         let message = steam_config_message("Sonic Adventure DX", &game_path, 71250);
         assert!(message.contains("Proton 10.0"));
@@ -1375,7 +1351,10 @@ mod tests {
         assert_eq!(result, PrefixState::MissingPrefix);
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(format!("{error:#}").contains("hasn't set up this game for Proton"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
         assert!(
             steam_config_message("Sonic Adventure DX", &game_path, 71250)
                 .starts_with("Steam hasn't set up Sonic Adventure DX for Proton yet.")
@@ -1401,7 +1380,10 @@ mod tests {
         assert_eq!(result, PrefixState::MissingMetadata);
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(format!("{error:#}").contains("Proton files for this game are incomplete"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
         assert!(
             steam_config_message("Sonic Adventure DX", &game_path, 71250)
                 .contains("Proton files for Sonic Adventure DX are incomplete")
@@ -1431,8 +1413,11 @@ mod tests {
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
         let message = format!("{error:#}");
         assert!(message.contains("Proton Missing"));
-        assert!(message.contains(&proton_dir.display().to_string()));
-        assert!(message.contains("but it's missing from"));
+        assert!(message.contains("but it isn't installed"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
         assert!(
             steam_config_message("Sonic Adventure DX", &game_path, 71250)
                 .contains("but it isn't installed")
@@ -1462,9 +1447,9 @@ mod tests {
         assert_eq!(result, PrefixState::SteamConfigIncomplete);
 
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(
-            format!("{error:#}")
-                .contains("couldn't read which Proton version Steam uses for this game")
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
         );
         assert!(
             steam_config_message("Sonic Adventure DX", &game_path, 71250)
@@ -1706,11 +1691,20 @@ mod tests {
             }
         );
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(format!("{error:#}").contains("was last run with"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
         assert!(
             steam_config_message("Sonic Adventure DX", &game_path, 71250)
                 .contains("was last run with")
         );
+    }
+
+    #[test]
+    fn errors_name_the_game_or_its_app_id() {
+        assert_eq!(game_name(213610), "Sonic Adventure 2");
+        assert_eq!(game_name(4000), "4000");
     }
 
     #[test]
@@ -1775,7 +1769,10 @@ mod tests {
         assert!(message.contains("(version 11)"));
         assert!(!message.contains("so it can update"));
         let error = ensure_prefix_ready(&game_path, 71250).unwrap_err();
-        assert!(format!("{error:#}").contains("can't run SA Mod Manager"));
+        assert_eq!(
+            format!("{error:#}"),
+            steam_config_message("Sonic Adventure DX", &game_path, 71250)
+        );
     }
 
     #[test]

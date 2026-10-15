@@ -1,5 +1,5 @@
 use crate::steam::game::GameKind;
-use crate::tr;
+use crate::{tr, trf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StepId {
@@ -67,7 +67,7 @@ impl std::fmt::Display for StepId {
 pub struct SetupStep {
     pub id: StepId,
     pub title: &'static str,
-    pub description: &'static str,
+    pub description: String,
     pub kind: StepKind,
 }
 
@@ -99,36 +99,28 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: StepId::SteamConfig,
             title: tr!("Set Up Proton"),
-            description: match kind {
-                GameKind::SADX => {
-                    tr!(
-                        "In Steam, open Sonic Adventure DX's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
-                    )
-                }
-                GameKind::SA2 => {
-                    tr!(
-                        "In Steam, open Sonic Adventure 2's Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then check again."
-                    )
-                }
-            },
+            description: trf!(
+                "In Steam, open {game}'s Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then try again.",
+                game = kind.name()
+            ),
             kind: StepKind::Info,
         },
         SetupStep {
             id: StepId::SelectMods,
             title: tr!("Choose Mods"),
-            description: tr!("Pick a preset or choose mods one by one."),
+            description: tr!("Pick a preset or choose mods one by one.").to_owned(),
             kind: StepKind::ModSelection,
         },
         SetupStep {
             id: StepId::LanguageOptions,
             title: tr!("Languages"),
-            description: tr!("Choose the languages for subtitles and voices."),
+            description: tr!("Choose the languages for subtitles and voices.").to_owned(),
             kind: StepKind::Info,
         },
         SetupStep {
             id: StepId::Dotnet,
             title: tr!(".NET Runtimes"),
-            description: tr!("Versions 8 and 10, installed or updated"),
+            description: tr!("Versions 8 and 10, installed or updated").to_owned(),
             kind: StepKind::Auto,
         },
     ];
@@ -137,7 +129,7 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         steps.push(SetupStep {
             id: StepId::ConvertSteam,
             title: tr!("2004 Version"),
-            description: tr!("The Steam version, converted so mods can load"),
+            description: tr!("The Steam version, converted so mods can load").to_owned(),
             kind: StepKind::Download,
         });
     }
@@ -146,26 +138,22 @@ pub fn steps_for_game(kind: GameKind) -> Vec<SetupStep> {
         SetupStep {
             id: StepId::InstallModManager,
             title: tr!("Mod Manager and Loader"),
-            description: tr!("Installed or updated to the latest release"),
+            description: tr!("Installed or updated to the latest release").to_owned(),
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::DownloadMods,
             title: tr!("Mods"),
-            description: tr!("Downloaded and set up with your choices"),
+            description: tr!("Downloaded and set up with your choices").to_owned(),
             kind: StepKind::Download,
         },
         SetupStep {
             id: StepId::Complete,
             title: tr!("Ready to Play"),
-            description: match kind {
-                GameKind::SADX => {
-                    tr!("Start Sonic Adventure DX from Steam. The mod manager opens first, so you can turn mods on or off before playing.")
-                }
-                GameKind::SA2 => {
-                    tr!("Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing.")
-                }
-            },
+            description: trf!(
+                "Start {game} from Steam. The mod manager opens first, so you can turn mods on or off before playing.",
+                game = kind.name()
+            ),
             kind: StepKind::Info,
         },
     ]);

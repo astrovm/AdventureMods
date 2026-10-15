@@ -20,6 +20,13 @@ impl GameKind {
         }
     }
 
+    /// The game with this Steam app ID, if it's one we support.
+    pub fn from_app_id(app_id: u32) -> Option<Self> {
+        [GameKind::SADX, GameKind::SA2]
+            .into_iter()
+            .find(|kind| kind.app_id() == app_id)
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             GameKind::SADX => "Sonic Adventure DX",
@@ -54,6 +61,13 @@ impl GameKind {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn from_app_id_finds_only_supported_games() {
+        assert_eq!(GameKind::from_app_id(71250), Some(GameKind::SADX));
+        assert_eq!(GameKind::from_app_id(213610), Some(GameKind::SA2));
+        assert_eq!(GameKind::from_app_id(4000), None);
+    }
 
     #[test]
     fn sadx_app_id() {

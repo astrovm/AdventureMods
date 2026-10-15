@@ -215,7 +215,7 @@ pub fn steam_config_status(game: &Game) -> SteamConfigStatus {
     let state = proton::prefix_state(&game.path, game.kind.app_id());
     SteamConfigStatus {
         message: proton::steam_config_message_for_state(game.kind.name(), &state),
-        ready: proton::ensure_state_ready(state).is_ok(),
+        ready: proton::ensure_state_ready(game.kind.name(), state).is_ok(),
     }
 }
 

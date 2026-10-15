@@ -326,7 +326,7 @@ fn the_proton_step_checks_again_until_steam_is_ready() {
 
     harness.get_by_label("Proton 10.0 Needed");
     // Without a message from Steam's config, the step explains what to do.
-    harness.get_by_label(steps::steps_for_game(GameKind::SA2)[0].description);
+    harness.get_by_label(&steps::steps_for_game(GameKind::SA2)[0].description);
     press(&mut harness, "Check Again");
     assert_eq!(step_id(harness.state()), StepId::SteamConfig);
 
@@ -1042,11 +1042,11 @@ fn failed_download_estimates_leave_the_size_unknown() {
 fn a_panicking_button_shows_a_recoverable_error() {
     let dir = game_dir(&["panic-steam"]);
     let mut setup = flow(GameKind::SA2, dir.path(), work());
-    setup.guarded("test", "Something broke.", SetupFlow::on_next);
+    setup.guarded("test", SetupFlow::on_next);
     let mut harness = harness(setup);
 
     harness.get_by_label("Something Went Wrong");
-    harness.get_by_label("Something broke.");
+    harness.get_by_label("Something went wrong. Please try again.");
     assert_eq!(harness.state_mut().flow.next_label(), Some("Try Again"));
     assert_eq!(harness.state().flow.secondary(), None);
 
@@ -1062,8 +1062,11 @@ fn the_secondary_and_next_buttons_recover_from_panics() {
     }
     let dir = game_dir(&["proton-ready"]);
     let mut setup = flow(GameKind::SA2, dir.path(), work());
-    setup.guarded("test", "Recovered.", boom);
-    assert_eq!(setup.error.as_deref(), Some("Recovered."));
+    setup.guarded("test", boom);
+    assert_eq!(
+        setup.error.as_deref(),
+        Some("Something went wrong. Please try again.")
+    );
 
     // A failed press on the footer goes through the same guard.
     std::fs::write(dir.path().join("panic-steam"), "").unwrap();
@@ -1074,7 +1077,7 @@ fn the_secondary_and_next_buttons_recover_from_panics() {
     });
     let mut harness = harness(setup);
     press(&mut harness, "Continue");
-    harness.get_by_label("Something went wrong while continuing setup. Please try again.");
+    harness.get_by_label("Something went wrong. Please try again.");
 }
 
 #[test]
@@ -1087,7 +1090,7 @@ fn a_panicking_back_button_shows_an_error() {
     setup.back();
     assert_eq!(
         setup.error.as_deref(),
-        Some("Something went wrong while going back. Please try again.")
+        Some("Something went wrong. Please try again.")
     );
     assert_eq!(setup.next_label(), Some("Try Again"));
 }

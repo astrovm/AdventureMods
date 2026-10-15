@@ -486,6 +486,16 @@ fn controllers_navigate_and_show_button_hints() {
     assert_eq!(harness.query_all_by_label("Check Again").count(), 2);
     assert_eq!(harness.query_all_by_label("Select").count(), 1);
     assert!(harness.query_by_label("Cancel").is_none());
+
+    // On the last step X plays the game: its button and its hint.
+    harness
+        .state_mut()
+        .setup
+        .as_mut()
+        .unwrap()
+        .skip_to_the_last_step();
+    harness.run_steps(2);
+    assert_eq!(harness.query_all_by_label("Play in Steam").count(), 2);
 }
 
 #[test]
