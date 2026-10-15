@@ -38,35 +38,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
     },
     ModEntry {
-        name: "Retranslated Story -COMPLETE-",
-        slug: "retranslated-story-complete",
-        source: ModSource::GameBananaItem {
-            item_type: "Mod",
-            item_id: 437858,
-        },
-        description: tr_noop!("A new English story translation, closer to the Japanese script."),
-        full_description: Some(tr_noop!(
-            "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
-        )),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_5.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_6.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_7.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_8.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_9.jpg",
-        ],
-        dir_name: Some("Retranslated Story -COMPLETE-"),
-        links: &[ModLink {
-            label: "GameBanana",
-            url: "https://gamebanana.com/mods/437858",
-        }],
-    },
-    ModEntry {
         name: "HD GUI: SA2 Edition",
         slug: "hd-gui-sa2-edition",
         source: ModSource::GameBananaItem {
@@ -257,6 +228,57 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         }],
     },
     ModEntry {
+        name: "Retranslated Story -COMPLETE-",
+        slug: "retranslated-story-complete",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 437858,
+        },
+        description: tr_noop!("A new English story translation, closer to the Japanese script."),
+        full_description: Some(tr_noop!(
+            "Replaces the English story text with a translation closer to the original Japanese script, based on Windii's subtitles. It also adds subtitles to videos and voice lines that had none."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated/retranslatedstory-complete-_9.jpg",
+        ],
+        dir_name: Some("Retranslated Story -COMPLETE-"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/437858",
+        }],
+    },
+    ModEntry {
+        name: "Retranslated Hints",
+        slug: "retranslated-hints",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 350607,
+        },
+        description: tr_noop!("Fixes the hints in treasure-hunting stages."),
+        full_description: Some(tr_noop!(
+            "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_2.jpg",
+        ],
+        dir_name: Some("Retranslated Hints"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/350607",
+        }],
+    },
+    ModEntry {
         name: "Sonic: New Tricks",
         slug: "sonic-new-tricks",
         source: ModSource::GameBananaItem {
@@ -283,28 +305,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         links: &[ModLink {
             label: "GameBanana",
             url: "https://gamebanana.com/mods/48941",
-        }],
-    },
-    ModEntry {
-        name: "Retranslated Hints",
-        slug: "retranslated-hints",
-        source: ModSource::GameBananaItem {
-            item_type: "Mod",
-            item_id: 350607,
-        },
-        description: tr_noop!("Fixes the hints in treasure-hunting stages."),
-        full_description: Some(tr_noop!(
-            "Retranslates the treasure-hunting hints from the Japanese text. Wrong areas, missing details and typos are fixed, and the hints use the same area names as Omochao."
-        )),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/retranslated_hints/retranslated_hints_2.jpg",
-        ],
-        dir_name: Some("Retranslated Hints"),
-        links: &[ModLink {
-            label: "GameBanana",
-            url: "https://gamebanana.com/mods/350607",
         }],
     },
 ];

@@ -512,41 +512,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
     },
     ModEntry {
-        name: "Multiplayer",
-        slug: "multiplayer",
-        source: ModSource::DirectUrl {
-            url: "https://github.com/kellsnc/sadx-multiplayer/releases/latest/download/sadx-multiplayer.7z",
-        },
-        description: tr_noop!("Local split-screen for up to 4 players."),
-        full_description: Some(tr_noop!(
-            "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
-        )),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_5.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_6.jpg",
-        ],
-        dir_name: Some("sadx-multiplayer"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/460975",
-            },
-            ModLink {
-                label: "GitHub",
-                url: "https://github.com/kellsnc/sadx-multiplayer",
-            },
-            ModLink {
-                label: "SHC",
-                url: "https://shc.zone/entries/contest2023/912",
-            },
-        ],
-    },
-    ModEntry {
         name: "Chao Gameplay",
         slug: "chao-gameplay",
         source: ModSource::DirectUrl {
@@ -685,6 +650,41 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
             },
         ],
     },
+    ModEntry {
+        name: "Multiplayer",
+        slug: "multiplayer",
+        source: ModSource::DirectUrl {
+            url: "https://github.com/kellsnc/sadx-multiplayer/releases/latest/download/sadx-multiplayer.7z",
+        },
+        description: tr_noop!("Local split-screen for up to 4 players."),
+        full_description: Some(tr_noop!(
+            "Adds local split-screen for up to 4 players in co-op and battle modes on trial stages, including fishing, treasure hunting and shooting."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sadx/multiplayer/sadx-multiplayer_6.jpg",
+        ],
+        dir_name: Some("sadx-multiplayer"),
+        links: &[
+            ModLink {
+                label: "GameBanana",
+                url: "https://gamebanana.com/mods/460975",
+            },
+            ModLink {
+                label: "GitHub",
+                url: "https://github.com/kellsnc/sadx-multiplayer",
+            },
+            ModLink {
+                label: "SHC",
+                url: "https://shc.zone/entries/contest2023/912",
+            },
+        ],
+    },
 ];
 
 /// SADX Mod Presets.
@@ -716,12 +716,12 @@ pub const PRESETS: &[ModPreset] = &[
             "New Tricks",
             "Better Tails AI",
             "Super Sonic",
-            "Multiplayer",
             "Chao Gameplay",
             "Fixes, Adds, and Beta Restores",
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
+            "Multiplayer",
         ],
     },
     ModPreset {
@@ -750,12 +750,12 @@ pub const PRESETS: &[ModPreset] = &[
             "New Tricks",
             "Better Tails AI",
             "Super Sonic",
-            "Multiplayer",
             "Chao Gameplay",
             "Fixes, Adds, and Beta Restores",
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
+            "Multiplayer",
         ],
     },
 ];
