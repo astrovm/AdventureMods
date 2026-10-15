@@ -1,7 +1,16 @@
-desktop_file = configure_file(
-  input: '@0@.desktop.in'.format(base_id),
+# The translations in po/ go into the desktop and metainfo files.
+i18n = import('i18n')
+po_dir = meson.project_source_root() / 'po'
+
+desktop_file = i18n.merge_file(
+  input: configure_file(
+    input: '@0@.desktop.in'.format(base_id),
+    output: '@0@.desktop.in'.format(app_id),
+    configuration: conf,
+  ),
   output: '@0@.desktop'.format(app_id),
-  configuration: conf,
+  type: 'desktop',
+  po_dir: po_dir,
   install: true,
   install_dir: datadir / 'applications',
 )
@@ -11,10 +20,15 @@ if desktop_utils.found()
   test('Validate desktop file', desktop_utils, args: [desktop_file])
 endif
 
-metainfo_file = configure_file(
-  input: '@0@.metainfo.xml.in'.format(base_id),
+metainfo_file = i18n.merge_file(
+  input: configure_file(
+    input: '@0@.metainfo.xml.in'.format(base_id),
+    output: '@0@.metainfo.xml.in'.format(app_id),
+    configuration: conf,
+  ),
   output: '@0@.metainfo.xml'.format(app_id),
-  configuration: conf,
+  type: 'xml',
+  po_dir: po_dir,
   install: true,
   install_dir: datadir / 'metainfo',
 )

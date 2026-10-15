@@ -6,6 +6,7 @@ use serde::Serialize;
 use super::common::ModEntry;
 use crate::settings::{EXTRA_LIBRARY_PATHS_KEY, Settings, Value};
 use crate::steam::game::GameKind;
+use crate::trf;
 
 /// Convert a Linux path to a Wine Z: drive path with backslashes.
 pub fn linux_to_wine_path(path: &Path) -> String {
@@ -49,7 +50,7 @@ impl SubtitleLanguage {
             "german" => Ok(Self::German),
             "spanish" => Ok(Self::Spanish),
             "italian" => Ok(Self::Italian),
-            _ => anyhow::bail!("Unknown subtitle language '{value}'"),
+            _ => anyhow::bail!(trf!("Unknown subtitle language '{value}'", value = value)),
         }
     }
 
@@ -101,7 +102,7 @@ impl VoiceLanguage {
         match value.trim().to_ascii_lowercase().as_str() {
             "english" => Ok(Self::English),
             "japanese" => Ok(Self::Japanese),
-            _ => anyhow::bail!("Unknown voice language '{value}'"),
+            _ => anyhow::bail!(trf!("Unknown voice language '{value}'", value = value)),
         }
     }
 

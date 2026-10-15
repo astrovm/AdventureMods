@@ -2,7 +2,7 @@ mod support;
 
 use std::collections::HashMap;
 use std::io::Write;
-use std::process::{Command, Stdio};
+use std::process::{Command, Output, Stdio};
 
 use adventure_mods::cli::{Cli, run_with_io};
 use adventure_mods::path_display::display_path;
@@ -1594,6 +1594,48 @@ fn gui_launch_without_a_display_exits_with_an_error() {
         stderr.contains("Could not open the window"),
         "stderr was: {stderr}"
     );
+}
+
+/// `adventure-mods <args>` in the locale `vars` set.
+fn run_in_locale(args: &[&str], vars: &[(&str, &str)]) -> Output {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_adventure-mods"));
+    command.args(args).stdin(Stdio::null());
+    for name in ["LC_ALL", "LC_MESSAGES", "LANG", "LANGUAGE"] {
+        command.env_remove(name);
+    }
+    command.envs(vars.iter().copied()).output().unwrap()
+}
+
+#[test]
+fn the_cli_speaks_the_language_of_the_locale() {
+    let output = run_in_locale(
+        &["list-mods", "--game", "sa2"],
+        &[("LC_ALL", "es_AR.UTF-8")],
+    );
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Juego: Sonic Adventure 2"), "{stdout}");
+    assert!(
+        stdout.contains("Restauración y mejora gráfica completa para SA2 en PC."),
+        "{stdout}"
+    );
+}
+
+#[test]
+fn language_preferences_and_the_c_locale_pick_the_language() {
+    let japanese = run_in_locale(
+        &["restore", "--game", "nope"],
+        &[("LANG", "de_DE.UTF-8"), ("LANGUAGE", "pt:ja")],
+    );
+    let stderr = String::from_utf8_lossy(&japanese.stderr);
+    assert!(stderr.contains("不明なゲーム「nope」です。"), "{stderr}");
+
+    for vars in [&[][..], &[("LC_ALL", "C"), ("LANGUAGE", "es")][..]] {
+        let english = run_in_locale(&["restore", "--game", "nope"], vars);
+        let stderr = String::from_utf8_lossy(&english.stderr);
+        assert!(stderr.contains("Unknown game 'nope'"), "{vars:?}: {stderr}");
+    }
 }
 
 /// Run `adventure-mods <args>` on a terminal through `script`, typing `input`.

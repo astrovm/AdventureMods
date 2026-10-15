@@ -7,6 +7,7 @@ use anyhow::{Context, Result};
 use super::flatpak;
 use crate::steam::library::{self, try_canonicalize};
 use crate::steam::vdf;
+use crate::{tr, trf};
 
 /// Highest Proton major version known to run SA Mod Manager reliably.
 ///
@@ -140,34 +141,41 @@ pub fn ensure_state_ready(state: Result<PrefixState>) -> Result<()> {
         // Unknown labels still allow installs (custom tools / test fixtures), but
         // steam_config_message warns the user to prefer Proton 10.0.
         PrefixState::Ready | PrefixState::UnknownProton { .. } => Ok(()),
-        PrefixState::MissingPrefix => anyhow::bail!(
+        PrefixState::MissingPrefix => anyhow::bail!(tr!(
             "Steam has not created this game's Proton prefix. Open the game from Steam once, wait for Proton to finish setting up, then close it and try again."
-        ),
-        PrefixState::MissingMetadata => anyhow::bail!(
+        )),
+        PrefixState::MissingMetadata => anyhow::bail!(tr!(
             "This game's Proton prefix metadata is incomplete. Open the game from Steam once so Steam can repair it, then close the game and try again."
-        ),
-        PrefixState::SteamConfigIncomplete => anyhow::bail!(
+        )),
+        PrefixState::SteamConfigIncomplete => anyhow::bail!(tr!(
             "Steam's Proton configuration for this game is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then close it and try again."
-        ),
+        )),
         PrefixState::ProtonUnavailable {
             tool_name,
             proton_dir,
-        } => anyhow::bail!(
-            "The Proton prefix uses {tool_name}, but its Wine executable is missing from {}. Reinstall that Proton version in Steam, open the game once, then try again.",
-            proton_dir.display()
-        ),
+        } => anyhow::bail!(trf!(
+            "The Proton prefix uses {tool_name}, but its Wine executable is missing from {path}. Reinstall that Proton version in Steam, open the game once, then try again.",
+            tool_name = tool_name,
+            path = proton_dir.display()
+        )),
         PrefixState::ConfigMismatch {
             prefix_tool,
             configured_tool,
-        } => anyhow::bail!(
-            "This game's Proton prefix still uses {prefix_tool}, but Steam is configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then try again."
-        ),
-        PrefixState::UnsupportedConfiguredProton { tool_name, major } => anyhow::bail!(
-            "Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
-        ),
-        PrefixState::UnsupportedProton { tool_name, major } => anyhow::bail!(
-            "This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again."
-        ),
+        } => anyhow::bail!(trf!(
+            "This game's Proton prefix still uses {prefix_tool}, but Steam is configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then try again.",
+            prefix_tool = prefix_tool,
+            configured_tool = configured_tool
+        )),
+        PrefixState::UnsupportedConfiguredProton { tool_name, major } => anyhow::bail!(trf!(
+            "Steam is configured to use {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again.",
+            tool_name = tool_name,
+            major = major
+        )),
+        PrefixState::UnsupportedProton { tool_name, major } => anyhow::bail!(trf!(
+            "This game's Proton prefix uses {tool_name} (Proton/Wine {major}), which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0, launch the game once, close it, then try again.",
+            tool_name = tool_name,
+            major = major
+        )),
     }
 }
 
@@ -178,40 +186,58 @@ pub fn steam_config_message(game_name: &str, game_path: &Path, app_id: u32) -> S
 /// Like [`steam_config_message`] for a state that was already inspected.
 pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixState>) -> String {
     match state {
-        Ok(PrefixState::Ready) => {
-            format!("The Proton prefix for {game_name} is ready. You can continue right away.")
-        }
-        Ok(PrefixState::MissingPrefix) => format!(
-            "Steam has not created a Proton prefix for {game_name}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and check again here."
+        Ok(PrefixState::Ready) => trf!(
+            "The Proton prefix for {game} is ready. You can continue right away.",
+            game = game_name
         ),
-        Ok(PrefixState::MissingMetadata) => format!(
-            "The Proton prefix metadata for {game_name} is incomplete. Force Proton 10.0 if needed, open the game from Steam once so Steam can repair it, then check again here."
+        Ok(PrefixState::MissingPrefix) => trf!(
+            "Steam has not created a Proton prefix for {game}. Force Proton 10.0 in Properties → Compatibility, open the game once, wait for setup to finish, then close it and check again here.",
+            game = game_name
         ),
-        Ok(PrefixState::SteamConfigIncomplete) => format!(
-            "Steam's Proton configuration for {game_name} is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then check again here."
+        Ok(PrefixState::MissingMetadata) => trf!(
+            "The Proton prefix metadata for {game} is incomplete. Force Proton 10.0 if needed, open the game from Steam once so Steam can repair it, then check again here.",
+            game = game_name
         ),
-        Ok(PrefixState::ProtonUnavailable { tool_name, .. }) => format!(
-            "{game_name} uses {tool_name}, but that Proton installation is unavailable. Install Proton 10.0 in Steam, force it for this game, open the game once, then check again here."
+        Ok(PrefixState::SteamConfigIncomplete) => trf!(
+            "Steam's Proton configuration for {game} is missing or unreadable. Force Proton 10.0 under Properties → Compatibility, open the game once, then check again here.",
+            game = game_name
+        ),
+        Ok(PrefixState::ProtonUnavailable { tool_name, .. }) => trf!(
+            "{game} uses {tool_name}, but that Proton installation is unavailable. Install Proton 10.0 in Steam, force it for this game, open the game once, then check again here.",
+            game = game_name,
+            tool_name = tool_name
         ),
         Ok(PrefixState::ConfigMismatch {
             prefix_tool,
             configured_tool,
-        }) => format!(
-            "{game_name} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then check again here."
+        }) => trf!(
+            "{game} still has a Proton prefix from {prefix_tool}, but Steam is now configured to use {configured_tool}. Open the game from Steam once so Steam can update the prefix, then check again here.",
+            game = game_name,
+            prefix_tool = prefix_tool,
+            configured_tool = configured_tool
         ),
-        Ok(PrefixState::UnsupportedConfiguredProton { tool_name, major }) => format!(
-            "Steam is configured to use {tool_name} (Proton/Wine {major}) for {game_name}, which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
+        Ok(PrefixState::UnsupportedConfiguredProton { tool_name, major }) => trf!(
+            "Steam is configured to use {tool_name} (Proton/Wine {major}) for {game}, which cannot run SA Mod Manager. In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here.",
+            game = game_name,
+            tool_name = tool_name,
+            major = major
         ),
-        Ok(PrefixState::UnsupportedProton { tool_name, major }) => format!(
-            "{game_name} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here."
+        Ok(PrefixState::UnsupportedProton { tool_name, major }) => trf!(
+            "{game} is using {tool_name} (Proton/Wine {major}). SA Mod Manager does not start on Proton 11 or newer (including Hotfix, Experimental, and many custom builds). In Steam: Properties → Compatibility → force Proton 10.0. Launch the game once, close it, then check again here.",
+            game = game_name,
+            tool_name = tool_name,
+            major = major
         ),
-        Ok(PrefixState::UnknownProton { tool_name }) => format!(
-            "{game_name} is using {tool_name}, but Adventure Mods could not tell which Proton/Wine major version that is. SA Mod Manager needs Proton 10.0; Proton 11 and newer will not launch it. If this is not Proton 10.0, force Proton 10.0 under Properties → Compatibility, launch once, close it, then continue here."
+        Ok(PrefixState::UnknownProton { tool_name }) => trf!(
+            "{game} is using {tool_name}, but Adventure Mods could not tell which Proton/Wine major version that is. SA Mod Manager needs Proton 10.0; Proton 11 and newer will not launch it. If this is not Proton 10.0, force Proton 10.0 under Properties → Compatibility, launch once, close it, then continue here.",
+            game = game_name,
+            tool_name = tool_name
         ),
         Err(err) => {
             tracing::warn!("Failed to inspect Proton prefix state: {err}");
-            format!(
-                "Force Proton 10.0 for {game_name} in Steam, open it once, then close it and check again here."
+            trf!(
+                "Force Proton 10.0 for {game} in Steam, open it once, then close it and check again here.",
+                game = game_name
             )
         }
     }
@@ -265,7 +291,9 @@ pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
     // A ready prefix has metadata; it can only vanish if Steam rewrites the
     // prefix between the two reads.
     let mapped =
-        find_proton_from_prefix_metadata(game_path, app_id)?.context(MISSING_PREFIX_METADATA)?;
+        find_proton_from_prefix_metadata(game_path, app_id)?.context(tr!(
+            "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again."
+        ))?;
     tracing::info!(
         "Selected Proton from prefix metadata for app {} at {}",
         app_id,
@@ -273,8 +301,6 @@ pub fn find_proton_for_app(game_path: &Path, app_id: u32) -> Result<PathBuf> {
     );
     Ok(mapped)
 }
-
-const MISSING_PREFIX_METADATA: &str = "The Proton prefix metadata for this game is missing. Open the game from Steam once, then try again.";
 
 /// Build the environment variables needed to run Wine inside a Proton prefix.
 pub fn proton_env(game_path: &Path, app_id: u32) -> Result<HashMap<String, String>> {

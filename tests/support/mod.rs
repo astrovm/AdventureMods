@@ -10,6 +10,16 @@ use adventure_mods::setup::common::{ModEntry, ModSource};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
+/// The tests read the app's English text, whatever the locale of the machine
+/// running them, and so do the copies of the app they start.
+#[ctor::ctor(unsafe)]
+fn use_english() {
+    unsafe {
+        std::env::set_var("LC_ALL", "C.UTF-8");
+        std::env::remove_var("LANGUAGE");
+    }
+}
+
 pub fn env_lock() -> MutexGuard<'static, ()> {
     ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }

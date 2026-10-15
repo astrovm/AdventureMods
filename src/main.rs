@@ -43,7 +43,10 @@ fn run_gui() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("Could not open the window: {error}");
+            eprintln!(
+                "{}",
+                adventure_mods::trf!("Could not open the window: {error}", error = error)
+            );
             ExitCode::FAILURE
         }
     }

@@ -353,6 +353,31 @@ fn setup_opens_from_a_card_and_returns_with_b() {
 }
 
 #[test]
+fn the_main_flow_reads_in_spanish() {
+    let _spanish = crate::i18n::use_language("es");
+    let fixture = Fixture::new(&["sa2/mods/.modloader"]);
+    std::fs::write(fixture.library.join("sa2/proton-ready"), "").unwrap();
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.get_by_label("Buscar de nuevo");
+
+    press(&mut harness, "Cambiar mods");
+    harness.get_by_label("Configurar Proton");
+    harness.get_by_label("Sonic Adventure 2 · Paso 1 de 4");
+    press(&mut harness, "Seguir");
+    harness.get_by_label("Elegí los mods");
+    press(&mut harness, "Volver");
+    harness.key_press(egui::Key::Escape);
+    harness.run_steps(2);
+    run_until(&mut harness, "rescan", scanned);
+
+    press(&mut harness, "Restaurar");
+    harness.get_by_label("¿Restaurar Sonic Adventure 2 original?");
+    press(&mut harness, "Cancelar");
+    assert!(harness.state().dialog.is_none());
+}
+
+#[test]
 fn setup_saves_languages_and_opens_steam_through_the_app() {
     let fixture = Fixture::new(&["sa2"]);
     let game = fixture.library.join("sa2");

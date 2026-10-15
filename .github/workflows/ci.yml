@@ -73,6 +73,7 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             curl \
+            gettext \
             pkg-config \
             libudev-dev \
             libegl1 \
@@ -90,6 +91,13 @@ jobs:
 
       - name: Check formatting
         run: cargo fmt --check
+
+      - name: Check translations
+        run: |
+          xgettext --version | head -n 1
+          sh build-aux/update-po.sh
+          git diff --exit-code po/
+          for po in po/*.po; do msgfmt --check --output-file=/dev/null "$po"; done
 
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
@@ -221,7 +229,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential pkg-config meson libudev-dev \
+            build-essential pkg-config meson gettext libudev-dev \
             desktop-file-utils appstream \
             wget unzip file libfuse2t64 curl git zsync \
             snapd squashfs-tools

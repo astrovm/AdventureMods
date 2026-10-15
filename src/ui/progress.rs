@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use crate::i18n;
 use crate::setup::{common, config, pipeline};
+use crate::{tr, trf, trn};
 
 pub(crate) enum ProgressMsg {
     /// Wakes the UI so it can read the latest byte samples. Safe to drop when full.
@@ -193,7 +195,7 @@ impl ProgressState {
                 ProgressDisplay {
                     fraction: Some(1.0),
                     pulse: false,
-                    text: format!("Generating config... ({total}/{total})"),
+                    text: trf!("Generating config… ({total}/{total})", total = total),
                 }
             }
         };
@@ -243,11 +245,11 @@ pub(crate) fn completed_mod_fraction(completed: usize, total: usize) -> f64 {
 }
 
 pub(crate) fn format_mb_value(bytes: u64) -> String {
-    format!("{:.1}", bytes as f64 / 1_048_576.0)
+    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
 }
 
 pub(crate) fn format_mb(bytes: u64) -> String {
-    format!("{} MB", format_mb_value(bytes))
+    trf!("{size} MB", size = format_mb_value(bytes))
 }
 
 pub(crate) fn mod_download_fraction(
@@ -277,24 +279,33 @@ pub(crate) fn format_step_download_text(
     if status.is_empty() {
         bytes_text
     } else {
-        format!("{status} - {bytes_text}")
+        trf!(
+            "{status} - {progress}",
+            status = status,
+            progress = bytes_text
+        )
     }
 }
 
 pub(crate) fn mod_download_start_text(mod_name: &str) -> String {
-    format!("Starting {mod_name}...")
+    trf!("Starting {name}…", name = mod_name)
 }
 
 pub(crate) fn mod_download_finished_text(mod_name: &str, completed: usize, total: usize) -> String {
-    format!("Installed {mod_name} ({completed}/{total})")
+    trf!(
+        "Installed {name} ({completed}/{total})",
+        name = mod_name,
+        completed = completed,
+        total = total
+    )
 }
 
 pub(crate) fn format_download_bytes_text(downloaded: u64, total: Option<u64>) -> String {
     if let Some(total) = total {
-        format!(
-            "{} / {} MB",
-            format_mb_value(downloaded),
-            format_mb_value(total)
+        trf!(
+            "{done} / {total} MB",
+            done = format_mb_value(downloaded),
+            total = format_mb_value(total)
         )
     } else {
         format_mb(downloaded)
@@ -318,7 +329,7 @@ pub(crate) fn mod_download_progress_update(
     ModDownloadProgressUpdate {
         fraction: mod_download_fraction(completed, total, downloaded, total_bytes),
         pulse: total_bytes.is_none(),
-        text: format!("Downloading mods - {bytes_text}"),
+        text: trf!("Downloading mods - {progress}", progress = bytes_text),
     }
 }
 
@@ -392,9 +403,15 @@ pub(crate) fn resolution_or_fallback(resolution: Option<(u32, u32)>) -> (u32, u3
 
 pub(crate) fn format_download_size(bytes: u64) -> String {
     if bytes >= 1_000_000_000 {
-        format!("{:.1} GB", bytes as f64 / 1_000_000_000.0)
+        trf!(
+            "{size} GB",
+            size = i18n::decimal(bytes as f64 / 1_000_000_000.0, 1)
+        )
     } else {
-        format!("{} MB", (bytes as f64 / 1_000_000.0).ceil().max(1.0) as u64)
+        trf!(
+            "{size} MB",
+            size = (bytes as f64 / 1_000_000.0).ceil().max(1.0) as u64
+        )
     }
 }
 
@@ -404,10 +421,10 @@ pub(crate) fn download_size_text(
     selected: &[usize],
 ) -> String {
     if selected.is_empty() {
-        return "No mods selected".to_owned();
+        return tr!("No mods selected").to_owned();
     }
     let Some(estimates) = estimates else {
-        return "Checking download size…".to_owned();
+        return tr!("Checking download size…").to_owned();
     };
 
     let chosen: Vec<_> = selected
@@ -425,27 +442,27 @@ pub(crate) fn download_size_text(
         .sum();
     let unknown = to_download.iter().any(|estimate| estimate.size.is_none());
 
-    let installed_note = match installed {
-        0 => String::new(),
-        1 => ", 1 already installed".to_owned(),
-        n => format!(", {n} already installed"),
-    };
-
-    if to_download.is_empty() {
-        "Everything selected is already installed".to_owned()
+    let download = if to_download.is_empty() {
+        return tr!("Everything selected is already installed").to_owned();
     } else if known == 0 {
-        format!("Download size unknown{installed_note}")
+        tr!("Download size unknown").to_owned()
     } else if unknown {
-        format!(
-            "At least {} to download{installed_note}",
-            format_download_size(known)
+        trf!(
+            "At least {size} to download",
+            size = format_download_size(known)
         )
     } else {
-        format!(
-            "{} to download{installed_note}",
-            format_download_size(known)
-        )
+        trf!("{size} to download", size = format_download_size(known))
+    };
+    if installed == 0 {
+        return download;
     }
+    trn!(
+        "{download}, {n} already installed",
+        "{download}, {n} already installed",
+        installed,
+        download = download
+    )
 }
 
 pub(crate) fn apply_install_progress(
@@ -599,14 +616,14 @@ mod tests {
             .try_send(ProgressMsg::Bytes {
                 downloaded: 1_048_576,
                 total: Some(4_194_304),
-                status: "Downloading...".to_string(),
+                status: "Downloading…".to_string(),
             })
             .unwrap();
         sender
             .try_send(ProgressMsg::Bytes {
                 downloaded: 2_097_152,
                 total: Some(4_194_304),
-                status: "Downloading...".to_string(),
+                status: "Downloading…".to_string(),
             })
             .unwrap();
 
@@ -615,7 +632,7 @@ mod tests {
 
         let display = state.display.unwrap();
         assert_eq!(display.fraction, Some(0.5));
-        assert_eq!(display.text, "Downloading... - 2.0 / 4.0 MB");
+        assert_eq!(display.text, "Downloading… - 2.0 / 4.0 MB");
     }
 
     #[test]
@@ -644,22 +661,22 @@ mod tests {
     #[test]
     fn progress_samples_overwrite_step_bytes() {
         let samples = ProgressSamples::default();
-        samples.set_step_bytes(1_048_576, Some(4_194_304), "Downloading...");
-        samples.set_step_bytes(2_097_152, Some(4_194_304), "Downloading...");
+        samples.set_step_bytes(1_048_576, Some(4_194_304), "Downloading…");
+        samples.set_step_bytes(2_097_152, Some(4_194_304), "Downloading…");
 
         let mut state = ProgressState::default();
         samples.apply_to(&mut state);
 
         let display = state.display.unwrap();
         assert_eq!(display.fraction, Some(0.5));
-        assert_eq!(display.text, "Downloading... - 2.0 / 4.0 MB");
+        assert_eq!(display.text, "Downloading… - 2.0 / 4.0 MB");
     }
 
     #[test]
     fn mod_download_start_text_is_uniform() {
         assert_eq!(
             mod_download_start_text("Render Fix"),
-            "Starting Render Fix..."
+            "Starting Render Fix…"
         );
     }
 
@@ -674,8 +691,8 @@ mod tests {
     #[test]
     fn step_download_text_uses_dash_separator() {
         assert_eq!(
-            format_step_download_text("Downloading...", 1_048_576, Some(2_097_152)),
-            "Downloading... - 1.0 / 2.0 MB"
+            format_step_download_text("Downloading…", 1_048_576, Some(2_097_152)),
+            "Downloading… - 1.0 / 2.0 MB"
         );
     }
 
@@ -711,7 +728,7 @@ mod tests {
             mod_name: "Alpha".to_string(),
             total: 2,
         });
-        assert_eq!(state.display.as_ref().unwrap().text, "Starting Alpha...");
+        assert_eq!(state.display.as_ref().unwrap().text, "Starting Alpha…");
 
         state
             .active_downloads

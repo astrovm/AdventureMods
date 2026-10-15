@@ -5,6 +5,7 @@ use egui::{Id, Modal, RichText};
 
 use super::theme;
 use super::widgets::{self, ButtonKind};
+use crate::tr;
 
 /// How a dialog was answered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,7 +157,7 @@ impl ChoiceDialog {
                         }
                         ui.add_space(widgets::FOCUS_RING_OUTSET);
                     });
-                if widgets::button(ui, "Cancel", ButtonKind::Normal).clicked() {
+                if widgets::button(ui, tr!("Cancel"), ButtonKind::Normal).clicked() {
                     picked = Some(usize::MAX);
                 }
                 picked

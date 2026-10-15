@@ -84,6 +84,7 @@ It works with a controller too, so you can use it from the couch or in Steam Dec
 - **Good settings.** Sets native resolution, window mode and optimal settings.
 - **Your languages.** Saves subtitle and voice language per game.
 - **Couch friendly.** Big text and buttons, with full controller support.
+- **Speaks your language.** English, Spanish, French, German, Italian and Japanese, following your system language.
 
 ## CLI (optional)
 
@@ -170,5 +171,19 @@ make appimage
 Output: `appimage-build/AdventureMods-v<version>-<arch>.AppImage` and `.zsync`.
 
 Builds match the host architecture (x86_64 or aarch64). GitHub Releases publish both.
+
+</details>
+
+<details>
+<summary><b>Translations</b></summary>
+
+The app's text lives in gettext catalogs in `po/`, built into the binary.
+
+- **Fix a translation.** Edit `po/<language>.po`.
+- **Add a language.** Add its code to `po/LINGUAS`, run `msginit -i po/adventure-mods.pot -l <code> -o po/<code>.po --no-translator`, then add it to `LANGUAGES` in `src/i18n.rs` with its plural rule.
+- **Changed the app's text?** Run `sh build-aux/update-po.sh` (GNU gettext 0.24 or newer). CI fails if the catalogs are out of date.
+- **Japanese text changed?** Run `sh build-aux/subset-japanese-fonts.sh` so the font has every character.
+
+Mark text in code with `tr!`, `trc!` (with a context), `trf!` (with `{name}` values) or `trn!` (with a count).
 
 </details>

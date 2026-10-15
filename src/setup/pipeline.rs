@@ -7,6 +7,7 @@ use std::thread;
 use anyhow::{Result, anyhow};
 
 use crate::steam::game::GameKind;
+use crate::trf;
 
 use super::common::{self, ModEntry, ModPreset};
 use super::config;
@@ -338,7 +339,13 @@ fn resolve_selected_mods_in(
             .map(|name| {
                 mods.iter()
                     .find(|entry| entry.name.eq_ignore_ascii_case(name))
-                    .ok_or_else(|| anyhow!("Unknown mod '{}' for {}", name, game_kind.name()))
+                    .ok_or_else(|| {
+                        anyhow!(trf!(
+                            "Unknown mod '{name}' for {game}",
+                            name = name,
+                            game = game_kind.name()
+                        ))
+                    })
             })
             .collect();
     }
@@ -347,7 +354,13 @@ fn resolve_selected_mods_in(
         let preset = presets
             .iter()
             .find(|preset| preset.name.eq_ignore_ascii_case(preset_name))
-            .ok_or_else(|| anyhow!("Unknown preset '{}' for {}", preset_name, game_kind.name()))?;
+            .ok_or_else(|| {
+                anyhow!(trf!(
+                    "Unknown preset '{name}' for {game}",
+                    name = preset_name,
+                    game = game_kind.name()
+                ))
+            })?;
 
         return preset
             .mod_names

@@ -621,7 +621,7 @@ fn sadx_converts_and_shows_download_progress() {
                 .as_ref()
                 .is_some_and(|install| install.progress.display.is_some())
     });
-    harness.get_by_label_contains("Downloading... - ");
+    harness.get_by_label_contains("Downloading… - ");
     assert!(dir.path().join("converted").exists());
     assert_eq!(harness.state().flow.title().0, "Installing");
     assert!(!harness.state().flow.can_go_back());
