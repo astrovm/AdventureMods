@@ -19,8 +19,6 @@ pub(crate) struct Language {
     source: &'static str,
     /// The plural form for a count, as the `Plural-Forms` of the catalog says.
     plural: fn(u64) -> usize,
-    /// Whether decimals are written with a comma, as in "1,5 GB".
-    decimal_comma: bool,
     catalog: OnceLock<Catalog>,
 }
 
@@ -47,35 +45,30 @@ pub(crate) static LANGUAGES: [Language; 5] = [
         code: "de",
         source: include_str!("../po/de.po"),
         plural: one_or_other,
-        decimal_comma: true,
         catalog: OnceLock::new(),
     },
     Language {
         code: "es",
         source: include_str!("../po/es.po"),
         plural: one_or_other,
-        decimal_comma: true,
         catalog: OnceLock::new(),
     },
     Language {
         code: "fr",
         source: include_str!("../po/fr.po"),
         plural: zero_or_one_or_other,
-        decimal_comma: true,
         catalog: OnceLock::new(),
     },
     Language {
         code: "it",
         source: include_str!("../po/it.po"),
         plural: one_or_other,
-        decimal_comma: true,
         catalog: OnceLock::new(),
     },
     Language {
         code: "ja",
         source: include_str!("../po/ja.po"),
         plural: single_form,
-        decimal_comma: false,
         catalog: OnceLock::new(),
     },
 ];
@@ -166,16 +159,6 @@ pub fn translate_plural(singular: &'static str, plural: &'static str, n: u64) ->
 #[doc(hidden)]
 pub fn count(n: impl TryInto<u64>) -> u64 {
     n.try_into().unwrap_or(u64::MAX)
-}
-
-/// `value` with `places` decimals, the way the user's language writes them.
-pub fn decimal(value: f64, places: usize) -> String {
-    let text = format!("{value:.places$}");
-    if active().is_some_and(|language| language.decimal_comma) {
-        text.replace('.', ",")
-    } else {
-        text
-    }
 }
 
 /// Replaces each `{name}` in `template` with its value, and `{{` and `}}`

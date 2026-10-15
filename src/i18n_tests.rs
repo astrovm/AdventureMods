@@ -245,7 +245,6 @@ fn language_lists_the_preferences_in_order() {
 fn english_is_the_default_in_tests() {
     assert_eq!(tr!("Cancel"), "Cancel");
     assert_eq!(tr!("Installation"), "Installation");
-    assert_eq!(decimal(1.5, 1), "1.5");
 }
 
 #[test]
@@ -260,7 +259,6 @@ fn text_shows_in_the_chosen_language() {
         trf!("Restore the original {game}?", game = "Sonic Adventure 2"),
         "¿Restaurar Sonic Adventure 2 original?"
     );
-    assert_eq!(decimal(1.5, 1), "1,5");
 }
 
 #[test]
@@ -550,19 +548,6 @@ fn plural_rules_match_the_catalog_headers() {
     }
 }
 
-#[test]
-fn only_languages_with_a_comma_write_decimals_with_it() {
-    for language in &LANGUAGES {
-        let _guard = use_language(language.code);
-        let expected = if language.code == "ja" {
-            "2.50"
-        } else {
-            "2,50"
-        };
-        assert_eq!(decimal(2.5, 2), expected, "{}", language.code);
-    }
-}
-
 /// `text` as `.po` lines, split at `at` characters so continuation lines are
 /// read too.
 fn po_string(keyword: &str, text: &str, at: usize) -> String {
@@ -653,12 +638,5 @@ proptest! {
     ) {
         let locale = format!("{code}{rest}");
         prop_assert_eq!(language_code(&locale), code.as_str());
-    }
-
-    #[test]
-    fn a_comma_decimal_only_swaps_the_point(value in -1.0e9_f64..1.0e9, places in 0_usize..4) {
-        let english = decimal(value, places);
-        let _spanish = use_language("es");
-        prop_assert_eq!(decimal(value, places), english.replace('.', ","));
     }
 }

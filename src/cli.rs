@@ -627,7 +627,7 @@ fn mod_progress_text(mod_name: &str, downloaded: u64, total_bytes: Option<u64>) 
 }
 
 fn megabytes(bytes: u64) -> String {
-    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
+    format!("{:.1}", bytes as f64 / 1_048_576.0)
 }
 
 /// Like "1.5 / 3.0 MB (50%)".

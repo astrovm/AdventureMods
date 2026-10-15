@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use crate::i18n;
 use crate::setup::{common, config, pipeline};
 use crate::{tr, trf, trn};
 
@@ -245,7 +244,7 @@ pub(crate) fn completed_mod_fraction(completed: usize, total: usize) -> f64 {
 }
 
 pub(crate) fn format_mb_value(bytes: u64) -> String {
-    i18n::decimal(bytes as f64 / 1_048_576.0, 1)
+    format!("{:.1}", bytes as f64 / 1_048_576.0)
 }
 
 pub(crate) fn format_mb(bytes: u64) -> String {
@@ -405,7 +404,7 @@ pub(crate) fn format_download_size(bytes: u64) -> String {
     if bytes >= 1_000_000_000 {
         trf!(
             "{size} GB",
-            size = i18n::decimal(bytes as f64 / 1_000_000_000.0, 1)
+            size = format!("{:.1}", bytes as f64 / 1_000_000_000.0)
         )
     } else {
         trf!(
@@ -909,6 +908,20 @@ mod tests {
             "Everything selected is already installed"
         );
         assert_eq!(format_download_size(1), "1 MB");
+    }
+
+    #[test]
+    fn sizes_use_a_decimal_point_in_every_language() {
+        for language in &crate::i18n::LANGUAGES {
+            let _guard = crate::i18n::use_language(language.code);
+            assert_eq!(
+                format_download_size(1_500_000_000),
+                "1.5 GB",
+                "{}",
+                language.code
+            );
+            assert_eq!(format_mb_value(1_572_864), "1.5", "{}", language.code);
+        }
     }
 
     #[test]
