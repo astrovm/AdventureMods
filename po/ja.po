@@ -937,6 +937,33 @@ msgstr "設定を保存しています…（{total}/{total}）"
 
 #: src/ui/progress.rs
 #, rust-format
+msgid "Downloading {name} - {progress}"
+msgstr "{name}をダウンロード中 - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Downloading {n} mod - {progress}"
+msgid_plural "Downloading {n} mods - {progress}"
+msgstr[0] "{n}個のModをダウンロード中 - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Retrying {name} (attempt {attempt} of {max})…"
+msgstr "{name}を再試行中（{attempt}/{max}回目）…"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {name}… ({seconds} s)"
+msgstr "{name}のサーバーを待っています…（{seconds} s）"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {n} mod… ({seconds} s)"
+msgid_plural "Waiting for the server to send {n} mods… ({seconds} s)"
+msgstr[0] "{n}個のModのサーバーを待っています…（{seconds} s）"
+
+#: src/ui/progress.rs
+#, rust-format
 msgid "{status} - {progress}"
 msgstr "{status} - {progress}"
 

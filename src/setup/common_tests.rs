@@ -1518,12 +1518,17 @@ fn prefetched_archives_install_without_downloading_again() {
     };
 
     // A cancelled prefetch fetches nothing.
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(true));
+    crate::setup::pipeline::prefetch_mod_archives(
+        &game,
+        &[&mod_entry],
+        &AtomicBool::new(true),
+        &|_, _| {},
+    );
     assert_eq!(gets(), 0);
 
     // Prefetching downloads the archive but does not install it.
     let running = AtomicBool::new(false);
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running, &|_, _| {});
     assert!(cached_archive_path(url).is_file());
     assert!(!game.join("mods/UpdateMod").exists());
     assert_eq!(gets(), 1);
@@ -1538,7 +1543,7 @@ fn prefetched_archives_install_without_downloading_again() {
     assert!(!cached_archive_path(url).exists());
 
     // Installed and current mods are not fetched again.
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &running, &|_, _| {});
     assert_eq!(gets(), 1);
     assert!(!cached_archive_path(url).exists());
 
@@ -1546,7 +1551,7 @@ fn prefetched_archives_install_without_downloading_again() {
     let broken = update_test_mod("http://127.0.0.1:9/unreachable.7z");
     let mut broken = broken;
     broken.dir_name = Some("BrokenMod");
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&broken], &running);
+    crate::setup::pipeline::prefetch_mod_archives(&game, &[&broken], &running, &|_, _| {});
 
     unsafe {
         std::env::remove_var("ADVENTURE_MODS_7ZZ");
@@ -1604,7 +1609,12 @@ fn install_uses_the_prefetched_archive_without_asking_gamebanana_again() {
         links: &[],
     };
 
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(false));
+    crate::setup::pipeline::prefetch_mod_archives(
+        &game,
+        &[&mod_entry],
+        &AtomicBool::new(false),
+        &|_, _| {},
+    );
     assert_eq!(api_calls.load(Ordering::SeqCst), 1);
 
     install_mod_with_progress(&game, &mod_entry, None).unwrap();
@@ -2231,7 +2241,12 @@ fn prefetched_archives_survive_a_crashed_installer_thread() {
     assert!(prefetched_archives().is_poisoned());
 
     let mod_entry = update_test_mod(url);
-    crate::setup::pipeline::prefetch_mod_archives(&game, &[&mod_entry], &AtomicBool::new(false));
+    crate::setup::pipeline::prefetch_mod_archives(
+        &game,
+        &[&mod_entry],
+        &AtomicBool::new(false),
+        &|_, _| {},
+    );
     let installed = install_mod_with_progress(&game, &mod_entry, None);
     prefetched_archives().clear_poison();
 

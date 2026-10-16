@@ -30,7 +30,22 @@ pub enum InstallProgress<'a> {
 }
 
 const MAX_CONCURRENT_MOD_INSTALLS: usize = 4;
-const MAX_MOD_INSTALL_ATTEMPTS: usize = 3;
+pub const MAX_MOD_INSTALL_ATTEMPTS: usize = 3;
+/// The wait before trying a failed download again.
+const RETRY_PAUSE: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// What a background mod download is doing, for the progress display.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PrefetchEvent {
+    /// Bytes so far. Repeats while nothing arrives, so a stall can show.
+    Downloading { downloaded: u64, total: Option<u64> },
+    /// The last attempt failed and `attempt` is starting.
+    Retrying { attempt: usize },
+    /// The archive is ready, or the mod needs none.
+    Finished,
+    /// Every attempt failed. The install step tries once more.
+    Failed,
+}
 
 enum WorkerMessage {
     InstallingMod {
@@ -59,6 +74,7 @@ pub fn prefetch_mod_archives(
     game_path: &Path,
     selected_mods: &[&ModEntry],
     cancelled: &AtomicBool,
+    report: &(dyn Fn(&'static str, PrefetchEvent) + Sync),
 ) {
     let queue = Mutex::new(selected_mods.iter().collect::<VecDeque<_>>());
     thread::scope(|scope| {
@@ -68,19 +84,45 @@ pub fn prefetch_mod_archives(
                     let Some(mod_entry) = queue.lock().unwrap().pop_front() else {
                         break;
                     };
-                    let mut stop_when_cancelled =
-                        |_: u64, _: Option<u64>| ensure_not_cancelled(cancelled);
-                    if let Err(err) = common::prefetch_mod_archive(
-                        game_path,
-                        mod_entry,
-                        Some(&mut stop_when_cancelled),
-                    ) {
-                        tracing::info!("Prefetching '{}' failed: {err:#}", mod_entry.name);
-                    }
+                    prefetch_with_retries(game_path, mod_entry, cancelled, report);
                 }
             });
         }
     });
+}
+
+/// Fetch one archive, trying again after a failure until the attempts run out.
+fn prefetch_with_retries(
+    game_path: &Path,
+    mod_entry: &ModEntry,
+    cancelled: &AtomicBool,
+    report: &(dyn Fn(&'static str, PrefetchEvent) + Sync),
+) {
+    let name = mod_entry.name;
+    let mut attempt = 1;
+    loop {
+        let mut progress = |downloaded: u64, total: Option<u64>| {
+            ensure_not_cancelled(cancelled)?;
+            report(name, PrefetchEvent::Downloading { downloaded, total });
+            Ok(())
+        };
+        let err = match common::prefetch_mod_archive(game_path, mod_entry, Some(&mut progress)) {
+            Ok(()) => return report(name, PrefetchEvent::Finished),
+            Err(err) => err,
+        };
+        if cancelled.load(Ordering::Relaxed) {
+            return;
+        }
+        if attempt == MAX_MOD_INSTALL_ATTEMPTS {
+            // The install step downloads it again and shows the error.
+            tracing::info!("Prefetching '{name}' failed: {err:#}");
+            return report(name, PrefetchEvent::Failed);
+        }
+        tracing::info!("Prefetching '{name}' failed, trying again: {err:#}");
+        attempt += 1;
+        report(name, PrefetchEvent::Retrying { attempt });
+        thread::sleep(RETRY_PAUSE);
+    }
 }
 
 pub fn install_selected_mods_and_generate_config_with_progress(
@@ -185,8 +227,7 @@ fn install_mods_and_generate_config(
                                 if cancelled.load(Ordering::Relaxed) {
                                     break Err(e);
                                 }
-                                // brief pause before retry
-                                std::thread::sleep(std::time::Duration::from_millis(500));
+                                std::thread::sleep(RETRY_PAUSE);
                             }
                             Err(e) => break Err(e),
                         }

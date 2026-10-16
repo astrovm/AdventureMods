@@ -12,6 +12,18 @@ pub type ProgressFn = Box<dyn Fn(u64, Option<u64>) + Send>;
 /// Metadata checks are optional, so they give up quickly on a slow server.
 const HEAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
+/// A transfer that receives nothing for this long has stalled and fails, so a
+/// server that stops answering cannot hang setup.
+pub(crate) const STALL_TIMEOUT: std::time::Duration = if cfg!(test) {
+    std::time::Duration::from_secs(1)
+} else {
+    std::time::Duration::from_secs(30)
+};
+
+/// How often a resumable download calls its progress callback while it waits
+/// for bytes, so a cancel (an error from the callback) stops it right away.
+const HEARTBEAT: std::time::Duration = std::time::Duration::from_millis(250);
+
 /// Run HTTP work to completion from a blocking thread.
 ///
 /// Every download shares one small runtime and one [`Client`], so parallel mod
@@ -43,6 +55,7 @@ pub(crate) fn client() -> &'static Client {
     CLIENT.get_or_init(|| {
         Client::builder()
             .connect_timeout(std::time::Duration::from_secs(30))
+            .read_timeout(STALL_TIMEOUT)
             .build()
             .unwrap_or_default()
     })
@@ -97,13 +110,10 @@ async fn download_file_async(
     use std::io::Write;
 
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk.context("Error reading response body")?;
+        let chunk = chunk.map_err(|err| stalled_or(err, url, "Error reading response body"))?;
         file.write_all(&chunk)?;
         downloaded += chunk.len() as u64;
-
-        if let Some(ref mut progress) = progress {
-            progress(downloaded, total)?;
-        }
+        report(&mut progress, downloaded, total)?;
     }
 
     file.flush()?;
@@ -178,7 +188,10 @@ async fn download_file_resumable_async(
         _ => None,
     };
 
-    let response = fetch_download_response_from(client(), url, resume).await?;
+    let response = with_heartbeat(fetch_download_response_from(client(), url, resume), || {
+        report(&mut progress, resume_from, None)
+    })
+    .await??;
     let validator = response_validator(&response);
     let resumed = resume.is_some() && response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
 
@@ -203,14 +216,13 @@ async fn download_file_resumable_async(
     let total = response.content_length().map(|len| len + downloaded);
 
     let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.context("Error reading response body")?;
+    while let Some(chunk) =
+        with_heartbeat(stream.next(), || report(&mut progress, downloaded, total)).await?
+    {
+        let chunk = chunk.map_err(|err| stalled_or(err, url, "Error reading response body"))?;
         file.write_all(&chunk)?;
         downloaded += chunk.len() as u64;
-
-        if let Some(ref mut progress) = progress {
-            progress(downloaded, total)?;
-        }
+        report(&mut progress, downloaded, total)?;
     }
     file.flush()?;
     drop(file);
@@ -219,6 +231,44 @@ async fn download_file_resumable_async(
         .with_context(|| format!("Failed to finish download to {}", dest.display()))?;
     let _ = std::fs::remove_file(&validator_path);
     Ok(validator)
+}
+
+/// Await `future`, calling `beat` every [`HEARTBEAT`] until it is ready. An
+/// error from `beat` drops the future and is returned instead.
+async fn with_heartbeat<T>(
+    future: impl Future<Output = T>,
+    mut beat: impl FnMut() -> Result<()>,
+) -> Result<T> {
+    let mut future = std::pin::pin!(future);
+    loop {
+        match tokio::time::timeout(HEARTBEAT, future.as_mut()).await {
+            Ok(output) => return Ok(output),
+            Err(_) => beat()?,
+        }
+    }
+}
+
+fn report(
+    progress: &mut Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+    downloaded: u64,
+    total: Option<u64>,
+) -> Result<()> {
+    match progress {
+        Some(progress) => progress(downloaded, total),
+        None => Ok(()),
+    }
+}
+
+/// Say plainly when a transfer stalled; otherwise add `context` to `err`.
+fn stalled_or(err: reqwest::Error, url: &str, context: &str) -> anyhow::Error {
+    if err.is_timeout() {
+        anyhow::anyhow!(
+            "The server stopped responding for {} seconds while sending {url}",
+            STALL_TIMEOUT.as_secs()
+        )
+    } else {
+        anyhow::Error::new(err).context(context.to_owned())
+    }
 }
 
 /// Ask the server which version of `url` it currently serves (see
@@ -288,7 +338,7 @@ async fn fetch_download_response_from(
     let response = request
         .send()
         .await
-        .with_context(|| format!("Failed to GET {url}"))?;
+        .map_err(|err| stalled_or(err, url, &format!("Failed to GET {url}")))?;
 
     if resume.is_some() && response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
         // The partial file is not a prefix of the remote file; start over.
@@ -686,5 +736,105 @@ mod tests {
             .to_string();
 
         assert!(err.contains("supported headless download path"));
+    }
+    #[test]
+    fn a_server_that_never_answers_fails_instead_of_hanging() {
+        init();
+        let (base, _) = serve(|_| {
+            std::thread::sleep(STALL_TIMEOUT * 3);
+            Reply::ok(BODY)
+        });
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+        let url = format!("{base}/file");
+
+        let started = std::time::Instant::now();
+        let err = download_file_resumable(&url, &dest, None).unwrap_err();
+
+        let elapsed = started.elapsed();
+        assert!(elapsed < STALL_TIMEOUT * 3, "{elapsed:?}");
+        assert_eq!(
+            err.to_string(),
+            format!("The server stopped responding for 1 seconds while sending {url}")
+        );
+        assert!(!dest.exists());
+    }
+
+    #[test]
+    fn a_download_that_stalls_midway_fails_and_keeps_its_bytes_for_a_resume() {
+        init();
+        let (base, _) = serve(|_| {
+            Reply::ok(BODY)
+                .header("ETag", "\"v1\"")
+                .pause_after(4, STALL_TIMEOUT * 3)
+        });
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+        let url = format!("{base}/file");
+
+        let mut beats = Vec::new();
+        let mut progress = |downloaded: u64, total: Option<u64>| {
+            beats.push((downloaded, total));
+            Ok(())
+        };
+        let err = download_file_resumable(&url, &dest, Some(&mut progress)).unwrap_err();
+
+        assert!(err.to_string().contains("stopped responding"), "{err:#}");
+        let (part, _) = partial_paths(&dest);
+        assert_eq!(std::fs::read(part).unwrap(), &BODY[..4]);
+        // While nothing arrives, progress repeats the last count.
+        assert!(beats.len() > 2, "{beats:?}");
+        assert!(beats.iter().all(|beat| *beat == (4, Some(10))), "{beats:?}");
+    }
+
+    #[test]
+    fn plain_downloads_also_fail_when_the_server_stalls() {
+        init();
+        let (base, _) = serve(|_| Reply::ok(BODY).pause_after(4, STALL_TIMEOUT * 3));
+        let tmp = tempfile::tempdir().unwrap();
+        let err =
+            download_file(&format!("{base}/file"), &tmp.path().join("file"), None).unwrap_err();
+        assert!(err.to_string().contains("stopped responding"), "{err:#}");
+    }
+
+    #[test]
+    fn cancelling_stops_a_download_that_receives_nothing() {
+        init();
+        let (base, _) = serve(|_| {
+            std::thread::sleep(STALL_TIMEOUT * 3);
+            Reply::ok(BODY)
+        });
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+        seed_partial(&dest, b"01", Some("\"v1\""));
+
+        let mut seen = None;
+        let mut progress = |downloaded: u64, total: Option<u64>| {
+            seen = Some((downloaded, total));
+            anyhow::bail!("cancelled")
+        };
+        let started = std::time::Instant::now();
+        let err = download_file_resumable(&format!("{base}/file"), &dest, Some(&mut progress))
+            .unwrap_err();
+
+        assert_eq!(err.to_string(), "cancelled");
+        let elapsed = started.elapsed();
+        assert!(elapsed < STALL_TIMEOUT, "{elapsed:?}");
+        // Before the answer, progress counts the kept bytes with no total.
+        assert_eq!(seen, Some((2, None)));
+    }
+
+    #[test]
+    fn a_cut_off_body_keeps_its_bytes_and_says_what_failed() {
+        init();
+        let (base, _) = serve(|_| Reply::ok("0123").claim_length(10));
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+
+        let err = download_file_resumable(&format!("{base}/file"), &dest, None).unwrap_err();
+
+        assert_eq!(err.to_string(), "Error reading response body");
+        let (part, _) = partial_paths(&dest);
+        assert_eq!(std::fs::read(part).unwrap(), b"0123");
     }
 }

@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, mpsc};
+use std::time::Instant;
 
 use egui::{RichText, Ui, Vec2};
 
@@ -13,10 +14,11 @@ use super::gamepad::PadButton;
 use super::images::{ImageCache, cover_resource};
 use super::motion;
 use super::progress::{
-    ModDownloadEstimate, ProgressDisplay, ProgressMsg, ProgressSamples, ProgressState,
-    apply_install_progress, download_size_text, drain_progress_updates, estimate_mod_downloads,
-    initial_preview_index, publish_step_bytes, remote_mod_download_size, resolution_or_fallback,
-    subtitle_language_index, subtitle_language_labels, voice_language_index, voice_language_labels,
+    ModDownloadEstimate, PrefetchProgress, ProgressDisplay, ProgressMsg, ProgressSamples,
+    ProgressState, apply_install_progress, download_size_text, drain_progress_updates,
+    estimate_mod_downloads, initial_preview_index, publish_step_bytes, remote_mod_download_size,
+    resolution_or_fallback, subtitle_language_index, subtitle_language_labels,
+    voice_language_index, voice_language_labels,
 };
 use super::theme;
 use super::widgets::{self, ButtonKind, Tone};
@@ -24,15 +26,17 @@ use crate::blocking;
 use crate::external::download::ProgressFn;
 use crate::setup::common::{self, ModEntry, SteamConfigStatus};
 use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
-use crate::setup::pipeline::{self, InstallProgress};
+use crate::setup::pipeline::{self, InstallProgress, PrefetchEvent};
 use crate::setup::steps::{self, SetupStep, StepId, StepKind};
 use crate::steam::game::{Game, GameKind};
 use crate::{i18n, tr, trf};
 
 /// Looks up how many bytes installing a mod downloads.
 pub type DownloadSizeFn = fn(&ModEntry) -> Option<u64>;
-/// Downloads the selected mods' archives ahead of the install step.
-pub type PrefetchFn = fn(&Path, &[&ModEntry], &AtomicBool);
+/// Downloads the selected mods' archives ahead of the install step, reporting
+/// what each download is doing.
+pub type PrefetchFn =
+    fn(&Path, &[&ModEntry], &AtomicBool, &(dyn Fn(&'static str, PrefetchEvent) + Sync));
 /// Installs the chosen mods and writes the configs.
 pub type InstallModsFn = fn(
     &Path,
@@ -110,7 +114,7 @@ struct InstallTask {
     title: &'static str,
     description: String,
     /// Shown instead of the description while the task waits its turn.
-    pending_note: Option<&'static str>,
+    pending_note: Option<String>,
     state: TaskState,
 }
 
@@ -119,7 +123,7 @@ impl InstallTask {
         match self.state {
             TaskState::Done => tr!("Done"),
             TaskState::Failed => tr!("Failed"),
-            TaskState::Pending => self.pending_note.unwrap_or(&self.description),
+            TaskState::Pending => self.pending_note.as_deref().unwrap_or(&self.description),
             TaskState::Running => &self.description,
         }
     }
@@ -181,9 +185,9 @@ impl InstallView {
     }
 
     /// Say what a waiting task is already doing in the background.
-    fn set_pending_note(&mut self, step: usize, note: &'static str) {
+    fn set_pending_note(&mut self, step: usize, note: Option<String>) {
         if let Some(task) = self.tasks.iter_mut().find(|task| task.step == step) {
-            task.pending_note = Some(note);
+            task.pending_note = note;
         }
     }
 }
@@ -193,6 +197,7 @@ impl InstallView {
 struct Prefetch {
     cancel: Arc<AtomicBool>,
     done: async_channel::Receiver<()>,
+    progress: Arc<PrefetchProgress>,
 }
 
 /// Work running for a step on another thread.
@@ -403,7 +408,9 @@ impl SetupFlow {
         let prefetch_archives = self.work.prefetch_archives;
         let cancel = Arc::new(AtomicBool::new(false));
         let (done_tx, done) = async_channel::bounded::<()>(1);
+        let progress = Arc::new(PrefetchProgress::new(selected.len()));
         let worker_cancel = cancel.clone();
+        let worker_progress = progress.clone();
         let game_path = self.game.path.clone();
         std::thread::spawn(move || {
             // Never two writers for one archive: let a cancelled run stop first.
@@ -411,19 +418,45 @@ impl SetupFlow {
                 let _ = previous.done.recv_blocking();
             }
             if let Some(prefetch_archives) = prefetch_archives {
-                prefetch_archives(&game_path, &selected, &worker_cancel);
+                let report = |name: &'static str, event: PrefetchEvent| {
+                    worker_progress.record(name, event, Instant::now());
+                };
+                prefetch_archives(&game_path, &selected, &worker_cancel, &report);
             }
             drop(done_tx);
         });
-        self.prefetch = Some(Prefetch { cancel, done });
+        self.prefetch = Some(Prefetch {
+            cancel,
+            done,
+            progress,
+        });
+        self.show_prefetch_progress(Instant::now());
+    }
 
-        if let Some(mods_step) = self
+    /// Show what the background downloads are doing: in the mods row while
+    /// earlier steps run, and on the bar while the mods step waits for them.
+    fn show_prefetch_progress(&mut self, now: Instant) {
+        let mods_step = self
             .steps
             .iter()
-            .position(|step| step.id == StepId::DownloadMods)
-            && let Some(install) = &mut self.install
+            .position(|step| step.id == StepId::DownloadMods);
+        let (Some(prefetch), Some(install), Some(mods_step)) =
+            (&self.prefetch, &mut self.install, mods_step)
+        else {
+            return;
+        };
+        let running = !prefetch.done.is_closed();
+        let display = prefetch.progress.display(now).filter(|_| running);
+        let note = display.as_ref().map_or_else(
+            || tr!("Downloading in the background").to_owned(),
+            |display| display.text.clone(),
+        );
+        install.set_pending_note(mods_step, running.then_some(note));
+        if self.current == mods_step
+            && self.task.is_some()
+            && let Some(display) = display
         {
-            install.set_pending_note(mods_step, tr!("Downloading in the background"));
+            install.progress.display = Some(display);
         }
     }
 
@@ -536,6 +569,7 @@ impl SetupFlow {
             self.estimates_rx = None;
         }
 
+        self.show_prefetch_progress(Instant::now());
         let Some(task) = &self.task else {
             return;
         };
