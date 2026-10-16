@@ -444,6 +444,10 @@ mod tests {
     ) -> Result<()> {
         use crate::external::test_http::{Reply, serve};
 
+        // The download client needs a TLS provider even for plain HTTP, so
+        // install one here rather than rely on another test doing it first.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         let _guard = crate::test_env::lock();
         let fake_7zz = tools_dir.join("7zz");
         write_script(
@@ -545,6 +549,12 @@ mod tests {
 
         assert!(err.to_string().contains("verify game integrity"), "{err}");
         assert!(err.to_string().contains("open oldFile ERROR!"), "{err}");
+
+        // hpatchz words a missing or mismatched folder differently.
+        let tools = tempfile::tempdir().unwrap();
+        let hpatchz = fake_hpatchz(&tools, "echo 'check oldPathType ERROR!' >&2\nexit 1");
+        let err = convert_with_fake_tools(EXTRACT_PATCH, &hpatchz);
+        assert!(err.to_string().contains("verify game integrity"), "{err}");
     }
 
     #[test]

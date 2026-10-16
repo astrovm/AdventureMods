@@ -567,6 +567,42 @@ mod tests {
     }
 
     #[test]
+    fn voice_codes_match_the_games() {
+        // Both games number their voice tracks Japanese 0, English 1.
+        assert_eq!(voice_code(VoiceLanguage::Japanese), 0);
+        assert_eq!(voice_code(VoiceLanguage::English), 1);
+    }
+
+    /// `value` with each letter's case set by `upper`, and the given padding.
+    fn styled(value: &str, upper: &[bool], pad: (&str, &str)) -> String {
+        let letters: String = value
+            .chars()
+            .zip(upper.iter().cycle())
+            .map(|(c, &up)| if up { c.to_ascii_uppercase() } else { c })
+            .collect();
+        format!("{}{letters}{}", pad.0, pad.1)
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn languages_parse_back_from_their_names_in_any_case(
+            upper in proptest::collection::vec(proptest::bool::ANY, 1..12),
+            pad in (" {0,2}", "[ \t]{0,2}"),
+        ) {
+            for &language in VoiceLanguage::all() {
+                let text = styled(language.as_str(), &upper, (&pad.0, &pad.1));
+                proptest::prop_assert_eq!(VoiceLanguage::parse(&text).unwrap(), language);
+            }
+            for kind in [GameKind::SADX, GameKind::SA2] {
+                for &language in SubtitleLanguage::supported_for(kind) {
+                    let text = styled(language.as_str(), &upper, (&pad.0, &pad.1));
+                    proptest::prop_assert_eq!(SubtitleLanguage::parse(&text).unwrap(), language);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn sadx_defaults_match_existing_behavior() {
         let defaults = LanguageSelection::defaults_for(GameKind::SADX);
         assert_eq!(defaults.subtitle, SubtitleLanguage::English);

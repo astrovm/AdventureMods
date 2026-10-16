@@ -418,6 +418,45 @@ mod tests {
     }
 
     #[test]
+    fn test_spawn_starts_the_game_normally() {
+        // SA Mod Manager reads -1 as "not set" and the Use* flags as "jump
+        // straight to this". Anything else would skip the title screen.
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        let lang = config::LanguageSelection::defaults_for(GameKind::SADX);
+        generate_sadx_config(tmp.path(), &[], 1920, 1080, lang).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("SAManager/SADX/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(
+            parsed["TestSpawn"],
+            serde_json::json!({
+                "UseCharacter": false,
+                "UseLevel": false,
+                "UseEvent": false,
+                "UseGameMode": false,
+                "UseSave": false,
+                "LevelIndex": -1,
+                "ActIndex": 0,
+                "CharacterIndex": -1,
+                "EventIndex": -1,
+                "GameModeIndex": -1,
+                "SaveIndex": -1,
+                "GameTextLanguage": subtitle_code(lang.subtitle),
+                "GameVoiceLanguage": config::voice_code(lang.voice),
+                "UseManual": false,
+                "UsePosition": false,
+                "XPosition": 0,
+                "YPosition": 0,
+                "ZPosition": 0,
+                "Rotation": 0,
+            })
+        );
+    }
+
+    #[test]
     fn profiles_match_across_locations() {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(tmp.path().join("system")).unwrap();

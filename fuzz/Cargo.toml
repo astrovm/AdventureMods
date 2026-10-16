@@ -1,0 +1,23 @@
+[package]
+name = "adventure-mods-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+adventure-mods = { path = ".." }
+
+# Keep this crate out of the app's workspace and lockfile.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "vdf"
+path = "fuzz_targets/vdf.rs"
+test = false
+doc = false
+bench = false

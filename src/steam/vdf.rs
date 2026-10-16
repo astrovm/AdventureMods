@@ -66,17 +66,20 @@ impl<'a> Parser<'a> {
             if ch == b'\\' && self.pos + 1 < self.input.len() {
                 result.push_str(&self.input[start..self.pos]);
                 self.pos += 1;
-                match self.input.as_bytes()[self.pos] {
-                    b'n' => result.push('\n'),
-                    b't' => result.push('\t'),
-                    b'\\' => result.push('\\'),
-                    b'"' => result.push('"'),
-                    b => {
+                // The escaped character may be several bytes long, so step
+                // over all of it to stay on a character boundary.
+                let escaped = self.input[self.pos..].chars().next()?;
+                match escaped {
+                    'n' => result.push('\n'),
+                    't' => result.push('\t'),
+                    '\\' => result.push('\\'),
+                    '"' => result.push('"'),
+                    other => {
                         result.push('\\');
-                        result.push(b as char);
+                        result.push(other);
                     }
                 }
-                self.pos += 1;
+                self.pos += escaped.len_utf8();
                 start = self.pos;
             } else if ch == b'"' {
                 result.push_str(&self.input[start..self.pos]);

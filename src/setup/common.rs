@@ -1107,9 +1107,6 @@ pub(super) fn move_dir_contents(src: &Path, dest: &Path) -> Result<()> {
             if !target.exists() && std::fs::rename(&path, &target).is_ok() {
                 continue;
             }
-            if !target.exists() {
-                std::fs::create_dir_all(&target)?;
-            }
             move_dir_contents(&path, &target)?;
         } else {
             if target.exists() && target.is_dir() {

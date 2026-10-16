@@ -305,6 +305,45 @@ mod tests {
     }
 
     #[test]
+    fn test_spawn_starts_the_game_normally() {
+        // SA Mod Manager reads -1 as "not set" and the Use* flags as "jump
+        // straight to this". Anything else would skip the title screen.
+        let tmp = tempfile::tempdir().unwrap();
+        let lang = config::LanguageSelection::defaults_for(GameKind::SA2);
+        generate_sa2_config(tmp.path(), &[], 1920, 1080, lang).unwrap();
+
+        let content =
+            std::fs::read_to_string(tmp.path().join("mods/.modloader/profiles/Default.json"))
+                .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(
+            parsed["TestSpawn"],
+            serde_json::json!({
+                "UseCharacter": false,
+                "UsePlayer2": false,
+                "UseLevel": false,
+                "UseEvent": false,
+                "UseSave": false,
+                "LevelIndex": -1,
+                "MissionIndex": 0,
+                "CharacterIndex": -1,
+                "Player2Index": -1,
+                "EventIndex": -1,
+                "SaveIndex": -1,
+                "GameTextLanguage": subtitle_code(lang.subtitle),
+                "GameVoiceLanguage": config::voice_code(lang.voice),
+                "UseManual": false,
+                "UseEventManual": false,
+                "UsePosition": false,
+                "XPosition": 0,
+                "YPosition": 0,
+                "ZPosition": 0,
+                "Rotation": 0,
+            })
+        );
+    }
+
+    #[test]
     fn no_sadx_specific_fields() {
         let tmp = tempfile::tempdir().unwrap();
         generate_sa2_config(
