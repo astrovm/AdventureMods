@@ -1355,6 +1355,9 @@ fn resolve_granted_library_ignores_unrelated_grants_and_nested_folders() {
     make_steam_library(&by_app, GameKind::SADX);
     set_host_path_xattr(&by_app, &expected);
     std::fs::write(runtime.join("doc/stray-file"), b"").unwrap();
+    // A library with the expected name, but no portal tag saying it is the
+    // expected one.
+    make_steam_library(&runtime.join("doc/untagged/SteamLibrary"), GameKind::SADX);
 
     // The expected library is not visible and no grant covers it.
     let resolved = with_environment("XDG_RUNTIME_DIR", Some(&runtime), || {
@@ -1420,4 +1423,31 @@ fn strict_detect_reports_unreadable_libraryfolders() {
         error.to_string(),
         format!("Failed to parse {}", vdf_path.display())
     );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_granted_library_hides_the_inaccessible_entry_only_when_it_has_the_game() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host_library = tmp.path().join("host/SteamLibrary");
+    let root = mock_vdf(host_library.to_str().unwrap(), &["71250"]);
+    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
+
+    // The grant is a Steam library, but SADX isn't installed in it.
+    make_steam_library(&portal, GameKind::SA2);
+    set_host_path_xattr(&portal, &host_library);
+    let result =
+        detect_games_from_parsed_vdfs(std::slice::from_ref(&root), std::slice::from_ref(&portal));
+    assert!(
+        result
+            .inaccessible
+            .iter()
+            .any(|game| game.kind == GameKind::SADX && game.library_path == host_library)
+    );
+
+    // Once SADX is there, the game is found through the grant instead.
+    make_steam_library(&portal, GameKind::SADX);
+    let result = detect_games_from_parsed_vdfs(&[root], &[portal]);
+    assert!(result.inaccessible.is_empty());
+    assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
 }

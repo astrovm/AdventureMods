@@ -181,6 +181,14 @@ Flatpak and AppImage bundle two tools that `cargo run` needs on your PATH:
 
 To use copies elsewhere, set `ADVENTURE_MODS_7ZZ` and `ADVENTURE_MODS_HPATCHZ` to their paths.
 
+**Fuzzing** (needs nightly Rust and `cargo install cargo-fuzz`)
+
+```sh
+cd fuzz && cargo +nightly fuzz run vdf
+```
+
+It feeds random text to the parser for Steam's `.vdf` files.
+
 </details>
 
 <details>

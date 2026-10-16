@@ -534,3 +534,73 @@ fn parse_rejects_second_root_object() {
     let input = r#""root" "value" "another" "entry""#;
     assert!(parse(input).is_none());
 }
+
+#[test]
+fn parse_unknown_escape_before_non_ascii_keeps_the_character() {
+    let root = parse("\"key\" \"a\\é b\"").unwrap();
+    assert_eq!(root.get("key").unwrap().as_str(), Some("a\\é b"));
+}
+
+/// Write `value` the way Steam does: quoted, with `\` and `"` escaped.
+fn write_vdf(value: &VdfValue, out: &mut String) {
+    match value {
+        VdfValue::String(text) => {
+            out.push('"');
+            out.push_str(&text.replace('\\', "\\\\").replace('"', "\\\""));
+            out.push('"');
+        }
+        VdfValue::Map(map) => {
+            out.push_str("{\n");
+            for (key, child) in map {
+                write_vdf(&VdfValue::String(key.clone()), out);
+                out.push('\t');
+                write_vdf(child, out);
+                out.push('\n');
+            }
+            out.push('}');
+        }
+    }
+}
+
+fn same_vdf(a: &VdfValue, b: &VdfValue) -> bool {
+    match (a, b) {
+        (VdfValue::String(a), VdfValue::String(b)) => a == b,
+        (VdfValue::Map(a), VdfValue::Map(b)) => {
+            a.len() == b.len()
+                && a.iter()
+                    .all(|(key, value)| b.get(key).is_some_and(|other| same_vdf(value, other)))
+        }
+        _ => false,
+    }
+}
+
+fn vdf_tree() -> impl proptest::strategy::Strategy<Value = VdfValue> {
+    use proptest::prelude::*;
+
+    let leaf = any::<String>().prop_map(VdfValue::String);
+    leaf.prop_recursive(4, 32, 6, |inner| {
+        proptest::collection::hash_map(any::<String>(), inner, 0..6).prop_map(VdfValue::Map)
+    })
+}
+
+proptest::proptest! {
+    #[test]
+    fn written_vdf_parses_back_to_the_same_tree(
+        key in proptest::prelude::any::<String>(),
+        value in vdf_tree(),
+    ) {
+        let mut text = String::new();
+        write_vdf(&VdfValue::String(key.clone()), &mut text);
+        text.push('\n');
+        write_vdf(&value, &mut text);
+
+        let parsed = parse(&text).expect("valid VDF");
+        let root = VdfValue::Map(std::collections::HashMap::from([(key, value)]));
+        proptest::prop_assert!(same_vdf(&parsed, &root), "{text:?}");
+    }
+
+    #[test]
+    fn parse_never_panics(input in "(\"|\\\\|\\{|\\}|//|\\s|.){0,64}") {
+        let _ = parse(&input);
+    }
+}

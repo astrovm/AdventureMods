@@ -1391,6 +1391,27 @@ mod tests {
     }
 
     #[test]
+    fn prefix_metadata_needs_both_files() {
+        // Steam writes `version` and `config_info` separately, so a prefix
+        // interrupted between the two has only one of them.
+        let tmp = tempfile::tempdir().unwrap();
+        let proton_dir = tmp.path().join("Proton 10.0");
+        for keep in ["version", "config_info"] {
+            let compatdata = tmp.path().join(keep);
+            write_prefix_metadata(&compatdata, "proton_10", &proton_dir);
+            assert!(read_prefix_metadata(&compatdata).unwrap().is_some());
+
+            let other = if keep == "version" {
+                "config_info"
+            } else {
+                "version"
+            };
+            std::fs::remove_file(compatdata.join(other)).unwrap();
+            assert!(read_prefix_metadata(&compatdata).unwrap().is_none());
+        }
+    }
+
+    #[test]
     fn prefix_state_reports_missing_proton_installation() {
         let tmp = tempfile::tempdir().unwrap();
         let steam_root = tmp.path();
@@ -2386,5 +2407,37 @@ mod tests {
     fn steamapps_dir_fails_for_root() {
         let game_path = Path::new("/");
         assert!(steamapps_dir(game_path).is_err());
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn proton_major_is_the_first_number_before_a_dot(
+            prefix in "[A-Za-z -]{0,12}",
+            major in 0u32..1000,
+            rest in "[0-9]{1,4}(-[0-9]{1,4})?",
+        ) {
+            let text = format!("{prefix}{major}.{rest}");
+            proptest::prop_assert_eq!(proton_major_from_text(&text), Some(major));
+        }
+
+        #[test]
+        fn text_without_a_dotted_number_has_no_proton_major(text in "[A-Za-z0-9 -]{0,24}") {
+            proptest::prop_assert_eq!(proton_major_from_text(&text), None);
+        }
+
+        #[test]
+        fn proton_dir_names_parse_their_version(
+            major in 0u32..100,
+            minor in 0u32..100,
+            build in proptest::option::of(0u32..100),
+        ) {
+            let build = build.map(|n| format!("-{n}")).unwrap_or_default();
+            let name = format!("Proton {major}.{minor}{build}");
+            proptest::prop_assert_eq!(
+                parse_proton_dir_name(&name),
+                Some(ProtonVersion::Numbered(major, minor))
+            );
+            proptest::prop_assert_eq!(parse_proton_dir_name(&format!("Wine {major}.{minor}")), None);
+        }
     }
 }

@@ -542,6 +542,65 @@ fn update_metadata_ignores_malformed_lines() {
 }
 
 #[test]
+fn update_metadata_needs_both_gamebanana_keys_with_values() {
+    assert!(has_update_metadata(
+        "GameBananaItemType=Mod\nGameBananaItemId=1\n"
+    ));
+    // Any other key with a value doesn't stand in for the missing one.
+    assert!(!has_update_metadata("Name=Mod\nGameBananaItemId=1\n"));
+    assert!(!has_update_metadata("GameBananaItemType=Mod\nName=1\n"));
+    assert!(!has_update_metadata(
+        "GameBananaItemType=Mod\nGameBananaItemId=\n"
+    ));
+    assert!(!has_update_metadata("GitHubRepo=\nUpdateUrl= \n"));
+}
+
+proptest::proptest! {
+    #[test]
+    fn update_metadata_matches_the_mod_loader_rules(
+        lines in proptest::collection::vec(
+            (
+                0usize..7,
+                proptest::bool::ANY,
+                proptest::sample::select(vec!["", " ", "x", " x "]),
+                proptest::sample::select(vec!["", " ", "\t"]),
+            ),
+            0..8,
+        ),
+    ) {
+        const KEYS: [&str; 7] = [
+            "GitHubRepo",
+            "UpdateUrl",
+            "GameBananaItemType",
+            "GameBananaItemId",
+            "Name",
+            "Author",
+            "",
+        ];
+        let mut text = String::new();
+        let (mut direct, mut gb_type, mut gb_id) = (false, false, false);
+        for (key, upper, value, pad) in lines {
+            let name = KEYS[key];
+            if name.is_empty() {
+                // A line without "=" is skipped.
+                text.push_str("just text\n");
+                continue;
+            }
+            let shown = if upper { name.to_ascii_uppercase() } else { name.to_string() };
+            text.push_str(&format!("{pad}{shown}{pad}={value}\n"));
+            let set = !value.trim().is_empty();
+            match key {
+                0 | 1 => direct |= set,
+                2 => gb_type |= set,
+                3 => gb_id |= set,
+                _ => {}
+            }
+        }
+        proptest::prop_assert_eq!(has_update_metadata(&text), direct || (gb_type && gb_id));
+    }
+}
+
+#[test]
 fn install_mod_normalizes_existing_update_tracked_mod_on_rerun() {
     let tmp = tempfile::tempdir().unwrap();
     let game_path = tmp.path();
@@ -2506,4 +2565,89 @@ fn default_settings_name_catalog_mods_in_ini_form() {
             assert!(section || pair, "{slug}: {line}");
         }
     }
+}
+
+#[test]
+fn sadx_data_dir_prefers_the_folder_holding_the_character_models() {
+    for models in ["CHRMODELS.dll", "CHRMODELS_orig.dll"] {
+        let tmp = tempfile::tempdir().unwrap();
+        // Both spellings exist, but only "System" has the game's data DLL.
+        std::fs::create_dir_all(tmp.path().join("system")).unwrap();
+        std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+        std::fs::write(tmp.path().join("System").join(models), b"dll").unwrap();
+        assert_eq!(
+            sadx_data_dir(tmp.path()),
+            Some(tmp.path().join("System")),
+            "{models}"
+        );
+    }
+
+    // Without the DLL anywhere, the first folder that exists is used.
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(tmp.path().join("System")).unwrap();
+    assert_eq!(sadx_data_dir(tmp.path()), Some(tmp.path().join("System")));
+    assert_eq!(sadx_data_dir(&tmp.path().join("missing")), None);
+}
+
+#[test]
+fn is_mod_manager_fully_installed_requires_each_part() {
+    // SADX with every part in place, then with each one missing in turn.
+    let parts = [
+        "Sonic Adventure DX.exe.bak",
+        "mods/.modloader/SADXModLoader.dll",
+        "system/CHRMODELS_orig.dll",
+    ];
+    for missing in 0..=parts.len() {
+        let tmp = tempfile::tempdir().unwrap();
+        for (index, part) in parts.iter().enumerate() {
+            let path = tmp.path().join(part);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            if index != missing {
+                std::fs::write(&path, b"x").unwrap();
+            }
+        }
+        assert_eq!(
+            is_mod_manager_fully_installed(tmp.path(), GameKind::SADX),
+            missing == parts.len(),
+            "missing {:?}",
+            parts.get(missing)
+        );
+    }
+}
+
+#[test]
+fn steam_config_lets_setup_continue_once_the_prefix_is_ready() {
+    let tmp = tempfile::tempdir().unwrap();
+    let steamapps = tmp.path().join("steamapps");
+    let game_path = steamapps.join("common/Sonic Adventure 2");
+    let proton = steamapps.join("common/Proton 10.0");
+    let compatdata = steamapps.join("compatdata/213610");
+    std::fs::create_dir_all(&game_path).unwrap();
+    std::fs::create_dir_all(proton.join("files/bin")).unwrap();
+    std::fs::write(proton.join("files/bin/wine64"), "").unwrap();
+    std::fs::create_dir_all(compatdata.join("pfx")).unwrap();
+    std::fs::write(compatdata.join("version"), "10.1000-105\n").unwrap();
+    std::fs::write(
+        compatdata.join("config_info"),
+        format!(
+            "/tmp/unused\n/tmp/unused\n/tmp/unused\n/tmp/unused\n0\n0\n0\n{}/files/share/default_pfx/\n0\n",
+            proton.display()
+        ),
+    )
+    .unwrap();
+    std::fs::create_dir_all(tmp.path().join("config")).unwrap();
+    std::fs::write(
+        tmp.path().join("config/config.vdf"),
+        r#""InstallConfigStore" { "Software" { "Valve" { "Steam" { "CompatToolMapping" {
+            "213610" { "name" "proton_10" } } } } } }"#,
+    )
+    .unwrap();
+    let game = Game {
+        kind: GameKind::SA2,
+        path: game_path,
+    };
+
+    let status = steam_config_status(&game);
+    assert!(status.ready, "{}", status.message);
+    assert!(can_continue_from_steam_config(&game));
 }

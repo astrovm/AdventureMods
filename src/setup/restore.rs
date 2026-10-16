@@ -255,6 +255,25 @@ mod tests {
     }
 
     #[test]
+    fn restore_leaves_the_data_dll_when_its_original_is_gone() {
+        let tmp = tempfile::tempdir().unwrap();
+        let game = tmp.path();
+        write(&game.join("Sonic Adventure DX.exe.bak"), "launcher");
+        write(&game.join("system/CHRMODELS.dll"), "chr");
+
+        let report = restore_original_game(game, GameKind::SADX).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(game.join("system/CHRMODELS.dll")).unwrap(),
+            "chr"
+        );
+        assert_eq!(
+            report.changes,
+            vec!["Restored Sonic Adventure DX.exe".to_string()]
+        );
+    }
+
+    #[test]
     fn unmodded_game_restores_nothing() {
         let tmp = tempfile::tempdir().unwrap();
         write(&tmp.path().join("Launcher.exe"), "launcher");
