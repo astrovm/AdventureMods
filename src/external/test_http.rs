@@ -69,6 +69,14 @@ impl Request {
 pub(crate) fn serve(
     handler: impl Fn(&Request) -> Reply + Send + Sync + 'static,
 ) -> (String, Arc<Mutex<Vec<String>>>) {
+    serve_boxed(Box::new(handler))
+}
+
+type Handler = Box<dyn Fn(&Request) -> Reply + Send + Sync>;
+
+/// The body of [`serve`], compiled once rather than for every handler, so
+/// coverage sees one copy.
+fn serve_boxed(handler: Handler) -> (String, Arc<Mutex<Vec<String>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     let log = Arc::new(Mutex::new(Vec::new()));

@@ -246,7 +246,7 @@ impl PrefetchProgress {
     }
 
     pub(crate) fn record(&self, name: &'static str, event: PrefetchEvent, now: Instant) {
-        let mut mods = self.mods.lock().unwrap_or_else(|e| e.into_inner());
+        let mut mods = self.mods.lock().expect("prefetch progress lock");
         let index = match mods.iter().position(|fetch| fetch.name == name) {
             Some(index) => index,
             None => {
@@ -288,7 +288,7 @@ impl PrefetchProgress {
     /// What the downloads are doing, or `None` before any started or once
     /// all of them ended.
     pub(crate) fn display(&self, now: Instant) -> Option<ProgressDisplay> {
-        let mods = self.mods.lock().unwrap_or_else(|e| e.into_inner());
+        let mods = self.mods.lock().expect("prefetch progress lock");
         let ended = mods.iter().filter(|fetch| fetch.ended).count();
         let active: Vec<&ModFetch> = mods.iter().filter(|fetch| !fetch.ended).collect();
         if active.is_empty() {
