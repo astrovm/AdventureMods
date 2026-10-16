@@ -954,13 +954,13 @@ msgstr "{name}を再試行中（{attempt}/{max}回目）…"
 #: src/ui/progress.rs
 #, rust-format
 msgid "Waiting for the server to send {name}… ({seconds} s)"
-msgstr "{name}のサーバーの応答を待っています…（{seconds}秒）"
+msgstr "{name}のサーバーを待っています…（{seconds} s）"
 
 #: src/ui/progress.rs
 #, rust-format
 msgid "Waiting for the server to send {n} mod… ({seconds} s)"
 msgid_plural "Waiting for the server to send {n} mods… ({seconds} s)"
-msgstr[0] "{n}個のModのサーバーの応答を待っています…（{seconds}秒）"
+msgstr[0] "{n}個のModのサーバーを待っています…（{seconds} s）"
 
 #: src/ui/progress.rs
 #, rust-format
