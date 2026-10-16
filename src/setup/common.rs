@@ -662,6 +662,7 @@ pub fn install_mod_with_progress(
         let dest = mods_dir.join(dir_name);
         let content_root = find_mod_root(&staging_dir).unwrap_or(staging_dir.clone());
         replace_mod_dir(&content_root, &dest)?;
+        write_default_settings(&dest, mod_entry.slug)?;
         normalize_mod_version(&dest)?;
         record_mod_source(&dest, &url, check_remote_validator);
     } else {
@@ -675,6 +676,7 @@ pub fn install_mod_with_progress(
 }
 
 fn keep_installed_mod(dest: &Path, mod_entry: &ModEntry) -> Result<()> {
+    write_default_settings(dest, mod_entry.slug)?;
     normalize_mod_version(dest)?;
     tracing::info!(
         "Mod '{}' already installed and up to date, skipping download",
@@ -817,6 +819,33 @@ fn record_component_source(record_path: &Path, url: &str) {
     if let Err(err) = record.write_file(record_path) {
         tracing::warn!("Failed to record {}: {err}", record_path.display());
     }
+}
+
+/// Settings that differ from a mod's own defaults, as SA Mod Manager would
+/// save them in the mod's config.ini, by mod slug.
+const DEFAULT_SETTINGS: &[(&str, &str)] = &[
+    // Our description promises counters past 999, which the mod leaves off.
+    ("hud-plus", "ShowMoreRings=True\nShowMoreLives=True\n"),
+    // Every option starts off, so the mod would change nothing. The sole
+    // color keeps its default, the red of The Trial's cutscenes.
+    (
+        "cutscene-revamp-extensions",
+        "[model]\nIncludeDir0=opti/ev_trial\nIncludeDir1=opti/ev_el\n\
+         [audio]\nIncludeDir3=opti/ev_retime\nIncludeDir4=opti/ev_trialmusic\n",
+    ),
+];
+
+/// Give the mod in `dest` our settings, unless it already has a config.ini:
+/// one the user saved in SA Mod Manager, or one the mod ships.
+fn write_default_settings(dest: &Path, slug: &str) -> Result<()> {
+    let Some((_, settings)) = DEFAULT_SETTINGS.iter().find(|(name, _)| *name == slug) else {
+        return Ok(());
+    };
+    if find_file_icase(dest, MOD_USER_CONFIG_FILE).is_some() {
+        return Ok(());
+    }
+    let path = dest.join(MOD_USER_CONFIG_FILE);
+    std::fs::write(&path, settings).with_context(|| format!("Failed to write {}", path.display()))
 }
 
 /// Put freshly extracted mod files in `dest`, replacing any previous version
