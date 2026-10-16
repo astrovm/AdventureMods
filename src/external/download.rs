@@ -751,11 +751,8 @@ mod tests {
         let started = std::time::Instant::now();
         let err = download_file_resumable(&url, &dest, None).unwrap_err();
 
-        assert!(
-            started.elapsed() < STALL_TIMEOUT * 3,
-            "{:?}",
-            started.elapsed()
-        );
+        let elapsed = started.elapsed();
+        assert!(elapsed < STALL_TIMEOUT * 3, "{elapsed:?}");
         assert_eq!(
             err.to_string(),
             format!("The server stopped responding for 1 seconds while sending {url}")
@@ -821,7 +818,8 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err.to_string(), "cancelled");
-        assert!(started.elapsed() < STALL_TIMEOUT, "{:?}", started.elapsed());
+        let elapsed = started.elapsed();
+        assert!(elapsed < STALL_TIMEOUT, "{elapsed:?}");
         // Before the answer, progress counts the kept bytes with no total.
         assert_eq!(seen, Some((2, None)));
     }

@@ -688,6 +688,24 @@ fn the_mods_step_says_it_waits_for_downloads_before_any_report() {
     });
 }
 
+#[test]
+fn setup_installs_the_mods_without_background_downloads() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut work = work();
+    work.prefetch_archives = None;
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work));
+    act(&mut harness, |flow| {
+        flow.on_next();
+        flow.on_next();
+        flow.on_next();
+    });
+    run_until(&mut harness, "finished", |state| {
+        step_id(state) == StepId::Complete
+    });
+    assert!(dir.path().join("installed.txt").exists());
+    assert!(!dir.path().join("prefetched").exists());
+}
+
 /// Reports nothing and runs until cancelled.
 fn silent_prefetch(
     _: &Path,

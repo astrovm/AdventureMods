@@ -436,13 +436,12 @@ impl SetupFlow {
     /// Show what the background downloads are doing: in the mods row while
     /// earlier steps run, and on the bar while the mods step waits for them.
     fn show_prefetch_progress(&mut self, now: Instant) {
-        let (Some(prefetch), Some(install)) = (&self.prefetch, &mut self.install) else {
-            return;
-        };
-        let Some(mods_step) = self
+        let mods_step = self
             .steps
             .iter()
-            .position(|step| step.id == StepId::DownloadMods)
+            .position(|step| step.id == StepId::DownloadMods);
+        let (Some(prefetch), Some(install), Some(mods_step)) =
+            (&self.prefetch, &mut self.install, mods_step)
         else {
             return;
         };
