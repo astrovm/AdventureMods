@@ -372,19 +372,19 @@ msgid "Removed the mod loader"
 msgstr ""
 
 #: src/setup/sa2_catalog.rs
-msgid "A big Chao World overhaul."
-msgstr ""
-
-#: src/setup/sa2_catalog.rs
-msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
-msgstr ""
-
-#: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs and brings back Dreamcast visuals."
 msgstr ""
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs in the PC version, like see-through objects drawn in the wrong order and missing effects. It also brings back details from the Dreamcast version, such as shine on shiny surfaces and the original textures and lighting."
+msgstr ""
+
+#: src/setup/sa2_catalog.rs
+msgid "A big Chao World overhaul."
+msgstr ""
+
+#: src/setup/sa2_catalog.rs
+msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
 msgstr ""
 
 #: src/setup/sa2_catalog.rs

@@ -373,20 +373,20 @@ msgid "Removed the mod loader"
 msgstr "Mod-Loader entfernt"
 
 #: src/setup/sa2_catalog.rs
-msgid "A big Chao World overhaul."
-msgstr "Eine große Überarbeitung von Chao World."
-
-#: src/setup/sa2_catalog.rs
-msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
-msgstr "Überarbeitet Chao World mit neu gestalteten Gärten, einer besseren Kamera, einem Menü zum Anpassen deiner Chao, einem Markt, Teleportieren zwischen den Gärten und vielen Fehlerkorrekturen. Fast alles lässt sich in den Mod-Einstellungen ausschalten."
-
-#: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs and brings back Dreamcast visuals."
 msgstr "Behebt viele Grafikfehler und bringt die Dreamcast-Optik zurück."
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs in the PC version, like see-through objects drawn in the wrong order and missing effects. It also brings back details from the Dreamcast version, such as shine on shiny surfaces and the original textures and lighting."
 msgstr "Behebt viele Grafikfehler der PC-Version, etwa durchsichtige Objekte in falscher Reihenfolge und fehlende Effekte. Bringt außerdem Details der Dreamcast-Version zurück, wie Spiegelungen auf glänzenden Flächen und die originalen Texturen und Beleuchtung."
+
+#: src/setup/sa2_catalog.rs
+msgid "A big Chao World overhaul."
+msgstr "Eine große Überarbeitung von Chao World."
+
+#: src/setup/sa2_catalog.rs
+msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
+msgstr "Überarbeitet Chao World mit neu gestalteten Gärten, einer besseren Kamera, einem Menü zum Anpassen deiner Chao, einem Markt, Teleportieren zwischen den Gärten und vielen Fehlerkorrekturen. Fast alles lässt sich in den Mod-Einstellungen ausschalten."
 
 #: src/setup/sa2_catalog.rs
 msgid "Extra options for Render Fix's cutscenes."
