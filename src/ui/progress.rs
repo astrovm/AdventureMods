@@ -4,7 +4,9 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
+use crate::setup::pipeline::PrefetchEvent;
 use crate::setup::{common, config, pipeline};
 use crate::{tr, trf, trn};
 
@@ -208,6 +210,153 @@ pub(crate) fn drain_progress_updates(
 ) {
     while let Ok(msg) = receiver.try_recv() {
         state.apply(msg);
+    }
+}
+
+/// How long a background download may receive nothing before the bar says
+/// it is waiting for the server.
+pub(crate) const STALL_NOTICE: Duration = Duration::from_secs(5);
+
+/// One mod in the background downloads.
+struct ModFetch {
+    name: &'static str,
+    downloaded: u64,
+    total: Option<u64>,
+    attempt: usize,
+    /// Whether this attempt has received any bytes yet.
+    receiving: bool,
+    /// When bytes last arrived, or the attempt started.
+    since: Instant,
+    ended: bool,
+}
+
+/// Live state of the background mod downloads. The prefetch workers record
+/// events and the UI reads the display every frame.
+pub(crate) struct PrefetchProgress {
+    total_mods: usize,
+    mods: Mutex<Vec<ModFetch>>,
+}
+
+impl PrefetchProgress {
+    pub(crate) fn new(total_mods: usize) -> Self {
+        Self {
+            total_mods,
+            mods: Mutex::new(Vec::new()),
+        }
+    }
+
+    pub(crate) fn record(&self, name: &'static str, event: PrefetchEvent, now: Instant) {
+        let mut mods = self.mods.lock().unwrap_or_else(|e| e.into_inner());
+        let index = match mods.iter().position(|fetch| fetch.name == name) {
+            Some(index) => index,
+            None => {
+                mods.push(ModFetch {
+                    name,
+                    downloaded: 0,
+                    total: None,
+                    attempt: 1,
+                    receiving: false,
+                    since: now,
+                    ended: false,
+                });
+                mods.len() - 1
+            }
+        };
+        let fetch = &mut mods[index];
+        match event {
+            PrefetchEvent::Downloading { downloaded, total } => {
+                if downloaded != fetch.downloaded {
+                    fetch.receiving = true;
+                    fetch.since = now;
+                }
+                fetch.downloaded = downloaded;
+                fetch.total = total;
+            }
+            PrefetchEvent::Retrying { attempt } => {
+                fetch.attempt = attempt;
+                fetch.receiving = false;
+                fetch.since = now;
+            }
+            PrefetchEvent::Finished => {
+                fetch.downloaded = fetch.total.unwrap_or(fetch.downloaded);
+                fetch.ended = true;
+            }
+            PrefetchEvent::Failed => fetch.ended = true,
+        }
+    }
+
+    /// What the downloads are doing, or `None` before any started or once
+    /// all of them ended.
+    pub(crate) fn display(&self, now: Instant) -> Option<ProgressDisplay> {
+        let mods = self.mods.lock().unwrap_or_else(|e| e.into_inner());
+        let ended = mods.iter().filter(|fetch| fetch.ended).count();
+        let active: Vec<&ModFetch> = mods.iter().filter(|fetch| !fetch.ended).collect();
+        if active.is_empty() {
+            return None;
+        }
+
+        let downloaded = active.iter().map(|fetch| fetch.downloaded).sum();
+        let total_bytes = active
+            .iter()
+            .try_fold(0u64, |sum, fetch| Some(sum + fetch.total?));
+        let fraction = mod_download_fraction(ended, self.total_mods, downloaded, total_bytes);
+        let stalled_for = |fetch: &ModFetch| now.saturating_duration_since(fetch.since);
+
+        // A retry counts as downloading once its first bytes arrive.
+        let downloading = |fetch: &&ModFetch| {
+            stalled_for(fetch) < STALL_NOTICE && (fetch.receiving || fetch.attempt == 1)
+        };
+        let text = if active.iter().any(downloading) {
+            let progress = format_download_bytes_text(downloaded, total_bytes);
+            match active.as_slice() {
+                [only] => trf!(
+                    "Downloading {name} - {progress}",
+                    name = only.name,
+                    progress = progress
+                ),
+                _ => trn!(
+                    "Downloading {n} mod - {progress}",
+                    "Downloading {n} mods - {progress}",
+                    active.len(),
+                    progress = progress
+                ),
+            }
+        } else if let Some(retry) = active
+            .iter()
+            .find(|fetch| fetch.attempt > 1 && !fetch.receiving)
+        {
+            trf!(
+                "Retrying {name} (attempt {attempt} of {max})…",
+                name = retry.name,
+                attempt = retry.attempt,
+                max = pipeline::MAX_MOD_INSTALL_ATTEMPTS
+            )
+        } else {
+            let seconds = active
+                .iter()
+                .map(|fetch| stalled_for(fetch))
+                .min()
+                .unwrap_or_default()
+                .as_secs();
+            match active.as_slice() {
+                [only] => trf!(
+                    "Waiting for the server to send {name}… ({seconds} s)",
+                    name = only.name,
+                    seconds = seconds
+                ),
+                _ => trn!(
+                    "Waiting for the server to send {n} mod… ({seconds} s)",
+                    "Waiting for the server to send {n} mods… ({seconds} s)",
+                    active.len(),
+                    seconds = seconds
+                ),
+            }
+        };
+        Some(ProgressDisplay {
+            fraction: Some(fraction),
+            pulse: total_bytes.is_none(),
+            text,
+        })
     }
 }
 
@@ -977,6 +1126,107 @@ mod tests {
         assert!(
             logs.contents()
                 .contains(&format!("No download size for {}", mod_entry.name))
+        );
+    }
+    const MB: u64 = 1_048_576;
+
+    fn downloading(downloaded: u64, total: Option<u64>) -> PrefetchEvent {
+        PrefetchEvent::Downloading { downloaded, total }
+    }
+
+    fn text(progress: &PrefetchProgress, now: Instant) -> String {
+        progress.display(now).expect("downloads running").text
+    }
+
+    #[test]
+    fn background_downloads_show_nothing_before_they_start_or_after_they_end() {
+        let start = Instant::now();
+        let progress = PrefetchProgress::new(2);
+        assert_eq!(progress.display(start), None);
+
+        progress.record("A", downloading(0, Some(2 * MB)), start);
+        progress.record("A", PrefetchEvent::Finished, start);
+        progress.record("B", PrefetchEvent::Failed, start);
+        assert_eq!(progress.display(start), None);
+    }
+
+    #[test]
+    fn one_background_download_shows_its_name_and_size() {
+        let start = Instant::now();
+        let progress = PrefetchProgress::new(2);
+        progress.record("A", PrefetchEvent::Finished, start);
+        progress.record("B", downloading(0, Some(2 * MB)), start);
+        progress.record("B", downloading(MB, Some(2 * MB)), start);
+
+        assert_eq!(
+            progress.display(start),
+            Some(ProgressDisplay {
+                fraction: Some(0.75),
+                pulse: false,
+                text: "Downloading B - 1.0 / 2.0 MB".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn several_background_downloads_show_their_count_and_pulse_without_a_size() {
+        let start = Instant::now();
+        let progress = PrefetchProgress::new(3);
+        progress.record("A", downloading(MB, Some(2 * MB)), start);
+        progress.record("B", downloading(MB, None), start);
+
+        let display = progress.display(start).unwrap();
+        assert_eq!(display.text, "Downloading 2 mods - 2.0 MB");
+        assert!(display.pulse);
+        assert_eq!(display.fraction, Some(0.0));
+    }
+
+    #[test]
+    fn a_silent_server_shows_how_long_it_has_been_waiting() {
+        let start = Instant::now();
+        let progress = PrefetchProgress::new(2);
+        progress.record("A", downloading(0, None), start);
+        assert_eq!(text(&progress, start), "Downloading A - 0.0 MB");
+        assert_eq!(
+            text(&progress, start + STALL_NOTICE),
+            "Waiting for the server to send A… (5 s)"
+        );
+
+        progress.record("A", downloading(MB, Some(2 * MB)), start);
+        let later = start + STALL_NOTICE - Duration::from_millis(1);
+        assert_eq!(text(&progress, later), "Downloading A - 1.0 / 2.0 MB");
+        // The same count again is not progress.
+        progress.record("A", downloading(MB, Some(2 * MB)), later);
+        let stalled = start + STALL_NOTICE + Duration::from_secs(1);
+        assert_eq!(
+            text(&progress, stalled),
+            "Waiting for the server to send A… (6 s)"
+        );
+
+        progress.record("B", downloading(0, None), start + Duration::from_secs(1));
+        assert_eq!(
+            text(&progress, stalled),
+            "Waiting for the server to send 2 mods… (5 s)"
+        );
+    }
+
+    #[test]
+    fn a_retry_shows_until_bytes_arrive_again() {
+        let start = Instant::now();
+        let progress = PrefetchProgress::new(2);
+        progress.record("A", downloading(MB, Some(2 * MB)), start);
+        progress.record("A", PrefetchEvent::Retrying { attempt: 2 }, start);
+        assert_eq!(text(&progress, start), "Retrying A (attempt 2 of 3)…");
+
+        // The retry resumes where it stopped.
+        progress.record("A", downloading(MB, Some(2 * MB)), start);
+        assert_eq!(text(&progress, start), "Retrying A (attempt 2 of 3)…");
+        progress.record("A", downloading(MB + 1, Some(2 * MB)), start);
+        assert_eq!(text(&progress, start), "Downloading A - 1.0 / 2.0 MB");
+        // A retry that stalls again is waiting, like any download.
+        assert_eq!(
+            text(&progress, start + STALL_NOTICE),
+            "Waiting for the server to send A… (5 s)"
         );
     }
 }

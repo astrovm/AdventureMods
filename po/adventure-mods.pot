@@ -932,6 +932,35 @@ msgstr ""
 
 #: src/ui/progress.rs
 #, rust-format
+msgid "Downloading {name} - {progress}"
+msgstr ""
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Downloading {n} mod - {progress}"
+msgid_plural "Downloading {n} mods - {progress}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Retrying {name} (attempt {attempt} of {max})…"
+msgstr ""
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {name}… ({seconds} s)"
+msgstr ""
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {n} mod… ({seconds} s)"
+msgid_plural "Waiting for the server to send {n} mods… ({seconds} s)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/ui/progress.rs
+#, rust-format
 msgid "{status} - {progress}"
 msgstr ""
 

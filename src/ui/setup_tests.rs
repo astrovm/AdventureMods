@@ -103,9 +103,27 @@ fn exploding_size(_: &ModEntry) -> Option<u64> {
     panic!("size lookup exploded")
 }
 
-fn fake_prefetch(path: &Path, mods: &[&ModEntry], cancel: &AtomicBool) {
+const MB: u64 = 1_048_576;
+
+/// Reports the first mod half downloaded, then finishes every mod.
+fn fake_prefetch(
+    path: &Path,
+    mods: &[&ModEntry],
+    cancel: &AtomicBool,
+    report: &(dyn Fn(&'static str, PrefetchEvent) + Sync),
+) {
+    for downloaded in [0, MB] {
+        let total = Some(2 * MB);
+        report(
+            mods[0].name,
+            PrefetchEvent::Downloading { downloaded, total },
+        );
+    }
     while marker(path, "hold-prefetch") && !cancel.load(Ordering::Relaxed) {
         std::thread::sleep(Duration::from_millis(5));
+    }
+    for mod_entry in mods {
+        report(mod_entry.name, PrefetchEvent::Finished);
     }
     let _ = std::fs::write(path.join("prefetched"), mods.len().to_string());
 }
@@ -588,17 +606,10 @@ fn cancelling_while_the_prefetch_finishes_installs_nothing() {
         flow.on_next();
         flow.on_next();
     });
-    let install = harness.state().flow.install.as_ref().unwrap();
-    assert!(
-        install
-            .tasks
-            .iter()
-            .any(|task| task.pending_note == Some("Downloading in the background"))
-    );
     run_until(&mut harness, "waiting on the prefetch", |state| {
         step_id(state) == StepId::DownloadMods
     });
-    harness.get_by_label("Finishing downloads…");
+    harness.get_by_label_contains("1.0 / 2.0 MB");
 
     harness.state_mut().flow.handle_pad(PadButton::Action);
     run_until(&mut harness, "back to choices", |state| {
@@ -612,6 +623,81 @@ fn cancelling_while_the_prefetch_finishes_installs_nothing() {
     run_until(&mut harness, "finished", |state| {
         step_id(state) == StepId::Complete
     });
+}
+
+fn mods_note(state: &State) -> Option<String> {
+    let install = state.flow.install.as_ref()?;
+    let mods_step = state
+        .flow
+        .steps
+        .iter()
+        .position(|step| step.id == StepId::DownloadMods)?;
+    install
+        .tasks
+        .iter()
+        .find(|task| task.step == mods_step)?
+        .pending_note
+        .clone()
+}
+
+#[test]
+fn the_mods_row_shows_the_background_downloads_until_they_finish() {
+    let dir = game_dir(&["proton-ready", "hold-manager", "hold-prefetch"]);
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
+    act(&mut harness, |flow| {
+        flow.on_next();
+        flow.on_next();
+        flow.on_next();
+    });
+    run_until(&mut harness, "download progress in the mods row", |state| {
+        mods_note(state).is_some_and(|note| note.ends_with(" - 1.0 / 2.0 MB"))
+    });
+    harness.get_by_label_contains("1.0 / 2.0 MB");
+
+    // Finished downloads leave the row's own description.
+    std::fs::remove_file(dir.path().join("hold-prefetch")).unwrap();
+    run_until(&mut harness, "downloads finished", |state| {
+        mods_note(state).is_none()
+    });
+    assert_eq!(step_id(harness.state()), StepId::InstallModManager);
+
+    std::fs::remove_file(dir.path().join("hold-manager")).unwrap();
+    run_until(&mut harness, "finished", |state| {
+        step_id(state) == StepId::Complete
+    });
+}
+
+#[test]
+fn the_mods_step_says_it_waits_for_downloads_before_any_report() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut work = work();
+    work.prefetch_archives = Some(silent_prefetch);
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work));
+    act(&mut harness, |flow| {
+        flow.on_next();
+        flow.on_next();
+        flow.on_next();
+    });
+    run_until(&mut harness, "waiting on the prefetch", |state| {
+        step_id(state) == StepId::DownloadMods
+    });
+    harness.get_by_label("Finishing downloads…");
+    harness.state_mut().flow.handle_pad(PadButton::Action);
+    run_until(&mut harness, "back to choices", |state| {
+        step_id(state) == StepId::LanguageOptions
+    });
+}
+
+/// Reports nothing and runs until cancelled.
+fn silent_prefetch(
+    _: &Path,
+    _: &[&ModEntry],
+    cancel: &AtomicBool,
+    _: &(dyn Fn(&'static str, PrefetchEvent) + Sync),
+) {
+    while !cancel.load(Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }
 
 #[test]
@@ -1133,7 +1219,7 @@ fn going_back_with_nothing_to_return_to_leaves_setup() {
 fn the_install_view_ignores_unknown_steps() {
     let steps = steps::steps_for_game(GameKind::SA2);
     let mut view = InstallView::new(&steps);
-    view.set_pending_note(0, "Ignored");
+    view.set_pending_note(0, Some("Ignored".to_owned()));
     view.show_error(0, "Ignored");
     assert!(view.tasks.iter().all(|task| task.pending_note.is_none()));
     assert!(

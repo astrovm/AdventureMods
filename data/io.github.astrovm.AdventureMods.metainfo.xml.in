@@ -55,6 +55,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.2.2" date="2026-10-16">
+      <description>
+        <p>Mod downloads no longer hang when a server stops responding.</p>
+        <ul>
+          <li>A download that gets no data for 30 seconds stops and tries again, up to three times</li>
+          <li>The install screen shows which mod is downloading, how much is done, and when it is waiting for the server or retrying</li>
+          <li>Cancel now stops a stuck download right away</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.1" date="2026-10-16">
       <description>
         <p>Fixes a crash when reading some Steam library files.</p>

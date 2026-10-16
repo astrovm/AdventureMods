@@ -424,10 +424,9 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
     // the mod step waits for these downloads before installing.
     let stop_prefetch = std::sync::atomic::AtomicBool::new(false);
     std::thread::scope(|scope| {
-        let mut prefetch =
-            Some(scope.spawn(|| {
-                pipeline::prefetch_mod_archives(&game_path, &selected_mods, &stop_prefetch)
-            }));
+        let mut prefetch = Some(scope.spawn(|| {
+            pipeline::prefetch_mod_archives(&game_path, &selected_mods, &stop_prefetch, &|_, _| {})
+        }));
         let result = (|| -> Result<()> {
             for (offset, action) in actions.into_iter().enumerate() {
                 let step_index = offset + 1;

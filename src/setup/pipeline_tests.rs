@@ -496,10 +496,70 @@ fn prefetch_stops_downloading_once_cancelled() {
     });
     let entry = served_mod("Prefetch Mod", "PrefetchMod", format!("{base}/prefetch.7z"));
 
-    prefetch_mod_archives(&env.game(), &[&entry], &cancelled);
+    prefetch_mod_archives(&env.game(), &[&entry], &cancelled, &|_, _| {});
 
     assert_eq!(gets(&log), 1);
     assert_eq!(env.cached_archives(), 0);
+}
+
+/// Prefetch `entry` and return the events it reported.
+fn prefetch_events(env: &DownloadEnv, entry: &ModEntry) -> Vec<PrefetchEvent> {
+    let events = Mutex::new(Vec::new());
+    prefetch_mod_archives(
+        &env.game(),
+        &[entry],
+        &AtomicBool::new(false),
+        &|name, event| {
+            assert_eq!(name, entry.name);
+            events.lock().unwrap().push(event);
+        },
+    );
+    events.into_inner().unwrap()
+}
+
+#[test]
+fn prefetch_tries_a_failed_download_again_and_says_so() {
+    let env = DownloadEnv::new();
+    let requests = std::sync::atomic::AtomicUsize::new(0);
+    let (base, log) = serve(move |_| match requests.fetch_add(1, Ordering::SeqCst) {
+        0 => Reply::ok("busy").status("503 Service Unavailable"),
+        _ => Reply::ok("Name=Retry Mod"),
+    });
+    let entry = served_mod("Retry Mod", "RetryMod", format!("{base}/retry.7z"));
+
+    let events = prefetch_events(&env, &entry);
+
+    assert_eq!(gets(&log), 2);
+    assert_eq!(env.cached_archives(), 1);
+    assert_eq!(
+        events.first(),
+        Some(&PrefetchEvent::Retrying { attempt: 2 })
+    );
+    assert!(events.contains(&PrefetchEvent::Downloading {
+        downloaded: 14,
+        total: Some(14)
+    }));
+    assert_eq!(events.last(), Some(&PrefetchEvent::Finished));
+}
+
+#[test]
+fn prefetch_gives_up_after_the_last_attempt() {
+    let env = DownloadEnv::new();
+    let (base, log) = serve(|_| Reply::ok("busy").status("503 Service Unavailable"));
+    let entry = served_mod("Down Mod", "DownMod", format!("{base}/down.7z"));
+
+    let events = prefetch_events(&env, &entry);
+
+    assert_eq!(gets(&log), MAX_MOD_INSTALL_ATTEMPTS);
+    assert_eq!(env.cached_archives(), 0);
+    assert_eq!(
+        events,
+        vec![
+            PrefetchEvent::Retrying { attempt: 2 },
+            PrefetchEvent::Retrying { attempt: 3 },
+            PrefetchEvent::Failed,
+        ]
+    );
 }
 
 /// Mods load in the order setup lists them, and some mods need to load last.

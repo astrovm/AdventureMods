@@ -9,6 +9,7 @@ pub(crate) struct Reply {
     pub headers: Vec<(&'static str, String)>,
     pub body: Vec<u8>,
     content_length: Option<usize>,
+    pause: Option<(usize, std::time::Duration)>,
 }
 
 impl Reply {
@@ -18,6 +19,7 @@ impl Reply {
             headers: Vec::new(),
             body: body.into(),
             content_length: None,
+            pause: None,
         }
     }
 
@@ -30,6 +32,13 @@ impl Reply {
     /// connection, so the client sees a truncated response.
     pub fn claim_length(mut self, length: usize) -> Self {
         self.content_length = Some(length);
+        self
+    }
+
+    /// Send the first `bytes` of the body, then go quiet for `pause` before
+    /// sending the rest, like a server that stalls mid-transfer.
+    pub fn pause_after(mut self, bytes: usize, pause: std::time::Duration) -> Self {
+        self.pause = Some((bytes, pause));
         self
     }
 
@@ -99,7 +108,15 @@ pub(crate) fn serve(
             head.push_str("\r\n");
             let _ = stream.write_all(head.as_bytes());
             if request.method != "HEAD" {
-                let _ = stream.write_all(&reply.body);
+                let (now, later) = reply
+                    .body
+                    .split_at(reply.pause.map_or(0, |(bytes, _)| bytes));
+                let _ = stream.write_all(now);
+                if let Some((_, pause)) = reply.pause {
+                    let _ = stream.flush();
+                    std::thread::sleep(pause);
+                }
+                let _ = stream.write_all(later);
             }
         }
     });

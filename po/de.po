@@ -937,6 +937,35 @@ msgstr "Einstellungen werden gespeichert… ({total}/{total})"
 
 #: src/ui/progress.rs
 #, rust-format
+msgid "Downloading {name} - {progress}"
+msgstr "{name} wird heruntergeladen - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Downloading {n} mod - {progress}"
+msgid_plural "Downloading {n} mods - {progress}"
+msgstr[0] "{n} Mod wird heruntergeladen - {progress}"
+msgstr[1] "{n} Mods werden heruntergeladen - {progress}"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Retrying {name} (attempt {attempt} of {max})…"
+msgstr "{name} wird erneut versucht (Versuch {attempt} von {max}) …"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {name}… ({seconds} s)"
+msgstr "Warten auf den Server für {name} … ({seconds} s)"
+
+#: src/ui/progress.rs
+#, rust-format
+msgid "Waiting for the server to send {n} mod… ({seconds} s)"
+msgid_plural "Waiting for the server to send {n} mods… ({seconds} s)"
+msgstr[0] "Warten auf den Server für {n} Mod … ({seconds} s)"
+msgstr[1] "Warten auf den Server für {n} Mods … ({seconds} s)"
+
+#: src/ui/progress.rs
+#, rust-format
 msgid "{status} - {progress}"
 msgstr "{status} - {progress}"
 
