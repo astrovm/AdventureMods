@@ -2385,3 +2385,125 @@ fn env_or_default_falls_back_when_the_variable_is_unset() {
         "fallback"
     );
 }
+
+#[test]
+fn install_mod_gives_new_and_kept_mods_our_settings_once() {
+    use crate::external::test_http::{Reply, serve};
+    use std::os::unix::fs::PermissionsExt;
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _guard = crate::test_env::lock();
+
+    let (base, _log) = serve(|_| Reply::ok("Name=HUD Plus").header("ETag", "\"v1\""));
+    let url: &'static str = Box::leak(format!("{base}/hud.7z").into_boxed_str());
+
+    let tmp = tempfile::tempdir().unwrap();
+    let game = tmp.path().join("game");
+    std::fs::create_dir_all(&game).unwrap();
+    // Extracts the archive text into mod.ini, with no config.ini.
+    let fake_7zz = tmp.path().join("fake-7zz");
+    std::fs::write(
+        &fake_7zz,
+        r##"#!/bin/sh
+for arg in "$@"; do
+    case "$arg" in
+        -o*) dest="${arg#-o}" ;;
+        x|-y) ;;
+        *) archive="$arg" ;;
+    esac
+done
+mkdir -p "$dest/HUD"
+cp "$archive" "$dest/HUD/mod.ini"
+"##,
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake_7zz, std::fs::Permissions::from_mode(0o755)).unwrap();
+    unsafe {
+        std::env::set_var("ADVENTURE_MODS_7ZZ", &fake_7zz);
+        std::env::set_var("ADVENTURE_MODS_CACHE_DIR", tmp.path().join("cache"));
+    }
+    let mod_entry = ModEntry {
+        name: "HUD Plus",
+        slug: "hud-plus",
+        source: ModSource::DirectUrl { url },
+        description: "test",
+        full_description: None,
+        pictures: &[],
+        dir_name: Some("sadx-hud-plus"),
+        links: &[],
+    };
+    let config = game.join("mods/sadx-hud-plus/config.ini");
+    let ours = "ShowMoreRings=True\nShowMoreLives=True\n";
+
+    // A fresh install gets our settings.
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(std::fs::read_to_string(&config).unwrap(), ours);
+
+    // So does a copy installed before we had any.
+    std::fs::remove_file(&config).unwrap();
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(std::fs::read_to_string(&config).unwrap(), ours);
+
+    // Settings the user saved stay.
+    std::fs::write(&config, "ShowMoreRings=False\n").unwrap();
+    install_mod_with_progress(&game, &mod_entry, None).unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&config).unwrap(),
+        "ShowMoreRings=False\n"
+    );
+
+    unsafe {
+        std::env::remove_var("ADVENTURE_MODS_7ZZ");
+        std::env::remove_var("ADVENTURE_MODS_CACHE_DIR");
+    }
+}
+
+#[test]
+fn write_default_settings_leaves_other_mods_and_existing_configs_alone() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dest = tmp.path().join("mod");
+    std::fs::create_dir_all(&dest).unwrap();
+
+    // No settings of ours for this mod.
+    write_default_settings(&dest, "update-mod").unwrap();
+    assert!(find_file_icase(&dest, MOD_USER_CONFIG_FILE).is_none());
+
+    // A config.ini already there, whatever its case, is kept.
+    std::fs::write(dest.join("Config.ini"), "mine").unwrap();
+    write_default_settings(&dest, "hud-plus").unwrap();
+    assert_eq!(
+        std::fs::read_to_string(dest.join("Config.ini")).unwrap(),
+        "mine"
+    );
+    assert!(!dest.join(MOD_USER_CONFIG_FILE).exists());
+
+    // A missing mod folder is reported.
+    let missing = tmp.path().join("missing");
+    let err = write_default_settings(&missing, "hud-plus").unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        format!("Failed to write {}", missing.join("config.ini").display())
+    );
+}
+
+#[test]
+fn default_settings_name_catalog_mods_in_ini_form() {
+    let catalog: Vec<&str> = [GameKind::SADX, GameKind::SA2]
+        .into_iter()
+        .flat_map(|kind| {
+            recommended_mods_for_game(kind)
+                .iter()
+                .map(|entry| entry.slug)
+        })
+        .collect();
+    for (slug, settings) in DEFAULT_SETTINGS {
+        assert!(catalog.contains(slug), "{slug}");
+        for line in settings.lines() {
+            let section = line.starts_with('[') && line.ends_with(']');
+            let pair = line.split_once('=').is_some_and(|(key, value)| {
+                !key.is_empty() && !value.is_empty() && !key.contains(' ')
+            });
+            assert!(section || pair, "{slug}: {line}");
+        }
+    }
+}
