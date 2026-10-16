@@ -57,12 +57,18 @@
   <releases translate="no">
     <release version="1.2.0" date="2026-10-15">
       <description>
-        <p>Adventure Mods now speaks Spanish, French, German, Italian, and Japanese.</p>
+        <p>Adventure Mods now speaks Spanish, French, German, Italian, and Japanese, and the mod lists got an update.</p>
         <ul>
           <li>The app follows your system language</li>
           <li>Every screen, message, and mod description is translated, and so is the command line</li>
           <li>Sizes and decimals are written the way your language writes them</li>
           <li>Japanese text has its own font, so it never shows as boxes</li>
+          <li>7 new mods: 4 for SA2 and 3 for SADX</li>
+          <li>HUD Plus and Cutscene Revamp Extensions start with their best options on</li>
+          <li>SA2 Render Fix loads first, so it no longer warns at startup</li>
+          <li>Multiplayer and the SA2 retranslations load where their pages ask</li>
+          <li>ADX Audio and 16:9 Flashbacks are gone: the Steam copy doesn't need the first, and Dreamcast Conversion overrides the second</li>
+          <li>Every mod has a plainer description</li>
         </ul>
       </description>
     </release>
