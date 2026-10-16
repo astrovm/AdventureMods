@@ -691,36 +691,6 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
         ],
     },
     ModEntry {
-        name: "16:9 Flashbacks",
-        slug: "16-9-flashbacks",
-        source: ModSource::DirectUrl {
-            url: "https://github.com/Kesnos-ho/16-9-Unstretched-Flashbacks/releases/latest/download/Flashback.widescreen.fix.7z",
-        },
-        description: tr_noop!("Amy and Gamma's flashbacks fit widescreens."),
-        full_description: Some(tr_noop!(
-            "Amy and Gamma's flashbacks no longer look stretched on widescreens. It replaces their images with new 16:9 ones, and adds black bars to the few it couldn't replace."
-        )),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sadx/flashbacks_16_9/flashbacks-16-9_5.jpg",
-        ],
-        dir_name: Some("Flashback widescreen fix"),
-        links: &[
-            ModLink {
-                label: "GameBanana",
-                url: "https://gamebanana.com/mods/9537",
-            },
-            ModLink {
-                label: "GitHub",
-                url: "https://github.com/Kesnos-ho/16-9-Unstretched-Flashbacks",
-            },
-        ],
-    },
-    ModEntry {
         name: "Multiplayer",
         slug: "multiplayer",
         source: ModSource::DirectUrl {
@@ -792,7 +762,6 @@ pub const PRESETS: &[ModPreset] = &[
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
-            "16:9 Flashbacks",
             "Multiplayer",
         ],
     },
@@ -828,7 +797,6 @@ pub const PRESETS: &[ModPreset] = &[
             "Perfect Chaos Music Swap",
             "AI HD FMVs",
             "AI HD Textures",
-            "16:9 Flashbacks",
             "Multiplayer",
         ],
     },

@@ -189,7 +189,7 @@ fn normalize_case_for_patch(game_path: &Path) -> Result<()> {
 mod tests {
     use super::*;
 
-    crate::recommended_mods_tests!(31);
+    crate::recommended_mods_tests!(30);
 
     #[test]
     fn dcmods_base_url_valid() {

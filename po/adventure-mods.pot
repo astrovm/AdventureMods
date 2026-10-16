@@ -741,14 +741,6 @@ msgid "Textures for almost the whole game, upscaled with AI for high-resolution 
 msgstr ""
 
 #: src/setup/sadx_catalog.rs
-msgid "Amy and Gamma's flashbacks fit widescreens."
-msgstr ""
-
-#: src/setup/sadx_catalog.rs
-msgid "Amy and Gamma's flashbacks no longer look stretched on widescreens. It replaces their images with new 16:9 ones, and adds black bars to the few it couldn't replace."
-msgstr ""
-
-#: src/setup/sadx_catalog.rs
 msgid "Local split-screen for up to 4 players."
 msgstr ""
 
@@ -1180,7 +1172,7 @@ msgid "Detects SADX and SA2 across all Steam library folders"
 msgstr ""
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
-msgid "31 SADX mods and 16 SA2 mods"
+msgid "30 SADX mods and 16 SA2 mods"
 msgstr ""
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
