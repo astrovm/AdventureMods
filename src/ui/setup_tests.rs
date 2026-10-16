@@ -248,7 +248,7 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
     harness.get_by_label("At least 2.2 GB to download");
     // Untick the first mod.
     harness
-        .get_by_role_and_label(egui::accesskit::Role::CheckBox, "Enhanced Chao World")
+        .get_by_role_and_label(egui::accesskit::Role::CheckBox, "SA2 Render Fix")
         .click();
     harness.step();
     harness.step();
@@ -288,7 +288,7 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
         step_id(state) == StepId::Complete
     });
     let installed = std::fs::read_to_string(dir.path().join("installed.txt")).unwrap();
-    assert!(!installed.starts_with("Enhanced Chao World"), "{installed}");
+    assert!(!installed.starts_with("SA2 Render Fix"), "{installed}");
     assert!(
         installed.contains("1920x1080\nfrench/english"),
         "{installed}"

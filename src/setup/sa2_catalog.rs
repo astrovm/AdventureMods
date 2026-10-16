@@ -4,35 +4,6 @@ use super::common::{ModEntry, ModLink, ModSource};
 
 pub const RECOMMENDED_MODS: &[ModEntry] = &[
     ModEntry {
-        name: "Enhanced Chao World",
-        slug: "enhanced-chao-world",
-        source: ModSource::GameBananaItem {
-            item_type: "Mod",
-            item_id: 48915,
-        },
-        description: tr_noop!("A big Chao World overhaul."),
-        full_description: Some(tr_noop!(
-            "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
-        )),
-        pictures: &[
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_0.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_1.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_2.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_3.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_4.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_5.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_6.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_7.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_8.jpg",
-            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_9.jpg",
-        ],
-        dir_name: Some("!EnhancedChaoWorld"),
-        links: &[ModLink {
-            label: "GameBanana",
-            url: "https://gamebanana.com/mods/48915",
-        }],
-    },
-    ModEntry {
         name: "SA2 Render Fix",
         slug: "sa2-render-fix",
         source: ModSource::DirectUrl {
@@ -65,6 +36,35 @@ pub const RECOMMENDED_MODS: &[ModEntry] = &[
                 url: "https://github.com/shaddatic/sa2b-render-fix",
             },
         ],
+    },
+    ModEntry {
+        name: "Enhanced Chao World",
+        slug: "enhanced-chao-world",
+        source: ModSource::GameBananaItem {
+            item_type: "Mod",
+            item_id: 48915,
+        },
+        description: tr_noop!("A big Chao World overhaul."),
+        full_description: Some(tr_noop!(
+            "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
+        )),
+        pictures: &[
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_0.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_1.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_2.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_3.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_4.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_5.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_6.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_7.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_8.jpg",
+            "/io/github/astrovm/AdventureMods/resources/images/sa2/enhanced_chao_world/enhanced-chao-world_9.jpg",
+        ],
+        dir_name: Some("!EnhancedChaoWorld"),
+        links: &[ModLink {
+            label: "GameBanana",
+            url: "https://gamebanana.com/mods/48915",
+        }],
     },
     ModEntry {
         name: "Cutscene Revamp Extensions",

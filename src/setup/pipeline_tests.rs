@@ -556,10 +556,11 @@ fn mods_that_must_load_last_do() {
 
 #[test]
 fn mods_that_must_load_first_do() {
-    // Enhanced Chao World's page: "at the top of your mod loader".
-    assert_eq!(
-        load_order(GameKind::SA2, None).first(),
-        Some(&"Enhanced Chao World")
+    // Render Fix's page: "Render Fix should always come first before any
+    // other mod", and it warns at startup when it isn't. Enhanced Chao
+    // World's older page asks for the top too, so it comes right after.
+    assert!(
+        load_order(GameKind::SA2, None).starts_with(&["SA2 Render Fix", "Enhanced Chao World",])
     );
 }
 
