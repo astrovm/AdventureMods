@@ -577,13 +577,16 @@ fn mods_load_after_the_mods_they_build_on() {
         "SA2 Render Fix",
         "Cutscene Revamp Extensions"
     ));
-    // AI HD Textures also replaces the flashback textures (ICM00C3 and
-    // others), so the widescreen ones must load after it to win.
-    assert!(loads_before(
-        GameKind::SADX,
-        "AI HD Textures",
-        "16:9 Flashbacks"
-    ));
+}
+
+#[test]
+fn sadx_skips_16_9_flashbacks() {
+    // Dreamcast Conversion, in every preset, makes the game load the flashback
+    // images from ICM00C3_DC.PVM and others. 16:9 Flashbacks only replaces
+    // ICM00C3 and the rest, so the flashbacks stayed stretched in game.
+    let order = load_order(GameKind::SADX, None);
+    assert!(order.contains(&"Dreamcast Conversion"));
+    assert!(!order.contains(&"16:9 Flashbacks"));
 }
 
 #[test]

@@ -78,7 +78,7 @@ It works with a controller too, so you can use it from the couch or in Steam Dec
 ## Features
 
 - **Finds your games.** Detects SADX and SA2 across all Steam library folders.
-- **Lots of mods.** Includes 31 SADX mods and 16 SA2 mods.
+- **Lots of mods.** Includes 30 SADX mods and 16 SA2 mods.
 - **SADX presets.** DX Enhanced and Dreamcast Restoration.
 - **One step.** Installs mod managers, mods and dependencies together.
 - **Good settings.** Sets your screen resolution, window mode and recommended settings.

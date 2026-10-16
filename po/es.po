@@ -747,14 +747,6 @@ msgid "Textures for almost the whole game, upscaled with AI for high-resolution 
 msgstr "Texturas de casi todo el juego, reescaladas con IA para pantallas de alta resolución. Tiene una versión para Dreamcast Conversion y otra para el juego original."
 
 #: src/setup/sadx_catalog.rs
-msgid "Amy and Gamma's flashbacks fit widescreens."
-msgstr "Los recuerdos de Amy y Gamma se ven bien en pantallas anchas."
-
-#: src/setup/sadx_catalog.rs
-msgid "Amy and Gamma's flashbacks no longer look stretched on widescreens. It replaces their images with new 16:9 ones, and adds black bars to the few it couldn't replace."
-msgstr "Los recuerdos de Amy y Gamma ya no se ven estirados en pantallas anchas. Reemplaza sus imágenes por otras nuevas en 16:9 y agrega bandas negras a las pocas que no pudo reemplazar."
-
-#: src/setup/sadx_catalog.rs
 msgid "Local split-screen for up to 4 players."
 msgstr "Pantalla dividida local para hasta 4 jugadores."
 
@@ -1186,8 +1178,8 @@ msgid "Detects SADX and SA2 across all Steam library folders"
 msgstr "Detecta SADX y SA2 en todas las carpetas de bibliotecas de Steam"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
-msgid "31 SADX mods and 16 SA2 mods"
-msgstr "31 mods para SADX y 16 para SA2"
+msgid "30 SADX mods and 16 SA2 mods"
+msgstr "30 mods para SADX y 16 para SA2"
 
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
 msgid "SADX presets: DX Enhanced and Dreamcast Restoration"
