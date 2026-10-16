@@ -373,20 +373,20 @@ msgid "Removed the mod loader"
 msgstr "Modローダーを削除しました"
 
 #: src/setup/sa2_catalog.rs
-msgid "A big Chao World overhaul."
-msgstr "チャオワールドを大きく作り直します。"
-
-#: src/setup/sa2_catalog.rs
-msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
-msgstr "チャオワールドを作り直します。ガーデンのデザインが新しくなり、カメラが良くなり、チャオをカスタマイズするメニュー、お店、ガーデン間のワープ、多くの不具合の修正が加わります。ほとんどの機能はModの設定でオフにできます。"
-
-#: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs and brings back Dreamcast visuals."
 msgstr "多くのグラフィックの不具合を直し、ドリームキャストの見た目を戻します。"
 
 #: src/setup/sa2_catalog.rs
 msgid "Fixes many graphics bugs in the PC version, like see-through objects drawn in the wrong order and missing effects. It also brings back details from the Dreamcast version, such as shine on shiny surfaces and the original textures and lighting."
 msgstr "PC版の多くのグラフィックの不具合を直します。たとえば、透明な物が間違った順番で描かれる問題や、抜けているエフェクトなどです。光る面の反射や、元のテクスチャーとライティングなど、ドリームキャスト版の細部も戻します。"
+
+#: src/setup/sa2_catalog.rs
+msgid "A big Chao World overhaul."
+msgstr "チャオワールドを大きく作り直します。"
+
+#: src/setup/sa2_catalog.rs
+msgid "Overhauls Chao World with redesigned gardens, a better camera, a menu to customize your Chao, a market, teleporting between gardens and many bug fixes. Almost every feature can be turned off in the mod's settings."
+msgstr "チャオワールドを作り直します。ガーデンのデザインが新しくなり、カメラが良くなり、チャオをカスタマイズするメニュー、お店、ガーデン間のワープ、多くの不具合の修正が加わります。ほとんどの機能はModの設定でオフにできます。"
 
 #: src/setup/sa2_catalog.rs
 msgid "Extra options for Render Fix's cutscenes."
