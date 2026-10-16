@@ -55,6 +55,14 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.2.1" date="2026-10-16">
+      <description>
+        <p>Fixes a crash when reading some Steam library files.</p>
+        <ul>
+          <li>Steam library files with a backslash before an accented or other non-English character no longer crash game detection</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.0" date="2026-10-15">
       <description>
         <p>Adventure Mods now speaks Spanish, French, German, Italian, and Japanese, and the mod lists got an update.</p>
