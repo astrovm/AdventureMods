@@ -64,11 +64,14 @@ parts:
       - gettext
       - desktop-file-utils
       - appstream
+    # meson runs in its own shell after override-build, so rustup's folder
+    # goes on PATH here rather than with an export.
+    build-environment:
+      - PATH: /root/.cargo/bin:${PATH}
     override-build: |
       craftctl set version="$(sh "$CRAFT_PART_SRC/build-aux/cargo-version.sh")"
       if ! command -v cargo >/dev/null; then
         curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet --profile minimal
       fi
-      export PATH="$HOME/.cargo/bin:$PATH"
       craftctl default
     parse-info: [usr/share/metainfo/io.github.astrovm.AdventureMods.metainfo.xml]
