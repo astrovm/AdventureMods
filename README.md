@@ -27,50 +27,9 @@ Why Proton 10.0: Proton 11 and tools based on it (Hotfix, Experimental, many cus
 flatpak install https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
-Update it later through your software manager or with:
+**AppImage**
 
-```sh
-flatpak update
-```
-
-<details>
-<summary><b>Other options (AppImage, Snap)</b></summary>
-
-**AppImage with Gear Lever**
-
-[Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install), or use the terminal:
-
-```sh
-flatpak install https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatpakref
-```
-
-Gear Lever handles desktop integration and updates.
-
-Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest) and open it with Gear Lever.
-
-**AppImage manually**
-
-```sh
-chmod +x AdventureMods-v<version>-<arch>.AppImage
-./AdventureMods-v<version>-<arch>.AppImage
-```
-
-Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
-
-**Snap**
-
-Download the latest `.snap` from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
-
-```sh
-sudo snap install --dangerous AdventureMods-v<version>-<arch>.snap
-sudo snap connect adventure-mods:steam-files
-sudo snap connect adventure-mods:removable-media
-sudo snap connect adventure-mods:joystick
-```
-
-It runs in Snap's sandbox. The `connect` lines let it reach your Steam folders, drives under `/media`, `/run/media` and `/mnt`, and controllers. Pick Steam libraries anywhere else from the app. Snap won't update it on its own: install a newer `.snap` the same way.
-
-</details>
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest).
 
 ## 🚀 Use
 
