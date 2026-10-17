@@ -160,7 +160,7 @@ make flatpak
 
 Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
 
-The Flatpak build downloads the Cargo.lock dependencies during the build.
+It builds offline, like Flathub: `build-aux/flatpak/cargo-sources.sh` first lists every crate in `Cargo.lock` (it needs `uv`), and 7-Zip and HDiffPatch build from source.
 
 **AppImage** (Podman + `ubuntu:26.04`, matching the CI runner)
 

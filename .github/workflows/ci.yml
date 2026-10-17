@@ -199,6 +199,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Generate Cargo sources
+        run: sh build-aux/flatpak/cargo-sources.sh
+
       - name: Validate manifest inputs
         run: |
           flatpak-builder --show-manifest build-aux/io.github.astrovm.AdventureMods.json >/dev/null
@@ -228,6 +231,11 @@ jobs:
           build-aux/test-flatpak-package.sh
           flatpak-production
           io.github.astrovm.AdventureMods
+
+      - name: Lint with Flathub's linter
+        run: |
+          flatpak-builder-lint manifest build-aux/io.github.astrovm.AdventureMods.json
+          flatpak-builder-lint builddir flatpak-production
 
       - name: Upload Flatpak artifact
         if: startsWith(github.ref, 'refs/tags/')

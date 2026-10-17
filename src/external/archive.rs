@@ -74,20 +74,20 @@ fn find_program_in_search_path(program: &str, search_path: Option<&OsStr>) -> Op
 mod tests {
     use super::*;
 
-    fn assert_manifest_installs_7zz(manifest: &str) {
-        assert!(manifest.contains("\"type\": \"file\""));
-        assert!(manifest.contains("tar xf 7zip.tar.xz"));
-        assert!(manifest.contains("install -Dm755 7zz /app/bin/7zz"));
-        assert!(manifest.contains("7z2604-linux-x64.tar.xz"));
-        assert!(manifest.contains("7z2604-linux-arm64.tar.xz"));
-        assert!(manifest.contains("\"only-arches\": [\"x86_64\"]"));
-        assert!(manifest.contains("\"only-arches\": [\"aarch64\"]"));
+    fn assert_manifest_builds_7zz(manifest: &str) {
+        assert!(manifest.contains("7z2604-src.tar.xz"));
+        assert!(manifest.contains("-f ../../cmpl_gcc.mak"));
+        assert!(manifest.contains("install -Dm755 CPP/7zip/Bundles/Alone2/b/g/7zz /app/bin/7zz"));
+        assert!(!manifest.contains("only-arches"));
     }
 
-    fn assert_manifest_installs_hpatchz(manifest: &str) {
-        assert!(manifest.contains("install -Dm755 hpatchz /app/bin/hpatchz"));
-        assert!(manifest.contains("hdiffpatch_v5.1.3_bin_linux64.zip"));
-        assert!(manifest.contains("hdiffpatch_v5.1.3_bin_linux_arm64.zip"));
+    fn assert_manifest_builds_hpatchz(manifest: &str) {
+        assert!(manifest.contains("HDiffPatch/archive/refs/tags/v5.1.3.tar.gz"));
+        // SADX's Steam-to-2004 patch is LZMA compressed; 7-Zip's C sources
+        // are the LZMA SDK that HDiffPatch builds against.
+        assert!(manifest.contains("\"dest\": \"lzma\""));
+        assert!(!manifest.contains("LZMA=0"));
+        assert!(manifest.contains("install -Dm755 HDiffPatch/hpatchz /app/bin/hpatchz"));
     }
 
     fn assert_appimage_build_installs_7zz(script: &str) {
@@ -333,10 +333,15 @@ mod tests {
             assert!(manifest.contains("\"runtime-version\": \"26.08\""));
             assert!(manifest.contains("\"flatpak/7zip.json\""));
             assert!(manifest.contains("\"flatpak/hdiffpatch.json\""));
+            // Built offline from Cargo.lock, as on Flathub.
+            assert!(manifest.contains("\"flatpak/cargo-sources.json\""));
+            assert!(!manifest.contains("build-args"));
+            // Nothing runs outside the sandbox.
+            assert!(!manifest.contains("org.freedesktop.Flatpak"));
         }
 
-        assert_manifest_installs_7zz(include_str!("../../build-aux/flatpak/7zip.json"));
-        assert_manifest_installs_hpatchz(include_str!("../../build-aux/flatpak/hdiffpatch.json"));
+        assert_manifest_builds_7zz(include_str!("../../build-aux/flatpak/7zip.json"));
+        assert_manifest_builds_hpatchz(include_str!("../../build-aux/flatpak/hdiffpatch.json"));
     }
 
     #[test]

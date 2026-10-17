@@ -27,9 +27,15 @@ test -f "$metadata"
 desktop-file-validate "$files_dir/share/applications/$app_id.desktop"
 appstreamcli validate --no-net "$files_dir/share/metainfo/$app_id.metainfo.xml"
 
-# Host integration finish-args (Steam mounts + flatpak-spawn talk-name)
-grep -q 'org\.freedesktop\.Flatpak' "$metadata"
+# Steam mounts, and no way to run commands outside the sandbox
 grep -qE '(\.steam|Steam)' "$metadata"
-flatpak build "$build_dir" sh -c 'command -v flatpak-spawn >/dev/null'
+if grep -q 'org\.freedesktop\.Flatpak' "$metadata"; then
+    echo "The Flatpak can run commands outside its sandbox" >&2
+    exit 1
+fi
+
+# The bundled tools are built from source with the formats setup needs
+flatpak build "$build_dir" 7zz i | grep -q 'Rar5'
+flatpak build "$build_dir" hpatchz -v >/dev/null
 
 flatpak build "$build_dir" adventure-mods --version

@@ -8,7 +8,6 @@ pub struct SteamFixture {
     pub libraryfolders_vdf: PathBuf,
     pub game_path: PathBuf,
     pub prefix_path: PathBuf,
-    pub wine_log: PathBuf,
     pub fake_7zz: PathBuf,
     pub fake_hpatchz: PathBuf,
     pub extract_root: PathBuf,
@@ -25,7 +24,6 @@ pub fn create_sa2_fixture() -> SteamFixture {
     let extract_root = temp_dir.path().join("extract-fixtures");
     let patched_root = temp_dir.path().join("patched-sadx");
     let script_dir = temp_dir.path().join("scripts");
-    let wine_log = temp_dir.path().join("wine.log");
 
     steam_install::lay_out(&game_path, steam_install::SA2);
 
@@ -80,7 +78,7 @@ pub fn create_sa2_fixture() -> SteamFixture {
     .unwrap();
 
     std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
-    scripts::install_fake_wine(&proton_dir.join("files/bin/wine64"), &wine_log);
+    write_file(&proton_dir.join("files/bin/wine64"), b"");
 
     std::fs::create_dir_all(&extract_root).unwrap();
     write_file(
@@ -105,6 +103,8 @@ pub fn create_sa2_fixture() -> SteamFixture {
 
     std::fs::create_dir_all(&patched_root).unwrap();
 
+    write_dotnet_zip_contents(&extract_root.join("dotnet"));
+
     std::fs::create_dir_all(&script_dir).unwrap();
     let fake_7zz = script_dir.join("fake-7zz");
     scripts::install_fake_7zz(&fake_7zz, &extract_root);
@@ -116,7 +116,6 @@ pub fn create_sa2_fixture() -> SteamFixture {
         libraryfolders_vdf,
         game_path,
         prefix_path: compatdata.join("pfx"),
-        wine_log,
         fake_7zz,
         fake_hpatchz,
         extract_root,
@@ -134,7 +133,6 @@ pub fn create_sadx_fixture() -> SteamFixture {
     let extract_root = temp_dir.path().join("extract-fixtures");
     let patched_root = temp_dir.path().join("patched-sadx");
     let script_dir = temp_dir.path().join("scripts");
-    let wine_log = temp_dir.path().join("wine.log");
 
     steam_install::lay_out(&game_path, steam_install::SADX);
 
@@ -189,7 +187,7 @@ pub fn create_sadx_fixture() -> SteamFixture {
     .unwrap();
 
     std::fs::create_dir_all(proton_dir.join("files/bin")).unwrap();
-    scripts::install_fake_wine(&proton_dir.join("files/bin/wine64"), &wine_log);
+    write_file(&proton_dir.join("files/bin/wine64"), b"");
 
     std::fs::create_dir_all(&extract_root).unwrap();
     write_file(
@@ -222,6 +220,8 @@ pub fn create_sadx_fixture() -> SteamFixture {
     write_file(&patched_root.join("sonic.exe"), b"converted");
     write_file(&patched_root.join("system/CHRMODELS_orig.dll"), b"backup");
 
+    write_dotnet_zip_contents(&extract_root.join("dotnet"));
+
     std::fs::create_dir_all(&script_dir).unwrap();
     let fake_7zz = script_dir.join("fake-7zz");
     scripts::install_fake_7zz(&fake_7zz, &extract_root);
@@ -233,10 +233,24 @@ pub fn create_sadx_fixture() -> SteamFixture {
         libraryfolders_vdf,
         game_path,
         prefix_path: compatdata.join("pfx"),
-        wine_log,
         fake_7zz,
         fake_hpatchz,
         extract_root,
+    }
+}
+
+/// What the fake 7zz unpacks from every .NET zip: both packages of .NET 8
+/// and 10 at once.
+fn write_dotnet_zip_contents(root: &Path) {
+    write_file(&root.join("dotnet.exe"), b"dotnet");
+    for version in ["8.0.0", "10.0.0"] {
+        for dir in [
+            "host/fxr",
+            "shared/Microsoft.NETCore.App",
+            "shared/Microsoft.WindowsDesktop.App",
+        ] {
+            std::fs::create_dir_all(root.join(dir).join(version)).unwrap();
+        }
     }
 }
 

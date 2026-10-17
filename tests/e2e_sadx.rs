@@ -49,10 +49,10 @@ fn sadx_setup_completes_against_fake_steam_install() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -91,11 +91,19 @@ fn sadx_setup_completes_against_fake_steam_install() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -186,7 +194,12 @@ fn sadx_setup_completes_against_fake_steam_install() {
     );
     assert!(fixture.game_path.join("mods/Test Flat/mod.ini").is_file());
     assert!(fixture.game_path.join("SoundData/voice_jp/wma").is_dir());
-    assert!(fixture.wine_log.is_file());
+    assert!(
+        fixture
+            .prefix_path
+            .join("drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/10.0.0")
+            .is_dir()
+    );
 }
 
 #[test]
@@ -210,10 +223,10 @@ fn sadx_setup_can_rerun_on_existing_installation() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -252,11 +265,19 @@ fn sadx_setup_can_rerun_on_existing_installation() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",

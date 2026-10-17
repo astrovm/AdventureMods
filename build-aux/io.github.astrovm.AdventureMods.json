@@ -18,8 +18,7 @@
     "--filesystem=~/.var/app/com.valvesoftware.Steam/.local/share/Steam",
     "--filesystem=/mnt",
     "--filesystem=/media",
-    "--filesystem=/run/media",
-    "--talk-name=org.freedesktop.Flatpak"
+    "--filesystem=/run/media"
   ],
   "cleanup": [
     "/include",
@@ -35,8 +34,7 @@
     "append-path": "/usr/lib/sdk/rust-stable/bin",
     "env": {
       "RUST_BACKTRACE": "1",
-      "RUSTFLAGS": "-D warnings",
-      "CARGO_REGISTRIES_CRATES_IO_PROTOCOL": "sparse"
+      "RUSTFLAGS": "-D warnings"
     }
   },
   "modules": [
@@ -47,9 +45,9 @@
       "buildsystem": "meson",
       "config-opts": ["-Dprofile=default"],
       "build-options": {
-        "build-args": ["--share=network"],
         "env": {
-          "CARGO_HOME": "/run/build/adventure-mods/cargo"
+          "CARGO_HOME": "/run/build/adventure-mods/cargo",
+          "CARGO_NET_OFFLINE": "true"
         }
       },
       "sources": [
@@ -57,7 +55,8 @@
           "type": "dir",
           "path": "..",
           "skip": [".flatpak-builder", "appimage-build", "build", "target"]
-        }
+        },
+        "flatpak/cargo-sources.json"
       ]
     }
   ]
