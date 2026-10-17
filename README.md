@@ -27,37 +27,9 @@ Why Proton 10.0: Proton 11 and tools based on it (Hotfix, Experimental, many cus
 flatpak install https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakref
 ```
 
-Update it later through your software manager or with:
+**AppImage**
 
-```sh
-flatpak update
-```
-
-<details>
-<summary><b>AppImage</b></summary>
-
-**AppImage with Gear Lever**
-
-[Install Gear Lever](https://flathub.org/apps/it.mijorus.gearlever/install), or use the terminal:
-
-```sh
-flatpak install https://dl.flathub.org/repo/appstream/it.mijorus.gearlever.flatpakref
-```
-
-Gear Lever handles desktop integration and updates.
-
-Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest) and open it with Gear Lever.
-
-**AppImage manually**
-
-```sh
-chmod +x AdventureMods-v<version>-<arch>.AppImage
-./AdventureMods-v<version>-<arch>.AppImage
-```
-
-Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
-
-</details>
+Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest).
 
 ## 🚀 Use
 
