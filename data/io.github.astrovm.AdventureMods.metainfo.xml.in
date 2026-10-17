@@ -55,6 +55,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.2.4" date="2026-10-17">
+      <description>
+        <p>Mod downloads no longer crawl when GameBanana sends them to a slow mirror.</p>
+        <ul>
+          <li>A download that stays very slow for 20 seconds asks GameBanana for another mirror and keeps what it already has, up to three times</li>
+          <li>The log no longer repeats the detected screen resolution on every frame</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.3" date="2026-10-17">
       <description>
         <p>Setting up .NET no longer runs anything through Proton, and the Flatpak and Snap need less access to your system.</p>
