@@ -340,6 +340,10 @@ mod tests {
             assert!(!manifest.contains("org.freedesktop.Flatpak"));
         }
 
+        // Flatpak before 1.15.6 has no `input` device, so controllers need
+        // `all` there. Flatpak 1.18 keeps it to `input` when it can.
+        assert!(production.contains("\"--device-if=all:!has-input-device\""));
+
         assert_manifest_builds_7zz(include_str!("../../build-aux/flatpak/7zip.json"));
         assert_manifest_builds_hpatchz(include_str!("../../build-aux/flatpak/hdiffpatch.json"));
     }

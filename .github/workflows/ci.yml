@@ -234,8 +234,9 @@ jobs:
 
       - name: Lint with Flathub's linter
         run: |
-          flatpak-builder-lint manifest build-aux/io.github.astrovm.AdventureMods.json
-          flatpak-builder-lint builddir flatpak-production
+          lint="flatpak-builder-lint --exceptions --user-exceptions build-aux/flatpak/lint-exceptions.json"
+          $lint manifest build-aux/io.github.astrovm.AdventureMods.json
+          $lint builddir flatpak-production
 
       - name: Upload Flatpak artifact
         if: startsWith(github.ref, 'refs/tags/')

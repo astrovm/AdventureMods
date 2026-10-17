@@ -158,7 +158,7 @@ flatpak run io.github.astrovm.AdventureMods setup --help
 make flatpak
 ```
 
-Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json`
+Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.AdventureMods.json` (needs Flatpak 1.18 or newer for its controller permission)
 
 It builds offline, like Flathub: `build-aux/flatpak/cargo-sources.sh` first lists every crate in `Cargo.lock` (it needs `uv`), and 7-Zip and HDiffPatch build from source.
 
