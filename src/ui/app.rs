@@ -542,8 +542,9 @@ impl AdventureModsApp {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
         if let Some(setup) = &mut self.setup {
-            setup.resolution =
-                ctx.input(|input| crate::display::resolution_from_viewport(input.viewport()));
+            setup.resolution = ctx.input(|input| {
+                crate::display::resolution_from_viewport(input.viewport(), setup.resolution)
+            });
         }
         self.images.get_or_insert_with(|| ImageCache::new(&ctx));
         // B on a controller, or Escape: go back, unless a dialog takes it.

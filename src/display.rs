@@ -1,10 +1,24 @@
 //! Monitor resolution, which the mod configs use as the game's resolution.
 
-/// The physical resolution of the monitor egui reports for the window.
-pub fn resolution_from_viewport(viewport: &egui::ViewportInfo) -> Option<(u32, u32)> {
+/// The physical resolution of the monitor egui reports for the window. This
+/// runs every frame, so it only logs a resolution that differs from
+/// `previous`.
+pub fn resolution_from_viewport(
+    viewport: &egui::ViewportInfo,
+    previous: Option<(u32, u32)>,
+) -> Option<(u32, u32)> {
     let size = viewport.monitor_size?;
     let scale = viewport.native_pixels_per_point.unwrap_or(1.0);
-    physical_resolution(size.x, size.y, scale)
+    let resolution @ (physical_width, physical_height) =
+        physical_resolution(size.x, size.y, scale)?;
+    if previous != Some(resolution) {
+        tracing::info!(
+            "Detected resolution: {physical_width}x{physical_height} (logical: {}x{}, scale: {scale:.2})",
+            size.x,
+            size.y,
+        );
+    }
+    Some(resolution)
 }
 
 /// Pick the landscape monitor with the largest area, or any monitor when all
@@ -24,10 +38,6 @@ fn physical_resolution(width: f32, height: f32, scale: f32) -> Option<(u32, u32)
     if physical_width == 0 || physical_height == 0 {
         return None;
     }
-
-    tracing::info!(
-        "Detected resolution: {physical_width}x{physical_height} (logical: {width}x{height}, scale: {scale:.2})",
-    );
     Some((physical_width, physical_height))
 }
 
@@ -78,7 +88,7 @@ mod tests {
         };
 
         let (resolution, logs) =
-            crate::test_log::capture_logs(|| resolution_from_viewport(&viewport));
+            crate::test_log::capture_logs(|| resolution_from_viewport(&viewport, None));
 
         assert_eq!(resolution, Some((1920, 1080)));
         assert!(
@@ -88,9 +98,33 @@ mod tests {
     }
 
     #[test]
+    fn viewport_resolution_logs_only_when_it_changes() {
+        let viewport = egui::ViewportInfo {
+            monitor_size: Some(egui::vec2(1280.0, 720.0)),
+            native_pixels_per_point: Some(1.5),
+            ..Default::default()
+        };
+
+        let (same, logs) = crate::test_log::capture_logs(|| {
+            resolution_from_viewport(&viewport, Some((1920, 1080)))
+        });
+        assert_eq!(same, Some((1920, 1080)));
+        assert!(!logs.contains("Detected resolution"), "logs were: {logs}");
+
+        let (changed, logs) = crate::test_log::capture_logs(|| {
+            resolution_from_viewport(&viewport, Some((2560, 1440)))
+        });
+        assert_eq!(changed, Some((1920, 1080)));
+        assert!(
+            logs.contains("Detected resolution: 1920x1080"),
+            "logs were: {logs}"
+        );
+    }
+
+    #[test]
     fn viewport_resolution_needs_a_monitor_size() {
         assert_eq!(
-            resolution_from_viewport(&egui::ViewportInfo::default()),
+            resolution_from_viewport(&egui::ViewportInfo::default(), None),
             None
         );
 
@@ -98,7 +132,7 @@ mod tests {
             monitor_size: Some(egui::vec2(1280.0, 800.0)),
             ..Default::default()
         };
-        assert_eq!(resolution_from_viewport(&unscaled), Some((1280, 800)));
+        assert_eq!(resolution_from_viewport(&unscaled, None), Some((1280, 800)));
     }
 
     #[test]
