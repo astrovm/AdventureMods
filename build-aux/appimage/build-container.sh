@@ -11,8 +11,6 @@ cd "$PROJECT_DIR"
 engine="$(command -v podman || command -v docker)"
 "$engine" run --rm \
 	-e DEBIAN_FRONTEND=noninteractive \
-	-e HOST_UID="$(id -u)" \
-	-e HOST_GID="$(id -g)" \
 	-v "$PROJECT_DIR:/src" \
 	-w /src \
 	docker.io/library/ubuntu:24.04 \
@@ -25,5 +23,7 @@ engine="$(command -v podman || command -v docker)"
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
 		export PATH="$HOME/.cargo/bin:$PATH"
 		bash build-aux/appimage/build-appimage.sh
-		chown -R "$HOST_UID:$HOST_GID" /src/appimage-build
+		# Hand the output to whoever owns the checkout. Under rootless podman
+		# that is the container root, which already maps to the host user.
+		chown -R "$(stat -c %u:%g /src)" /src/appimage-build
 	'
