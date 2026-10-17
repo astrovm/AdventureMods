@@ -24,6 +24,23 @@ pub(crate) const STALL_TIMEOUT: std::time::Duration = if cfg!(test) {
 /// for bytes, so a cancel (an error from the callback) stops it right away.
 const HEARTBEAT: std::time::Duration = std::time::Duration::from_millis(250);
 
+/// How long a resumable download measures its speed before deciding the
+/// mirror it was sent to is too slow.
+const SPEED_WINDOW: std::time::Duration = if cfg!(test) {
+    std::time::Duration::from_millis(300)
+} else {
+    std::time::Duration::from_secs(20)
+};
+
+/// A redirected download that gets fewer bytes than this in a
+/// [`SPEED_WINDOW`] (about 256 KiB/s) asks for the file again, so the host
+/// can pick another mirror. GameBanana picks one per request, and some are
+/// much slower than others.
+const SLOW_WINDOW_BYTES: u64 = if cfg!(test) { 5 } else { 20 * 256 * 1024 };
+
+/// How many times one download may ask for another mirror.
+const MIRROR_RETRIES: usize = 3;
+
 /// Run HTTP work to completion from a blocking thread.
 ///
 /// Every download shares one small runtime and one [`Client`], so parallel mod
@@ -52,13 +69,26 @@ pub(crate) fn block_on<F: Future>(future: F) -> Result<F::Output> {
 /// The shared HTTP client. Only use it inside [`block_on`].
 pub(crate) fn client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
+    CLIENT.get_or_init(|| client_builder().build().unwrap_or_default())
+}
+
+/// A client that opens a new connection for every request. GameBanana picks
+/// a mirror per connection, so asking again on a pooled one gets the same
+/// slow mirror. Only use it inside [`block_on`].
+fn unpooled_client() -> &'static Client {
+    static CLIENT: OnceLock<Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
-        Client::builder()
-            .connect_timeout(std::time::Duration::from_secs(30))
-            .read_timeout(STALL_TIMEOUT)
+        client_builder()
+            .pool_max_idle_per_host(0)
             .build()
             .unwrap_or_default()
     })
+}
+
+fn client_builder() -> reqwest::ClientBuilder {
+    Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .read_timeout(STALL_TIMEOUT)
 }
 
 /// Download a file from a URL with progress reporting.
@@ -176,6 +206,34 @@ async fn download_file_resumable_async(
     dest: &Path,
     mut progress: Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
 ) -> Result<Option<String>> {
+    let mut retries = MIRROR_RETRIES;
+    let mut client = client();
+    loop {
+        match download_attempt(client, url, dest, &mut progress, retries > 0).await? {
+            Attempt::Done(validator) => return Ok(validator),
+            Attempt::SlowMirror => {
+                retries -= 1;
+                client = unpooled_client();
+            }
+        }
+    }
+}
+
+/// How one request for a resumable download ended.
+enum Attempt {
+    /// The whole file is at `dest`, with this validator.
+    Done(Option<String>),
+    /// The mirror was too slow; the bytes so far are kept for a resume.
+    SlowMirror,
+}
+
+async fn download_attempt(
+    client: &Client,
+    url: &str,
+    dest: &Path,
+    progress: &mut Option<&mut dyn FnMut(u64, Option<u64>) -> Result<()>>,
+    may_switch_mirror: bool,
+) -> Result<Attempt> {
     use std::io::Write;
 
     let (part, validator_path) = partial_paths(dest);
@@ -188,15 +246,22 @@ async fn download_file_resumable_async(
         _ => None,
     };
 
-    let response = with_heartbeat(fetch_download_response_from(client(), url, resume), || {
-        report(&mut progress, resume_from, None)
+    let response = with_heartbeat(fetch_download_response_from(client, url, resume), || {
+        report(progress, resume_from, None)
     })
     .await??;
     let validator = response_validator(&response);
     let resumed = resume.is_some() && response.status() == reqwest::StatusCode::PARTIAL_CONTENT;
+    // Only a mirror the host redirected to can be swapped by asking again, and
+    // only a file that can resume keeps its bytes when we do.
+    let may_switch_mirror = may_switch_mirror
+        && validator.is_some()
+        && (resumed || accepts_ranges(&response))
+        && Url::parse(url).is_ok_and(|asked| asked.origin() != response.url().origin());
+    let mirror = response.url().host_str().unwrap_or_default().to_owned();
 
     let (mut file, mut downloaded) = if resumed {
-        tracing::info!("Resuming download of {url} at {resume_from} bytes");
+        tracing::info!("Resuming download of {url} from {mirror} at {resume_from} bytes");
         let file = std::fs::OpenOptions::new()
             .append(true)
             .open(&part)
@@ -216,13 +281,35 @@ async fn download_file_resumable_async(
     let total = response.content_length().map(|len| len + downloaded);
 
     let mut stream = response.bytes_stream();
-    while let Some(chunk) =
-        with_heartbeat(stream.next(), || report(&mut progress, downloaded, total)).await?
-    {
+    let mut window_end = tokio::time::Instant::now() + SPEED_WINDOW;
+    let mut window_start_bytes = downloaded;
+    loop {
+        if tokio::time::Instant::now() >= window_end {
+            let window_bytes = downloaded - window_start_bytes;
+            if may_switch_mirror && window_bytes < SLOW_WINDOW_BYTES {
+                tracing::info!(
+                    "{mirror} sent only {window_bytes} bytes of {url} in {} seconds, asking for another mirror",
+                    SPEED_WINDOW.as_secs()
+                );
+                file.flush()?;
+                return Ok(Attempt::SlowMirror);
+            }
+            window_end += SPEED_WINDOW;
+            window_start_bytes = downloaded;
+        }
+        // Stop waiting at the end of the window, so a slow mirror is noticed
+        // even between chunks. Waiting for the next chunk can be cancelled.
+        let next = tokio::time::timeout_at(
+            window_end,
+            with_heartbeat(stream.next(), || report(progress, downloaded, total)),
+        )
+        .await;
+        let Ok(next) = next else { continue };
+        let Some(chunk) = next? else { break };
         let chunk = chunk.map_err(|err| stalled_or(err, url, "Error reading response body"))?;
         file.write_all(&chunk)?;
         downloaded += chunk.len() as u64;
-        report(&mut progress, downloaded, total)?;
+        report(progress, downloaded, total)?;
     }
     file.flush()?;
     drop(file);
@@ -230,7 +317,16 @@ async fn download_file_resumable_async(
     std::fs::rename(&part, dest)
         .with_context(|| format!("Failed to finish download to {}", dest.display()))?;
     let _ = std::fs::remove_file(&validator_path);
-    Ok(validator)
+    Ok(Attempt::Done(validator))
+}
+
+/// Whether the server says it can send part of the file.
+fn accepts_ranges(response: &Response) -> bool {
+    response
+        .headers()
+        .get(reqwest::header::ACCEPT_RANGES)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case("bytes"))
 }
 
 /// Await `future`, calling `beat` every [`HEARTBEAT`] until it is ready. An
@@ -460,6 +556,121 @@ mod tests {
         let (part, validator_path) = partial_paths(&dest);
         assert!(!part.exists() && !validator_path.exists());
         assert_eq!(log.lock().unwrap().len(), 1);
+    }
+
+    /// Long enough to look slow, short enough not to count as a stall.
+    const TRICKLE_PAUSE: std::time::Duration = std::time::Duration::from_millis(700);
+
+    /// Serves BODY slowly: two bytes, then a pause. Honors ranges when
+    /// `ranges` is set, and says so with `Accept-Ranges`.
+    fn trickle(request: &Request, ranges: bool) -> Reply {
+        let start = request
+            .header("Range")
+            .filter(|_| ranges && request.header("If-Range") == Some("\"v1\""))
+            .and_then(|range| range.strip_prefix("bytes="))
+            .and_then(|range| range.trim_end_matches('-').parse::<usize>().ok())
+            .unwrap_or(0);
+        let mut reply = Reply::ok(&BODY[start..])
+            .header("ETag", "\"v1\"")
+            .pause_after(2, TRICKLE_PAUSE);
+        if start > 0 {
+            reply = reply.status("206 Partial Content");
+        }
+        if ranges {
+            reply = reply.header("Accept-Ranges", "bytes");
+        }
+        reply
+    }
+
+    type RequestLog<T> = std::sync::Arc<std::sync::Mutex<Vec<T>>>;
+
+    /// A host that redirects `/file` to `slow_path` on a mirror for the first
+    /// `slow_times` requests, then to a fast mirror path. Returns the host's
+    /// URL for the file, the mirror's request log and the `Range` headers the
+    /// fast path got.
+    fn mirrored_file(
+        slow_path: &'static str,
+        slow_times: usize,
+    ) -> (String, RequestLog<String>, RequestLog<Option<String>>) {
+        let ranges = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let fast_ranges = ranges.clone();
+        let (mirror, mirror_log) = serve(move |request| match request.path.as_str() {
+            "/fast" => {
+                fast_ranges
+                    .lock()
+                    .unwrap()
+                    .push(request.header("Range").map(str::to_owned));
+                ranged_file(request, "\"v1\"").header("Accept-Ranges", "bytes")
+            }
+            "/slow" => trickle(request, true),
+            _ => trickle(request, false),
+        });
+        let asked = std::sync::atomic::AtomicUsize::new(0);
+        let (host, _) = serve(move |_| {
+            let path = if asked.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < slow_times {
+                slow_path
+            } else {
+                "/fast"
+            };
+            Reply::ok(Vec::new())
+                .status("302 Found")
+                .header("Location", format!("{mirror}{path}"))
+        });
+        (format!("{host}/file"), mirror_log, ranges)
+    }
+
+    #[test]
+    fn a_slow_mirror_is_swapped_for_another_and_the_download_resumes() {
+        init();
+        let (url, mirror_log, ranges) = mirrored_file("/slow", 1);
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+
+        let (validator, logs) =
+            crate::test_log::capture_logs(|| download_file_resumable(&url, &dest, None));
+
+        assert_eq!(validator.unwrap().as_deref(), Some("\"v1\""));
+        assert_eq!(std::fs::read(&dest).unwrap(), BODY);
+        assert_eq!(*mirror_log.lock().unwrap(), ["GET /slow", "GET /fast"]);
+        // The fast mirror only sent what the slow one had not.
+        assert_eq!(*ranges.lock().unwrap(), [Some("bytes=2-".to_owned())]);
+        assert!(
+            logs.contains("asking for another mirror"),
+            "logs were: {logs}"
+        );
+    }
+
+    #[test]
+    fn a_mirror_that_stays_slow_is_kept_after_a_few_tries() {
+        init();
+        let (url, mirror_log, _) = mirrored_file("/slow", usize::MAX);
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+
+        download_file_resumable(&url, &dest, None).unwrap();
+
+        assert_eq!(std::fs::read(&dest).unwrap(), BODY);
+        assert_eq!(mirror_log.lock().unwrap().len(), MIRROR_RETRIES + 1);
+    }
+
+    #[test]
+    fn a_slow_download_that_cannot_resume_or_was_not_redirected_keeps_going() {
+        init();
+        let tmp = tempfile::tempdir().unwrap();
+
+        // The mirror does not take ranges, so asking again would start over.
+        let (url, mirror_log, _) = mirrored_file("/slow-no-ranges", 1);
+        let no_ranges = tmp.path().join("no-ranges.7z");
+        download_file_resumable(&url, &no_ranges, None).unwrap();
+        assert_eq!(std::fs::read(&no_ranges).unwrap(), BODY);
+        assert_eq!(*mirror_log.lock().unwrap(), ["GET /slow-no-ranges"]);
+
+        // Asking the same server again would get the same server.
+        let (direct, direct_log) = serve(|request| trickle(request, true));
+        let not_redirected = tmp.path().join("direct.7z");
+        download_file_resumable(&format!("{direct}/file"), &not_redirected, None).unwrap();
+        assert_eq!(std::fs::read(&not_redirected).unwrap(), BODY);
+        assert_eq!(direct_log.lock().unwrap().len(), 1);
     }
 
     #[test]
