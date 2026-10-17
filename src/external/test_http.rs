@@ -82,52 +82,62 @@ fn serve_boxed(handler: Handler) -> (String, Arc<Mutex<Vec<String>>>) {
     let log = Arc::new(Mutex::new(Vec::new()));
     let requests = log.clone();
 
+    let handler: Arc<Handler> = Arc::new(handler);
+    // Each connection gets its own thread, so a reply that stalls on purpose
+    // does not hold up the next request.
     std::thread::spawn(move || {
         for stream in listener.incoming() {
-            let Ok(mut stream) = stream else { continue };
-            let mut buffer = [0u8; 8192];
-            let size = stream.read(&mut buffer).unwrap_or(0);
-            let text = String::from_utf8_lossy(&buffer[..size]).into_owned();
-            let mut lines = text.lines();
-            let mut first = lines.next().unwrap_or_default().split_whitespace();
-            let request = Request {
-                method: first.next().unwrap_or_default().to_owned(),
-                path: first.next().unwrap_or_default().to_owned(),
-                headers: lines
-                    .take_while(|line| !line.is_empty())
-                    .filter_map(|line| line.split_once(':'))
-                    .map(|(key, value)| (key.trim().to_owned(), value.trim().to_owned()))
-                    .collect(),
-            };
-            requests
-                .lock()
-                .unwrap()
-                .push(format!("{} {}", request.method, request.path));
-
-            let reply = handler(&request);
-            let mut head = format!(
-                "HTTP/1.1 {}\r\nContent-Length: {}\r\nConnection: close\r\n",
-                reply.status,
-                reply.content_length.unwrap_or(reply.body.len())
-            );
-            for (name, value) in &reply.headers {
-                head.push_str(&format!("{name}: {value}\r\n"));
-            }
-            head.push_str("\r\n");
-            let _ = stream.write_all(head.as_bytes());
-            if request.method != "HEAD" {
-                let (now, later) = reply
-                    .body
-                    .split_at(reply.pause.map_or(0, |(bytes, _)| bytes));
-                let _ = stream.write_all(now);
-                if let Some((_, pause)) = reply.pause {
-                    let _ = stream.flush();
-                    std::thread::sleep(pause);
-                }
-                let _ = stream.write_all(later);
-            }
+            let Ok(stream) = stream else { continue };
+            let handler = handler.clone();
+            let requests = requests.clone();
+            std::thread::spawn(move || answer(stream, &*handler, &requests));
         }
     });
 
     (base, log)
+}
+
+/// Read one request from `stream`, log it and send the handler's reply.
+fn answer(mut stream: std::net::TcpStream, handler: &Handler, requests: &Mutex<Vec<String>>) {
+    let mut buffer = [0u8; 8192];
+    let size = stream.read(&mut buffer).unwrap_or(0);
+    let text = String::from_utf8_lossy(&buffer[..size]).into_owned();
+    let mut lines = text.lines();
+    let mut first = lines.next().unwrap_or_default().split_whitespace();
+    let request = Request {
+        method: first.next().unwrap_or_default().to_owned(),
+        path: first.next().unwrap_or_default().to_owned(),
+        headers: lines
+            .take_while(|line| !line.is_empty())
+            .filter_map(|line| line.split_once(':'))
+            .map(|(key, value)| (key.trim().to_owned(), value.trim().to_owned()))
+            .collect(),
+    };
+    requests
+        .lock()
+        .unwrap()
+        .push(format!("{} {}", request.method, request.path));
+
+    let reply = handler(&request);
+    let mut head = format!(
+        "HTTP/1.1 {}\r\nContent-Length: {}\r\nConnection: close\r\n",
+        reply.status,
+        reply.content_length.unwrap_or(reply.body.len())
+    );
+    for (name, value) in &reply.headers {
+        head.push_str(&format!("{name}: {value}\r\n"));
+    }
+    head.push_str("\r\n");
+    let _ = stream.write_all(head.as_bytes());
+    if request.method != "HEAD" {
+        let (now, later) = reply
+            .body
+            .split_at(reply.pause.map_or(0, |(bytes, _)| bytes));
+        let _ = stream.write_all(now);
+        if let Some((_, pause)) = reply.pause {
+            let _ = stream.flush();
+            std::thread::sleep(pause);
+        }
+        let _ = stream.write_all(later);
+    }
 }
