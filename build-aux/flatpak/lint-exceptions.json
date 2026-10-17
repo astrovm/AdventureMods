@@ -1,0 +1,6 @@
+{
+  "io.github.astrovm.AdventureMods": {
+    "appstream-external-screenshot-url": "Only Flathub's own builds mirror screenshots to dl.flathub.org",
+    "finish-args-flatpak-appdata-folder-com.valvesoftware.Steam-.local-share-Steam-rw-access": "Finds and sets up games installed with the Steam Flatpak, which keeps its libraries in its own data folder"
+  }
+}

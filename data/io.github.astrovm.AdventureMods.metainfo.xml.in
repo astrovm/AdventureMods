@@ -55,6 +55,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.2.3" date="2026-10-17">
+      <description>
+        <p>Setting up .NET no longer runs anything through Proton, and the Flatpak needs less access to your system.</p>
+        <ul>
+          <li>.NET is unpacked straight into the game's Proton prefix instead of running Microsoft's installers</li>
+          <li>The Flatpak can no longer run programs outside its sandbox</li>
+          <li>The Flatpak builds 7-Zip and HDiffPatch from source</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.2" date="2026-10-16">
       <description>
         <p>Mod downloads no longer hang when a server stops responding.</p>

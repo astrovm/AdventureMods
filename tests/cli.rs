@@ -248,10 +248,10 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -282,11 +282,19 @@ fn setup_rejects_human_readable_mod_names_with_whitespace() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -343,10 +351,10 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
     ]);
@@ -364,11 +372,19 @@ fn setup_installs_all_recommended_sa2_mods_from_cli_flag() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -433,10 +449,10 @@ fn setup_installs_sadx_preset_from_cli_flag() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -461,11 +477,19 @@ fn setup_installs_sadx_preset_from_cli_flag() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -547,10 +571,10 @@ fn setup_surfaces_mod_download_failures() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
     ]));
@@ -566,11 +590,19 @@ fn setup_surfaces_mod_download_failures() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -610,7 +642,7 @@ fn setup_surfaces_archive_extraction_failures() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let _env_lock = env_lock();
     let fixture = create_sa2_fixture();
-    scripts::write_script(&fixture.fake_7zz, "#!/bin/sh\nexit 1\n");
+    scripts::install_fake_7zz_failing_all_but_dotnet(&fixture.fake_7zz, &fixture.extract_root);
 
     let server = TestServer::start(HashMap::from([
         (
@@ -628,10 +660,10 @@ fn setup_surfaces_archive_extraction_failures() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -654,11 +686,19 @@ fn setup_surfaces_archive_extraction_failures() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -699,7 +739,7 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let _env_lock = env_lock();
     let fixture = create_sa2_fixture();
-    scripts::write_script(&fixture.fake_7zz, "#!/bin/sh\nexit 1\n");
+    scripts::install_fake_7zz_failing_all_but_dotnet(&fixture.fake_7zz, &fixture.extract_root);
 
     let server = TestServer::start(HashMap::from([
         (
@@ -717,10 +757,10 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -743,11 +783,19 @@ fn cli_setup_errors_start_on_new_line_after_progress_output() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -852,10 +900,10 @@ fn interactive_sa2_setup_completes_via_tty() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
     ]);
@@ -873,11 +921,19 @@ fn interactive_sa2_setup_completes_via_tty() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -955,10 +1011,10 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -983,11 +1039,19 @@ fn interactive_sadx_preset_setup_completes_via_tty() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",
@@ -1078,10 +1142,10 @@ fn setup_installs_selected_mods_from_cli_flags() {
             },
         ),
         (
-            "/dotnet.exe",
+            "/dotnet.zip",
             Response::Ok {
                 content_type: "application/octet-stream",
-                body: "dotnet-installer",
+                body: "dotnet",
             },
         ),
         (
@@ -1112,11 +1176,19 @@ fn setup_installs_selected_mods_from_cli_flags() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -1341,11 +1413,19 @@ fn sa2_download_env(server: &TestServer, fixture: &SteamFixture) -> EnvGuard {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_GAMEBANANA_API_BASE",
@@ -1385,6 +1465,12 @@ fn sa2_setup_command(fixture: &SteamFixture, extra: &[&str]) -> Cli {
 const FILE_RESPONSE: Response = Response::Ok {
     content_type: "application/octet-stream",
     body: "file",
+};
+
+/// A .NET zip the fake 7zz unpacks into a working runtime.
+const DOTNET_RESPONSE: Response = Response::Ok {
+    content_type: "application/octet-stream",
+    body: "dotnet",
 };
 
 #[test]
@@ -1487,7 +1573,7 @@ fn setup_surfaces_mod_manager_install_failures() {
     // The mod manager is not served.
     let server = TestServer::start(HashMap::from([
         ("/sa2-loader.7z", FILE_RESPONSE),
-        ("/dotnet.exe", FILE_RESPONSE),
+        ("/dotnet.zip", DOTNET_RESPONSE),
         ("/dcmods/sa2-render-fix.7z", FILE_RESPONSE),
     ]));
     let _env = sa2_download_env(&server, &fixture);
@@ -1510,7 +1596,7 @@ fn setup_surfaces_steam_conversion_failures() {
     let server = TestServer::start(HashMap::from([
         ("/samodmanager.zip", FILE_RESPONSE),
         ("/sadx-loader.7z", FILE_RESPONSE),
-        ("/dotnet.exe", FILE_RESPONSE),
+        ("/dotnet.zip", DOTNET_RESPONSE),
     ]));
     let _env = EnvGuard::set(&[
         (
@@ -1523,11 +1609,19 @@ fn setup_surfaces_steam_conversion_failures() {
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_10",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_DOTNET_DESKTOP_8",
-            server.url("/dotnet.exe"),
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_10",
+            server.url("/dotnet.zip"),
+        ),
+        (
+            "ADVENTURE_MODS_URL_DOTNET_RUNTIME_8",
+            server.url("/dotnet.zip"),
         ),
         (
             "ADVENTURE_MODS_URL_SADX_STEAM_TOOLS",

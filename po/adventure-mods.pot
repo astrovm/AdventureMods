@@ -323,10 +323,6 @@ msgstr ""
 msgid "In Steam, open {game}'s Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then try again."
 msgstr ""
 
-#: src/external/proton.rs
-msgid "Steam's Proton files for this game are missing. Launch the game once from Steam, then try again."
-msgstr ""
-
 #: src/main.rs
 #, rust-format
 msgid "Could not open the window: {error}"

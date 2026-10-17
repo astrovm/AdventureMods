@@ -1050,40 +1050,6 @@ fn resolve_granted_library_scans_grants_only_for_the_selected_host_library() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn resolve_document_portal_host_path_maps_nested_path() {
-    let tmp = tempfile::tempdir().unwrap();
-    let host = tmp.path().join("host/SteamLibrary");
-    let portal = tmp.path().join("doc/d1a2b3c4/SteamLibrary");
-    let nested = portal.join("steamapps/common/Proton 10.0");
-    std::fs::create_dir_all(&nested).unwrap();
-
-    set_host_path_xattr(&portal, &host);
-
-    assert_eq!(
-        resolve_document_portal_host_path(&nested),
-        Some(host.join("steamapps/common/Proton 10.0"))
-    );
-}
-
-#[cfg(target_os = "linux")]
-#[test]
-fn resolve_document_portal_host_path_preserves_file_paths() {
-    let tmp = tempfile::tempdir().unwrap();
-    let host_file = tmp.path().join("host/Proton 10.0/proton");
-    let portal_file = tmp.path().join("doc/d1a2b3c4/Proton 10.0/proton");
-    std::fs::create_dir_all(portal_file.parent().unwrap()).unwrap();
-    std::fs::write(&portal_file, b"#!/bin/sh\n").unwrap();
-
-    set_host_path_xattr(&portal_file, &host_file);
-
-    assert_eq!(
-        resolve_document_portal_host_path(&portal_file),
-        Some(host_file)
-    );
-}
-
-#[cfg(target_os = "linux")]
-#[test]
 fn extra_library_grant_hides_matching_inaccessible_vdf_library() {
     let tmp = tempfile::tempdir().unwrap();
     // Unmounted from the sandbox's view; never a real library on the host.

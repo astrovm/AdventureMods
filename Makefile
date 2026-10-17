@@ -9,5 +9,6 @@ appimage:
 	./build-aux/appimage/build-container.sh
 
 flatpak:
+	./build-aux/flatpak/cargo-sources.sh
 	flatpak-builder --force-clean --user --install-deps-from=flathub --install \
 		$(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)

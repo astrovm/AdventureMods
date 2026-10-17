@@ -324,10 +324,6 @@ msgstr "{game} è impostato per usare {tool_name}, e Adventure Mods non riesce a
 msgid "In Steam, open {game}'s Properties → Compatibility and force Proton 10.0. Launch the game once, close it, then try again."
 msgstr "Su Steam apri Proprietà → Compatibilità di {game} e forza Proton 10.0. Avvia il gioco una volta, chiudilo e poi riprova."
 
-#: src/external/proton.rs
-msgid "Steam's Proton files for this game are missing. Launch the game once from Steam, then try again."
-msgstr "Mancano i file Proton di questo gioco. Avvia il gioco una volta da Steam, poi riprova."
-
 #: src/main.rs
 #, rust-format
 msgid "Could not open the window: {error}"
