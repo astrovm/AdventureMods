@@ -34,7 +34,7 @@ flatpak update
 ```
 
 <details>
-<summary><b>Other options (AppImage, Snap)</b></summary>
+<summary><b>AppImage</b></summary>
 
 **AppImage with Gear Lever**
 
@@ -56,19 +56,6 @@ chmod +x AdventureMods-v<version>-<arch>.AppImage
 ```
 
 Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
-
-**Snap**
-
-Download the latest `.snap` from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
-
-```sh
-sudo snap install --dangerous AdventureMods-v<version>-<arch>.snap
-sudo snap connect adventure-mods:steam-files
-sudo snap connect adventure-mods:removable-media
-sudo snap connect adventure-mods:joystick
-```
-
-It runs in Snap's sandbox. The `connect` lines let it reach your Steam folders, drives under `/media`, `/run/media` and `/mnt`, and controllers. Pick Steam libraries anywhere else from the app. Snap won't update it on its own: install a newer `.snap` the same way.
 
 </details>
 
