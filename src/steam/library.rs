@@ -242,7 +242,7 @@ fn steam_roots_in(home: &Path) -> Vec<PathBuf> {
 }
 
 pub(crate) fn steam_roots() -> Vec<PathBuf> {
-    dirs::home_dir()
+    crate::path_display::user_home()
         .map(|home| steam_roots_in(&home))
         .unwrap_or_default()
 }

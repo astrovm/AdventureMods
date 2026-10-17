@@ -57,11 +57,12 @@
   <releases translate="no">
     <release version="1.2.3" date="2026-10-17">
       <description>
-        <p>Setting up .NET no longer runs anything through Proton, and the Flatpak needs less access to your system.</p>
+        <p>Setting up .NET no longer runs anything through Proton, and the Flatpak and Snap need less access to your system.</p>
         <ul>
           <li>.NET is unpacked straight into the game's Proton prefix instead of running Microsoft's installers</li>
           <li>The Flatpak can no longer run programs outside its sandbox</li>
           <li>Every package builds 7-Zip and HDiffPatch from source</li>
+          <li>The Snap now runs in Snap's sandbox instead of with full access to your system</li>
         </ul>
       </description>
     </release>

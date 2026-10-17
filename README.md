@@ -62,10 +62,13 @@ Running it without a subcommand opens the app. Pass a subcommand for CLI mode.
 Download the latest `.snap` from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then:
 
 ```sh
-sudo snap install --dangerous --classic AdventureMods-v<version>-<arch>.snap
+sudo snap install --dangerous AdventureMods-v<version>-<arch>.snap
+sudo snap connect adventure-mods:steam-files
+sudo snap connect adventure-mods:removable-media
+sudo snap connect adventure-mods:joystick
 ```
 
-It uses classic confinement, so it can reach every Steam library and run Proton. Snap won't update it on its own: install a newer `.snap` the same way.
+It runs in Snap's sandbox. The `connect` lines let it reach your Steam folders, drives under `/media`, `/run/media` and `/mnt`, and controllers. Pick Steam libraries anywhere else from the app. Snap won't update it on its own: install a newer `.snap` the same way.
 
 </details>
 
