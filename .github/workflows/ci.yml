@@ -257,42 +257,60 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y snapd squashfs-tools
-
       # The same Ubuntu 24.04 container as `make appimage`.
       - name: Build AppImage
         run: bash build-aux/appimage/build-container.sh
-
-      - name: Build and test Snap
-        run: |
-          bash build-aux/snap/build-snap.sh
-          snap_file=$(echo appimage-build/*.snap)
-          unsquashfs -d appimage-build/snap-check "$snap_file"
-          test -x appimage-build/snap-check/AppRun
-          test -x appimage-build/snap-check/usr/bin/adventure-mods
-          grep -Fx 'confinement: classic' appimage-build/snap-check/meta/snap.yaml
-          sudo systemctl enable --now snapd.socket
-          sudo snap wait system seed.loaded
-          sudo snap install --dangerous --classic "$snap_file"
-          snap run adventure-mods --version | grep -Fx "adventure-mods $(sh build-aux/cargo-version.sh)"
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: AdventureMods-AppImage-${{ matrix.arch }}
-          path: |
-            appimage-build/*.AppImage*
-            appimage-build/*.snap
+          path: appimage-build/*.AppImage*
+
+  snap:
+    needs: changes
+    if: needs.changes.outputs.code == 'true' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
+    runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build Snap
+        id: build
+        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+
+      - name: Install and test Snap
+        env:
+          SNAP_FILE: ${{ steps.build.outputs.snap }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          unsquashfs -d snap-check "$SNAP_FILE"
+          grep -Fx 'confinement: strict' snap-check/meta/snap.yaml
+          test -x snap-check/usr/bin/7zz
+          test -x snap-check/usr/bin/hpatchz
+          sudo snap install --dangerous "$SNAP_FILE"
+          version=$(sh build-aux/cargo-version.sh)
+          snap run adventure-mods --version | grep -Fx "adventure-mods $version"
+          snap connections adventure-mods
+          mkdir -p snap-artifact
+          cp "$SNAP_FILE" "snap-artifact/AdventureMods-v$version-$ARCH.snap"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: AdventureMods-Snap-${{ matrix.arch }}
+          path: snap-artifact/*.snap
 
   # The one check the ruleset requires: green when every job passed or was
   # skipped, red when any failed or was cancelled.
   ci:
     name: CI / Required
     if: always()
-    needs: [changes, test, translations, coverage, flatpak, appimage]
+    needs: [changes, test, translations, coverage, flatpak, appimage, snap]
     runs-on: ubuntu-26.04
     steps:
       - name: Check job results
@@ -349,7 +367,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [test, appimage, flatpak, create-release]
+    needs: [test, appimage, snap, flatpak, create-release]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -359,6 +377,13 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: AdventureMods-AppImage-*
+          path: appimage-artifacts
+          merge-multiple: true
+
+      - name: Download Snap artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: AdventureMods-Snap-*
           path: appimage-artifacts
           merge-multiple: true
 

@@ -1,0 +1,74 @@
+name: adventure-mods
+title: Adventure Mods
+summary: Set up Sonic Adventure mods
+description: |
+  The easiest way to mod Sonic Adventure DX and Sonic Adventure 2 on Linux.
+  Finds your Steam installs, downloads community mods, and handles mod
+  managers, runtimes, resolution, load order, and language settings so you
+  can play right away. Works with a mouse or a controller.
+adopt-info: adventure-mods
+license: MIT
+icon: data/io.github.astrovm.AdventureMods.svg
+# The GNOME extension brings Wayland, keyboard layouts, graphics and the file
+# chooser portal. It has no core26 version yet.
+base: core24
+grade: stable
+confinement: strict
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  adventure-mods:
+    command: usr/bin/adventure-mods
+    common-id: io.github.astrovm.AdventureMods
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - removable-media
+      - joystick
+      - steam-files
+
+plugs:
+  # Steam keeps its libraries and Proton prefixes in hidden folders, which the
+  # home interface leaves out. Libraries anywhere else are picked through the
+  # file chooser portal.
+  steam-files:
+    interface: personal-files
+    write:
+      - $HOME/.steam
+      - $HOME/.local/share/Steam
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam
+
+parts:
+  tools:
+    plugin: nil
+    source: .
+    build-packages: [build-essential, curl, xz-utils]
+    override-build: |
+      bash build-aux/build-tools.sh "$CRAFT_PART_INSTALL/usr/bin"
+
+  adventure-mods:
+    plugin: meson
+    source: .
+    meson-parameters:
+      - --prefix=/usr
+      - -Dprofile=default
+      - -Dbuildtype=release
+    build-packages:
+      - curl
+      - pkg-config
+      - libudev-dev
+      - gettext
+      - desktop-file-utils
+      - appstream
+    override-build: |
+      craftctl set version="$(sh "$CRAFT_PART_SRC/build-aux/cargo-version.sh")"
+      if ! command -v cargo >/dev/null; then
+        curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet --profile minimal
+      fi
+      export PATH="$HOME/.cargo/bin:$PATH"
+      craftctl default
+    parse-info: [usr/share/metainfo/io.github.astrovm.AdventureMods.metainfo.xml]
