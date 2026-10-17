@@ -260,17 +260,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            build-essential pkg-config meson gettext libudev-dev \
-            desktop-file-utils appstream \
-            wget unzip file libfuse2t64 curl git zsync \
-            snapd squashfs-tools
+          sudo apt-get install -y snapd squashfs-tools
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-
+      # The same Ubuntu 24.04 container as `make appimage`.
       - name: Build AppImage
-        run: bash build-aux/appimage/build-appimage.sh
+        run: bash build-aux/appimage/build-container.sh
 
       - name: Build and test Snap
         run: |

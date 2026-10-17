@@ -44,6 +44,16 @@ DESTDIR="$APPDIR" meson install -C "$BUILD_DIR/meson"
 
 bash "$PROJECT_DIR/build-aux/build-tools.sh" "$APPDIR/usr/bin"
 
+# An AppImage can't bundle glibc, so it only starts where the host's is at
+# least as new as the one it was built against.
+MAX_GLIBC="2.39"
+needed_glibc="$(objdump -T "$APPDIR"/usr/bin/* | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -n 1)"
+if [ "$(printf '%s\n%s\n' "$needed_glibc" "$MAX_GLIBC" | sort -V | tail -n 1)" != "$MAX_GLIBC" ]; then
+	echo "The AppImage needs glibc $needed_glibc, newer than $MAX_GLIBC. Build it on Ubuntu 24.04." >&2
+	exit 1
+fi
+echo "==> Needs glibc $needed_glibc (at most $MAX_GLIBC)"
+
 echo "==> Downloading linuxdeploy"
 wget -q -O "$BUILD_DIR/linuxdeploy" "$LINUXDEPLOY_URL"
 chmod +x "$BUILD_DIR/linuxdeploy"
