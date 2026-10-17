@@ -62,7 +62,9 @@
           <li>.NET is unpacked straight into the game's Proton prefix instead of running Microsoft's installers</li>
           <li>The Flatpak can no longer run programs outside its sandbox</li>
           <li>Every package builds 7-Zip and HDiffPatch from source</li>
+          <li>The AppImage now runs on older distros, like Ubuntu 24.04, Debian 13 and Fedora 42</li>
           <li>The Snap now runs in Snap's sandbox instead of with full access to your system</li>
+          <li>Snap users: after installing, run the snap connect commands from the README so it can reach Steam, your drives and controllers</li>
         </ul>
       </description>
     </release>
