@@ -582,6 +582,8 @@ mod tests {
         reply
     }
 
+    type RequestLog<T> = std::sync::Arc<std::sync::Mutex<Vec<T>>>;
+
     /// A host that redirects `/file` to `slow_path` on a mirror for the first
     /// `slow_times` requests, then to a fast mirror path. Returns the host's
     /// URL for the file, the mirror's request log and the `Range` headers the
@@ -589,11 +591,7 @@ mod tests {
     fn mirrored_file(
         slow_path: &'static str,
         slow_times: usize,
-    ) -> (
-        String,
-        std::sync::Arc<std::sync::Mutex<Vec<String>>>,
-        std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>,
-    ) {
+    ) -> (String, RequestLog<String>, RequestLog<Option<String>>) {
         let ranges = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let fast_ranges = ranges.clone();
         let (mirror, mirror_log) = serve(move |request| match request.path.as_str() {

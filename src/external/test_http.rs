@@ -90,7 +90,7 @@ fn serve_boxed(handler: Handler) -> (String, Arc<Mutex<Vec<String>>>) {
             let Ok(stream) = stream else { continue };
             let handler = handler.clone();
             let requests = requests.clone();
-            std::thread::spawn(move || answer(stream, &*handler, &requests));
+            std::thread::spawn(move || answer(stream, &handler, &requests));
         }
     });
 
