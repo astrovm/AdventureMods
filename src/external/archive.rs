@@ -90,20 +90,6 @@ mod tests {
         assert!(manifest.contains("install -Dm755 HDiffPatch/hpatchz /app/bin/hpatchz"));
     }
 
-    fn assert_appimage_build_installs_7zz(script: &str) {
-        assert!(script.contains("install -Dm755 \"$BUILD_DIR/tmp/7zz\" \"$APPDIR/usr/bin/7zz\""));
-        assert!(script.contains("7z2604-linux-${SEVENZIP_ARCH}.tar.xz"));
-        assert!(script.contains("SEVENZIP_ARCH=\"x64\""));
-        assert!(script.contains("SEVENZIP_ARCH=\"arm64\""));
-    }
-
-    fn assert_appimage_build_installs_hpatchz(script: &str) {
-        assert!(script.contains("hdiffpatch_v5.1.3_bin_${HPATCHZ_ARCH}.zip"));
-        assert!(script.contains("\"${HPATCHZ_ARCH}/hpatchz\""));
-        assert!(script.contains("HPATCHZ_ARCH=\"linux64\""));
-        assert!(script.contains("HPATCHZ_ARCH=\"linux_arm64\""));
-    }
-
     fn assert_appimage_build_uses_arch_specific_linuxdeploy(script: &str) {
         assert!(script.contains("linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"));
         assert!(script.contains("LINUXDEPLOY_ARCH=\"x86_64\""));
@@ -349,10 +335,35 @@ mod tests {
     }
 
     #[test]
-    fn appimage_build_installs_7zz() {
+    fn appimage_build_bundles_tools_built_from_source() {
         let script = include_str!("../../build-aux/appimage/build-appimage.sh");
-        assert_appimage_build_installs_7zz(script);
-        assert_appimage_build_installs_hpatchz(script);
+        assert!(script.contains("build-aux/build-tools.sh\" \"$APPDIR/usr/bin\""));
+        assert!(!script.contains("_bin_linux"));
         assert_appimage_build_uses_arch_specific_linuxdeploy(script);
+    }
+
+    #[test]
+    fn every_package_builds_the_same_tools_the_same_way() {
+        let script = include_str!("../../build-aux/build-tools.sh");
+        for module in [
+            include_str!("../../build-aux/flatpak/7zip.json"),
+            include_str!("../../build-aux/flatpak/hdiffpatch.json"),
+        ] {
+            let module: serde_json::Value = serde_json::from_str(module).unwrap();
+            for source in module["sources"].as_array().unwrap() {
+                for key in ["url", "sha256"] {
+                    let value = source[key].as_str().unwrap();
+                    assert!(script.contains(value), "build-tools.sh lacks {value}");
+                }
+            }
+            for command in module["build-commands"].as_array().unwrap() {
+                let command = command.as_str().unwrap();
+                if let Some(make) = command.strip_prefix("make ") {
+                    // The same make flags, after the folder and job count.
+                    let flags = make.split_once("}").unwrap().1;
+                    assert!(script.contains(flags), "build-tools.sh lacks {flags}");
+                }
+            }
+        }
     }
 }

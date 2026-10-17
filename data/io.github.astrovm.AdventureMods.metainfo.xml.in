@@ -61,7 +61,7 @@
         <ul>
           <li>.NET is unpacked straight into the game's Proton prefix instead of running Microsoft's installers</li>
           <li>The Flatpak can no longer run programs outside its sandbox</li>
-          <li>The Flatpak builds 7-Zip and HDiffPatch from source</li>
+          <li>Every package builds 7-Zip and HDiffPatch from source</li>
         </ul>
       </description>
     </release>

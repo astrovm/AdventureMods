@@ -12,14 +12,10 @@ case "$BUILD_ARCH" in
 	x86_64)
 		APPIMAGE_ARCH="x86_64"
 		LINUXDEPLOY_ARCH="x86_64"
-		SEVENZIP_ARCH="x64"
-		HPATCHZ_ARCH="linux64"
 		;;
 	aarch64 | arm64)
 		APPIMAGE_ARCH="aarch64"
 		LINUXDEPLOY_ARCH="aarch64"
-		SEVENZIP_ARCH="arm64"
-		HPATCHZ_ARCH="linux_arm64"
 		;;
 	*)
 		echo "Unsupported AppImage architecture: $BUILD_ARCH" >&2
@@ -28,17 +24,10 @@ case "$BUILD_ARCH" in
 esac
 
 LINUXDEPLOY_URL="https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_VERSION}/linuxdeploy-${LINUXDEPLOY_ARCH}.AppImage"
-HPATCHZ_URL="https://github.com/sisong/HDiffPatch/releases/download/v5.1.3/hdiffpatch_v5.1.3_bin_${HPATCHZ_ARCH}.zip"
-SEVENZIP_URL="https://github.com/ip7z/7zip/releases/download/26.04/7z2604-linux-${SEVENZIP_ARCH}.tar.xz"
-
-cleanup() {
-	rm -rf "$BUILD_DIR/tmp"
-}
-trap cleanup EXIT
 
 echo "==> Setting up build directory"
 rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR/tmp" "$APPDIR"
+mkdir -p "$APPDIR"
 echo "==> Building ${APPIMAGE_ARCH} AppImage"
 
 echo "==> Configuring Meson"
@@ -53,15 +42,7 @@ meson compile -C "$BUILD_DIR/meson"
 echo "==> Installing to AppDir"
 DESTDIR="$APPDIR" meson install -C "$BUILD_DIR/meson"
 
-echo "==> Downloading hpatchz"
-wget -q -O "$BUILD_DIR/tmp/hpatchz.zip" "$HPATCHZ_URL"
-unzip -o -j "$BUILD_DIR/tmp/hpatchz.zip" "${HPATCHZ_ARCH}/hpatchz" -d "$BUILD_DIR/tmp/"
-install -Dm755 "$BUILD_DIR/tmp/hpatchz" "$APPDIR/usr/bin/hpatchz"
-
-echo "==> Downloading 7-Zip"
-wget -q -O "$BUILD_DIR/tmp/7zip.tar.xz" "$SEVENZIP_URL"
-tar xf "$BUILD_DIR/tmp/7zip.tar.xz" -C "$BUILD_DIR/tmp/"
-install -Dm755 "$BUILD_DIR/tmp/7zz" "$APPDIR/usr/bin/7zz"
+bash "$PROJECT_DIR/build-aux/build-tools.sh" "$APPDIR/usr/bin"
 
 echo "==> Downloading linuxdeploy"
 wget -q -O "$BUILD_DIR/linuxdeploy" "$LINUXDEPLOY_URL"
