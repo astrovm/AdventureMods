@@ -174,12 +174,12 @@ Builds match the host architecture (x86_64 or aarch64). GitHub Releases publish 
 
 **From source** (`cargo run`)
 
-Flatpak and AppImage bundle two tools that `cargo run` needs on your PATH:
+Every package bundles two tools that `cargo run` needs on your PATH:
 
-- `7zz`, the official 7-Zip build from [its releases](https://github.com/ip7z/7zip/releases). Distro packages often name it `7z` and leave out RAR support, which some mods need.
-- `hpatchz` from [HDiffPatch's releases](https://github.com/sisong/HDiffPatch/releases). SADX setup uses it to make the 2004 version.
+- `7zz` from [7-Zip](https://github.com/ip7z/7zip). Distro packages often name it `7z` and leave out RAR support, which some mods need.
+- `hpatchz` from [HDiffPatch](https://github.com/sisong/HDiffPatch). SADX setup uses it to make the 2004 version.
 
-To use copies elsewhere, set `ADVENTURE_MODS_7ZZ` and `ADVENTURE_MODS_HPATCHZ` to their paths.
+`build-aux/build-tools.sh ~/.local/bin` builds both from source, the same way every package does (needs `make` and a C++ compiler). To use copies elsewhere, set `ADVENTURE_MODS_7ZZ` and `ADVENTURE_MODS_HPATCHZ` to their paths.
 
 **Fuzzing** (needs nightly Rust and `cargo install cargo-fuzz`)
 
