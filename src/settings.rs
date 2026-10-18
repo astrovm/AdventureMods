@@ -68,6 +68,10 @@ impl Settings {
         &self.path
     }
 
+    pub fn value(&self, key: &str) -> Option<&Value> {
+        self.values.get(key)
+    }
+
     pub fn string(&self, key: &str) -> Option<&str> {
         match self.values.get(key) {
             Some(Value::String(value)) => Some(value),

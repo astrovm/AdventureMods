@@ -189,6 +189,7 @@ fn flow(kind: GameKind, path: &Path, work: SetupWork) -> SetupFlow {
         },
         work,
         LanguageSelection::defaults_for(kind),
+        None,
     )
 }
 
@@ -902,6 +903,102 @@ fn manually_matching_another_preset_updates_its_label_and_picker() {
     press(&mut harness, "Preset");
     harness.get_by_label(&format!("✔  {}", presets[1].name));
     harness.get_by_label(presets[0].name);
+}
+
+fn flow_with_mods(kind: GameKind, path: &Path, mods: ModChoice) -> SetupFlow {
+    let game = Game {
+        kind,
+        path: path.to_path_buf(),
+    };
+    SetupFlow::new(
+        game,
+        work(),
+        LanguageSelection::defaults_for(kind),
+        Some(mods),
+    )
+}
+
+fn mod_names(flow: &SetupFlow) -> Vec<&'static str> {
+    let mods = common::recommended_mods_for_game(flow.game.kind);
+    let mut names: Vec<_> = flow
+        .selected_mods
+        .iter()
+        .map(|&index| mods[index].name)
+        .collect();
+    names.sort_unstable();
+    names
+}
+
+#[test]
+fn setup_starts_from_the_mods_picked_last_time() {
+    let dir = game_dir(&[]);
+    let presets = common::presets_for_game(GameKind::SADX);
+    let sadx = common::recommended_mods_for_game(GameKind::SADX);
+    let sa2 = common::recommended_mods_for_game(GameKind::SA2);
+
+    let preset = flow_with_mods(
+        GameKind::SADX,
+        dir.path(),
+        ModChoice::Preset(presets[1].name.to_owned()),
+    );
+    assert_eq!(preset.matching_preset(), Some(1));
+
+    // Mods that left the catalog are dropped.
+    let picked = flow_with_mods(
+        GameKind::SA2,
+        dir.path(),
+        ModChoice::Mods(vec![sa2[1].name.to_owned(), "Gone Mod".to_owned()]),
+    );
+    assert_eq!(mod_names(&picked), vec![sa2[1].name]);
+    let none = flow_with_mods(GameKind::SA2, dir.path(), ModChoice::Mods(Vec::new()));
+    assert!(none.selected_mods.is_empty());
+
+    // A preset that no longer exists falls back to the first one.
+    let gone = flow_with_mods(
+        GameKind::SADX,
+        dir.path(),
+        ModChoice::Preset("Gone Preset".to_owned()),
+    );
+    assert_eq!(gone.matching_preset(), Some(0));
+    // Without presets, every mod.
+    let all = flow_with_mods(GameKind::SA2, dir.path(), ModChoice::Preset("x".to_owned()));
+    assert_eq!(all.selected_mods.len(), sa2.len());
+    assert!(sadx.len() > presets[0].mod_names.len());
+}
+
+#[test]
+fn picking_mods_asks_the_app_to_remember_them() {
+    let dir = game_dir(&[]);
+    let presets = common::presets_for_game(GameKind::SADX);
+    let mut setup = flow(GameKind::SADX, dir.path(), work());
+    setup.take_events();
+
+    setup.apply_preset(1);
+    assert_eq!(
+        setup.take_events(),
+        vec![SetupEvent::SaveMods(
+            GameKind::SADX,
+            ModChoice::Preset(presets[1].name.to_owned())
+        )]
+    );
+
+    // Off any preset, the mods are kept by name, in catalog order.
+    let extra = (0..common::recommended_mods_for_game(GameKind::SADX).len())
+        .rev()
+        .find(|index| !setup.selected_mods.contains(index))
+        .unwrap();
+    setup.set_mod_selected(extra, true);
+    let names = mod_names(&setup);
+    let Some(SetupEvent::SaveMods(GameKind::SADX, ModChoice::Mods(saved))) =
+        setup.take_events().pop()
+    else {
+        panic!("the mods were not saved");
+    };
+    let mut sorted = saved.clone();
+    sorted.sort_unstable();
+    assert_eq!(sorted, names);
+    let reopened = flow_with_mods(GameKind::SADX, dir.path(), ModChoice::Mods(saved));
+    assert_eq!(mod_names(&reopened), names);
 }
 
 #[test]

@@ -499,6 +499,34 @@ fn controllers_navigate_and_show_button_hints() {
 }
 
 #[test]
+fn picked_mods_are_saved_for_next_time() {
+    let fixture = Fixture::new(&["sa2"]);
+    let game = fixture.library.join("sa2");
+    std::fs::write(game.join("proton-ready"), "").unwrap();
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.state_mut().open_setup(Game {
+        kind: GameKind::SA2,
+        path: game,
+    });
+    harness.run_steps(2);
+    harness.state_mut().setup.as_mut().unwrap().on_next();
+    harness.run_steps(2);
+
+    let mods = crate::setup::common::recommended_mods_for_game(GameKind::SA2);
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::CheckBox, mods[0].name)
+        .click();
+    harness.run_steps(2);
+
+    let rest = mods[1..].iter().map(|mod_entry| mod_entry.name.to_owned());
+    assert_eq!(
+        config::load_mod_choice(Some(&fixture.settings()), GameKind::SA2),
+        Some(config::ModChoice::Mods(rest.collect()))
+    );
+}
+
+#[test]
 fn pointer_input_ends_keyboard_navigation() {
     let fixture = Fixture::new(&["sa2"]);
     let mut harness = fixture.harness();
@@ -573,18 +601,15 @@ fn inner_size_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<Vec2> {
         .collect()
 }
 
-/// A harness whose window is `window` on a `monitor`, in points. It's laid
-/// out at the layout's size, so the UI isn't zoomed.
+/// A harness whose window is `window` on a `monitor`, in points. Like on
+/// Wayland, it knows the window's size but not where it is.
 fn harness_on_monitor(
     app: AdventureModsApp,
     monitor: Vec2,
     window: Vec2,
 ) -> Harness<'static, AdventureModsApp> {
     let mut harness = Harness::builder()
-        .with_size(egui::vec2(
-            super::super::LAYOUT_WIDTH,
-            super::super::LAYOUT_HEIGHT,
-        ))
+        .with_size(window)
         .build_ui_state(|ui, app: &mut AdventureModsApp| app.show(ui), app);
     let viewport = harness
         .input_mut()
@@ -592,8 +617,28 @@ fn harness_on_monitor(
         .get_mut(&egui::ViewportId::ROOT)
         .unwrap();
     viewport.monitor_size = Some(monitor);
-    viewport.inner_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, window));
+    viewport.inner_rect = None;
     harness
+}
+
+#[test]
+fn a_resized_window_is_remembered_without_its_position() {
+    let fixture = Fixture::new(&[]);
+    let mut app = fixture.app();
+    app.window.saved = true;
+    let mut harness = harness_on_monitor(app, Vec2::new(2560.0, 1440.0), Vec2::new(960.0, 720.0));
+    harness.step();
+
+    harness.set_size(Vec2::new(1300.0, 860.0));
+    harness.step();
+    // Zoomed in by now, but saved at the window's real size.
+    assert_ne!(harness.ctx.zoom_factor(), 1.0);
+    harness.step();
+    harness.state_mut().save_window_state();
+
+    let saved = WindowState::load(Some(&fixture.settings()));
+    assert_eq!(saved.size, Vec2::new(1300.0, 860.0));
+    assert!(!saved.maximized);
 }
 
 #[test]
@@ -661,7 +706,6 @@ fn the_ui_zooms_after_the_window_is_resized() {
         Vec2::new(2560.0, 1440.0),
         Vec2::new(960.0, 720.0),
     );
-    harness.set_size(Vec2::new(960.0, 720.0));
     harness.step();
     assert_eq!(
         inner_size_commands(&harness),

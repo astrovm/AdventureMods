@@ -55,6 +55,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.0" date="2026-10-18">
+      <description>
+        <p>The app now remembers your window size and the mods you picked.</p>
+        <ul>
+          <li>The window opens at the size you left it, on Wayland too</li>
+          <li>Setup starts with the preset or mods you picked last time for each game</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.2.4" date="2026-10-17">
       <description>
         <p>Mod downloads no longer crawl when GameBanana sends them to a slow mirror.</p>
