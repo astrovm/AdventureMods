@@ -25,7 +25,7 @@ use super::widgets::{self, ButtonKind, Tone};
 use crate::blocking;
 use crate::external::download::ProgressFn;
 use crate::setup::common::{self, ModEntry, SteamConfigStatus};
-use crate::setup::config::{LanguageSelection, SubtitleLanguage, VoiceLanguage};
+use crate::setup::config::{LanguageSelection, ModChoice, SubtitleLanguage, VoiceLanguage};
 use crate::setup::pipeline::{self, InstallProgress, PrefetchEvent};
 use crate::setup::steps::{self, SetupStep, StepId, StepKind};
 use crate::steam::game::{Game, GameKind};
@@ -98,6 +98,7 @@ pub enum SetupEvent {
     Exit,
     OpenUri(String),
     SaveLanguages(GameKind, LanguageSelection),
+    SaveMods(GameKind, ModChoice),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -276,14 +277,31 @@ pub struct SetupFlow {
 }
 
 impl SetupFlow {
-    pub fn new(game: Game, work: SetupWork, languages: LanguageSelection) -> Self {
-        let mods = common::recommended_mods_for_game(game.kind);
-        let default_preset = common::presets_for_game(game.kind).first();
-        let selected_mods = mods
+    /// Setup for `game`, starting from the mods picked last time, or the
+    /// first preset (every mod without presets) when there is no such choice.
+    pub fn new(
+        game: Game,
+        work: SetupWork,
+        languages: LanguageSelection,
+        mods: Option<ModChoice>,
+    ) -> Self {
+        let presets = common::presets_for_game(game.kind);
+        let saved_preset = |name: &str| presets.iter().find(|preset| preset.name == name);
+        let wanted: Option<Vec<&str>> = match &mods {
+            Some(ModChoice::Preset(name)) => {
+                saved_preset(name).map(|preset| preset.mod_names.to_vec())
+            }
+            Some(ModChoice::Mods(names)) => Some(names.iter().map(String::as_str).collect()),
+            None => None,
+        }
+        .or_else(|| presets.first().map(|preset| preset.mod_names.to_vec()));
+        let selected_mods = common::recommended_mods_for_game(game.kind)
             .iter()
             .enumerate()
             .filter(|(_, mod_entry)| {
-                default_preset.is_none_or(|preset| preset.mod_names.contains(&mod_entry.name))
+                wanted
+                    .as_ref()
+                    .is_none_or(|names| names.contains(&mod_entry.name))
             })
             .map(|(index, _)| index)
             .collect();
@@ -920,6 +938,31 @@ impl SetupFlow {
             .filter(|(_, mod_entry)| preset.mod_names.contains(&mod_entry.name))
             .map(|(index, _)| index)
             .collect();
+        self.save_mods();
+    }
+
+    /// Ask the app to remember the picked mods, by preset when they match one.
+    fn save_mods(&mut self) {
+        let choice = match self.matching_preset() {
+            Some(index) => ModChoice::Preset(
+                common::presets_for_game(self.game.kind)[index]
+                    .name
+                    .to_owned(),
+            ),
+            None => {
+                let mods = common::recommended_mods_for_game(self.game.kind);
+                let mut picked = self.selected_mods.clone();
+                picked.sort_unstable();
+                ModChoice::Mods(
+                    picked
+                        .iter()
+                        .map(|&index| mods[index].name.to_owned())
+                        .collect(),
+                )
+            }
+        };
+        self.events
+            .push(SetupEvent::SaveMods(self.game.kind, choice));
     }
 
     fn matching_preset(&self) -> Option<usize> {
@@ -940,6 +983,7 @@ impl SetupFlow {
         if selected {
             self.selected_mods.push(index);
         }
+        self.save_mods();
     }
 }
 

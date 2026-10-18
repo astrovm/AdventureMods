@@ -330,7 +330,8 @@ impl AdventureModsApp {
 
     fn open_setup(&mut self, game: Game) {
         let languages = config::load_language_selection(self.settings.as_ref(), game.kind);
-        self.setup = Some(SetupFlow::new(game, self.services.setup, languages));
+        let mods = config::load_mod_choice(self.settings.as_ref(), game.kind);
+        self.setup = Some(SetupFlow::new(game, self.services.setup, languages, mods));
     }
 
     fn close_setup(&mut self) {
@@ -361,6 +362,9 @@ impl AdventureModsApp {
                 SetupEvent::OpenUri(uri) => (self.services.open_uri)(&uri),
                 SetupEvent::SaveLanguages(kind, languages) => {
                     config::save_language_selection(self.settings.as_mut(), kind, languages);
+                }
+                SetupEvent::SaveMods(kind, mods) => {
+                    config::save_mod_choice(self.settings.as_mut(), kind, mods);
                 }
             }
         }
@@ -473,15 +477,18 @@ impl AdventureModsApp {
         let zoom = ctx.zoom_factor();
         let fitted = ctx.input(|input| {
             let viewport = input.viewport();
+            // Not `viewport.inner_rect`: Wayland has no window position, so
+            // egui leaves that unset there.
+            let window = input.viewport_rect().size() * zoom;
             // eframe's own check misreads fractional scaling on Wayland, so
             // shrink a window bigger than its monitor once the monitor is known.
             // The first run sizes it for the monitor instead.
             let mut fitted = None;
             if !self.fitted
-                && let (Some(monitor), Some(rect)) = (viewport.monitor_size, viewport.inner_rect)
+                && let Some(monitor) = viewport.monitor_size
             {
                 self.fitted = true;
-                let (monitor, size) = (monitor * zoom, rect.size() * zoom);
+                let (monitor, size) = (monitor * zoom, window);
                 let filling = viewport.fullscreen == Some(true) || viewport.maximized == Some(true);
                 fitted = if self.window.saved || filling {
                     fit_to_monitor(size, monitor)
@@ -494,11 +501,9 @@ impl AdventureModsApp {
             if let Some(maximized) = viewport.maximized {
                 self.window.maximized = maximized;
             }
-            if !self.window.maximized
-                && let Some(rect) = viewport.inner_rect
-            {
+            if !self.window.maximized {
                 // Saved without the zoom, which only follows the window.
-                self.window.size = rect.size() * zoom;
+                self.window.size = window;
             }
             fitted
         });

@@ -156,6 +156,40 @@ pub fn voice_settings_key(game_kind: GameKind) -> &'static str {
     }
 }
 
+pub fn mods_settings_key(game_kind: GameKind) -> &'static str {
+    match game_kind {
+        GameKind::SADX => "sadx-mods",
+        GameKind::SA2 => "sa2-mods",
+    }
+}
+
+/// The mods picked last time. A preset is kept by name, so it still brings
+/// the preset's mods after an update changes them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ModChoice {
+    Preset(String),
+    Mods(Vec<String>),
+}
+
+pub fn load_mod_choice(settings: Option<&Settings>, game_kind: GameKind) -> Option<ModChoice> {
+    match settings?.value(mods_settings_key(game_kind))? {
+        Value::String(preset) => Some(ModChoice::Preset(preset.clone())),
+        Value::Strings(mods) => Some(ModChoice::Mods(mods.clone())),
+        _ => None,
+    }
+}
+
+pub fn save_mod_choice(settings: Option<&mut Settings>, game_kind: GameKind, choice: ModChoice) {
+    let Some(settings) = settings else {
+        return;
+    };
+    let value = match choice {
+        ModChoice::Preset(preset) => Value::String(preset),
+        ModChoice::Mods(mods) => Value::Strings(mods),
+    };
+    settings.set(mods_settings_key(game_kind), value);
+}
+
 pub fn app_settings() -> Option<Settings> {
     Settings::load()
 }
@@ -676,6 +710,35 @@ mod tests {
             load_extra_library_paths(Some(&settings)),
             vec![PathBuf::from("/data/Steam")]
         );
+    }
+
+    #[test]
+    fn mod_choices_are_remembered_per_game() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut settings = Settings::load_from(dir.path(), &|| None);
+        assert_eq!(load_mod_choice(Some(&settings), GameKind::SADX), None);
+
+        let preset = ModChoice::Preset("DX Enhanced".into());
+        let mods = ModChoice::Mods(vec!["SA2 Render Fix".into()]);
+        save_mod_choice(Some(&mut settings), GameKind::SADX, preset.clone());
+        save_mod_choice(Some(&mut settings), GameKind::SA2, mods.clone());
+        save_mod_choice(None, GameKind::SA2, ModChoice::Mods(Vec::new()));
+
+        let mut settings = Settings::load_from(dir.path(), &|| None);
+        assert_eq!(
+            load_mod_choice(Some(&settings), GameKind::SADX),
+            Some(preset)
+        );
+        assert_eq!(load_mod_choice(Some(&settings), GameKind::SA2), Some(mods));
+        assert_eq!(load_mod_choice(None, GameKind::SA2), None);
+
+        // Nothing picked is a choice too, not a missing one.
+        let none = ModChoice::Mods(Vec::new());
+        save_mod_choice(Some(&mut settings), GameKind::SA2, none.clone());
+        assert_eq!(load_mod_choice(Some(&settings), GameKind::SA2), Some(none));
+
+        settings.set("sadx-mods", Value::Int(3));
+        assert_eq!(load_mod_choice(Some(&settings), GameKind::SADX), None);
     }
 
     #[test]
