@@ -272,6 +272,10 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
     harness.step();
     harness.step();
     assert!(!harness.state().flow.selected_mods.contains(&0));
+    assert!(matches!(
+        harness.state().events[..],
+        [SetupEvent::SaveMods(GameKind::SA2, ModChoice::Mods(_))]
+    ));
     press(&mut harness, "Continue");
 
     assert_eq!(step_id(harness.state()), StepId::LanguageOptions);
@@ -329,7 +333,7 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
     harness.state_mut().flow.handle_pad(PadButton::Action);
     press(&mut harness, "Done");
     assert_eq!(
-        harness.state().events[1..],
+        harness.state().events[2..],
         [
             SetupEvent::OpenUri("steam://rungameid/213610".to_owned()),
             SetupEvent::OpenUri("steam://rungameid/213610".to_owned()),

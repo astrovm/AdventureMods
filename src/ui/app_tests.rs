@@ -601,15 +601,19 @@ fn inner_size_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<Vec2> {
         .collect()
 }
 
-/// A harness whose window is `window` on a `monitor`, in points. Like on
-/// Wayland, it knows the window's size but not where it is.
+/// A harness whose window is `window` on a `monitor`. Like on Wayland, it
+/// knows the window's size but not where it is. It's built at the layout's
+/// size, so the UI isn't zoomed yet.
 fn harness_on_monitor(
     app: AdventureModsApp,
     monitor: Vec2,
     window: Vec2,
 ) -> Harness<'static, AdventureModsApp> {
     let mut harness = Harness::builder()
-        .with_size(window)
+        .with_size(egui::vec2(
+            super::super::LAYOUT_WIDTH,
+            super::super::LAYOUT_HEIGHT,
+        ))
         .build_ui_state(|ui, app: &mut AdventureModsApp| app.show(ui), app);
     let viewport = harness
         .input_mut()
@@ -618,7 +622,16 @@ fn harness_on_monitor(
         .unwrap();
     viewport.monitor_size = Some(monitor);
     viewport.inner_rect = None;
+    harness.set_size(window);
     harness
+}
+
+/// Step a frame of a window that is `size` on screen. Like winit, the
+/// harness gets that size in points, so it shrinks as the UI zooms in.
+fn step_window(harness: &mut Harness<'_, AdventureModsApp>, size: Vec2) {
+    let zoom = harness.ctx.zoom_factor();
+    harness.set_size(size / zoom);
+    harness.step();
 }
 
 #[test]
@@ -629,11 +642,11 @@ fn a_resized_window_is_remembered_without_its_position() {
     let mut harness = harness_on_monitor(app, Vec2::new(2560.0, 1440.0), Vec2::new(960.0, 720.0));
     harness.step();
 
-    harness.set_size(Vec2::new(1300.0, 860.0));
-    harness.step();
+    let resized = Vec2::new(1300.0, 860.0);
+    step_window(&mut harness, resized);
+    step_window(&mut harness, resized);
     // Zoomed in by now, but saved at the window's real size.
     assert_ne!(harness.ctx.zoom_factor(), 1.0);
-    harness.step();
     harness.state_mut().save_window_state();
 
     let saved = WindowState::load(Some(&fixture.settings()));
@@ -654,7 +667,7 @@ fn a_window_bigger_than_its_monitor_shrinks_to_fit() {
     );
 
     // It only checks once, so a later resize is left alone.
-    harness.step();
+    step_window(&mut harness, Vec2::new(1152.0, 720.0));
     assert!(inner_size_commands(&harness).is_empty());
 }
 
@@ -798,11 +811,10 @@ fn a_window_that_fits_its_monitor_keeps_its_size() {
 fn the_window_state_follows_the_viewport() {
     let fixture = Fixture::new(&[]);
     let mut harness = fixture.harness();
-    harness.run_steps(2);
-    assert_eq!(
-        harness.state().window_state().size,
-        Vec2::new(super::super::DEFAULT_WIDTH, super::super::DEFAULT_HEIGHT)
-    );
+    let window = Vec2::new(1280.0, 800.0);
+    step_window(&mut harness, window);
+    step_window(&mut harness, window);
+    assert_eq!(harness.state().window_state().size, window);
 
     // F11 toggles fullscreen; the harness ignores the request.
     harness.key_press(egui::Key::F11);
