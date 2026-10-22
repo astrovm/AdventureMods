@@ -1544,7 +1544,10 @@ fn home_with_blocked_steam(home: &Path) -> PathBuf {
 #[test]
 fn a_snap_reports_a_steam_folder_it_cannot_read() {
     let home = tempfile::tempdir().unwrap();
-    let steam = home_with_blocked_steam(home.path());
+    let steam = try_canonicalize(&home_with_blocked_steam(home.path()));
+    // Steam's link is found first; the report names the real folder.
+    std::fs::create_dir_all(home.path().join(".steam")).unwrap();
+    std::os::unix::fs::symlink(&steam, home.path().join(".steam/steam")).unwrap();
 
     let result = in_a_snap(home.path(), || detect_games_with_extra_libraries(&[]));
     let outside = with_environments(&[("SNAP", None), ("HOME", Some(home.path()))], || {

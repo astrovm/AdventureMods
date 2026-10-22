@@ -554,7 +554,8 @@ pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> Detecti
                     && e.kind() == std::io::ErrorKind::PermissionDenied
                     && let Some(steam_folder) = vdf_path.ancestors().nth(2)
                 {
-                    blocked.push(steam_folder.to_path_buf());
+                    // Name the real folder, not a link such as ~/.steam/steam.
+                    blocked.push(try_canonicalize(steam_folder));
                 }
             }
         }
