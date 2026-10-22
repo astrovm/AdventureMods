@@ -259,7 +259,7 @@ fn detect_tells_a_snap_how_to_connect_to_steam() {
 
     let output = with_test_settings(|_| {
         let vars = ["SNAP", "SNAP_REAL_HOME", "HOME"];
-        let previous: Vec<_> = vars.iter().map(|name| std::env::var_os(name)).collect();
+        let previous: Vec<_> = vars.iter().map(std::env::var_os).collect();
         crate::test_env::set_var("SNAP", Some("/snap/adventure-mods/x1"));
         crate::test_env::set_var("SNAP_REAL_HOME", None::<&str>);
         crate::test_env::set_var("HOME", Some(home.path()));
