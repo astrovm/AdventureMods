@@ -256,7 +256,10 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
 
     let result = detect_games_strict(&args)?;
 
-    if result.games.is_empty() && result.inaccessible.is_empty() {
+    if result.games.is_empty()
+        && result.inaccessible.is_empty()
+        && result.blocked_steam_folders.is_empty()
+    {
         out.writeln(tr!("No supported games detected."))?;
         return Ok(());
     }
@@ -281,6 +284,15 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
                 out.path(&display_path(&game.library_path))
             ))?;
         }
+    }
+
+    if !result.blocked_steam_folders.is_empty() {
+        out.heading(tr!("Steam folders Adventure Mods can't open:"))?;
+        for folder in &result.blocked_steam_folders {
+            out.writeln(&format!("- {}", out.path(&display_path(folder))))?;
+        }
+        out.writeln(tr!("Run this in a terminal, then try again:"))?;
+        out.writeln(&library::snap_connect_command())?;
     }
 
     Ok(())
@@ -1195,6 +1207,14 @@ fn detect_games_with_saved_libraries(
 /// Explain why `game_kind` was not found, naming any Steam library that lists
 /// it but cannot be read.
 fn not_detected_error(game_kind: GameKind, result: &DetectionResult) -> anyhow::Error {
+    if !result.blocked_steam_folders.is_empty() {
+        return anyhow!(trf!(
+            "{game} was not detected because Adventure Mods can't open your Steam folder. Run this \
+             in a terminal, then try again: {command}",
+            game = game_kind.name(),
+            command = library::snap_connect_command()
+        ));
+    }
     let inaccessible: Vec<String> = result
         .inaccessible
         .iter()

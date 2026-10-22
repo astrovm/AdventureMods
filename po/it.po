@@ -27,6 +27,14 @@ msgid "Inaccessible Steam libraries:"
 msgstr "Librerie di Steam non accessibili:"
 
 #: src/cli.rs
+msgid "Steam folders Adventure Mods can't open:"
+msgstr "Cartelle di Steam che Adventure Mods non può aprire:"
+
+#: src/cli.rs
+msgid "Run this in a terminal, then try again:"
+msgstr "Esegui questo comando in un terminale, poi riprova:"
+
+#: src/cli.rs
 #, rust-format
 msgid "Game: {game}"
 msgstr "Gioco: {game}"
@@ -258,6 +266,11 @@ msgstr ""
 #, rust-format
 msgid "Library folders file not found: {path}"
 msgstr "File delle cartelle della libreria non trovato: {path}"
+
+#: src/cli.rs
+#, rust-format
+msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Run this in a terminal, then try again: {command}"
+msgstr "{game} non è stato trovato perché Adventure Mods non può aprire la tua cartella di Steam. Esegui questo comando in un terminale, poi riprova: {command}"
 
 #: src/cli.rs
 #, rust-format
@@ -855,6 +868,10 @@ msgid "Could not restore {game}: {error}"
 msgstr "Impossibile ripristinare {game}: {error}"
 
 #: src/ui/app.rs
+msgid "Command copied."
+msgstr "Comando copiato."
+
+#: src/ui/app.rs
 msgid "About"
 msgstr "Informazioni"
 
@@ -1158,6 +1175,10 @@ msgid "Looking for your games…"
 msgstr "Ricerca dei tuoi giochi…"
 
 #: src/ui/welcome.rs
+msgid "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
+msgstr "Adventure Mods ha bisogno del permesso per aprire la tua cartella di Steam. Esegui questo comando in un terminale, poi cerca di nuovo:"
+
+#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Installazione"
 
@@ -1179,6 +1200,10 @@ msgstr "{first} e {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods ha bisogno di accedere alla libreria di Steam che contiene {games}. Usa {button} sul gioco qui sotto."
+
+#: src/ui/widgets.rs
+msgid "Copy"
+msgstr "Copia"
 
 #: data/io.github.astrovm.AdventureMods.desktop.in
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in

@@ -200,6 +200,29 @@ pub fn card() -> Frame {
 
 /// A tinted message box with a colored stripe.
 pub fn banner(ui: &mut Ui, tone: Tone, text: &str) -> Response {
+    banner_with(ui, tone, |ui| {
+        ui.add(egui::Label::new(text).wrap());
+    })
+}
+
+/// A [`banner`] with a terminal command under the text and a button that
+/// copies it. Returns whether the button was pressed.
+pub fn command_banner(ui: &mut Ui, tone: Tone, text: &str, command: &str) -> bool {
+    let mut copy = false;
+    banner_with(ui, tone, |ui| {
+        ui.vertical(|ui| {
+            ui.add(egui::Label::new(text).wrap());
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.add(egui::Label::new(RichText::new(command).monospace()).wrap());
+                copy = button(ui, tr!("Copy"), ButtonKind::Normal).clicked();
+            });
+        });
+    });
+    copy
+}
+
+fn banner_with(ui: &mut Ui, tone: Tone, content: impl FnOnce(&mut Ui)) -> Response {
     let color = tone.color();
     Frame::new()
         .fill(color.gamma_multiply(0.14))
@@ -211,7 +234,7 @@ pub fn banner(ui: &mut Ui, tone: Tone, text: &str) -> Response {
             ui.horizontal(|ui| {
                 let (dot, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
                 ui.painter().circle_filled(dot.center(), 6.0, color);
-                ui.add(egui::Label::new(text).wrap());
+                content(ui);
             });
         })
         .response
