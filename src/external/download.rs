@@ -86,6 +86,9 @@ fn unpooled_client() -> &'static Client {
 }
 
 fn client_builder() -> reqwest::ClientBuilder {
+    // reqwest needs a TLS provider before it builds a client. The app installs
+    // one at startup, but library callers and tests may not have.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     Client::builder()
         .connect_timeout(std::time::Duration::from_secs(30))
         .read_timeout(STALL_TIMEOUT)
@@ -506,6 +509,13 @@ mod tests {
 
     fn init() {
         let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+
+    #[test]
+    fn a_client_builds_before_anything_installed_a_tls_provider() {
+        // nextest gives each test its own process, so nothing installed one.
+        client_builder().build().unwrap();
+        assert!(rustls::crypto::CryptoProvider::get_default().is_some());
     }
 
     /// Serves BODY with a strong ETag and honors `Range` + `If-Range`.

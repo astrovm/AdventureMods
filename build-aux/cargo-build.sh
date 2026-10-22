@@ -13,8 +13,11 @@ if [ -z "${CARGO_HOME:-}" ]; then
     export CARGO_HOME="$CARGO_TARGET_DIR"/cargo-home
 fi
 
-# Copy Meson-generated config.rs so Cargo uses the correct build-time constants
-if [ -f "$MESON_BUILD_ROOT/src/config.rs" ]; then
+# Copy Meson-generated config.rs so Cargo uses the correct build-time constants.
+# Only when it changed: meson install runs this again, and a newer timestamp
+# would make Cargo rebuild the app.
+if [ -f "$MESON_BUILD_ROOT/src/config.rs" ] &&
+    ! cmp -s "$MESON_BUILD_ROOT/src/config.rs" "$MESON_SOURCE_ROOT/src/config.rs"; then
     cp "$MESON_BUILD_ROOT/src/config.rs" "$MESON_SOURCE_ROOT/src/config.rs"
 fi
 

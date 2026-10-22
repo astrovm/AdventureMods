@@ -41,3 +41,23 @@ for buildtype in release plain debugoptimized minsize debug; do
     fi
     test "$(cat "$output_dir/binary")" = "$expected"
 done
+
+# config.rs is copied only when it changed, so the second run from
+# meson install doesn't make Cargo rebuild the app.
+rm -rf "$build_dir"
+mkdir -p "$build_dir/src" "$source_dir/src"
+build() {
+    TEST_OUTPUT="$output_dir" PATH="$bin_dir:$PATH" \
+        sh "$(dirname "$0")/cargo-build.sh" \
+        "$build_dir" "$source_dir" "$output_dir/binary" release adventure-mods \
+        > /dev/null
+}
+echo 'pub const PROFILE: &str = "default";' > "$build_dir/src/config.rs"
+build
+cmp "$build_dir/src/config.rs" "$source_dir/src/config.rs"
+touch -d @0 "$source_dir/src/config.rs"
+build
+test "$(stat -c %Y "$source_dir/src/config.rs")" = 0
+echo 'pub const PROFILE: &str = "development";' > "$build_dir/src/config.rs"
+build
+cmp "$build_dir/src/config.rs" "$source_dir/src/config.rs"

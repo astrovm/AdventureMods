@@ -21,13 +21,17 @@ permissions:
 
 jobs:
   # Pull requests that only touch docs or screenshots skip the build, test and
-  # packaging jobs. Pushes, tags and manual runs always run everything.
+  # packaging jobs, and ones that don't touch the build skip packaging. Pushes,
+  # tags and manual runs always run everything, so a merge still catches a
+  # package a code change broke. To get packages for a branch, run CI on it by
+  # hand (gh workflow run CI --ref <branch>).
   changes:
     runs-on: ubuntu-26.04
     permissions:
       pull-requests: read
     outputs:
       code: ${{ steps.files.outputs.code }}
+      packaging: ${{ steps.files.outputs.packaging }}
     steps:
       - name: Check whether code changed
         id: files
@@ -37,77 +41,60 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "packaging=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
           printf '%s\n' "$files"
           code=false
+          packaging=false
           while IFS= read -r file; do
             case "$file" in
               *.md | LICENSE | data/screenshots/*) ;;
               *) code=true ;;
             esac
+            case "$file" in
+              data/screenshots/*) ;;
+              build-aux/* | data/* | .github/workflows/* | Cargo.toml | Cargo.lock | \
+                build.rs | Makefile | meson.build | meson_options.txt | src/meson.build | \
+                src/config.rs.in) packaging=true ;;
+            esac
           done <<< "$files"
           echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "packaging=$packaging" >> "$GITHUB_OUTPUT"
           echo "Code changed: $code"
+          echo "Build changed: $packaging"
 
   test:
     # Pull requests and release/manual runs validate the tree. A merge to main
     # does not need to repeat the PR validation that already required it.
+    # x86 runs the same tests in the coverage job.
+    name: test (ARM)
     needs: changes
     if: needs.changes.outputs.code == 'true' && (github.event_name != 'push' || github.ref != 'refs/heads/main')
-    strategy:
-      fail-fast: false
-      matrix:
-        runner:
-          - ubuntu-26.04
-          - ubuntu-26.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-26.04-arm
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            pkg-config \
-            libudev-dev \
-            libegl1 \
-            libgl1-mesa-dri \
-            libxkbcommon-x11-0 \
-            xvfb
+        run: sh build-aux/ci-apt-install.sh libudev-dev libegl1 libgl1-mesa-dri libxkbcommon-x11-0 xvfb xauth
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          components: clippy, rustfmt
 
       - name: Cache Cargo build
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Check formatting
-        run: cargo fmt --check
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-nextest
 
-      - name: Run clippy
-        run: cargo clippy --all-targets -- -D warnings
-
+      # nextest runs each test in its own process, so tests run in parallel
+      # without sharing environment variables or other global state.
       - name: Run tests
-        run: xvfb-run cargo test --all-targets --no-fail-fast -- --test-threads=1
-
-      - name: Test Cargo runner
-        run: sh build-aux/test-cargo-test.sh
-
-      - name: Test Cargo build
-        run: sh build-aux/test-cargo-build.sh
-
-      - name: Test version lookup
-        run: sh build-aux/test-cargo-version.sh
-
-      - name: Test Steam manifest script
-        run: sh build-aux/test-steam-manifest.sh
+        run: xvfb-run cargo nextest run --locked --all-targets --no-fail-fast
 
   translations:
     # The catalogs in po/ must match the text in the code. Reading Rust needs
@@ -138,51 +125,52 @@ jobs:
           done
 
   coverage:
-    # 100% line coverage is a required PR signal; main is protected by PR-only changes.
-    # Runs alongside the test job instead of after it: it runs the same tests.
+    # Runs every test on x86 and requires 100% line coverage. Formatting,
+    # clippy and the build script tests run here too.
     needs: changes
-    if: needs.changes.outputs.code == 'true' && github.event_name == 'pull_request'
+    if: needs.changes.outputs.code == 'true' && (github.event_name != 'push' || github.ref != 'refs/heads/main')
     runs-on: ubuntu-26.04
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            pkg-config \
-            libudev-dev \
-            libegl1 \
-            libgl1-mesa-dri \
-            libxkbcommon-x11-0 \
-            xvfb
+        run: sh build-aux/ci-apt-install.sh libudev-dev libegl1 libgl1-mesa-dri libxkbcommon-x11-0 xvfb xauth
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          components: llvm-tools-preview
+          components: clippy, rustfmt, llvm-tools-preview
 
       - name: Cache Cargo build
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install cargo-llvm-cov
+      - name: Install cargo-llvm-cov and cargo-nextest
         uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
-          tool: cargo-llvm-cov
+          tool: cargo-llvm-cov,cargo-nextest
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Check 100% line coverage
-        run: xvfb-run cargo llvm-cov --workspace --all-targets --no-fail-fast --fail-under-lines 100 --show-missing-lines -- --test-threads=1
+        run: xvfb-run cargo llvm-cov nextest --locked --workspace --all-targets --no-fail-fast --fail-under-lines 100 --show-missing-lines
+
+      - name: Test build scripts
+        run: |
+          sh build-aux/test-cargo-test.sh
+          sh build-aux/test-cargo-build.sh
+          sh build-aux/test-cargo-version.sh
+          sh build-aux/test-steam-manifest.sh
 
   flatpak:
-    # Same packaging gates as AppImage: PR validation, release tags, manual runs.
-    # Skip ordinary pushes to main; PRs already passed the validation gates.
     # Packaging starts right away instead of waiting for the test job; the
     # release job still requires tests to pass before anything is published.
     needs: changes
-    if: needs.changes.outputs.code == 'true' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.packaging == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -247,7 +235,7 @@ jobs:
 
   appimage:
     needs: changes
-    if: needs.changes.outputs.code == 'true' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.packaging == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -257,8 +245,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Reuses crates compiled by earlier runs from GitHub's cache.
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: v0.18.0
+
       # The same Ubuntu 24.04 container as `make appimage`.
       - name: Build AppImage
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: bash build-aux/appimage/build-container.sh
 
       - name: Upload artifact
@@ -269,35 +265,52 @@ jobs:
 
   snap:
     needs: changes
-    if: needs.changes.outputs.code == 'true' && (github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
+    if: needs.changes.outputs.packaging == 'true'
     strategy:
       fail-fast: false
       matrix:
         arch: ${{ fromJSON(github.event_name == 'pull_request' && '["x86_64"]' || '["x86_64", "aarch64"]') }}
-    runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-26.04' || 'ubuntu-26.04-arm' }}
+    # The snap's core24 base needs an Ubuntu 24.04 host to build without
+    # snapcraft's LXD container, which took over four minutes to set up.
+    runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: v0.18.0
+
       - name: Build Snap
-        id: build
-        uses: snapcore/action-build@3bdaa03e1ba6bf59a65f84a751d943d549a54e79 # v1.3.0
+        run: |
+          sh build-aux/ci-apt-install.sh
+          sudo snap install snapcraft --classic
+          sudo env \
+            RUSTC_WRAPPER="$SCCACHE_PATH" \
+            SCCACHE_GHA_ENABLED=true \
+            ACTIONS_CACHE_SERVICE_V2="$ACTIONS_CACHE_SERVICE_V2" \
+            ACTIONS_RESULTS_URL="$ACTIONS_RESULTS_URL" \
+            ACTIONS_RUNTIME_TOKEN="$ACTIONS_RUNTIME_TOKEN" \
+            snapcraft pack --destructive-mode
+          # Wait for the cache uploads, then show how many crates it reused.
+          sudo "$SCCACHE_PATH" --stop-server
 
       - name: Install and test Snap
         env:
-          SNAP_FILE: ${{ steps.build.outputs.snap }}
           ARCH: ${{ matrix.arch }}
         run: |
-          unsquashfs -d snap-check "$SNAP_FILE"
+          snap_file=$(echo adventure-mods_*.snap)
+          unsquashfs -d snap-check "$snap_file"
           grep -Fx 'confinement: strict' snap-check/meta/snap.yaml
           test -x snap-check/usr/bin/7zz
           test -x snap-check/usr/bin/hpatchz
-          sudo snap install --dangerous "$SNAP_FILE"
+          sudo snap install --dangerous "$snap_file"
           version=$(sh build-aux/cargo-version.sh)
           snap run adventure-mods --version | grep -Fx "adventure-mods $version"
           snap connections adventure-mods
           mkdir -p snap-artifact
-          cp "$SNAP_FILE" "snap-artifact/AdventureMods-v$version-$ARCH.snap"
+          cp "$snap_file" "snap-artifact/AdventureMods-v$version-$ARCH.snap"
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -367,7 +380,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [test, appimage, snap, flatpak, create-release]
+    needs: [test, coverage, appimage, snap, flatpak, create-release]
     runs-on: ubuntu-26.04
     permissions:
       contents: write

@@ -9,7 +9,22 @@ cd "$PROJECT_DIR"
 # Ubuntu 24.04 keeps the AppImage's glibc needs at 2.39, so it runs on
 # distros that old and newer. CI builds it the same way.
 engine="$(command -v podman || command -v docker)"
+
+# CI hands in sccache to reuse crates compiled by earlier runs.
+cache_args=()
+if [ -n "${SCCACHE_PATH:-}" ]; then
+	cache_args=(
+		-v "$SCCACHE_PATH:/usr/local/bin/sccache:ro"
+		-e RUSTC_WRAPPER=sccache
+		-e SCCACHE_GHA_ENABLED
+		-e ACTIONS_CACHE_SERVICE_V2
+		-e ACTIONS_RESULTS_URL
+		-e ACTIONS_RUNTIME_TOKEN
+	)
+fi
+
 "$engine" run --rm \
+	"${cache_args[@]}" \
 	-e DEBIAN_FRONTEND=noninteractive \
 	-v "$PROJECT_DIR:/src" \
 	-w /src \
@@ -23,6 +38,10 @@ engine="$(command -v podman || command -v docker)"
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
 		export PATH="$HOME/.cargo/bin:$PATH"
 		bash build-aux/appimage/build-appimage.sh
+		# Wait for the cache uploads, then show how many crates it reused.
+		if [ -n "${RUSTC_WRAPPER:-}" ]; then
+			sccache --stop-server
+		fi
 		# Hand the output to whoever owns the checkout. Under rootless podman
 		# that is the container root, which already maps to the host user.
 		chown -R "$(stat -c %u:%g /src)" /src/appimage-build
