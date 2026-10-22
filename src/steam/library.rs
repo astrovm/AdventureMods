@@ -105,6 +105,23 @@ pub(crate) fn resolve_document_portal_path(
     None
 }
 
+/// Where a path inside the document portal, like a library granted through
+/// the file chooser, really is, to show the user.
+pub(crate) fn portal_host_path(path: &Path) -> Option<PathBuf> {
+    // Only the portal's folders carry the attribute, so other paths skip the
+    // lookups.
+    if !path
+        .ancestors()
+        .any(|dir| dir.file_name().is_some_and(|name| name == "doc"))
+    {
+        return None;
+    }
+    path.ancestors().find_map(|dir| {
+        let host = document_portal_host_path(dir)?;
+        Some(join_path_suffix(&host, path.strip_prefix(dir).ok()?))
+    })
+}
+
 fn join_path_suffix(base: &Path, suffix: &Path) -> PathBuf {
     if suffix.as_os_str().is_empty() {
         base.to_path_buf()
@@ -144,9 +161,13 @@ fn extra_library_root_for_host(extra: &Path, host_library: &Path) -> Option<Path
 }
 
 fn document_portal_root() -> Option<PathBuf> {
-    let runtime_dir = std::env::var_os("XDG_RUNTIME_DIR")?;
-    let doc_root = PathBuf::from(runtime_dir).join("doc");
-    doc_root.is_dir().then_some(doc_root)
+    let runtime_dir = PathBuf::from(std::env::var_os("XDG_RUNTIME_DIR")?);
+    // A snap's runtime folder sits inside the user's, which holds the portal.
+    [Some(runtime_dir.as_path()), runtime_dir.parent()]
+        .into_iter()
+        .flatten()
+        .map(|dir| dir.join("doc"))
+        .find(|doc_root| doc_root.is_dir())
 }
 
 fn find_document_portal_library(expected: &Path) -> Option<PathBuf> {
@@ -230,6 +251,38 @@ pub struct InaccessibleGame {
     pub library_path: PathBuf,
 }
 
+/// Whether the app runs as a strict snap, which reaches Steam's folders only
+/// through interfaces the user may not have connected yet.
+pub(crate) fn in_snap() -> bool {
+    std::env::var_os("SNAP").is_some()
+}
+
+/// The command that connects the snap to Steam's folders.
+pub fn snap_connect_command() -> String {
+    let name = std::env::var("SNAP_INSTANCE_NAME").unwrap_or_else(|_| "adventure-mods".into());
+    format!("snap connect {name}:steam-config && snap connect {name}:steam-games")
+}
+
+/// Whether the snap's confinement keeps the app from writing into `dir`, which
+/// it can still see. Always false outside a snap.
+fn snap_blocks_writes(dir: &Path) -> bool {
+    if !in_snap() {
+        return false;
+    }
+    let probe = dir.join(format!(".adventure-mods-{}", std::process::id()));
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+    {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&probe);
+            false
+        }
+        Err(err) => err.kind() == std::io::ErrorKind::PermissionDenied,
+    }
+}
+
 fn steam_roots_in(home: &Path) -> Vec<PathBuf> {
     let candidates = [
         home.join(".steam/debian-installation"),
@@ -298,7 +351,14 @@ fn find_all_games_in_libraries(
                     library_path: lib_path.to_path_buf(),
                 });
             } else if let Some(game_path) = find_game_in_library_path(lib_path, kind) {
-                paths.push(game_path);
+                if snap_blocks_writes(&game_path) {
+                    inaccessible.push(InaccessibleGame {
+                        kind,
+                        library_path: lib_path.to_path_buf(),
+                    });
+                } else {
+                    paths.push(game_path);
+                }
             }
         }
     }
@@ -383,12 +443,12 @@ fn detect_games_from_parsed_vdfs(
             tracing::info!("{} not found", kind.name());
         }
 
-        // Deduplicate inaccessible entries. The library path itself does not
-        // exist (that is why the game is inaccessible), so canonicalize() will
-        // always fail. Instead, canonicalize the nearest existing ancestor and
-        // re-attach the remaining suffix so symlinked parent directories are
-        // resolved correctly. Skip libraries already granted through the
-        // document portal (same host path, different sandbox path).
+        // Deduplicate inaccessible entries. The library path itself usually
+        // does not exist (that is why the game is inaccessible), so
+        // canonicalize() would fail. Instead, canonicalize the nearest existing
+        // ancestor and re-attach the remaining suffix so symlinked parent
+        // directories are resolved correctly. Skip libraries already granted
+        // through the document portal (same host path, different sandbox path).
         let mut seen_inacc: HashSet<PathBuf> = HashSet::new();
         for inc in kind_inaccessible {
             let covered_by_grant = extra_libraries.iter().any(|extra| {
@@ -402,7 +462,7 @@ fn detect_games_from_parsed_vdfs(
             let canonical = canonicalize_with_suffix(&inc.library_path);
             if seen_inacc.insert(canonical) {
                 tracing::warn!(
-                    "Steam library for {} at {} is inaccessible (partition may not be mounted)",
+                    "Steam library for {} at {} is inaccessible (partition may not be mounted, or the snap is not connected to it)",
                     kind.name(),
                     inc.library_path.display()
                 );
@@ -418,6 +478,39 @@ fn detect_games_from_parsed_vdfs(
 pub struct DetectionResult {
     pub games: Vec<Game>,
     pub inaccessible: Vec<InaccessibleGame>,
+    /// Steam folders the snap can see but not read, because it is not
+    /// connected to them.
+    pub blocked_steam_folders: Vec<PathBuf>,
+}
+
+/// List the Steam folders a snap could not read, unless the user granted one
+/// through the file chooser, and offer access to the games still visible in
+/// them.
+fn add_blocked_steam_folders(
+    result: &mut DetectionResult,
+    blocked: Vec<PathBuf>,
+    extra_libraries: &[PathBuf],
+) {
+    for root in blocked {
+        let granted = extra_libraries
+            .iter()
+            .any(|extra| extra_library_root_for_host(extra, &root).is_some());
+        if granted {
+            continue;
+        }
+        for kind in [GameKind::SADX, GameKind::SA2] {
+            let listed = result.inaccessible.iter().any(|game| {
+                game.kind == kind && library_paths_equivalent(&game.library_path, &root)
+            });
+            if library_has_game(&root, kind) && !listed {
+                result.inaccessible.push(InaccessibleGame {
+                    kind,
+                    library_path: root.clone(),
+                });
+            }
+        }
+        result.blocked_steam_folders.push(root);
+    }
 }
 
 pub fn detect_games_from_vdf_with_extra_libraries(
@@ -464,17 +557,30 @@ pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> Detecti
     }
 
     let mut roots = vec![];
+    let mut blocked = vec![];
     for vdf_path in &vdf_paths {
         match std::fs::read_to_string(vdf_path) {
             Ok(content) => match vdf::parse(&content) {
                 Some(root) => roots.push(root),
                 None => tracing::warn!("Failed to parse VDF at {}", vdf_path.display()),
             },
-            Err(e) => tracing::warn!("Failed to read {}: {}", vdf_path.display(), e),
+            Err(e) => {
+                tracing::warn!("Failed to read {}: {}", vdf_path.display(), e);
+                // The file is `<Steam folder>/steamapps/libraryfolders.vdf`.
+                if in_snap()
+                    && e.kind() == std::io::ErrorKind::PermissionDenied
+                    && let Some(steam_folder) = vdf_path.ancestors().nth(2)
+                {
+                    // Name the real folder, not a link such as ~/.steam/steam.
+                    blocked.push(try_canonicalize(steam_folder));
+                }
+            }
         }
     }
 
-    detect_games_from_parsed_vdfs(&roots, extra_libraries)
+    let mut result = detect_games_from_parsed_vdfs(&roots, extra_libraries);
+    add_blocked_steam_folders(&mut result, blocked, extra_libraries);
+    result
 }
 
 #[cfg(test)]

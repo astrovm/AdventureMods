@@ -3,6 +3,7 @@
 use egui::{
     Align2, Color32, CornerRadius, FontSelection, Frame, Margin, Response, RichText, Role, Sense,
     Stroke, TextStyle, Ui, Vec2, WidgetInfo, WidgetText,
+    text::{LayoutJob, TextWrapping},
 };
 
 use super::{motion, theme};
@@ -200,6 +201,29 @@ pub fn card() -> Frame {
 
 /// A tinted message box with a colored stripe.
 pub fn banner(ui: &mut Ui, tone: Tone, text: &str) -> Response {
+    banner_with(ui, tone, |ui| {
+        ui.add(egui::Label::new(text).wrap());
+    })
+}
+
+/// A [`banner`] with a terminal command under the text and a button that
+/// copies it. Returns whether the button was pressed.
+pub fn command_banner(ui: &mut Ui, tone: Tone, text: &str, command: &str) -> bool {
+    let mut copy = false;
+    banner_with(ui, tone, |ui| {
+        ui.vertical(|ui| {
+            ui.add(egui::Label::new(text).wrap());
+            ui.add_space(8.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.add(egui::Label::new(RichText::new(command).monospace()).wrap());
+                copy = button(ui, tr!("Copy"), ButtonKind::Normal).clicked();
+            });
+        });
+    });
+    copy
+}
+
+fn banner_with(ui: &mut Ui, tone: Tone, content: impl FnOnce(&mut Ui)) -> Response {
     let color = tone.color();
     Frame::new()
         .fill(color.gamma_multiply(0.14))
@@ -211,7 +235,7 @@ pub fn banner(ui: &mut Ui, tone: Tone, text: &str) -> Response {
             ui.horizontal(|ui| {
                 let (dot, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
                 ui.painter().circle_filled(dot.center(), 6.0, color);
-                ui.add(egui::Label::new(text).wrap());
+                content(ui);
             });
         })
         .response
@@ -363,19 +387,30 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
         egui::StrokeKind::Inside,
     );
     let body = TextStyle::Body.resolve(ui.style());
-    painter.text(
-        rect.left_center() + Vec2::new(20.0, 0.0),
-        Align2::LEFT_CENTER,
-        title,
-        body.clone(),
-        theme::TEXT,
-    );
-    painter.text(
-        rect.right_center() - Vec2::new(20.0, 0.0),
-        Align2::RIGHT_CENTER,
-        format!("{value}  ›"),
-        body,
+    let title = painter.layout_no_wrap(title.to_owned(), body.clone(), theme::TEXT);
+    let chevron = painter.layout_no_wrap("  ›".to_owned(), body.clone(), theme::ACCENT_BRIGHT);
+    // A long value, like an install path, is cut short so it never runs into
+    // the title.
+    let room = rect.width() - 64.0 - title.size().x - chevron.size().x;
+    let mut job = LayoutJob::simple_singleline(value.to_owned(), body, theme::ACCENT_BRIGHT);
+    job.wrap = TextWrapping::truncate_at_width(room.max(0.0));
+    let value = painter.layout_job(job);
+    let middle = |height: f32| rect.center().y - height / 2.0;
+    let chevron_left = rect.right() - 20.0 - chevron.size().x;
+    painter.galley(
+        egui::pos2(chevron_left - value.size().x, middle(value.size().y)),
+        value,
         theme::ACCENT_BRIGHT,
+    );
+    painter.galley(
+        egui::pos2(chevron_left, middle(chevron.size().y)),
+        chevron,
+        theme::ACCENT_BRIGHT,
+    );
+    painter.galley(
+        egui::pos2(rect.left() + 20.0, middle(title.size().y)),
+        title,
+        theme::TEXT,
     );
     response
 }
@@ -553,5 +588,38 @@ mod tests {
         let mut clicks = harness.state().clone();
         clicks.sort();
         assert_eq!(clicks, vec!["Destructive", "Voices"]);
+    }
+
+    #[test]
+    fn a_long_choice_stays_clear_of_its_title() {
+        let mut harness = Harness::builder()
+            .with_size(Vec2::new(420.0, 100.0))
+            .build_ui(|ui| {
+                theme::apply_ui(ui);
+                choice_row(
+                    ui,
+                    "Installation",
+                    "/mnt/data/SteamLibrary/steamapps/common/Sonic Adventure DX",
+                );
+            });
+        harness.run();
+
+        let texts: Vec<egui::Rect> = harness
+            .output()
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) => Some(text.visual_bounding_rect()),
+                _ => None,
+            })
+            .collect();
+        assert!(texts.len() >= 2, "the title and the value");
+        for (index, text) in texts.iter().enumerate() {
+            assert!(text.right() <= 420.0, "text runs off the row: {text:?}");
+            for other in &texts[index + 1..] {
+                assert!(!text.intersects(*other), "{text:?} overlaps {other:?}");
+            }
+        }
+        harness.get_by_label("Installation");
     }
 }

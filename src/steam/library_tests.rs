@@ -1255,6 +1255,39 @@ fn document_portal_host_path_ignores_trailing_nul_bytes() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn a_granted_library_shows_where_it_really_is() {
+    let tmp = tempfile::tempdir().unwrap();
+    let portal = tmp.path().join("doc/c814772a/SteamLibrary");
+    let elsewhere = tmp.path().join("other/SteamLibrary");
+    std::fs::create_dir_all(&portal).unwrap();
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    set_raw_host_path_xattr(&portal, b"/mnt/data/SteamLibrary");
+    set_raw_host_path_xattr(&elsewhere, b"/mnt/data/SteamLibrary");
+
+    let game = portal.join("steamapps/common/Sonic Adventure DX");
+    assert_eq!(
+        portal_host_path(&game),
+        Some(PathBuf::from(
+            "/mnt/data/SteamLibrary/steamapps/common/Sonic Adventure DX"
+        ))
+    );
+    assert_eq!(
+        portal_host_path(&portal),
+        Some(PathBuf::from("/mnt/data/SteamLibrary"))
+    );
+    let _guard = crate::test_env::lock();
+    assert_eq!(
+        crate::path_display::display_path(&game),
+        "/mnt/data/SteamLibrary/steamapps/common/Sonic Adventure DX"
+    );
+    // Folders outside the portal and portal folders without a grant keep
+    // their own path.
+    assert_eq!(portal_host_path(&elsewhere), None);
+    assert_eq!(portal_host_path(&tmp.path().join("doc")), None);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn resolve_document_portal_path_rejects_missing_and_unrelated_host_paths() {
     let tmp = tempfile::tempdir().unwrap();
     let host = tmp.path().join("host/SteamLibrary");
@@ -1416,4 +1449,230 @@ fn a_granted_library_hides_the_inaccessible_entry_only_when_it_has_the_game() {
     let result = detect_games_from_parsed_vdfs(&[root], &[portal]);
     assert!(result.inaccessible.is_empty());
     assert!(result.games.iter().any(|game| game.kind == GameKind::SADX));
+}
+
+/// Run `test` with several environment variables set (or removed for `None`),
+/// restoring them afterwards.
+fn with_environments<T>(vars: &[(&str, Option<&Path>)], test: impl FnOnce() -> T) -> T {
+    let _guard = crate::test_env::lock();
+    let previous: Vec<_> = vars
+        .iter()
+        .map(|(name, _)| (*name, std::env::var_os(name)))
+        .collect();
+    for (name, value) in vars {
+        crate::test_env::set_var(name, *value);
+    }
+
+    let result = test();
+
+    for (name, value) in previous {
+        crate::test_env::set_var(name, value);
+    }
+    result
+}
+
+/// Inside a snap, as the `SNAP` variable says.
+fn in_a_snap<T>(home: &Path, test: impl FnOnce() -> T) -> T {
+    with_environments(
+        &[
+            ("SNAP", Some(Path::new("/snap/adventure-mods/x1"))),
+            ("SNAP_REAL_HOME", None),
+            ("HOME", Some(home)),
+        ],
+        test,
+    )
+}
+
+fn set_mode(path: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
+}
+
+#[test]
+fn only_a_snap_probes_whether_it_can_write_a_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let writable = tmp.path().join("writable");
+    let blocked = tmp.path().join("blocked");
+    std::fs::create_dir_all(&writable).unwrap();
+    std::fs::create_dir_all(&blocked).unwrap();
+    // Read-only folders stand in for the snap's confinement.
+    set_mode(&blocked, 0o555);
+
+    let outside = with_environments(&[("SNAP", None)], || {
+        (in_snap(), snap_blocks_writes(&blocked))
+    });
+    assert_eq!(outside, (false, false));
+
+    let inside = in_a_snap(tmp.path(), || {
+        (
+            in_snap(),
+            snap_blocks_writes(&writable),
+            snap_blocks_writes(&blocked),
+            snap_blocks_writes(&tmp.path().join("missing")),
+        )
+    });
+    assert_eq!(inside, (true, false, true, false));
+    assert_eq!(
+        std::fs::read_dir(&writable).unwrap().count(),
+        0,
+        "the probe file is removed"
+    );
+
+    set_mode(&blocked, 0o755);
+}
+
+#[test]
+fn the_snap_connect_command_names_the_installed_snap() {
+    let command = with_environments(&[("SNAP_INSTANCE_NAME", None)], snap_connect_command);
+    assert_eq!(
+        command,
+        "snap connect adventure-mods:steam-config && snap connect adventure-mods:steam-games"
+    );
+
+    let command = with_environments(
+        &[("SNAP_INSTANCE_NAME", Some(Path::new("adventure-mods_beta")))],
+        snap_connect_command,
+    );
+    assert_eq!(
+        command,
+        "snap connect adventure-mods_beta:steam-config && snap connect adventure-mods_beta:steam-games"
+    );
+}
+
+#[test]
+fn a_snap_offers_access_to_a_library_it_cannot_write() {
+    let tmp = tempfile::tempdir().unwrap();
+    let library = tmp.path().join("SteamLibrary");
+    let game_dir = make_steam_library(&library, GameKind::SADX);
+    let root = mock_vdf(library.to_str().unwrap(), &["71250"]);
+    set_mode(&game_dir, 0o555);
+
+    let result = in_a_snap(tmp.path(), || {
+        detect_games_from_parsed_vdfs(std::slice::from_ref(&root), &[])
+    });
+    let outside = with_environments(&[("SNAP", None)], || {
+        detect_games_from_parsed_vdfs(std::slice::from_ref(&root), &[])
+    });
+    set_mode(&game_dir, 0o755);
+
+    assert!(result.games.is_empty());
+    assert_eq!(result.inaccessible.len(), 1);
+    assert_eq!(result.inaccessible[0].kind, GameKind::SADX);
+    assert_eq!(result.inaccessible[0].library_path, library);
+    assert_eq!(outside.games.len(), 1, "outside a snap the game is found");
+}
+
+/// A home with native Steam whose library list the snap cannot read, holding
+/// SADX in its own library. Returns the Steam folder.
+fn home_with_blocked_steam(home: &Path) -> PathBuf {
+    let steam = home.join(".local/share/Steam");
+    make_steam_library(&steam, GameKind::SADX);
+    let vdf = steam.join("steamapps/libraryfolders.vdf");
+    std::fs::write(&vdf, "\"libraryfolders\"\n{\n}\n").unwrap();
+    set_mode(&vdf, 0o000);
+    steam
+}
+
+#[test]
+fn a_snap_reports_a_steam_folder_it_cannot_read() {
+    let home = tempfile::tempdir().unwrap();
+    let steam = try_canonicalize(&home_with_blocked_steam(home.path()));
+    // Steam's link is found first; the report names the real folder.
+    std::fs::create_dir_all(home.path().join(".steam")).unwrap();
+    std::os::unix::fs::symlink(&steam, home.path().join(".steam/steam")).unwrap();
+
+    let result = in_a_snap(home.path(), || detect_games_with_extra_libraries(&[]));
+    let outside = with_environments(&[("SNAP", None), ("HOME", Some(home.path()))], || {
+        detect_games_with_extra_libraries(&[])
+    });
+    set_mode(&steam.join("steamapps/libraryfolders.vdf"), 0o644);
+
+    assert_eq!(result.blocked_steam_folders, vec![steam.clone()]);
+    assert!(result.games.is_empty());
+    assert_eq!(result.inaccessible.len(), 1, "only SADX is installed");
+    assert_eq!(result.inaccessible[0].kind, GameKind::SADX);
+    assert_eq!(result.inaccessible[0].library_path, steam);
+    assert!(outside.blocked_steam_folders.is_empty());
+    assert!(outside.inaccessible.is_empty());
+}
+
+#[test]
+fn a_blocked_steam_folder_lists_each_game_once() {
+    let home = tempfile::tempdir().unwrap();
+    let steam = home_with_blocked_steam(home.path());
+    // The Flatpak's Steam lists the same folder as a library, and the snap
+    // cannot write the game there either.
+    let flatpak = home
+        .path()
+        .join(".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps");
+    std::fs::create_dir_all(&flatpak).unwrap();
+    std::fs::write(
+        flatpak.join("libraryfolders.vdf"),
+        format!(
+            "\"libraryfolders\"\n{{\n\"0\"\n{{\n\"path\" \"{}\"\n\"apps\"\n{{\n\"71250\" \"0\"\n}}\n}}\n}}\n",
+            steam.display()
+        ),
+    )
+    .unwrap();
+    let game_dir = steam.join("steamapps/common/Sonic Adventure DX");
+    set_mode(&game_dir, 0o555);
+
+    let result = in_a_snap(home.path(), || detect_games_with_extra_libraries(&[]));
+    set_mode(&game_dir, 0o755);
+    set_mode(&steam.join("steamapps/libraryfolders.vdf"), 0o644);
+
+    assert_eq!(result.blocked_steam_folders, vec![steam.clone()]);
+    assert_eq!(result.inaccessible.len(), 1);
+    assert_eq!(result.inaccessible[0].library_path, steam);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn granting_the_blocked_steam_folder_clears_the_report() {
+    let home = tempfile::tempdir().unwrap();
+    let steam = home_with_blocked_steam(home.path());
+    let portal = home.path().join("doc/d1a2b3c4/Steam");
+    make_steam_library(&portal, GameKind::SADX);
+    set_host_path_xattr(&portal, &steam);
+
+    let result = in_a_snap(home.path(), || {
+        detect_games_with_extra_libraries(std::slice::from_ref(&portal))
+    });
+    set_mode(&steam.join("steamapps/libraryfolders.vdf"), 0o644);
+
+    assert!(result.blocked_steam_folders.is_empty());
+    assert!(result.inaccessible.is_empty());
+    assert_eq!(result.games.len(), 1);
+    assert_eq!(
+        result.games[0].path,
+        portal.join("steamapps/common/Sonic Adventure DX")
+    );
+}
+
+#[test]
+fn a_snap_finds_the_portal_outside_its_own_runtime_folder() {
+    let tmp = tempfile::tempdir().unwrap();
+    let user_runtime = tmp.path().join("run/user/1000");
+    let snap_runtime = user_runtime.join("snap.adventure-mods");
+    std::fs::create_dir_all(user_runtime.join("doc")).unwrap();
+    std::fs::create_dir_all(&snap_runtime).unwrap();
+
+    let found = with_environment("XDG_RUNTIME_DIR", Some(&snap_runtime), document_portal_root);
+    assert_eq!(found, Some(user_runtime.join("doc")));
+
+    std::fs::create_dir_all(snap_runtime.join("doc")).unwrap();
+    let found = with_environment("XDG_RUNTIME_DIR", Some(&snap_runtime), document_portal_root);
+    assert_eq!(
+        found,
+        Some(snap_runtime.join("doc")),
+        "its own folder comes first"
+    );
+
+    let found = with_environment(
+        "XDG_RUNTIME_DIR",
+        Some(Path::new("/")),
+        document_portal_root,
+    );
+    assert_eq!(found, None);
 }

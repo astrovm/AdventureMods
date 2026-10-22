@@ -12,7 +12,7 @@ use super::{motion, theme};
 use crate::path_display::display_path;
 use crate::setup::restore;
 use crate::steam::game::{Game, GameKind};
-use crate::steam::library::{DetectionResult, InaccessibleGame};
+use crate::steam::library::{self, DetectionResult, InaccessibleGame};
 use crate::{tr, trf};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -162,6 +162,8 @@ pub enum WelcomeAction {
     GrantAccess(PathBuf),
     VerifyInSteam(GameKind),
     ConfirmRestore(GameKind, PathBuf),
+    /// Copy this command for the user to paste in a terminal.
+    CopyCommand(String),
 }
 
 #[derive(Default)]
@@ -238,6 +240,10 @@ impl WelcomeScreen {
             });
             return None;
         };
+        // A snap that can't open the Steam folder needs a command, which also
+        // brings back the games the other banner would ask access for.
+        let snap_command =
+            (!result.blocked_steam_folders.is_empty()).then(library::snap_connect_command);
         let alert = inaccessible_alert(&result.inaccessible);
 
         let mut action = None;
@@ -251,13 +257,26 @@ impl WelcomeScreen {
                     egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(margin as i8, 0))
                         .show(ui, |ui| {
-                            if let Some(alert) = &alert {
+                            let mut copy = None;
+                            if let Some(command) = &snap_command {
+                                if widgets::command_banner(
+                                    ui,
+                                    Tone::Warning,
+                                    tr!(
+                                        "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
+                                    ),
+                                    command,
+                                ) {
+                                    copy = Some(WelcomeAction::CopyCommand(command.clone()));
+                                }
+                                ui.add_space(12.0);
+                            } else if let Some(alert) = &alert {
                                 widgets::banner(ui, Tone::Warning, alert);
                                 ui.add_space(12.0);
                             }
                             self.show_tiles(ui, images);
                             ui.add_space(28.0);
-                            action = self.show_selected(ui);
+                            action = self.show_selected(ui).or(copy);
                         });
                 });
                 self.content_height = content.response.rect.height();
@@ -597,6 +616,7 @@ mod tests {
         let cards = build_game_cards(&DetectionResult {
             games: vec![game(GameKind::SA2, "/games/sa2")],
             inaccessible: vec![],
+            ..Default::default()
         });
 
         assert_eq!(cards.len(), 2);
@@ -616,6 +636,7 @@ mod tests {
         let cards = build_game_cards(&DetectionResult {
             games: vec![],
             inaccessible: vec![inaccessible(GameKind::SADX, "/mnt/steam")],
+            ..Default::default()
         });
 
         let card = &cards[0];
@@ -644,6 +665,7 @@ mod tests {
                 inaccessible(GameKind::SADX, "/mnt/steam-1"),
                 inaccessible(GameKind::SADX, "/mnt/steam-2"),
             ],
+            ..Default::default()
         });
 
         let card = &cards[0];
@@ -712,6 +734,37 @@ mod tests {
     }
 
     #[test]
+    fn a_snap_that_cannot_open_steam_shows_the_command_to_connect_it() {
+        let mut harness = harness(Some(DetectionResult {
+            inaccessible: vec![inaccessible(
+                GameKind::SADX,
+                "/home/user/.local/share/Steam",
+            )],
+            blocked_steam_folders: vec!["/home/user/.local/share/Steam".into()],
+            ..Default::default()
+        }));
+        harness.get_by_label(
+            "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:",
+        );
+        let command = library::snap_connect_command();
+        harness.get_by_label(&command);
+        // The command replaces the banner asking for access.
+        assert!(
+            harness
+                .query_by_label_contains("needs access to the Steam library")
+                .is_none()
+        );
+
+        harness.get_by_label("Copy").click();
+        harness.run_steps(4);
+
+        assert_eq!(
+            harness.state().actions,
+            vec![WelcomeAction::CopyCommand(command)]
+        );
+    }
+
+    #[test]
     fn the_screen_waits_for_the_first_scan() {
         let harness = harness(None);
         harness.get_by_label("Looking for your games…");
@@ -723,6 +776,7 @@ mod tests {
         let mut harness = harness(Some(DetectionResult {
             games: vec![game(GameKind::SA2, "/games/sa2")],
             inaccessible: vec![inaccessible(GameKind::SADX, "/mnt/steam")],
+            ..Default::default()
         }));
         harness.get_by_label(
             "Adventure Mods needs access to the Steam library with Sonic Adventure DX. Use Grant Access on the game below.",
@@ -755,6 +809,7 @@ mod tests {
         let mut harness = harness(Some(DetectionResult {
             games: vec![game(GameKind::SA2, "/games/sa2")],
             inaccessible: vec![inaccessible(GameKind::SA2, "/mnt/steam")],
+            ..Default::default()
         }));
 
         harness.get_by_label("Installation").click();
@@ -781,6 +836,7 @@ mod tests {
                 game(GameKind::SADX, "/games/b"),
             ],
             inaccessible: vec![],
+            ..Default::default()
         };
         let mut screen = WelcomeScreen::default();
         screen.set_result(result.clone());
@@ -792,6 +848,7 @@ mod tests {
         let mut harness = harness(Some(DetectionResult {
             games: vec![game(GameKind::SADX, "/games/a")],
             inaccessible: vec![],
+            ..Default::default()
         }));
         harness.state_mut().screen.focus_first();
         harness.run_steps(4);
@@ -811,6 +868,7 @@ mod tests {
                 game(GameKind::SA2, "/games/sa2"),
             ],
             inaccessible: vec![],
+            ..Default::default()
         }));
         harness.run_steps(4);
         harness.get_by_label("SONIC ADVENTURE DX");

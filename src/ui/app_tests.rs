@@ -21,6 +21,9 @@ fn fake_detect(extra: &[PathBuf]) -> DetectionResult {
                 path: library.join("sa2"),
             });
         }
+        if library.join("blocked").is_dir() {
+            result.blocked_steam_folders.push(library.join("blocked"));
+        }
         if library.join("locked").is_dir() {
             result.inaccessible.push(InaccessibleGame {
                 kind: GameKind::SADX,
@@ -183,6 +186,28 @@ fn only_the_newest_scan_is_shown() {
     app.latest_scan = u64::MAX;
     app.detect_games();
     assert_eq!(app.latest_scan, 0);
+}
+
+#[test]
+fn copying_the_snap_connect_command_puts_it_on_the_clipboard() {
+    let fixture = Fixture::new(&["blocked"]);
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.get_by_label_contains("needs permission to open your Steam folder");
+
+    harness.get_by_label("Copy").click();
+    harness.step();
+
+    let command = crate::steam::library::snap_connect_command();
+    assert!(
+        harness
+            .output()
+            .platform_output
+            .commands
+            .contains(&egui::OutputCommand::CopyText(command))
+    );
+    harness.run_steps(2);
+    harness.get_by_label("Command copied.");
 }
 
 #[test]

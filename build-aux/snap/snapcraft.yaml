@@ -29,18 +29,49 @@ apps:
       - network
       - removable-media
       - joystick
-      - steam-files
+      - steam-config
+      - steam-games
 
 plugs:
-  # Steam keeps its libraries and Proton prefixes in hidden folders, which the
-  # home interface leaves out. Libraries anywhere else are picked through the
-  # file chooser portal.
-  steam-files:
+  # Steam keeps its default library and Proton prefixes in hidden folders,
+  # which the home interface leaves out. Each list covers the Debian and
+  # Ubuntu package, every other native install, and the Flatpak. Libraries
+  # anywhere else are picked through the file chooser portal.
+  #
+  # Read: the library list, the Proton each game uses, and the Proton
+  # builds themselves, to check the game's one is installed and supported.
+  steam-config:
+    interface: personal-files
+    read:
+      - $HOME/.steam/debian-installation/config/config.vdf
+      - $HOME/.steam/debian-installation/steamapps/libraryfolders.vdf
+      - $HOME/.steam/debian-installation/steamapps/common
+      - $HOME/.steam/debian-installation/compatibilitytools.d
+      - $HOME/.local/share/Steam/config/config.vdf
+      - $HOME/.local/share/Steam/steamapps/libraryfolders.vdf
+      - $HOME/.local/share/Steam/steamapps/common
+      - $HOME/.local/share/Steam/compatibilitytools.d
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/config/config.vdf
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/libraryfolders.vdf
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/compatibilitytools.d
+  # Write: only the two games' folders and their Proton prefixes (71250 is
+  # Sonic Adventure DX, 213610 is Sonic Adventure 2).
+  steam-games:
     interface: personal-files
     write:
-      - $HOME/.steam
-      - $HOME/.local/share/Steam
-      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam
+      - $HOME/.steam/debian-installation/steamapps/common/Sonic Adventure DX
+      - $HOME/.steam/debian-installation/steamapps/common/Sonic Adventure 2
+      - $HOME/.steam/debian-installation/steamapps/compatdata/71250
+      - $HOME/.steam/debian-installation/steamapps/compatdata/213610
+      - $HOME/.local/share/Steam/steamapps/common/Sonic Adventure DX
+      - $HOME/.local/share/Steam/steamapps/common/Sonic Adventure 2
+      - $HOME/.local/share/Steam/steamapps/compatdata/71250
+      - $HOME/.local/share/Steam/steamapps/compatdata/213610
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Sonic Adventure DX
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Sonic Adventure 2
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/71250
+      - $HOME/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/213610
 
 parts:
   tools:

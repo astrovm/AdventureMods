@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
 pub fn display_path(path: &Path) -> String {
-    display_path_with_home(path, user_home().as_deref())
+    let host = crate::steam::library::portal_host_path(path);
+    display_path_with_home(host.as_deref().unwrap_or(path), user_home().as_deref())
 }
 
 /// The user's home folder. A strict Snap points `$HOME` at its own folder

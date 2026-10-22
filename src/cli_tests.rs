@@ -147,6 +147,7 @@ fn resolve_game_kind_rich_uses_a_single_detected_game() {
             path: PathBuf::from("/games/sadx"),
         }],
         inaccessible: vec![],
+        ..Default::default()
     };
     let prompt = MockPrompt {
         select_result: 0,
@@ -166,6 +167,7 @@ fn resolve_game_kind_rich_rejects_empty_detection() {
     let detected = DetectionResult {
         games: vec![],
         inaccessible: vec![],
+        ..Default::default()
     };
     let prompt = MockPrompt {
         select_result: 0,
@@ -192,6 +194,7 @@ fn resolve_game_kind_rich_prompts_for_multiple_detected_games() {
             },
         ],
         inaccessible: vec![],
+        ..Default::default()
     };
     let prompt = MockPrompt {
         select_result: 1,
@@ -213,6 +216,7 @@ fn missing_game_error_names_inaccessible_libraries() {
             kind: GameKind::SADX,
             library_path: PathBuf::from("/data/SteamLibrary"),
         }],
+        ..Default::default()
     };
 
     let sadx = not_detected_error(GameKind::SADX, &result).to_string();
@@ -221,6 +225,67 @@ fn missing_game_error_names_inaccessible_libraries() {
     assert_eq!(
         not_detected_error(GameKind::SA2, &result).to_string(),
         "Sonic Adventure 2 was not detected. Pass --game-path."
+    );
+}
+
+#[test]
+fn missing_game_error_tells_a_snap_how_to_connect_to_steam() {
+    let result = DetectionResult {
+        blocked_steam_folders: vec![PathBuf::from("/home/user/.local/share/Steam")],
+        ..Default::default()
+    };
+
+    assert_eq!(
+        not_detected_error(GameKind::SA2, &result).to_string(),
+        format!(
+            "Sonic Adventure 2 was not detected because Adventure Mods can't open your Steam \
+             folder. Run this in a terminal, then try again: {}",
+            crate::steam::library::snap_connect_command()
+        )
+    );
+}
+
+#[test]
+fn detect_tells_a_snap_how_to_connect_to_steam() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = tempfile::tempdir().unwrap();
+    let vdf = home
+        .path()
+        .join(".local/share/Steam/steamapps/libraryfolders.vdf");
+    std::fs::create_dir_all(vdf.parent().unwrap()).unwrap();
+    std::fs::write(&vdf, "\"libraryfolders\" {}\n").unwrap();
+    std::fs::set_permissions(&vdf, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    let output = with_test_settings(|_| {
+        let vars = ["SNAP", "SNAP_REAL_HOME", "HOME"];
+        let previous: Vec<_> = vars.iter().map(std::env::var_os).collect();
+        crate::test_env::set_var("SNAP", Some("/snap/adventure-mods/x1"));
+        crate::test_env::set_var("SNAP_REAL_HOME", None::<&str>);
+        crate::test_env::set_var("HOME", Some(home.path()));
+
+        let mut output = Vec::new();
+        let cli = Cli {
+            no_color: true,
+            command: Some(Command::Detect(DetectArgs::default())),
+        };
+        run_with_io(cli, false, &mut output).unwrap();
+
+        for (name, value) in vars.into_iter().zip(previous) {
+            crate::test_env::set_var(name, value);
+        }
+        String::from_utf8(output).unwrap()
+    });
+    std::fs::set_permissions(&vdf, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    assert!(!output.contains("No supported games detected"), "{output}");
+    assert!(
+        output.contains(&format!(
+            "Steam folders Adventure Mods can't open:\n- ~/.local/share/Steam\nRun this in a \
+             terminal, then try again:\n{}\n",
+            crate::steam::library::snap_connect_command()
+        )),
+        "{output}"
     );
 }
 
@@ -321,6 +386,7 @@ fn resolve_game_path_rich_handles_explicit_single_and_multiple_paths() {
             },
         ],
         inaccessible: vec![],
+        ..Default::default()
     };
 
     let mut detected_args = empty_setup_args();
@@ -332,6 +398,7 @@ fn resolve_game_path_rich_handles_explicit_single_and_multiple_paths() {
     let empty = DetectionResult {
         games: vec![],
         inaccessible: vec![],
+        ..Default::default()
     };
     let error =
         resolve_game_path_rich(&detected_args, GameKind::SA2, Some(&empty), &prompt).unwrap_err();
@@ -1958,6 +2025,7 @@ fn rich_game_path_surfaces_installation_prompt_errors() {
             },
         ],
         inaccessible: vec![],
+        ..Default::default()
     };
     let prompt = ClosedTerminalPrompt {
         select_result: None,
