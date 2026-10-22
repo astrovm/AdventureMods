@@ -55,6 +55,18 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.1" date="2026-10-22">
+      <description>
+        <p>The Snap asks for less access to your Steam folders and tells you what it's missing.</p>
+        <ul>
+          <li>The Snap can only change the two games' folders and their Proton prefixes</li>
+          <li>When the Snap can't open your Steam folder, it shows the command that fixes it, with a Copy button</li>
+          <li>A library the Snap can't change shows Grant Access, instead of failing partway through setup</li>
+          <li>Libraries picked in the file chooser show their real folder</li>
+          <li>Long install paths no longer run over the Installation title</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.0" date="2026-10-18">
       <description>
         <p>The app now remembers your window size and the mods you picked.</p>
