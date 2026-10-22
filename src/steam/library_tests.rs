@@ -1255,6 +1255,39 @@ fn document_portal_host_path_ignores_trailing_nul_bytes() {
 
 #[cfg(target_os = "linux")]
 #[test]
+fn a_granted_library_shows_where_it_really_is() {
+    let tmp = tempfile::tempdir().unwrap();
+    let portal = tmp.path().join("doc/c814772a/SteamLibrary");
+    let elsewhere = tmp.path().join("other/SteamLibrary");
+    std::fs::create_dir_all(&portal).unwrap();
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    set_raw_host_path_xattr(&portal, b"/mnt/data/SteamLibrary");
+    set_raw_host_path_xattr(&elsewhere, b"/mnt/data/SteamLibrary");
+
+    let game = portal.join("steamapps/common/Sonic Adventure DX");
+    assert_eq!(
+        portal_host_path(&game),
+        Some(PathBuf::from(
+            "/mnt/data/SteamLibrary/steamapps/common/Sonic Adventure DX"
+        ))
+    );
+    assert_eq!(
+        portal_host_path(&portal),
+        Some(PathBuf::from("/mnt/data/SteamLibrary"))
+    );
+    let _guard = crate::test_env::lock();
+    assert_eq!(
+        crate::path_display::display_path(&game),
+        "/mnt/data/SteamLibrary/steamapps/common/Sonic Adventure DX"
+    );
+    // Folders outside the portal and portal folders without a grant keep
+    // their own path.
+    assert_eq!(portal_host_path(&elsewhere), None);
+    assert_eq!(portal_host_path(&tmp.path().join("doc")), None);
+}
+
+#[cfg(target_os = "linux")]
+#[test]
 fn resolve_document_portal_path_rejects_missing_and_unrelated_host_paths() {
     let tmp = tempfile::tempdir().unwrap();
     let host = tmp.path().join("host/SteamLibrary");

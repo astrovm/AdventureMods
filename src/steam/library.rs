@@ -105,6 +105,23 @@ pub(crate) fn resolve_document_portal_path(
     None
 }
 
+/// Where a path inside the document portal, like a library granted through
+/// the file chooser, really is, to show the user.
+pub(crate) fn portal_host_path(path: &Path) -> Option<PathBuf> {
+    // Only the portal's folders carry the attribute, so other paths skip the
+    // lookups.
+    if !path
+        .ancestors()
+        .any(|dir| dir.file_name().is_some_and(|name| name == "doc"))
+    {
+        return None;
+    }
+    path.ancestors().find_map(|dir| {
+        let host = document_portal_host_path(dir)?;
+        Some(join_path_suffix(&host, path.strip_prefix(dir).ok()?))
+    })
+}
+
 fn join_path_suffix(base: &Path, suffix: &Path) -> PathBuf {
     if suffix.as_os_str().is_empty() {
         base.to_path_buf()
