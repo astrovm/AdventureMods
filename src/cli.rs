@@ -291,9 +291,10 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
         for folder in &result.blocked_steam_folders {
             out.writeln(&format!("- {}", out.path(&display_path(folder))))?;
         }
-        out.writeln(tr!(
+        let how = tr!(
             "Grant access to it in the Adventure Mods window, or run this in a terminal, then try again:"
-        ))?;
+        );
+        out.writeln(how)?;
         out.writeln(&library::snap_connect_command())?;
     }
 
