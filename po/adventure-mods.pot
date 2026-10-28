@@ -863,10 +863,6 @@ msgid "Could not restore {game}: {error}"
 msgstr ""
 
 #: src/ui/app.rs
-msgid "Command copied."
-msgstr ""
-
-#: src/ui/app.rs
 msgid "About"
 msgstr ""
 
@@ -935,7 +931,7 @@ msgid "Made with {heart} by astro"
 msgstr ""
 
 #: src/ui/mod.rs
-msgid "Grant access to a Steam library"
+msgid "Select your Steam folder"
 msgstr ""
 
 #: src/ui/progress.rs
@@ -1153,7 +1149,7 @@ msgstr ""
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr ""
 
-#: src/ui/welcome.rs src/ui/widgets.rs
+#: src/ui/welcome.rs
 msgid "Grant Access"
 msgstr ""
 
@@ -1167,6 +1163,10 @@ msgstr ""
 
 #: src/ui/welcome.rs
 msgid "Looking for your games…"
+msgstr ""
+
+#: src/ui/welcome.rs
+msgid "Adventure Mods needs access to your Steam folder."
 msgstr ""
 
 #: src/ui/welcome.rs
@@ -1184,30 +1184,12 @@ msgstr ""
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
-msgstr ""
-
-#: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr ""
-
-#: src/ui/welcome.rs
-#, rust-format
 msgid "{first} and {second}"
 msgstr ""
 
 #: src/ui/welcome.rs
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
-msgstr ""
-
-#: src/ui/widgets.rs
-msgid "Or run this in a terminal, then scan again:"
-msgstr ""
-
-#: src/ui/widgets.rs
-msgid "Copy"
 msgstr ""
 
 #: data/io.github.astrovm.AdventureMods.desktop.in

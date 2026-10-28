@@ -59,7 +59,7 @@ pub fn pick_library_folder(initial_folder: &Path) -> Receiver<Option<PathBuf>> {
     let initial_folder = initial_folder.to_path_buf();
     std::thread::spawn(move || {
         let folder = rfd::FileDialog::new()
-            .set_title(tr!("Grant access to a Steam library"))
+            .set_title(tr!("Select your Steam folder"))
             .set_directory(&initial_folder)
             .pick_folder();
         let _ = tx.send(folder);

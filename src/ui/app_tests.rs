@@ -189,28 +189,6 @@ fn only_the_newest_scan_is_shown() {
 }
 
 #[test]
-fn copying_the_snap_connect_command_puts_it_on_the_clipboard() {
-    let fixture = Fixture::new(&["blocked"]);
-    let mut harness = fixture.harness();
-    run_until(&mut harness, "scan", scanned);
-    harness.get_by_label_contains("needs access to your Steam folder");
-
-    harness.get_by_label("Copy").click();
-    harness.step();
-
-    let command = crate::steam::library::snap_connect_command();
-    assert!(
-        harness
-            .output()
-            .platform_output
-            .commands
-            .contains(&egui::OutputCommand::CopyText(command))
-    );
-    harness.run_steps(2);
-    harness.get_by_label("Command copied.");
-}
-
-#[test]
 fn granting_access_remembers_the_library_and_scans_again() {
     let fixture = Fixture::new(&["locked"]);
     let locked = fixture.library.join("locked");

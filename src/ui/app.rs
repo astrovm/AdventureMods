@@ -341,15 +341,11 @@ impl AdventureModsApp {
         self.detect_games();
     }
 
-    fn handle_welcome_action(&mut self, ctx: &egui::Context, action: WelcomeAction) {
+    fn handle_welcome_action(&mut self, action: WelcomeAction) {
         match action {
             WelcomeAction::SetUp(game) => self.open_setup(game),
             WelcomeAction::GrantAccess(path) => self.request_library_access(path),
             WelcomeAction::VerifyInSteam(kind) => self.verify_in_steam(kind),
-            WelcomeAction::CopyCommand(command) => {
-                ctx.copy_text(command);
-                self.toast(ctx, tr!("Command copied."));
-            }
             WelcomeAction::ConfirmRestore(kind, path) => {
                 self.dialog = Some(Dialog::ConfirmRestore(kind, path, restore_dialog(kind)));
             }
@@ -613,7 +609,7 @@ impl AdventureModsApp {
             None => welcome.show(ui, images),
         });
         if let Some(action) = action {
-            self.handle_welcome_action(ui.ctx(), action);
+            self.handle_welcome_action(action);
         }
     }
 

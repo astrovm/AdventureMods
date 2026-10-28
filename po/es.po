@@ -869,10 +869,6 @@ msgid "Could not restore {game}: {error}"
 msgstr "No se pudo restaurar {game}: {error}"
 
 #: src/ui/app.rs
-msgid "Command copied."
-msgstr "Comando copiado."
-
-#: src/ui/app.rs
 msgid "About"
 msgstr "Acerca de"
 
@@ -941,8 +937,8 @@ msgid "Made with {heart} by astro"
 msgstr "Hecho con {heart} por astro"
 
 #: src/ui/mod.rs
-msgid "Grant access to a Steam library"
-msgstr "Dar acceso a una biblioteca de Steam"
+msgid "Select your Steam folder"
+msgstr "Elegí tu carpeta de Steam"
 
 #: src/ui/progress.rs
 #, rust-format
@@ -1159,7 +1155,7 @@ msgstr "Instalalo en Steam y buscá de nuevo."
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "Dejá que Steam verifique los archivos del juego para terminar de restaurarlo."
 
-#: src/ui/welcome.rs src/ui/widgets.rs
+#: src/ui/welcome.rs
 msgid "Grant Access"
 msgstr "Dar acceso"
 
@@ -1176,6 +1172,10 @@ msgid "Looking for your games…"
 msgstr "Buscando tus juegos…"
 
 #: src/ui/welcome.rs
+msgid "Adventure Mods needs access to your Steam folder."
+msgstr "Adventure Mods necesita acceso a tu carpeta de Steam."
+
+#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Instalación"
 
@@ -1190,16 +1190,6 @@ msgstr "Instalación de {game}"
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
-msgstr "Adventure Mods necesita acceso a tu carpeta de Steam, {path}. Usá {button} en el juego de abajo."
-
-#: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure Mods necesita acceso a tu carpeta de Steam, {path}."
-
-#: src/ui/welcome.rs
-#, rust-format
 msgid "{first} and {second}"
 msgstr "{first} y {second}"
 
@@ -1207,14 +1197,6 @@ msgstr "{first} y {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods necesita acceso a la biblioteca de Steam que tiene {games}. Usá {button} en el juego de abajo."
-
-#: src/ui/widgets.rs
-msgid "Or run this in a terminal, then scan again:"
-msgstr "O ejecutá esto en una terminal y buscá de nuevo:"
-
-#: src/ui/widgets.rs
-msgid "Copy"
-msgstr "Copiar"
 
 #: data/io.github.astrovm.AdventureMods.desktop.in
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
