@@ -652,6 +652,32 @@ mod tests {
     }
 
     #[test]
+    fn games_in_a_blocked_steam_folder_leave_the_asking_to_the_banner() {
+        let cards = build_game_cards(&DetectionResult {
+            inaccessible: vec![inaccessible(GameKind::SADX, "/srv/steam")],
+            blocked_steam_folders: vec!["/srv/steam".into()],
+            ..Default::default()
+        });
+
+        let card = &cards[0];
+        assert_eq!(card.state, CardState::Inaccessible);
+        assert_eq!(
+            card.options,
+            vec![GameInstallOption::Blocked("/srv/steam".into())]
+        );
+        assert_eq!(card.note(), None);
+        assert_eq!(card.actions(), None);
+        assert_eq!(card.primary_action(), None);
+        assert_eq!(card.secondary_action(), None);
+        assert_eq!(
+            card.options[0].selector_label(),
+            "/srv/steam (Needs access)"
+        );
+        // SA2 isn't found, but may be in the folder the snap can't open.
+        assert_eq!(cards[1].note(), None);
+    }
+
+    #[test]
     fn inaccessible_libraries_ask_for_access() {
         let cards = build_game_cards(&DetectionResult {
             games: vec![],
