@@ -55,6 +55,15 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.2" date="2026-10-28">
+      <description>
+        <p>The Snap can get into your Steam folders without a terminal.</p>
+        <ul>
+          <li>When the Snap can't open your Steam folder, Grant Access opens the file chooser right there</li>
+          <li>Games in your other Steam libraries show up once the Steam folder is granted</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.1" date="2026-10-22">
       <description>
         <p>The Snap asks for less access to your Steam folders and tells you what it's missing.</p>
