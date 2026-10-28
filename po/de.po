@@ -868,10 +868,6 @@ msgid "Could not restore {game}: {error}"
 msgstr "{game} konnte nicht wiederhergestellt werden: {error}"
 
 #: src/ui/app.rs
-msgid "Command copied."
-msgstr "Befehl kopiert."
-
-#: src/ui/app.rs
 msgid "About"
 msgstr "Info"
 
@@ -940,8 +936,8 @@ msgid "Made with {heart} by astro"
 msgstr "Mit {heart} gemacht von astro"
 
 #: src/ui/mod.rs
-msgid "Grant access to a Steam library"
-msgstr "Zugriff auf eine Steam-Bibliothek erlauben"
+msgid "Select your Steam folder"
+msgstr "Wähle deinen Steam-Ordner"
 
 #: src/ui/progress.rs
 #, rust-format
@@ -1158,7 +1154,7 @@ msgstr "Installiere es in Steam und suche dann erneut."
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "Lass Steam die Spieldateien überprüfen, um die Wiederherstellung abzuschließen."
 
-#: src/ui/welcome.rs src/ui/widgets.rs
+#: src/ui/welcome.rs
 msgid "Grant Access"
 msgstr "Zugriff erlauben"
 
@@ -1175,6 +1171,10 @@ msgid "Looking for your games…"
 msgstr "Deine Spiele werden gesucht …"
 
 #: src/ui/welcome.rs
+msgid "Adventure Mods needs access to your Steam folder."
+msgstr "Adventure Mods braucht Zugriff auf deinen Steam-Ordner."
+
+#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Installation"
 
@@ -1189,16 +1189,6 @@ msgstr "{game}-Installation"
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
-msgstr "Adventure Mods braucht Zugriff auf deinen Steam-Ordner, {path}. Nutze „{button}“ beim Spiel unten."
-
-#: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure Mods braucht Zugriff auf deinen Steam-Ordner, {path}."
-
-#: src/ui/welcome.rs
-#, rust-format
 msgid "{first} and {second}"
 msgstr "{first} und {second}"
 
@@ -1206,14 +1196,6 @@ msgstr "{first} und {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods braucht Zugriff auf die Steam-Bibliothek mit {games}. Nutze „{button}“ beim Spiel unten."
-
-#: src/ui/widgets.rs
-msgid "Or run this in a terminal, then scan again:"
-msgstr "Oder führe das in einem Terminal aus und suche dann erneut:"
-
-#: src/ui/widgets.rs
-msgid "Copy"
-msgstr "Kopieren"
 
 #: data/io.github.astrovm.AdventureMods.desktop.in
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in

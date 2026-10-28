@@ -868,10 +868,6 @@ msgid "Could not restore {game}: {error}"
 msgstr "Impossibile ripristinare {game}: {error}"
 
 #: src/ui/app.rs
-msgid "Command copied."
-msgstr "Comando copiato."
-
-#: src/ui/app.rs
 msgid "About"
 msgstr "Informazioni"
 
@@ -940,8 +936,8 @@ msgid "Made with {heart} by astro"
 msgstr "Fatto con {heart} da astro"
 
 #: src/ui/mod.rs
-msgid "Grant access to a Steam library"
-msgstr "Consenti l’accesso a una libreria di Steam"
+msgid "Select your Steam folder"
+msgstr "Scegli la tua cartella di Steam"
 
 #: src/ui/progress.rs
 #, rust-format
@@ -1158,7 +1154,7 @@ msgstr "Installalo su Steam, poi cerca di nuovo."
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "Lascia che Steam verifichi i file del gioco per completare il ripristino."
 
-#: src/ui/welcome.rs src/ui/widgets.rs
+#: src/ui/welcome.rs
 msgid "Grant Access"
 msgstr "Consenti accesso"
 
@@ -1175,6 +1171,10 @@ msgid "Looking for your games…"
 msgstr "Ricerca dei tuoi giochi…"
 
 #: src/ui/welcome.rs
+msgid "Adventure Mods needs access to your Steam folder."
+msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam."
+
+#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Installazione"
 
@@ -1189,16 +1189,6 @@ msgstr "Installazione di {game}"
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
-msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}. Usa {button} sul gioco qui sotto."
-
-#: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}."
-
-#: src/ui/welcome.rs
-#, rust-format
 msgid "{first} and {second}"
 msgstr "{first} e {second}"
 
@@ -1206,14 +1196,6 @@ msgstr "{first} e {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods ha bisogno di accedere alla libreria di Steam che contiene {games}. Usa {button} sul gioco qui sotto."
-
-#: src/ui/widgets.rs
-msgid "Or run this in a terminal, then scan again:"
-msgstr "Oppure esegui questo comando in un terminale, poi cerca di nuovo:"
-
-#: src/ui/widgets.rs
-msgid "Copy"
-msgstr "Copia"
 
 #: data/io.github.astrovm.AdventureMods.desktop.in
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in

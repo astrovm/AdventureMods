@@ -868,10 +868,6 @@ msgid "Could not restore {game}: {error}"
 msgstr "{game}を元に戻せませんでした：{error}"
 
 #: src/ui/app.rs
-msgid "Command copied."
-msgstr "コマンドをコピーしました。"
-
-#: src/ui/app.rs
 msgid "About"
 msgstr "このアプリについて"
 
@@ -940,8 +936,8 @@ msgid "Made with {heart} by astro"
 msgstr "astroが{heart}を込めて作りました"
 
 #: src/ui/mod.rs
-msgid "Grant access to a Steam library"
-msgstr "Steamライブラリへのアクセスを許可"
+msgid "Select your Steam folder"
+msgstr "Steamフォルダーを選択"
 
 #: src/ui/progress.rs
 #, rust-format
@@ -1155,7 +1151,7 @@ msgstr "Steamでインストールしてから、もう一度探してくださ�
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "元に戻すのを終えるには、Steamでゲームファイルの整合性を確認してください。"
 
-#: src/ui/welcome.rs src/ui/widgets.rs
+#: src/ui/welcome.rs
 msgid "Grant Access"
 msgstr "アクセスを許可"
 
@@ -1172,6 +1168,10 @@ msgid "Looking for your games…"
 msgstr "ゲームを探しています…"
 
 #: src/ui/welcome.rs
+msgid "Adventure Mods needs access to your Steam folder."
+msgstr "Adventure ModsにはSteamフォルダーへのアクセスが必要です。"
+
+#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "インストール先"
 
@@ -1186,16 +1186,6 @@ msgstr "{game}のインストール先"
 
 #: src/ui/welcome.rs
 #, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
-msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。下のゲームの「{button}」を使ってください。"
-
-#: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。"
-
-#: src/ui/welcome.rs
-#, rust-format
 msgid "{first} and {second}"
 msgstr "{first}と{second}"
 
@@ -1203,14 +1193,6 @@ msgstr "{first}と{second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Modsは、{games}が入っているSteamライブラリへのアクセスが必要です。下のゲームの「{button}」を使ってください。"
-
-#: src/ui/widgets.rs
-msgid "Or run this in a terminal, then scan again:"
-msgstr "または、ターミナルでこれを実行してから、もう一度探してください："
-
-#: src/ui/widgets.rs
-msgid "Copy"
-msgstr "コピー"
 
 #: data/io.github.astrovm.AdventureMods.desktop.in
 #: data/io.github.astrovm.AdventureMods.metainfo.xml.in
