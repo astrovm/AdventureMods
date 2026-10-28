@@ -1172,11 +1172,6 @@ msgid "Looking for your games…"
 msgstr "ゲームを探しています…"
 
 #: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。"
-
-#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "インストール先"
 
@@ -1188,6 +1183,16 @@ msgstr "セットアップするインストール先を選んでください"
 #, rust-format
 msgid "{game} Installation"
 msgstr "{game}のインストール先"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
+msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。下のゲームの「{button}」を使ってください。"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}."
+msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。"
 
 #: src/ui/welcome.rs
 #, rust-format

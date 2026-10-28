@@ -32,7 +32,7 @@ fn is_steam_library_root(path: &Path) -> bool {
     path.join("steamapps").is_dir()
 }
 
-fn library_paths_equivalent(left: &Path, right: &Path) -> bool {
+pub(crate) fn library_paths_equivalent(left: &Path, right: &Path) -> bool {
     canonicalize_with_suffix(left) == canonicalize_with_suffix(right)
 }
 

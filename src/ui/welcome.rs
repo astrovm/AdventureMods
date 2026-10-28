@@ -243,7 +243,7 @@ impl WelcomeScreen {
         // A snap that can't open the Steam folder asks for it through the file
         // chooser, or a command for those who prefer a terminal. Either also
         // brings back the games the other banner would ask access for.
-        let blocked_folder = result.blocked_steam_folders.first().cloned();
+        let steam_folder = steam_folder_alert(result);
         let alert = inaccessible_alert(&result.inaccessible);
 
         let mut action = None;
@@ -252,38 +252,38 @@ impl WelcomeScreen {
             .show(ui, |ui| {
                 let free = ui.available_height() - self.content_height;
                 ui.add_space((free / 2.0).max(16.0));
-                let content =
-                    ui.vertical(|ui| {
-                        let margin = (ui.available_width() * 0.05).clamp(16.0, 48.0);
-                        egui::Frame::new()
-                            .inner_margin(egui::Margin::symmetric(margin as i8, 0))
-                            .show(ui, |ui| {
-                                let mut banner_action = None;
-                                if let Some(folder) = &blocked_folder {
-                                    let command = library::snap_connect_command();
-                                    let text = trf!(
-                                        "Adventure Mods needs access to your Steam folder, {path}.",
-                                        path = display_path(folder)
-                                    );
-                                    banner_action = widgets::access_banner(ui, &text, &command)
-                                        .map(|choice| match choice {
-                                            AccessChoice::Grant => {
-                                                WelcomeAction::GrantAccess(folder.clone())
-                                            }
-                                            AccessChoice::CopyCommand => {
-                                                WelcomeAction::CopyCommand(command)
-                                            }
-                                        });
-                                    ui.add_space(12.0);
-                                } else if let Some(alert) = &alert {
-                                    widgets::banner(ui, Tone::Warning, alert);
-                                    ui.add_space(12.0);
-                                }
-                                self.show_tiles(ui, images);
-                                ui.add_space(28.0);
-                                action = self.show_selected(ui).or(banner_action);
-                            });
-                    });
+                let content = ui.vertical(|ui| {
+                    let margin = (ui.available_width() * 0.05).clamp(16.0, 48.0);
+                    egui::Frame::new()
+                        .inner_margin(egui::Margin::symmetric(margin as i8, 0))
+                        .show(ui, |ui| {
+                            let mut banner_action = None;
+                            if let Some(alert) = &steam_folder {
+                                let command = library::snap_connect_command();
+                                banner_action = widgets::access_banner(
+                                    ui,
+                                    &alert.text,
+                                    !alert.on_a_card,
+                                    &command,
+                                )
+                                .map(|choice| match choice {
+                                    AccessChoice::Grant => {
+                                        WelcomeAction::GrantAccess(alert.folder.clone())
+                                    }
+                                    AccessChoice::CopyCommand => {
+                                        WelcomeAction::CopyCommand(command)
+                                    }
+                                });
+                                ui.add_space(12.0);
+                            } else if let Some(alert) = &alert {
+                                widgets::banner(ui, Tone::Warning, alert);
+                                ui.add_space(12.0);
+                            }
+                            self.show_tiles(ui, images);
+                            ui.add_space(28.0);
+                            action = self.show_selected(ui).or(banner_action);
+                        });
+                });
                 self.content_height = content.response.rect.height();
                 ui.add_space(16.0);
             });
@@ -509,6 +509,42 @@ fn cover_uv(image: f32, area: f32) -> egui::Rect {
             egui::pos2((1.0 + width) / 2.0, 1.0),
         )
     }
+}
+
+/// The Steam folder a snap can't open, and what to tell the user about it.
+struct SteamFolderAlert {
+    folder: PathBuf,
+    text: String,
+    /// A game's card already asks for this folder, so the banner points there
+    /// instead of showing a second button.
+    on_a_card: bool,
+}
+
+fn steam_folder_alert(result: &DetectionResult) -> Option<SteamFolderAlert> {
+    let folder = result.blocked_steam_folders.first()?.clone();
+    let on_a_card = result
+        .inaccessible
+        .iter()
+        .any(|game| library::library_paths_equivalent(&game.library_path, &folder));
+    let path = display_path(&folder);
+    let text = if on_a_card {
+        // Translators: {button} is the label of the game's button, "Grant Access".
+        trf!(
+            "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below.",
+            path = path,
+            button = tr!("Grant Access")
+        )
+    } else {
+        trf!(
+            "Adventure Mods needs access to your Steam folder, {path}.",
+            path = path
+        )
+    };
+    Some(SteamFolderAlert {
+        folder,
+        text,
+        on_a_card,
+    })
 }
 
 fn inaccessible_alert(inaccessible: &[InaccessibleGame]) -> Option<String> {
@@ -770,12 +806,16 @@ mod tests {
             blocked_steam_folders: vec!["/srv/steam".into()],
             ..Default::default()
         }));
-        harness.get_by_label("Adventure Mods needs access to your Steam folder, /srv/steam.");
+        harness.get_by_label(
+            "Adventure Mods needs access to your Steam folder, /srv/steam. Use Grant Access on the game below.",
+        );
         assert!(
             harness
                 .query_by_label_contains("needs access to the Steam library")
                 .is_none()
         );
+        // The game's button is the only one.
+        assert_eq!(harness.query_all_by_label("Grant Access").count(), 1);
     }
 
     #[test]

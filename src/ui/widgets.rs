@@ -213,16 +213,19 @@ pub enum AccessChoice {
     CopyCommand,
 }
 
-/// A warning [`banner`] asking for access to a folder with **Grant Access**,
-/// and a terminal command that copies with a button for those who prefer it.
-pub fn access_banner(ui: &mut Ui, text: &str, command: &str) -> Option<AccessChoice> {
+/// A warning [`banner`] asking for access to a folder, with **Grant Access**
+/// when `grant` is set, and a terminal command that copies with a button for
+/// those who prefer it.
+pub fn access_banner(ui: &mut Ui, text: &str, grant: bool, command: &str) -> Option<AccessChoice> {
     let mut choice = None;
     banner_with(ui, Tone::Warning, |ui| {
         ui.vertical(|ui| {
             ui.add(egui::Label::new(text).wrap());
-            ui.add_space(8.0);
-            if button(ui, tr!("Grant Access"), ButtonKind::Suggested).clicked() {
-                choice = Some(AccessChoice::Grant);
+            if grant {
+                ui.add_space(8.0);
+                if button(ui, tr!("Grant Access"), ButtonKind::Suggested).clicked() {
+                    choice = Some(AccessChoice::Grant);
+                }
             }
             ui.add_space(12.0);
             caption(ui, tr!("Or run this in a terminal, then scan again:"));

@@ -1175,11 +1175,6 @@ msgid "Looking for your games…"
 msgstr "Ricerca dei tuoi giochi…"
 
 #: src/ui/welcome.rs
-#, rust-format
-msgid "Adventure Mods needs access to your Steam folder, {path}."
-msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}."
-
-#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Installazione"
 
@@ -1191,6 +1186,16 @@ msgstr "Scegli quale installazione configurare"
 #, rust-format
 msgid "{game} Installation"
 msgstr "Installazione di {game}"
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
+msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}. Usa {button} sul gioco qui sotto."
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}."
+msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}."
 
 #: src/ui/welcome.rs
 #, rust-format
