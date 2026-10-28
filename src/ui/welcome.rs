@@ -7,7 +7,7 @@ use egui::{Color32, RichText, Ui, Vec2};
 
 use super::dialogs::{Answer, ChoiceDialog};
 use super::images::{self, ImageCache, cover_resource};
-use super::widgets::{self, ButtonKind, Tone};
+use super::widgets::{self, AccessChoice, ButtonKind, Tone};
 use super::{motion, theme};
 use crate::path_display::display_path;
 use crate::setup::restore;
@@ -240,10 +240,10 @@ impl WelcomeScreen {
             });
             return None;
         };
-        // A snap that can't open the Steam folder needs a command, which also
+        // A snap that can't open the Steam folder asks for it through the file
+        // chooser, or a command for those who prefer a terminal. Either also
         // brings back the games the other banner would ask access for.
-        let snap_command =
-            (!result.blocked_steam_folders.is_empty()).then(library::snap_connect_command);
+        let steam_folder = steam_folder_alert(result);
         let alert = inaccessible_alert(&result.inaccessible);
 
         let mut action = None;
@@ -257,18 +257,23 @@ impl WelcomeScreen {
                     egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(margin as i8, 0))
                         .show(ui, |ui| {
-                            let mut copy = None;
-                            if let Some(command) = &snap_command {
-                                if widgets::command_banner(
+                            let mut banner_action = None;
+                            if let Some(alert) = &steam_folder {
+                                let command = library::snap_connect_command();
+                                banner_action = widgets::access_banner(
                                     ui,
-                                    Tone::Warning,
-                                    tr!(
-                                        "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
-                                    ),
-                                    command,
-                                ) {
-                                    copy = Some(WelcomeAction::CopyCommand(command.clone()));
-                                }
+                                    &alert.text,
+                                    !alert.on_a_card,
+                                    &command,
+                                )
+                                .map(|choice| match choice {
+                                    AccessChoice::Grant => {
+                                        WelcomeAction::GrantAccess(alert.folder.clone())
+                                    }
+                                    AccessChoice::CopyCommand => {
+                                        WelcomeAction::CopyCommand(command)
+                                    }
+                                });
                                 ui.add_space(12.0);
                             } else if let Some(alert) = &alert {
                                 widgets::banner(ui, Tone::Warning, alert);
@@ -276,7 +281,7 @@ impl WelcomeScreen {
                             }
                             self.show_tiles(ui, images);
                             ui.add_space(28.0);
-                            action = self.show_selected(ui).or(copy);
+                            action = self.show_selected(ui).or(banner_action);
                         });
                 });
                 self.content_height = content.response.rect.height();
@@ -504,6 +509,42 @@ fn cover_uv(image: f32, area: f32) -> egui::Rect {
             egui::pos2((1.0 + width) / 2.0, 1.0),
         )
     }
+}
+
+/// The Steam folder a snap can't open, and what to tell the user about it.
+struct SteamFolderAlert {
+    folder: PathBuf,
+    text: String,
+    /// A game's card already asks for this folder, so the banner points there
+    /// instead of showing a second button.
+    on_a_card: bool,
+}
+
+fn steam_folder_alert(result: &DetectionResult) -> Option<SteamFolderAlert> {
+    let folder = result.blocked_steam_folders.first()?.clone();
+    let on_a_card = result
+        .inaccessible
+        .iter()
+        .any(|game| library::library_paths_equivalent(&game.library_path, &folder));
+    let path = display_path(&folder);
+    let text = if on_a_card {
+        // Translators: {button} is the label of the game's button, "Grant Access".
+        trf!(
+            "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below.",
+            path = path,
+            button = tr!("Grant Access")
+        )
+    } else {
+        trf!(
+            "Adventure Mods needs access to your Steam folder, {path}.",
+            path = path
+        )
+    };
+    Some(SteamFolderAlert {
+        folder,
+        text,
+        on_a_card,
+    })
 }
 
 fn inaccessible_alert(inaccessible: &[InaccessibleGame]) -> Option<String> {
@@ -734,34 +775,47 @@ mod tests {
     }
 
     #[test]
-    fn a_snap_that_cannot_open_steam_shows_the_command_to_connect_it() {
+    fn a_snap_that_cannot_open_steam_asks_for_the_folder_or_the_command() {
         let mut harness = harness(Some(DetectionResult {
-            inaccessible: vec![inaccessible(
-                GameKind::SADX,
-                "/home/user/.local/share/Steam",
-            )],
-            blocked_steam_folders: vec!["/home/user/.local/share/Steam".into()],
+            blocked_steam_folders: vec!["/srv/steam".into(), "/srv/other-steam".into()],
             ..Default::default()
         }));
-        harness.get_by_label(
-            "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:",
-        );
+        harness.get_by_label("Adventure Mods needs access to your Steam folder, /srv/steam.");
+        harness.get_by_label("Or run this in a terminal, then scan again:");
         let command = library::snap_connect_command();
         harness.get_by_label(&command);
-        // The command replaces the banner asking for access.
-        assert!(
-            harness
-                .query_by_label_contains("needs access to the Steam library")
-                .is_none()
-        );
 
+        harness.get_by_label("Grant Access").click();
+        harness.run_steps(4);
         harness.get_by_label("Copy").click();
         harness.run_steps(4);
 
         assert_eq!(
             harness.state().actions,
-            vec![WelcomeAction::CopyCommand(command)]
+            vec![
+                WelcomeAction::GrantAccess("/srv/steam".into()),
+                WelcomeAction::CopyCommand(command)
+            ]
         );
+    }
+
+    #[test]
+    fn the_steam_folder_banner_replaces_the_one_for_its_games() {
+        let harness = harness(Some(DetectionResult {
+            inaccessible: vec![inaccessible(GameKind::SADX, "/srv/steam")],
+            blocked_steam_folders: vec!["/srv/steam".into()],
+            ..Default::default()
+        }));
+        harness.get_by_label(
+            "Adventure Mods needs access to your Steam folder, /srv/steam. Use Grant Access on the game below.",
+        );
+        assert!(
+            harness
+                .query_by_label_contains("needs access to the Steam library")
+                .is_none()
+        );
+        // The game's button is the only one.
+        assert_eq!(harness.query_all_by_label("Grant Access").count(), 1);
     }
 
     #[test]

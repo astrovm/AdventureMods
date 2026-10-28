@@ -291,7 +291,10 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
         for folder in &result.blocked_steam_folders {
             out.writeln(&format!("- {}", out.path(&display_path(folder))))?;
         }
-        out.writeln(tr!("Run this in a terminal, then try again:"))?;
+        let how = tr!(
+            "Grant access to it in the Adventure Mods window, or run this in a terminal, then try again:"
+        );
+        out.writeln(how)?;
         out.writeln(&library::snap_connect_command())?;
     }
 
@@ -1209,8 +1212,9 @@ fn detect_games_with_saved_libraries(
 fn not_detected_error(game_kind: GameKind, result: &DetectionResult) -> anyhow::Error {
     if !result.blocked_steam_folders.is_empty() {
         return anyhow!(trf!(
-            "{game} was not detected because Adventure Mods can't open your Steam folder. Run this \
-             in a terminal, then try again: {command}",
+            "{game} was not detected because Adventure Mods can't open your Steam folder. Grant \
+             access to it in the Adventure Mods window, or run this in a terminal, then try again: \
+             {command}",
             game = game_kind.name(),
             command = library::snap_connect_command()
         ));

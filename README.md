@@ -31,6 +31,20 @@ flatpak install https://flatpak.4st.li/io.github.astrovm.AdventureMods.flatpakre
 
 Download the latest AppImage from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest).
 
+**Snap**
+
+Download the `.snap` for your computer from [GitHub Releases](https://github.com/astrovm/AdventureMods/releases/latest), then install it:
+
+```sh
+sudo snap install --dangerous AdventureMods-*.snap
+```
+
+The snap can't open your Steam folder on its own. The first time, press **Grant Access** and select the folder it opens, or connect it in a terminal:
+
+```sh
+snap connect adventure-mods:steam-config && snap connect adventure-mods:steam-games
+```
+
 ## 🚀 Use
 
 Open **Adventure Mods** from your application menu and follow the setup wizard.

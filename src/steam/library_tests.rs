@@ -1650,6 +1650,49 @@ fn granting_the_blocked_steam_folder_clears_the_report() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_granted_steam_folder_lists_the_other_libraries() {
+    let home = tempfile::tempdir().unwrap();
+    let steam = home_with_blocked_steam(home.path());
+    let other = home.path().join("mnt/SteamLibrary");
+    let portal = home.path().join("doc/d1a2b3c4/Steam");
+    make_steam_library(&portal, GameKind::SADX);
+    set_host_path_xattr(&portal, &steam);
+    std::fs::write(
+        portal.join("steamapps/libraryfolders.vdf"),
+        format!(
+            "\"libraryfolders\"\n{{\n\"0\"\n{{\n\"path\" \"{}\"\n\"apps\"\n{{\n\"{}\" \"0\"\n}}\n}}\n\"1\"\n{{\n\"path\" \"{}\"\n\"apps\"\n{{\n\"{}\" \"0\"\n}}\n}}\n}}\n",
+            steam.display(),
+            GameKind::SADX.app_id(),
+            other.display(),
+            GameKind::SA2.app_id()
+        ),
+    )
+    .unwrap();
+    // The snap can't write the game where Steam keeps it, only through the
+    // grant.
+    let game_dir = steam.join("steamapps/common/Sonic Adventure DX");
+    set_mode(&game_dir, 0o555);
+
+    let result = in_a_snap(home.path(), || {
+        detect_games_with_extra_libraries(std::slice::from_ref(&portal))
+    });
+    set_mode(&game_dir, 0o755);
+    set_mode(&steam.join("steamapps/libraryfolders.vdf"), 0o644);
+
+    assert!(result.blocked_steam_folders.is_empty());
+    assert_eq!(result.games.len(), 1);
+    assert_eq!(
+        result.games[0].path,
+        portal.join("steamapps/common/Sonic Adventure DX")
+    );
+    // SA2 is in a library the grant doesn't cover, so it asks for that one.
+    assert_eq!(result.inaccessible.len(), 1);
+    assert_eq!(result.inaccessible[0].kind, GameKind::SA2);
+    assert_eq!(result.inaccessible[0].library_path, other);
+}
+
 #[test]
 fn a_snap_finds_the_portal_outside_its_own_runtime_folder() {
     let tmp = tempfile::tempdir().unwrap();

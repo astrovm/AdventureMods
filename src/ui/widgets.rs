@@ -206,21 +206,39 @@ pub fn banner(ui: &mut Ui, tone: Tone, text: &str) -> Response {
     })
 }
 
-/// A [`banner`] with a terminal command under the text and a button that
-/// copies it. Returns whether the button was pressed.
-pub fn command_banner(ui: &mut Ui, tone: Tone, text: &str, command: &str) -> bool {
-    let mut copy = false;
-    banner_with(ui, tone, |ui| {
+/// What the user pressed on an [`access_banner`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AccessChoice {
+    Grant,
+    CopyCommand,
+}
+
+/// A warning [`banner`] asking for access to a folder, with **Grant Access**
+/// when `grant` is set, and a terminal command that copies with a button for
+/// those who prefer it.
+pub fn access_banner(ui: &mut Ui, text: &str, grant: bool, command: &str) -> Option<AccessChoice> {
+    let mut choice = None;
+    banner_with(ui, Tone::Warning, |ui| {
         ui.vertical(|ui| {
             ui.add(egui::Label::new(text).wrap());
-            ui.add_space(8.0);
+            if grant {
+                ui.add_space(8.0);
+                if button(ui, tr!("Grant Access"), ButtonKind::Suggested).clicked() {
+                    choice = Some(AccessChoice::Grant);
+                }
+            }
+            ui.add_space(12.0);
+            caption(ui, tr!("Or run this in a terminal, then scan again:"));
+            ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 ui.add(egui::Label::new(RichText::new(command).monospace()).wrap());
-                copy = button(ui, tr!("Copy"), ButtonKind::Normal).clicked();
+                if button(ui, tr!("Copy"), ButtonKind::Normal).clicked() {
+                    choice = Some(AccessChoice::CopyCommand);
+                }
             });
         });
     });
-    copy
+    choice
 }
 
 fn banner_with(ui: &mut Ui, tone: Tone, content: impl FnOnce(&mut Ui)) -> Response {

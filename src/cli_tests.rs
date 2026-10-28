@@ -239,7 +239,8 @@ fn missing_game_error_tells_a_snap_how_to_connect_to_steam() {
         not_detected_error(GameKind::SA2, &result).to_string(),
         format!(
             "Sonic Adventure 2 was not detected because Adventure Mods can't open your Steam \
-             folder. Run this in a terminal, then try again: {}",
+             folder. Grant access to it in the Adventure Mods window, or run this in a terminal, \
+             then try again: {}",
             crate::steam::library::snap_connect_command()
         )
     );
@@ -281,8 +282,8 @@ fn detect_tells_a_snap_how_to_connect_to_steam() {
     assert!(!output.contains("No supported games detected"), "{output}");
     assert!(
         output.contains(&format!(
-            "Steam folders Adventure Mods can't open:\n- ~/.local/share/Steam\nRun this in a \
-             terminal, then try again:\n{}\n",
+            "Steam folders Adventure Mods can't open:\n- ~/.local/share/Steam\nGrant access to it \
+             in the Adventure Mods window, or run this in a terminal, then try again:\n{}\n",
             crate::steam::library::snap_connect_command()
         )),
         "{output}"

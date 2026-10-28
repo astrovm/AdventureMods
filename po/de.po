@@ -31,8 +31,8 @@ msgid "Steam folders Adventure Mods can't open:"
 msgstr "Steam-Ordner, die Adventure Mods nicht öffnen kann:"
 
 #: src/cli.rs
-msgid "Run this in a terminal, then try again:"
-msgstr "Führe das in einem Terminal aus und versuche es dann erneut:"
+msgid "Grant access to it in the Adventure Mods window, or run this in a terminal, then try again:"
+msgstr "Erlaube den Zugriff im Fenster von Adventure Mods, oder führe das in einem Terminal aus und versuche es dann erneut:"
 
 #: src/cli.rs
 #, rust-format
@@ -269,8 +269,8 @@ msgstr "Datei mit den Bibliotheksordnern nicht gefunden: {path}"
 
 #: src/cli.rs
 #, rust-format
-msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Run this in a terminal, then try again: {command}"
-msgstr "{game} wurde nicht gefunden, weil Adventure Mods deinen Steam-Ordner nicht öffnen kann. Führe das in einem Terminal aus und versuche es dann erneut: {command}"
+msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Grant access to it in the Adventure Mods window, or run this in a terminal, then try again: {command}"
+msgstr "{game} wurde nicht gefunden, weil Adventure Mods deinen Steam-Ordner nicht öffnen kann. Erlaube den Zugriff im Fenster von Adventure Mods, oder führe das in einem Terminal aus und versuche es dann erneut: {command}"
 
 #: src/cli.rs
 #, rust-format
@@ -1158,7 +1158,7 @@ msgstr "Installiere es in Steam und suche dann erneut."
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "Lass Steam die Spieldateien überprüfen, um die Wiederherstellung abzuschließen."
 
-#: src/ui/welcome.rs
+#: src/ui/welcome.rs src/ui/widgets.rs
 msgid "Grant Access"
 msgstr "Zugriff erlauben"
 
@@ -1175,10 +1175,6 @@ msgid "Looking for your games…"
 msgstr "Deine Spiele werden gesucht …"
 
 #: src/ui/welcome.rs
-msgid "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
-msgstr "Adventure Mods braucht die Erlaubnis, deinen Steam-Ordner zu öffnen. Führe das in einem Terminal aus und suche dann erneut:"
-
-#: src/ui/welcome.rs
 msgid "Installation"
 msgstr "Installation"
 
@@ -1193,6 +1189,16 @@ msgstr "{game}-Installation"
 
 #: src/ui/welcome.rs
 #, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}. Use {button} on the game below."
+msgstr "Adventure Mods braucht Zugriff auf deinen Steam-Ordner, {path}. Nutze „{button}“ beim Spiel unten."
+
+#: src/ui/welcome.rs
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}."
+msgstr "Adventure Mods braucht Zugriff auf deinen Steam-Ordner, {path}."
+
+#: src/ui/welcome.rs
+#, rust-format
 msgid "{first} and {second}"
 msgstr "{first} und {second}"
 
@@ -1200,6 +1206,10 @@ msgstr "{first} und {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods braucht Zugriff auf die Steam-Bibliothek mit {games}. Nutze „{button}“ beim Spiel unten."
+
+#: src/ui/widgets.rs
+msgid "Or run this in a terminal, then scan again:"
+msgstr "Oder führe das in einem Terminal aus und suche dann erneut:"
 
 #: src/ui/widgets.rs
 msgid "Copy"
