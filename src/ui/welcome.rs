@@ -61,6 +61,9 @@ struct GameCard {
     selected: usize,
     modded: bool,
     steam_repair: bool,
+    /// A snap can't open the Steam folder, so a game it can't find may still
+    /// be installed.
+    steam_blocked: bool,
 }
 
 impl GameCard {
@@ -76,6 +79,7 @@ impl GameCard {
             selected,
             modded: false,
             steam_repair: false,
+            steam_blocked: false,
         };
         card.refresh();
         card
@@ -106,6 +110,7 @@ impl GameCard {
     /// buttons don't already say.
     fn note(&self) -> Option<&'static str> {
         match self.selected_option() {
+            None if self.steam_blocked => None,
             None => Some(tr!("Install it in Steam, then scan again.")),
             Some(GameInstallOption::Detected(_)) if self.steam_repair => Some(tr!(
                 "Let Steam verify the game files to finish restoring it."
@@ -566,7 +571,9 @@ fn build_game_cards(result: &DetectionResult) -> Vec<GameCard> {
             } else {
                 CardState::Inaccessible
             };
-            GameCard::new(kind, state, options)
+            let mut card = GameCard::new(kind, state, options);
+            card.steam_blocked = !result.blocked_steam_folders.is_empty();
+            card
         })
         .collect()
 }
@@ -756,6 +763,12 @@ mod tests {
         assert!(
             harness
                 .query_by_label(&library::snap_connect_command())
+                .is_none()
+        );
+        // The games may be in the folder it can't open.
+        assert!(
+            harness
+                .query_by_label("Install it in Steam, then scan again.")
                 .is_none()
         );
 
