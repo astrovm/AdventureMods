@@ -193,7 +193,7 @@ fn copying_the_snap_connect_command_puts_it_on_the_clipboard() {
     let fixture = Fixture::new(&["blocked"]);
     let mut harness = fixture.harness();
     run_until(&mut harness, "scan", scanned);
-    harness.get_by_label_contains("needs permission to open your Steam folder");
+    harness.get_by_label_contains("needs access to your Steam folder");
 
     harness.get_by_label("Copy").click();
     harness.step();
@@ -232,6 +232,26 @@ fn granting_access_remembers_the_library_and_scans_again() {
     // Granting the same library again saves nothing new.
     harness.state_mut().library_access_granted(locked);
     assert_eq!(harness.state().extra_library_paths.len(), 2);
+}
+
+#[test]
+fn a_snap_can_be_granted_the_steam_folder_it_cannot_open() {
+    let fixture = Fixture::new(&["blocked"]);
+    let blocked = fixture.library.join("blocked");
+    std::fs::create_dir_all(blocked.join("steamapps")).unwrap();
+    *fixture.folder.borrow_mut() = Some(blocked.clone());
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.get_by_label_contains("needs access to your Steam folder");
+
+    press(&mut harness, "Grant Access");
+    run_until(&mut harness, "rescan", |app| {
+        scanned(app) && app.extra_library_paths.len() == 2
+    });
+    assert_eq!(
+        config::load_extra_library_paths(Some(&fixture.settings())),
+        vec![fixture.library.clone(), blocked]
+    );
 }
 
 #[test]

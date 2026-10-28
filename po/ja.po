@@ -31,8 +31,8 @@ msgid "Steam folders Adventure Mods can't open:"
 msgstr "Adventure Modsが開けないSteamフォルダー："
 
 #: src/cli.rs
-msgid "Run this in a terminal, then try again:"
-msgstr "ターミナルでこれを実行してから、もう一度お試しください："
+msgid "Grant access to it in the Adventure Mods window, or run this in a terminal, then try again:"
+msgstr "Adventure Modsのウィンドウでアクセスを許可するか、ターミナルでこれを実行してから、もう一度お試しください："
 
 #: src/cli.rs
 #, rust-format
@@ -269,8 +269,8 @@ msgstr "ライブラリフォルダーのファイルが見つかりません：
 
 #: src/cli.rs
 #, rust-format
-msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Run this in a terminal, then try again: {command}"
-msgstr "Adventure ModsがSteamフォルダーを開けないため、{game}が見つかりません。ターミナルでこれを実行してから、もう一度お試しください：{command}"
+msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Grant access to it in the Adventure Mods window, or run this in a terminal, then try again: {command}"
+msgstr "Adventure ModsがSteamフォルダーを開けないため、{game}が見つかりません。Adventure Modsのウィンドウでアクセスを許可するか、ターミナルでこれを実行してから、もう一度お試しください：{command}"
 
 #: src/cli.rs
 #, rust-format
@@ -1155,7 +1155,7 @@ msgstr "Steamでインストールしてから、もう一度探してくださ�
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "元に戻すのを終えるには、Steamでゲームファイルの整合性を確認してください。"
 
-#: src/ui/welcome.rs
+#: src/ui/welcome.rs src/ui/widgets.rs
 msgid "Grant Access"
 msgstr "アクセスを許可"
 
@@ -1172,8 +1172,9 @@ msgid "Looking for your games…"
 msgstr "ゲームを探しています…"
 
 #: src/ui/welcome.rs
-msgid "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
-msgstr "Adventure ModsがSteamフォルダーを開くには許可が必要です。ターミナルでこれを実行してから、もう一度探してください："
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}."
+msgstr "Adventure ModsにはSteamフォルダー（{path}）へのアクセスが必要です。"
 
 #: src/ui/welcome.rs
 msgid "Installation"
@@ -1197,6 +1198,10 @@ msgstr "{first}と{second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Modsは、{games}が入っているSteamライブラリへのアクセスが必要です。下のゲームの「{button}」を使ってください。"
+
+#: src/ui/widgets.rs
+msgid "Or run this in a terminal, then scan again:"
+msgstr "または、ターミナルでこれを実行してから、もう一度探してください："
 
 #: src/ui/widgets.rs
 msgid "Copy"

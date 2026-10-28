@@ -550,7 +550,15 @@ pub fn detect_games_from_vdf_strict(
 }
 
 pub fn detect_games_with_extra_libraries(extra_libraries: &[PathBuf]) -> DetectionResult {
-    let vdf_paths = library_folders_paths();
+    let mut vdf_paths = library_folders_paths();
+    // A Steam folder granted through the file chooser lists the other
+    // libraries too.
+    vdf_paths.extend(
+        extra_libraries
+            .iter()
+            .map(|library| library.join("steamapps/libraryfolders.vdf"))
+            .filter(|path| path.is_file()),
+    );
 
     if vdf_paths.is_empty() {
         tracing::warn!("Could not find any libraryfolders.vdf");

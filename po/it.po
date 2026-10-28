@@ -31,8 +31,8 @@ msgid "Steam folders Adventure Mods can't open:"
 msgstr "Cartelle di Steam che Adventure Mods non può aprire:"
 
 #: src/cli.rs
-msgid "Run this in a terminal, then try again:"
-msgstr "Esegui questo comando in un terminale, poi riprova:"
+msgid "Grant access to it in the Adventure Mods window, or run this in a terminal, then try again:"
+msgstr "Consenti l’accesso nella finestra di Adventure Mods, oppure esegui questo comando in un terminale, poi riprova:"
 
 #: src/cli.rs
 #, rust-format
@@ -269,8 +269,8 @@ msgstr "File delle cartelle della libreria non trovato: {path}"
 
 #: src/cli.rs
 #, rust-format
-msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Run this in a terminal, then try again: {command}"
-msgstr "{game} non è stato trovato perché Adventure Mods non può aprire la tua cartella di Steam. Esegui questo comando in un terminale, poi riprova: {command}"
+msgid "{game} was not detected because Adventure Mods can't open your Steam folder. Grant access to it in the Adventure Mods window, or run this in a terminal, then try again: {command}"
+msgstr "{game} non è stato trovato perché Adventure Mods non può aprire la tua cartella di Steam. Consenti l’accesso nella finestra di Adventure Mods, oppure esegui questo comando in un terminale, poi riprova: {command}"
 
 #: src/cli.rs
 #, rust-format
@@ -1158,7 +1158,7 @@ msgstr "Installalo su Steam, poi cerca di nuovo."
 msgid "Let Steam verify the game files to finish restoring it."
 msgstr "Lascia che Steam verifichi i file del gioco per completare il ripristino."
 
-#: src/ui/welcome.rs
+#: src/ui/welcome.rs src/ui/widgets.rs
 msgid "Grant Access"
 msgstr "Consenti accesso"
 
@@ -1175,8 +1175,9 @@ msgid "Looking for your games…"
 msgstr "Ricerca dei tuoi giochi…"
 
 #: src/ui/welcome.rs
-msgid "Adventure Mods needs permission to open your Steam folder. Run this in a terminal, then scan again:"
-msgstr "Adventure Mods ha bisogno del permesso per aprire la tua cartella di Steam. Esegui questo comando in un terminale, poi cerca di nuovo:"
+#, rust-format
+msgid "Adventure Mods needs access to your Steam folder, {path}."
+msgstr "Adventure Mods ha bisogno di accedere alla tua cartella di Steam, {path}."
 
 #: src/ui/welcome.rs
 msgid "Installation"
@@ -1200,6 +1201,10 @@ msgstr "{first} e {second}"
 #, rust-format
 msgid "Adventure Mods needs access to the Steam library with {games}. Use {button} on the game below."
 msgstr "Adventure Mods ha bisogno di accedere alla libreria di Steam che contiene {games}. Usa {button} sul gioco qui sotto."
+
+#: src/ui/widgets.rs
+msgid "Or run this in a terminal, then scan again:"
+msgstr "Oppure esegui questo comando in un terminale, poi cerca di nuovo:"
 
 #: src/ui/widgets.rs
 msgid "Copy"
