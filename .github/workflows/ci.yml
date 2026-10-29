@@ -435,7 +435,7 @@ jobs:
     # each upload for review first when the review queue says so.
     if: startsWith(github.ref, 'refs/tags/')
     needs: release
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Download Snap artifacts
