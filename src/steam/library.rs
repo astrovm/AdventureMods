@@ -328,18 +328,13 @@ fn find_all_games_in_libraries(
     };
 
     for folder in folders.values() {
-        let folder_map = match folder.as_map() {
-            Some(m) => m,
-            None => continue,
-        };
-
-        let apps = match folder_map.get("apps").and_then(|v| v.as_map()) {
+        let apps = match folder.get("apps").and_then(|v| v.as_map()) {
             Some(a) => a,
             None => continue,
         };
 
         if apps.contains_key(&app_id) {
-            let lib_path = match folder_map.get("path").and_then(|v| v.as_str()) {
+            let lib_path = match folder.get("path").and_then(|v| v.as_str()) {
                 Some(p) if !p.trim().is_empty() => Path::new(p),
                 None => continue,
                 Some(_) => continue,

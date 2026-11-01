@@ -21,8 +21,16 @@ impl VdfValue {
         }
     }
 
+    /// Look up `key` the way Steam does: case-insensitively. Steam writes the
+    /// same key with different casing over time (`Valve` and `valve`,
+    /// `appid` and `appID`), and reads any of them.
     pub fn get(&self, key: &str) -> Option<&VdfValue> {
-        self.as_map()?.get(key)
+        let map = self.as_map()?;
+        map.get(key).or_else(|| {
+            map.iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case(key))
+                .map(|(_, value)| value)
+        })
     }
 }
 

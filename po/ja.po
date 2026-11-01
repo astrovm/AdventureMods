@@ -1087,6 +1087,10 @@ msgid "Something Went Wrong"
 msgstr "問題が起きました"
 
 #: src/ui/setup.rs
+msgid "Check Your Proton Version"
+msgstr "Protonのバージョンを確認"
+
+#: src/ui/setup.rs
 msgid "Proton Is Ready"
 msgstr "Protonの準備ができました"
 

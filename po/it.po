@@ -1090,6 +1090,10 @@ msgid "Something Went Wrong"
 msgstr "Qualcosa è andato storto"
 
 #: src/ui/setup.rs
+msgid "Check Your Proton Version"
+msgstr "Controlla la versione di Proton"
+
+#: src/ui/setup.rs
 msgid "Proton Is Ready"
 msgstr "Proton è pronto"
 

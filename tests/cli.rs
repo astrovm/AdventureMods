@@ -190,6 +190,11 @@ fn detect_reports_games_from_explicit_vdf() {
     let output = String::from_utf8(output).unwrap();
     assert!(output.contains("Sonic Adventure DX"));
     assert!(output.contains(&display_path(&fixture.game_path)));
+    // What the Proton check found, so a bug report shows it.
+    assert!(
+        output.contains("Sonic Adventure DX is set to use TestProton"),
+        "{output}"
+    );
 }
 
 #[test]

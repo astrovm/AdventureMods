@@ -272,6 +272,7 @@ fn run_detect(args: DetectArgs, out: &mut CliOutput) -> Result<()> {
                 game.kind.name(),
                 out.path(&display_path(&game.path))
             ))?;
+            out.writeln(&format!("  {}", common::steam_config_message(game)))?;
         }
     }
 

@@ -132,7 +132,8 @@ fn fake_steam_status(game: &Game) -> SteamConfigStatus {
     if marker(&game.path, "panic-steam") {
         panic!("steam config exploded");
     }
-    let ready = marker(&game.path, "proton-ready");
+    let version_unknown = marker(&game.path, "proton-unknown");
+    let ready = version_unknown || marker(&game.path, "proton-ready");
     SteamConfigStatus {
         message: if marker(&game.path, "quiet-steam") {
             String::new()
@@ -140,6 +141,7 @@ fn fake_steam_status(game: &Game) -> SteamConfigStatus {
             format!("Proton ready: {ready}")
         },
         ready,
+        version_unknown,
     }
 }
 
@@ -242,6 +244,16 @@ fn step_id(state: &State) -> StepId {
 fn press(harness: &mut Harness<'_, State>, label: &str) {
     harness.get_by_label(label).click();
     harness.run_steps(4);
+}
+
+#[test]
+fn an_unknown_proton_version_lets_setup_continue_but_does_not_say_ready() {
+    let dir = game_dir(&["proton-unknown"]);
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
+
+    harness.get_by_label("Check Your Proton Version");
+    assert!(harness.query_by_label("Proton Is Ready").is_none());
+    assert_eq!(harness.state_mut().flow.next_label(), Some("Continue"));
 }
 
 #[test]
@@ -1279,6 +1291,7 @@ fn the_secondary_and_next_buttons_recover_from_panics() {
     setup.steam_status = Some(SteamConfigStatus {
         message: "Ready".into(),
         ready: true,
+        version_unknown: false,
     });
     let mut harness = harness(setup);
     press(&mut harness, "Continue");

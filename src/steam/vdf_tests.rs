@@ -583,6 +583,27 @@ fn vdf_tree() -> impl proptest::strategy::Strategy<Value = VdfValue> {
     })
 }
 
+#[test]
+fn get_ignores_key_case_like_steam() {
+    let root = parse(
+        "\"InstallConfigStore\" { \"Software\" { \"valve\" { \"steam\" { \"AppID\" \"1\" } } } }",
+    )
+    .unwrap();
+    let steam = root
+        .get("InstallConfigStore")
+        .and_then(|v| v.get("Software"))
+        .and_then(|v| v.get("Valve"))
+        .and_then(|v| v.get("Steam"))
+        .expect("found whatever the case");
+    assert_eq!(steam.get("appid").and_then(|v| v.as_str()), Some("1"));
+    assert!(steam.get("missing").is_none());
+    // An exact match wins over one that only differs in case.
+    let both = parse("\"root\" { \"Name\" \"exact\" \"name\" \"lower\" }").unwrap();
+    let root = both.get("root").unwrap();
+    assert_eq!(root.get("name").and_then(|v| v.as_str()), Some("lower"));
+    assert_eq!(root.get("Name").and_then(|v| v.as_str()), Some("exact"));
+}
+
 proptest::proptest! {
     #[test]
     fn written_vdf_parses_back_to_the_same_tree(
