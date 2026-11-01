@@ -161,7 +161,9 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[command(about = "Detect supported Steam installs and inaccessible Steam libraries")]
+    #[command(
+        about = "Detect supported Steam installs, their Proton status and inaccessible Steam libraries"
+    )]
     Detect(DetectArgs),
     #[command(about = "List presets and recommended mods for a game")]
     ListMods {
