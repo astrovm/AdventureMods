@@ -465,3 +465,55 @@ fn messages_name_the_build_not_its_prefix_version() {
     assert!(message.contains("Proton - Experimental"), "{message}");
     assert!(!message.contains("11.0-100"), "{message}");
 }
+
+#[test]
+fn a_wine_11_tool_steam_still_has_to_download_is_caught_by_its_name() {
+    let steam = Steam::new();
+    let game = steam.install_game(&steam.root);
+    let proton = steam.install(&steam.root, PROTON_10);
+    steam.launch(&game, PROTON_10, &proton);
+    // Forced, but not installed anywhere yet.
+    steam.force(GE_PROTON_11);
+
+    assert_eq!(
+        steam.state(&game),
+        PrefixState::UnsupportedConfiguredProton {
+            tool_name: "GE-Proton11-6".to_owned(),
+            major: 11,
+        }
+    );
+}
+
+#[test]
+fn a_tool_registered_by_a_manifest_file_in_compatibilitytools_d_is_found() {
+    let steam = Steam::new();
+    let game = steam.install_game(&steam.root);
+    let proton = steam.install(&steam.root, PROTON_10);
+    steam.launch(&game, PROTON_10, &proton);
+
+    // The manifest sits directly in compatibilitytools.d and points at a build
+    // kept elsewhere; a stray file next to it is ignored.
+    let tools = steam.root.join("compatibilitytools.d");
+    std::fs::create_dir_all(&tools).unwrap();
+    let build = steam._tmp.path().join("opt/ge-proton-11");
+    steam.install_at(&build, GE_PROTON_11);
+    std::fs::remove_file(build.join("compatibilitytool.vdf")).unwrap();
+    std::fs::write(
+        tools.join("ge.vdf"),
+        format!(
+            "\"compatibilitytools\" {{ \"compat_tools\" {{ \"GE-Proton11-6\" {{ \"install_path\" \"{}\" }} }} }}",
+            build.display()
+        ),
+    )
+    .unwrap();
+    std::fs::write(tools.join("README.txt"), "not a tool").unwrap();
+    steam.force(GE_PROTON_11);
+
+    assert_eq!(
+        steam.state(&game),
+        PrefixState::UnsupportedConfiguredProton {
+            tool_name: "ge-proton-11".to_owned(),
+            major: 11,
+        }
+    );
+}

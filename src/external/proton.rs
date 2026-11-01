@@ -927,6 +927,54 @@ mod tests {
     }
 
     #[test]
+    fn wine_major_in_skips_text_that_is_not_a_version_string() {
+        // Not UTF-8, a control character, or no number after the dash.
+        assert_eq!(wine_major_in(b"\x00wine-\xff10.0\x00"), None);
+        assert_eq!(wine_major_in(b"\x00wine-10.0\n\x00"), None);
+        assert_eq!(wine_major_in(b"\x00wine-x.0\x00"), None);
+    }
+
+    #[test]
+    fn tool_label_is_the_folder_name_or_the_whole_path() {
+        assert_eq!(
+            tool_label(Path::new("/steam/steamapps/common/Proton 10.0")),
+            "Proton 10.0"
+        );
+        assert_eq!(tool_label(Path::new("/")), "/");
+    }
+
+    #[test]
+    fn steam_paths_include_system_and_extra_tool_folders() {
+        let _lock = crate::test_env::lock();
+        let previous = std::env::var_os("STEAM_EXTRA_COMPAT_TOOLS_PATHS");
+        crate::test_env::set_var(
+            "STEAM_EXTRA_COMPAT_TOOLS_PATHS",
+            Some("/opt/tools:relative/tools:/srv/more"),
+        );
+        let paths = SteamPaths::from_system();
+        crate::test_env::set_var("STEAM_EXTRA_COMPAT_TOOLS_PATHS", previous);
+
+        // Relative entries mean nothing to Steam, so they're left out.
+        assert_eq!(
+            paths.tool_dirs,
+            [
+                "/usr/share/steam/compatibilitytools.d",
+                "/usr/local/share/steam/compatibilitytools.d",
+                "/opt/tools",
+                "/srv/more",
+            ]
+            .map(PathBuf::from)
+        );
+    }
+
+    #[test]
+    fn prefix_state_reports_a_path_outside_any_library() {
+        let (result, logs) = crate::test_log::capture_logs(|| prefix_state(Path::new("/"), 71250));
+        assert!(result.is_err());
+        assert!(logs.contains("Proton check for app 71250 failed"), "{logs}");
+    }
+
+    #[test]
     fn build_major_falls_back_to_the_directory_name() {
         let dir = PathBuf::from("/steam/steamapps/common/Proton 10.0");
         assert_eq!(build_major(&dir, &["Proton - Experimental"]), Some(10));
