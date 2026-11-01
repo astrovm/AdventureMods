@@ -55,6 +55,17 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.3" date="2026-11-01">
+      <description>
+        <p>GE-Proton and other custom Proton builds are recognized.</p>
+        <ul>
+          <li>GE-Proton 10 is detected as Proton 10, and Proton 11 builds such as GE-Proton 11 are caught before setup</li>
+          <li>Proton is found in every Steam library and tool folder, so a leftover copy no longer asks you to launch the game again and again</li>
+          <li>Messages name the Proton build, such as Proton 10.0 or GE-Proton10-34</li>
+          <li>The detect command shows each game's Proton status</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.2" date="2026-10-28">
       <description>
         <p>The Snap can get into your Steam folders without a terminal.</p>

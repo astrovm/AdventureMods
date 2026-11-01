@@ -209,13 +209,18 @@ pub fn is_step_complete(step_id: StepId, game: &Game) -> bool {
 pub struct SteamConfigStatus {
     pub message: String,
     pub ready: bool,
+    /// Setup may continue, but nothing says which Proton version the game
+    /// uses, so the screen asks to check rather than calling it ready.
+    pub version_unknown: bool,
 }
 
 pub fn steam_config_status(game: &Game) -> SteamConfigStatus {
     let state = proton::prefix_state(&game.path, game.kind.app_id());
+    let version_unknown = matches!(state, Ok(proton::PrefixState::UnknownProton { .. }));
     SteamConfigStatus {
         message: proton::steam_config_message_for_state(game.kind.name(), &state),
         ready: proton::ensure_state_ready(game.kind.name(), state).is_ok(),
+        version_unknown,
     }
 }
 

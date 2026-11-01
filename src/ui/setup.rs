@@ -1062,7 +1062,15 @@ impl SetupFlow {
                     status.message
                 };
                 centered(ui, |ui| {
-                    if status.ready {
+                    if status.version_unknown {
+                        widgets::status_page(
+                            ui,
+                            "⚠",
+                            Tone::Warning,
+                            tr!("Check Your Proton Version"),
+                            &message,
+                        );
+                    } else if status.ready {
                         widgets::status_page(
                             ui,
                             "✔",

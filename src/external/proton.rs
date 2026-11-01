@@ -15,6 +15,21 @@ use crate::trf;
 /// Official Proton 10 works; Hotfix/Experimental/CachyOS currently ship 11.x.
 const MAX_SUPPORTED_PROTON_MAJOR: u32 = 10;
 
+/// Where Steam's Linux client looks for custom compatibility tools outside
+/// its own folder (distro packages such as `proton-ge-custom`).
+const SYSTEM_COMPAT_TOOL_DIRS: [&str; 2] = [
+    "/usr/share/steam/compatibilitytools.d",
+    "/usr/local/share/steam/compatibilitytools.d",
+];
+
+/// Where each Proton build keeps Wine's `ntdll.so`, newest layout first.
+const NTDLL_PATHS: [&str; 4] = [
+    "files/lib/wine/x86_64-unix/ntdll.so",
+    "files/lib64/wine/x86_64-unix/ntdll.so",
+    "files/lib/wine/i386-unix/ntdll.so",
+    "files/lib64/wine/ntdll.so",
+];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PrefixState {
     Ready,
@@ -39,23 +54,54 @@ pub enum PrefixState {
         tool_name: String,
         major: u32,
     },
-    /// Prefix tool label could not be mapped to a major version (custom builds, etc.).
+    /// Neither the build's Wine nor its labels say which version it is.
     /// Setup may continue, but the UI should warn and recommend Proton 10.0.
     UnknownProton {
         tool_name: String,
     },
 }
 
-#[derive(Debug, Clone)]
-struct PrefixMetadata {
-    proton_dir: PathBuf,
-    tool_name: String,
+/// Where to look for Steam installs and compatibility tools. The real one
+/// comes from [`SteamPaths::from_system`]; tests build their own.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct SteamPaths {
+    /// Steam installs in the user's home.
+    roots: Vec<PathBuf>,
+    /// `compatibilitytools.d` folders outside any Steam install.
+    tool_dirs: Vec<PathBuf>,
 }
 
+impl SteamPaths {
+    pub(crate) fn from_system() -> Self {
+        let mut tool_dirs: Vec<PathBuf> =
+            SYSTEM_COMPAT_TOOL_DIRS.iter().map(PathBuf::from).collect();
+        // Steam reads extra tool folders from this colon-separated list.
+        if let Some(extra) = std::env::var_os("STEAM_EXTRA_COMPAT_TOOLS_PATHS") {
+            tool_dirs.extend(std::env::split_paths(&extra).filter(|p| p.is_absolute()));
+        }
+        Self {
+            roots: library::steam_roots(),
+            tool_dirs,
+        }
+    }
+}
+
+/// What Steam left in `compatdata/<app>` the last time the game ran.
+#[derive(Debug, Clone)]
+struct PrefixMetadata {
+    /// The Proton build that set the prefix up, from `config_info`.
+    proton_dir: PathBuf,
+    /// What that build wrote into `version`: `10.1000-105`, `GE-Proton10-34`, …
+    prefix_version: String,
+}
+
+/// The tool Steam is set to use for the game.
 #[derive(Debug, Clone)]
 struct ConfiguredTool {
+    /// The name stored in `CompatToolMapping`, such as `proton_10`.
     name: String,
-    proton_dir: PathBuf,
+    /// Every installed build Steam could mean by that name. Never empty.
+    dirs: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,7 +110,10 @@ enum ConfiguredToolLookup {
     MissingConfig,
     InvalidConfig,
     MissingConfiguredTool,
-    ConfiguredToolUnavailable,
+    /// Steam names a tool that isn't installed in any place we can see.
+    ConfiguredToolUnavailable {
+        name: String,
+    },
 }
 
 /// The game's Steam compatdata folder, which holds its Proton prefix in `pfx`.
@@ -75,6 +124,15 @@ pub fn compat_data_dir(game_path: &Path, app_id: u32) -> Result<PathBuf> {
 }
 
 pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
+    let state = prefix_state_in(game_path, app_id, &SteamPaths::from_system());
+    match &state {
+        Ok(state) => tracing::info!("Proton check for app {app_id}: {state:?}"),
+        Err(err) => tracing::warn!("Proton check for app {app_id} failed: {err:#}"),
+    }
+    state
+}
+
+fn prefix_state_in(game_path: &Path, app_id: u32, paths: &SteamPaths) -> Result<PrefixState> {
     let compatdata = compat_data_dir(game_path, app_id)?;
     let prefix = compatdata.join("pfx");
 
@@ -85,34 +143,58 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
     let Some(prefix_metadata) = read_prefix_metadata_for_game(game_path, &compatdata)? else {
         return Ok(PrefixState::MissingMetadata);
     };
+    let prefix_tool = tool_label(&prefix_metadata.proton_dir);
 
-    let configured_tool = configured_tool_from_config(game_path, app_id)?;
+    let configured_tool = configured_tool_from_config(game_path, app_id, paths)?;
+    tracing::debug!(
+        "App {app_id} prefix was set up by {} ({}); Steam config: {configured_tool:?}",
+        prefix_metadata.proton_dir.display(),
+        prefix_metadata.prefix_version,
+    );
 
-    if let ConfiguredToolLookup::Tool(configured_tool) = &configured_tool {
-        let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
-        let configured_canonical = try_canonicalize(&configured_tool.proton_dir);
+    match &configured_tool {
+        ConfiguredToolLookup::Tool(configured) => {
+            let prefix_canonical = try_canonicalize(&prefix_metadata.proton_dir);
+            let same_build = configured
+                .dirs
+                .iter()
+                .any(|dir| try_canonicalize(dir) == prefix_canonical);
 
-        if configured_canonical != prefix_canonical {
-            if let Some(major) =
-                proton_major_from_labels(&configured_tool.name, &configured_tool.proton_dir)
+            if !same_build {
+                let dir = &configured.dirs[0];
+                if let Some(major) = build_major(dir, &[&configured.name])
+                    && major > MAX_SUPPORTED_PROTON_MAJOR
+                {
+                    return Ok(PrefixState::UnsupportedConfiguredProton {
+                        tool_name: tool_label(dir),
+                        major,
+                    });
+                }
+
+                return Ok(PrefixState::ConfigMismatch {
+                    prefix_tool,
+                    configured_tool: tool_label(dir),
+                });
+            }
+        }
+        // Steam downloads a missing Valve build on the next launch; its name
+        // is all there is to go on.
+        ConfiguredToolLookup::ConfiguredToolUnavailable { name } => {
+            if let Some(major) = major_from_label(name)
                 && major > MAX_SUPPORTED_PROTON_MAJOR
             {
                 return Ok(PrefixState::UnsupportedConfiguredProton {
-                    tool_name: configured_tool.name.clone(),
+                    tool_name: name.clone(),
                     major,
                 });
             }
-
-            return Ok(PrefixState::ConfigMismatch {
-                prefix_tool: prefix_metadata.tool_name,
-                configured_tool: configured_tool.name.clone(),
-            });
         }
+        _ => {}
     }
 
     if !has_wine_binary(&prefix_metadata.proton_dir) {
         return Ok(PrefixState::ProtonUnavailable {
-            tool_name: prefix_metadata.tool_name,
+            tool_name: prefix_tool,
             proton_dir: prefix_metadata.proton_dir,
         });
     }
@@ -124,14 +206,17 @@ pub fn prefix_state(game_path: &Path, app_id: u32) -> Result<PrefixState> {
         return Ok(PrefixState::SteamConfigIncomplete);
     }
 
-    match proton_major_from_labels(&prefix_metadata.tool_name, &prefix_metadata.proton_dir) {
+    match build_major(
+        &prefix_metadata.proton_dir,
+        &[&prefix_metadata.prefix_version],
+    ) {
         Some(major) if major > MAX_SUPPORTED_PROTON_MAJOR => Ok(PrefixState::UnsupportedProton {
-            tool_name: prefix_metadata.tool_name,
+            tool_name: prefix_tool,
             major,
         }),
         Some(_) => Ok(PrefixState::Ready),
         None => Ok(PrefixState::UnknownProton {
-            tool_name: prefix_metadata.tool_name,
+            tool_name: prefix_tool,
         }),
     }
 }
@@ -220,67 +305,157 @@ pub fn steam_config_message_for_state(game_name: &str, state: &Result<PrefixStat
     }
 }
 
-/// Parse a Proton major version from a version label and/or install path.
+/// The name people know a build by: its folder, such as `Proton 10.0` or
+/// `GE-Proton10-34`.
+fn tool_label(proton_dir: &Path) -> String {
+    proton_dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map_or_else(|| proton_dir.display().to_string(), str::to_owned)
+}
+
+/// The Wine major version a Proton build runs, which is what decides whether
+/// SA Mod Manager starts.
 ///
-/// Handles labels like `10.1000-105`, `11.0-100`, `CachyOS-11.0-100`,
-/// `Proton 8.0`, and directory names like `Proton 10.0`.
-fn proton_major_from_labels(tool_name: &str, proton_dir: &Path) -> Option<u32> {
-    proton_major_from_text(tool_name)
+/// Every build, whatever its name, has Wine's own version compiled into
+/// `ntdll.so`, so that's read first. Names are only a fallback for builds
+/// without it, checked in order: `labels`, the folder name, the `version`
+/// file.
+fn build_major(proton_dir: &Path, labels: &[&str]) -> Option<u32> {
+    wine_major(proton_dir)
+        .or_else(|| labels.iter().find_map(|label| major_from_label(label)))
         .or_else(|| {
             proton_dir
                 .file_name()
                 .and_then(|name| name.to_str())
-                .and_then(proton_major_from_text)
+                .and_then(major_from_label)
         })
         .or_else(|| {
             std::fs::read_to_string(proton_dir.join("version"))
                 .ok()
-                .and_then(|version| proton_major_from_text(&version))
+                .and_then(|version| major_from_label(&version))
         })
 }
 
-fn proton_major_from_text(text: &str) -> Option<u32> {
-    let bytes = text.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i].is_ascii_digit() {
-            let start = i;
-            while i < bytes.len() && bytes[i].is_ascii_digit() {
-                i += 1;
-            }
-            // Prefer "10.0" / "11.0-100" style so we don't match unrelated digits.
-            if i < bytes.len() && bytes[i] == b'.' {
-                return std::str::from_utf8(&bytes[start..i])
-                    .ok()
-                    .and_then(|s| s.parse().ok());
-            }
-        } else {
-            i += 1;
+fn wine_major(proton_dir: &Path) -> Option<u32> {
+    NTDLL_PATHS.iter().find_map(|relative| {
+        std::fs::read(proton_dir.join(relative))
+            .ok()
+            .and_then(|bytes| wine_major_in(&bytes))
+    })
+}
+
+/// Find Wine's `PACKAGE_VERSION` string, such as `wine-10.0`,
+/// `wine-10.0 (Staging)` or `wine-11.0 (CachyOS)`, in a binary and return its
+/// major version. It sits alone between NUL-padded data, so a match must not
+/// be part of a longer word or path.
+fn wine_major_in(bytes: &[u8]) -> Option<u32> {
+    const NEEDLE: &[u8] = b"wine-";
+    const MAX_LEN: usize = 64;
+
+    let mut from = 0;
+    while let Some(offset) = bytes[from..]
+        .windows(NEEDLE.len())
+        .position(|window| window == NEEDLE)
+    {
+        let start = from + offset;
+        from = start + 1;
+
+        let glued = start
+            .checked_sub(1)
+            .map(|i| bytes[i])
+            .is_some_and(|b| b.is_ascii_alphanumeric() || b"/._-".contains(&b));
+        if glued {
+            continue;
+        }
+
+        let rest = &bytes[start + NEEDLE.len()..];
+        let Some(end) = rest.iter().take(MAX_LEN).position(|&b| b == 0) else {
+            continue;
+        };
+        let Ok(text) = std::str::from_utf8(&rest[..end]) else {
+            continue;
+        };
+        if !text.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+            continue;
+        }
+        let (major, after) = split_number(text);
+        if let Some(major) = major
+            && after.starts_with('.')
+            && after[1..].starts_with(|c: char| c.is_ascii_digit())
+        {
+            return Some(major);
         }
     }
     None
 }
 
-fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
+/// The major version in a Proton name or version label.
+///
+/// Understands dotted versions (`10.1000-105`, `proton-10.0-4b`,
+/// `CachyOS-11.0-100`, `Proton 8.0`) and numbered tags (`GE-Proton10-34`,
+/// `proton_10`). Names without a number, like `Proton - Experimental`, have
+/// none.
+fn major_from_label(text: &str) -> Option<u32> {
+    dotted_major(text).or_else(|| proton_tag_major(text))
+}
+
+fn dotted_major(text: &str) -> Option<u32> {
+    let mut rest = text;
+    while let Some(start) = rest.find(|c: char| c.is_ascii_digit()) {
+        let (major, after) = split_number(&rest[start..]);
+        if after.starts_with('.') && after[1..].starts_with(|c: char| c.is_ascii_digit()) {
+            return major;
+        }
+        rest = after;
+    }
+    None
+}
+
+/// `Proton` followed by its version, optionally after `_`, `-` or a space.
+fn proton_tag_major(text: &str) -> Option<u32> {
+    let lower = text.to_ascii_lowercase();
+    lower.match_indices("proton").find_map(|(index, word)| {
+        let rest = &lower[index + word.len()..];
+        let rest = rest.strip_prefix(['_', '-', ' ']).unwrap_or(rest);
+        split_number(rest).0
+    })
+}
+
+/// Split leading ASCII digits off `text`.
+fn split_number(text: &str) -> (Option<u32>, &str) {
+    let end = text
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(text.len());
+    (text[..end].parse().ok(), &text[end..])
+}
+
+fn configured_tool_from_config(
+    game_path: &Path,
+    app_id: u32,
+    paths: &SteamPaths,
+) -> Result<ConfiguredToolLookup> {
     let steamapps = steamapps_dir(game_path)?;
     // Never empty: the library's own root is always a candidate.
-    let steam_roots = steam_root_candidates(game_path)?;
+    let steam_roots = steam_root_candidates(game_path, paths)?;
 
     let mut best_failure = ConfiguredToolLookup::MissingConfig;
 
     for steam_root in &steam_roots {
         match compat_tool_name_from_config(steam_root, app_id)? {
-            ConfiguredToolLookup::Tool(ConfiguredTool { name, .. }) => {
-                if let Some(proton_dir) = resolve_compat_tool_path(steam_root, &steamapps, &name) {
-                    return Ok(ConfiguredToolLookup::Tool(ConfiguredTool {
-                        name,
-                        proton_dir,
-                    }));
+            Ok(name) => {
+                let libraries = steam_libraries(steam_root, &steamapps);
+                let mut tool_dirs = vec![steam_root.join("compatibilitytools.d")];
+                tool_dirs.extend(paths.tool_dirs.iter().cloned());
+
+                let dirs = find_tool_dirs(&name, &libraries, &tool_dirs);
+                if !dirs.is_empty() {
+                    return Ok(ConfiguredToolLookup::Tool(ConfiguredTool { name, dirs }));
                 }
 
-                best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable;
+                best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable { name };
             }
-            other => {
+            Err(other) => {
                 if failure_priority(&other) > failure_priority(&best_failure) {
                     best_failure = other;
                 }
@@ -294,11 +469,141 @@ fn configured_tool_from_config(game_path: &Path, app_id: u32) -> Result<Configur
 fn failure_priority(lookup: &ConfiguredToolLookup) -> u8 {
     match lookup {
         ConfiguredToolLookup::Tool(_) => 4,
-        ConfiguredToolLookup::ConfiguredToolUnavailable => 3,
+        ConfiguredToolLookup::ConfiguredToolUnavailable { .. } => 3,
         ConfiguredToolLookup::MissingConfiguredTool => 2,
         ConfiguredToolLookup::InvalidConfig => 1,
         ConfiguredToolLookup::MissingConfig => 0,
     }
+}
+
+/// Every library a Steam install uses, the game's own first. Valve's Proton
+/// builds install like games, so they can be in any of them.
+fn steam_libraries(steam_root: &Path, game_steamapps: &Path) -> Vec<PathBuf> {
+    let mut libraries = vec![
+        game_steamapps
+            .parent()
+            .unwrap_or(game_steamapps)
+            .to_path_buf(),
+        steam_root.to_path_buf(),
+    ];
+
+    if let Ok(content) = std::fs::read_to_string(steam_root.join("steamapps/libraryfolders.vdf"))
+        && let Some(root) = vdf::parse(&content)
+        && let Some(folders) = root.get("libraryfolders").and_then(|v| v.as_map())
+    {
+        let mut listed: Vec<_> = folders
+            .iter()
+            .filter_map(|(key, folder)| {
+                let path = folder.get("path")?.as_str()?;
+                Some((key.parse::<u32>().unwrap_or(u32::MAX), PathBuf::from(path)))
+            })
+            .collect();
+        listed.sort();
+        libraries.extend(listed.into_iter().map(|(_, path)| path));
+    }
+
+    dedupe_paths(libraries)
+}
+
+/// Every installed build Steam could mean by `name`, best match first.
+fn find_tool_dirs(name: &str, libraries: &[PathBuf], tool_dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let name = name.trim();
+    let mut found = Vec::new();
+
+    for tool_dir in tool_dirs {
+        found.extend(custom_tools_named(tool_dir, name));
+    }
+
+    let valve_dirs = valve_tool_dir_names(name);
+    for library in libraries {
+        let common = library.join("steamapps/common");
+        found.extend(valve_dirs.iter().map(|dir| common.join(dir)));
+
+        if let Some(major) = name
+            .strip_prefix("proton_")
+            .and_then(|value| value.parse::<u32>().ok())
+            && let Ok(entries) = std::fs::read_dir(&common)
+        {
+            let mut numbered: Vec<_> = entries
+                .flatten()
+                .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                .filter(|dir| {
+                    matches!(
+                        parse_proton_dir_name(dir),
+                        Some(ProtonVersion::Numbered(found, _)) if found == major
+                    )
+                })
+                .collect();
+            numbered.sort();
+            found.extend(numbered.into_iter().map(|dir| common.join(dir)));
+        }
+    }
+
+    dedupe_paths(
+        found
+            .into_iter()
+            .filter(|dir| has_wine_binary(dir))
+            .collect(),
+    )
+}
+
+/// Folder names Valve uses for a tool, besides `proton_<major>` builds.
+fn valve_tool_dir_names(name: &str) -> Vec<&str> {
+    let mut names = vec![name];
+    names.extend_from_slice(match name {
+        "proton_experimental" => &["Proton - Experimental", "Proton Experimental"],
+        "proton_hotfix" => &["Proton Hotfix"],
+        _ => &[],
+    });
+    names
+}
+
+/// Custom tools in a `compatibilitytools.d` folder that register `name`.
+///
+/// Each tool is a folder with a `compatibilitytool.vdf`, or a manifest file
+/// directly in the folder, mapping internal names to an `install_path`. The
+/// folder name doesn't have to match, so the manifests are what count; a
+/// folder named after the tool is still tried for a broken manifest.
+fn custom_tools_named(tool_dir: &Path, name: &str) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(tool_dir) else {
+        return Vec::new();
+    };
+
+    let mut manifests: Vec<_> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter_map(|path| {
+            if path.is_dir() {
+                Some(path.join("compatibilitytool.vdf"))
+            } else if path.extension().is_some_and(|ext| ext == "vdf") {
+                Some(path)
+            } else {
+                None
+            }
+        })
+        .collect();
+    manifests.sort();
+
+    let mut found: Vec<PathBuf> = manifests
+        .iter()
+        .filter_map(|manifest| {
+            let content = std::fs::read_to_string(manifest).ok()?;
+            let root = vdf::parse(&content)?;
+            let tools = root.get("compatibilitytools")?.get("compat_tools")?;
+            let install_path = tools.get(name)?.get("install_path")?.as_str()?;
+            Some(manifest.parent()?.join(install_path))
+        })
+        .collect();
+    found.push(tool_dir.join(name));
+    found
+}
+
+fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut seen = HashSet::new();
+    paths
+        .into_iter()
+        .filter(|path| seen.insert(try_canonicalize(path)))
+        .collect()
 }
 
 fn read_prefix_metadata_for_game(
@@ -326,7 +631,7 @@ fn read_prefix_metadata(compatdata: &Path) -> Result<Option<PrefixMetadata>> {
 
     let content = std::fs::read_to_string(&config_info)
         .with_context(|| format!("Failed to read {}", config_info.display()))?;
-    let tool_name = std::fs::read_to_string(&version)
+    let prefix_version = std::fs::read_to_string(&version)
         .with_context(|| format!("Failed to read {}", version.display()))?
         .trim()
         .to_owned();
@@ -342,9 +647,9 @@ fn read_prefix_metadata(compatdata: &Path) -> Result<Option<PrefixMetadata>> {
         .or_else(|| proton_dirs.into_iter().next());
 
     match proton_dir {
-        Some(proton_dir) if !tool_name.is_empty() => Ok(Some(PrefixMetadata {
+        Some(proton_dir) if !prefix_version.is_empty() => Ok(Some(PrefixMetadata {
             proton_dir,
-            tool_name,
+            prefix_version,
         })),
         _ => Ok(None),
     }
@@ -367,16 +672,18 @@ fn proton_dir_from_config_info_line(line: &str) -> Option<PathBuf> {
     None
 }
 
-fn steam_root_candidates(game_path: &Path) -> Result<Vec<PathBuf>> {
+fn steam_root_candidates(game_path: &Path, paths: &SteamPaths) -> Result<Vec<PathBuf>> {
     let steamapps = steamapps_dir(game_path)?;
     let derived_root = steamapps.parent().unwrap_or(&steamapps);
     let mut roots = Vec::new();
 
     roots.push(derived_root.to_path_buf());
     roots.extend(
-        library::steam_roots()
-            .into_iter()
-            .filter(|root| steam_root_references_library(root, derived_root)),
+        paths
+            .roots
+            .iter()
+            .filter(|root| steam_root_references_library(root, derived_root))
+            .cloned(),
     );
     roots.extend(
         sibling_steam_root_candidates(derived_root)
@@ -435,8 +742,7 @@ fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool
 
     folders.values().any(|folder| {
         folder
-            .as_map()
-            .and_then(|map| map.get("path"))
+            .get("path")
             .and_then(|value| value.as_str())
             .map(PathBuf::from)
             .and_then(|path| path.canonicalize().ok().or(Some(path)))
@@ -444,21 +750,26 @@ fn steam_root_references_library(steam_root: &Path, library_path: &Path) -> bool
     })
 }
 
-fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<ConfiguredToolLookup> {
+/// The tool name `config.vdf` maps the game to, or why there is none.
+fn compat_tool_name_from_config(
+    steam_root: &Path,
+    app_id: u32,
+) -> Result<std::result::Result<String, ConfiguredToolLookup>> {
     let config_path = steam_root.join("config/config.vdf");
     if !config_path.is_file() {
-        return Ok(ConfiguredToolLookup::MissingConfig);
+        return Ok(Err(ConfiguredToolLookup::MissingConfig));
     }
 
     let content = match std::fs::read_to_string(&config_path) {
         Ok(content) => content,
         Err(err) => {
             tracing::warn!("Failed to read {}: {err}", config_path.display());
-            return Ok(ConfiguredToolLookup::InvalidConfig);
+            return Ok(Err(ConfiguredToolLookup::InvalidConfig));
         }
     };
     let Some(root) = vdf::parse(&content) else {
-        return Ok(ConfiguredToolLookup::InvalidConfig);
+        tracing::warn!("Failed to parse {}", config_path.display());
+        return Ok(Err(ConfiguredToolLookup::InvalidConfig));
     };
 
     let Some(mapping) = root
@@ -468,7 +779,7 @@ fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<Config
         .and_then(|v| v.get("Steam"))
         .and_then(|v| v.get("CompatToolMapping"))
     else {
-        return Ok(ConfiguredToolLookup::MissingConfiguredTool);
+        return Ok(Err(ConfiguredToolLookup::MissingConfiguredTool));
     };
 
     let app_id = app_id.to_string();
@@ -480,72 +791,11 @@ fn compat_tool_name_from_config(steam_root: &Path, app_id: u32) -> Result<Config
             .map(str::trim)
             .filter(|name| !name.is_empty())
         {
-            return Ok(ConfiguredToolLookup::Tool(ConfiguredTool {
-                name: name.to_owned(),
-                proton_dir: PathBuf::new(),
-            }));
+            return Ok(Ok(name.to_owned()));
         }
     }
 
-    Ok(ConfiguredToolLookup::MissingConfiguredTool)
-}
-
-fn resolve_compat_tool_path(
-    steam_root: &Path,
-    steamapps: &Path,
-    tool_name: &str,
-) -> Option<PathBuf> {
-    compat_tool_dir_candidates(steam_root, steamapps, tool_name)
-        .into_iter()
-        .flat_map(|candidate| {
-            [
-                steamapps.join("common").join(&candidate),
-                steam_root.join("steamapps/common").join(&candidate),
-                steam_root.join("compatibilitytools.d").join(&candidate),
-            ]
-        })
-        .find(|path| has_wine_binary(path))
-}
-
-fn compat_tool_dir_candidates(steam_root: &Path, steamapps: &Path, tool_name: &str) -> Vec<String> {
-    let trimmed = tool_name.trim();
-    let mut candidates = vec![trimmed.to_owned()];
-    let mut seen = HashSet::from([trimmed.to_owned()]);
-
-    let aliases = match trimmed {
-        "proton_experimental" => vec!["Proton - Experimental", "Proton Experimental"],
-        "proton_hotfix" => vec!["Proton Hotfix"],
-        _ => Vec::new(),
-    };
-
-    // Named tools have distinct aliases and never match `proton_<major>` below.
-    candidates.extend(aliases.into_iter().map(str::to_owned));
-
-    if let Some(version) = trimmed
-        .strip_prefix("proton_")
-        .and_then(|value| value.parse::<u32>().ok())
-    {
-        for common_dir in [
-            steamapps.join("common"),
-            steam_root.join("steamapps/common"),
-        ] {
-            if let Ok(entries) = std::fs::read_dir(common_dir) {
-                for entry in entries.flatten() {
-                    let dir_name = entry.file_name().to_string_lossy().to_string();
-                    let matches_version = matches!(
-                        parse_proton_dir_name(&dir_name),
-                        Some(ProtonVersion::Numbered(major, _)) if major == version
-                    );
-
-                    if matches_version && seen.insert(dir_name.clone()) {
-                        candidates.push(dir_name);
-                    }
-                }
-            }
-        }
-    }
-
-    candidates
+    Ok(Err(ConfiguredToolLookup::MissingConfiguredTool))
 }
 
 /// Navigate from a game install path up to the steamapps/ directory.
@@ -640,26 +890,98 @@ mod tests {
     use super::*;
 
     #[test]
-    fn proton_major_from_text_parses_leading_version() {
-        assert_eq!(proton_major_from_text("10.1000-105"), Some(10));
-        assert_eq!(proton_major_from_text("11.0-100"), Some(11));
-        assert_eq!(proton_major_from_text("CachyOS-11.0-100"), Some(11));
-        assert_eq!(proton_major_from_text("Proton 8.0"), Some(8));
-        assert_eq!(proton_major_from_text("Proton - Experimental"), None);
-        assert_eq!(proton_major_from_text("TestProton"), None);
+    fn major_from_label_reads_dotted_versions_and_numbered_tags() {
+        assert_eq!(major_from_label("10.1000-105"), Some(10));
+        assert_eq!(major_from_label("11.0-100"), Some(11));
+        assert_eq!(major_from_label("CachyOS-11.0-100"), Some(11));
+        assert_eq!(major_from_label("Proton 8.0"), Some(8));
+        assert_eq!(major_from_label("1785139158 proton-10.0-4b"), Some(10));
+        assert_eq!(major_from_label("GE-Proton10-34"), Some(10));
+        assert_eq!(major_from_label("1787951532 GE-Proton11-6"), Some(11));
+        assert_eq!(major_from_label("proton_10"), Some(10));
+        assert_eq!(major_from_label("Proton - Experimental"), None);
+        assert_eq!(major_from_label("proton_experimental"), None);
+        assert_eq!(major_from_label("1791407340 hotfix-20261007-x86_64"), None);
+        assert_eq!(major_from_label("TestProton"), None);
     }
 
     #[test]
-    fn proton_major_from_labels_uses_directory_name() {
-        let dir = PathBuf::from("/steam/steamapps/common/Proton 10.0");
+    fn wine_major_in_reads_the_compiled_wine_version() {
+        assert_eq!(wine_major_in(b"\x80\x80wine-10.0\x00\x00"), Some(10));
+        assert_eq!(wine_major_in(b"\x00wine-10.0 (Staging)\x00"), Some(10));
+        assert_eq!(wine_major_in(b"wine-11.0 (CachyOS)\x00"), Some(11));
+        assert_eq!(wine_major_in(b"\x00wine-9.22\x00"), Some(9));
+        // Other Wine names, paths and unterminated text are not the version.
         assert_eq!(
-            proton_major_from_labels("Proton - Experimental", &dir),
+            wine_major_in(b"\x00wine-mono-9.4.0\x00wine-gecko\x00"),
+            None
+        );
+        assert_eq!(wine_major_in(b"/usr/lib/wine-10.0\x00"), None);
+        assert_eq!(wine_major_in(b"\x00wine-10.0"), None);
+        assert_eq!(wine_major_in(b"\x00wine-10.\x00"), None);
+        // The real one is found after a decoy.
+        assert_eq!(
+            wine_major_in(b"\x00wine-mono\x00\x00wine-10.0\x00"),
             Some(10)
         );
     }
 
     #[test]
-    fn proton_major_from_labels_uses_tool_version_file() {
+    fn wine_major_in_skips_text_that_is_not_a_version_string() {
+        // Not UTF-8, a control character, or no number after the dash.
+        assert_eq!(wine_major_in(b"\x00wine-\xff10.0\x00"), None);
+        assert_eq!(wine_major_in(b"\x00wine-10.0\n\x00"), None);
+        assert_eq!(wine_major_in(b"\x00wine-x.0\x00"), None);
+    }
+
+    #[test]
+    fn tool_label_is_the_folder_name_or_the_whole_path() {
+        assert_eq!(
+            tool_label(Path::new("/steam/steamapps/common/Proton 10.0")),
+            "Proton 10.0"
+        );
+        assert_eq!(tool_label(Path::new("/")), "/");
+    }
+
+    #[test]
+    fn steam_paths_include_system_and_extra_tool_folders() {
+        let _lock = crate::test_env::lock();
+        let previous = std::env::var_os("STEAM_EXTRA_COMPAT_TOOLS_PATHS");
+        crate::test_env::set_var(
+            "STEAM_EXTRA_COMPAT_TOOLS_PATHS",
+            Some("/opt/tools:relative/tools:/srv/more"),
+        );
+        let paths = SteamPaths::from_system();
+        crate::test_env::set_var("STEAM_EXTRA_COMPAT_TOOLS_PATHS", previous);
+
+        // Relative entries mean nothing to Steam, so they're left out.
+        assert_eq!(
+            paths.tool_dirs,
+            [
+                "/usr/share/steam/compatibilitytools.d",
+                "/usr/local/share/steam/compatibilitytools.d",
+                "/opt/tools",
+                "/srv/more",
+            ]
+            .map(PathBuf::from)
+        );
+    }
+
+    #[test]
+    fn prefix_state_reports_a_path_outside_any_library() {
+        let (result, logs) = crate::test_log::capture_logs(|| prefix_state(Path::new("/"), 71250));
+        assert!(result.is_err());
+        assert!(logs.contains("Proton check for app 71250 failed"), "{logs}");
+    }
+
+    #[test]
+    fn build_major_falls_back_to_the_directory_name() {
+        let dir = PathBuf::from("/steam/steamapps/common/Proton 10.0");
+        assert_eq!(build_major(&dir, &["Proton - Experimental"]), Some(10));
+    }
+
+    #[test]
+    fn build_major_falls_back_to_the_tool_version_file() {
         let tmp = tempfile::tempdir().unwrap();
         let proton_dir = tmp.path().join("Proton-CachyOS Latest");
         std::fs::create_dir_all(&proton_dir).unwrap();
@@ -670,7 +992,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            proton_major_from_labels("Proton-CachyOS Latest", &proton_dir),
+            build_major(&proton_dir, &["Proton-CachyOS Latest"]),
             Some(11)
         );
     }
@@ -722,7 +1044,7 @@ mod tests {
         assert_eq!(
             prefix_state(&game_path, 71250).unwrap(),
             PrefixState::UnsupportedProton {
-                tool_name: "11.0-100".to_owned(),
+                tool_name: "Proton 11.0".to_owned(),
                 major: 11,
             }
         );
@@ -997,12 +1319,13 @@ mod tests {
     fn failure_priority_ordering() {
         let tool = ConfiguredTool {
             name: "Proton 10".to_owned(),
-            proton_dir: PathBuf::from("/steam/Proton 10"),
+            dirs: vec![PathBuf::from("/steam/Proton 10")],
         };
         assert_eq!(failure_priority(&ConfiguredToolLookup::Tool(tool)), 4);
         assert!(
-            failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable)
-                > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
+            failure_priority(&ConfiguredToolLookup::ConfiguredToolUnavailable {
+                name: "proton_10".to_owned()
+            }) > failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
         );
         assert!(
             failure_priority(&ConfiguredToolLookup::MissingConfiguredTool)
@@ -1022,7 +1345,7 @@ mod tests {
         std::fs::write(config_dir.join("config.vdf"), "not valid vdf content").unwrap();
 
         let result = compat_tool_name_from_config(tmp.path(), 71250).unwrap();
-        assert!(matches!(result, ConfiguredToolLookup::InvalidConfig));
+        assert!(matches!(result, Err(ConfiguredToolLookup::InvalidConfig)));
     }
 
     #[test]
@@ -1652,7 +1975,7 @@ mod tests {
             crate::test_log::capture_logs(|| compat_tool_name_from_config(tmp.path(), 71250));
         assert!(matches!(
             result.unwrap(),
-            ConfiguredToolLookup::InvalidConfig
+            Err(ConfiguredToolLookup::InvalidConfig)
         ));
         assert!(logs.contains(&format!("Failed to read {}", config.display())));
 
@@ -1660,7 +1983,7 @@ mod tests {
         std::fs::write(&config, PROTON_10_CONFIG.replace("\"71250\"", "\"213610\"")).unwrap();
         assert!(matches!(
             compat_tool_name_from_config(tmp.path(), 71250).unwrap(),
-            ConfiguredToolLookup::MissingConfiguredTool
+            Err(ConfiguredToolLookup::MissingConfiguredTool)
         ));
     }
 
@@ -1691,9 +2014,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(steam_root_candidates(&game_path).unwrap().len(), 2);
+        let paths = SteamPaths::default();
+        assert_eq!(steam_root_candidates(&game_path, &paths).unwrap().len(), 2);
         assert!(matches!(
-            configured_tool_from_config(&game_path, 71250).unwrap(),
+            configured_tool_from_config(&game_path, 71250, &paths).unwrap(),
             ConfiguredToolLookup::MissingConfiguredTool
         ));
     }
@@ -1715,7 +2039,7 @@ mod tests {
             let _lock = crate::test_env::lock();
             let previous = std::env::var_os("HOME").expect("tests run with HOME set");
             unsafe { std::env::set_var("HOME", &home) };
-            let roots = steam_root_candidates(&game_path);
+            let roots = steam_root_candidates(&game_path, &SteamPaths::from_system());
             unsafe { std::env::set_var("HOME", previous) };
             roots.unwrap()
         };
@@ -1750,31 +2074,28 @@ mod tests {
     }
 
     #[test]
-    fn compat_tool_dir_candidates_match_numbered_proton_once() {
+    fn find_tool_dirs_matches_numbered_proton_once_and_skips_empty_folders() {
         let tmp = tempfile::tempdir().unwrap();
-        let steamapps = tmp.path().join("steamapps");
+        let common = tmp.path().join("steamapps/common");
         for dir in ["Proton 10.0", "Proton 9.0", "Proton - Experimental"] {
-            std::fs::create_dir_all(steamapps.join("common").join(dir)).unwrap();
+            std::fs::create_dir_all(common.join(dir).join("files/bin")).unwrap();
+            std::fs::write(common.join(dir).join("files/bin/wine"), "").unwrap();
         }
+        // A leftover folder without Wine isn't an installed build.
+        std::fs::create_dir_all(common.join("Proton 10.0-old")).unwrap();
+        let library = tmp.path().to_path_buf();
 
-        // The library is also the Steam root, so both scans see the same folders.
+        // The library is listed twice, as it is when it's also the Steam root.
+        let libraries = [library.clone(), library];
         assert_eq!(
-            compat_tool_dir_candidates(tmp.path(), &steamapps, "proton_10"),
-            vec!["proton_10".to_owned(), "Proton 10.0".to_owned()]
-        );
-        // A Steam root without a common folder adds nothing.
-        assert_eq!(
-            compat_tool_dir_candidates(&tmp.path().join("no-steam"), &steamapps, "proton_10"),
-            vec!["proton_10".to_owned(), "Proton 10.0".to_owned()]
+            find_tool_dirs("proton_10", &libraries, &[]),
+            vec![common.join("Proton 10.0")]
         );
         assert_eq!(
-            compat_tool_dir_candidates(tmp.path(), &steamapps, " proton_experimental "),
-            vec![
-                "proton_experimental".to_owned(),
-                "Proton - Experimental".to_owned(),
-                "Proton Experimental".to_owned(),
-            ]
+            find_tool_dirs(" proton_experimental ", &libraries, &[]),
+            vec![common.join("Proton - Experimental")]
         );
+        assert!(find_tool_dirs("proton_11", &libraries, &[]).is_empty());
     }
 
     #[test]
@@ -1792,18 +2113,48 @@ mod tests {
 
     proptest::proptest! {
         #[test]
-        fn proton_major_is_the_first_number_before_a_dot(
+        fn label_major_is_the_first_number_before_a_dot(
             prefix in "[A-Za-z -]{0,12}",
             major in 0u32..1000,
             rest in "[0-9]{1,4}(-[0-9]{1,4})?",
         ) {
             let text = format!("{prefix}{major}.{rest}");
-            proptest::prop_assert_eq!(proton_major_from_text(&text), Some(major));
+            proptest::prop_assert_eq!(major_from_label(&text), Some(major));
         }
 
         #[test]
-        fn text_without_a_dotted_number_has_no_proton_major(text in "[A-Za-z0-9 -]{0,24}") {
-            proptest::prop_assert_eq!(proton_major_from_text(&text), None);
+        fn text_without_a_dotted_number_or_proton_tag_has_no_major(
+            text in "[A-Za-z0-9 -]{0,24}",
+        ) {
+            proptest::prop_assume!(!text.to_ascii_lowercase().contains("proton"));
+            proptest::prop_assert_eq!(major_from_label(&text), None);
+        }
+
+        #[test]
+        fn numbered_proton_tags_give_their_major(
+            prefix in "[A-Za-z]{0,6}-?",
+            separator in "[-_ ]?",
+            major in 0u32..1000,
+            rest in "(-[0-9]{1,3})?",
+        ) {
+            let text = format!("{prefix}Proton{separator}{major}{rest}");
+            proptest::prop_assert_eq!(major_from_label(&text), Some(major));
+        }
+
+        #[test]
+        fn wine_version_is_found_anywhere_in_a_binary(
+            before in proptest::collection::vec(proptest::num::u8::ANY, 0..256),
+            after in proptest::collection::vec(proptest::num::u8::ANY, 0..256),
+            major in 1u32..100,
+            minor in 0u32..100,
+        ) {
+            // Without a `w` before it, nothing earlier can pass for the version.
+            let mut bytes: Vec<u8> = before.into_iter().filter(|&b| b != b'w').collect();
+            bytes.push(0);
+            bytes.extend_from_slice(format!("wine-{major}.{minor}").as_bytes());
+            bytes.push(0);
+            bytes.extend_from_slice(&after);
+            proptest::prop_assert_eq!(wine_major_in(&bytes), Some(major));
         }
 
         #[test]
@@ -1822,3 +2173,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "proton_scenarios_tests.rs"]
+mod scenarios;

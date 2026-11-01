@@ -80,10 +80,10 @@ flatpak run io.github.astrovm.AdventureMods setup
 <details>
 <summary><b>Other commands</b></summary>
 
-| Command                      | What it does                                                 |
-| ---------------------------- | ------------------------------------------------------------ |
-| `detect`                     | Show detected game installs and inaccessible Steam libraries |
-| `list-mods --game sadx\|sa2` | List available presets and mods for a game                   |
+| Command                      | What it does                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| `detect`                     | Show detected game installs, their Proton status and inaccessible Steam libraries |
+| `list-mods --game sadx\|sa2` | List available presets and mods for a game                                        |
 
 ```sh
 flatpak run io.github.astrovm.AdventureMods detect
