@@ -165,6 +165,17 @@ cd fuzz && cargo +nightly fuzz run vdf
 
 It feeds random text to the parser for Steam's `.vdf` files.
 
+**Mutation testing** (needs `cargo-mutants` 27.1.0 and `cargo-nextest`; the window tests need a display, so use `xvfb-run` without one)
+
+```sh
+scripts/mutants.sh diff origin/main   # the lines of src/ this branch changed
+scripts/mutants.sh shard 3/64         # the 4th of 64 equal parts of every mutant
+```
+
+[cargo-mutants](https://mutants.rs) changes the code in small ways, such as flipping a comparison or emptying a function, and runs the tests for each change. A change no test notices is a missed mutant: code whose behavior nothing checks. Results land in `build/mutants/mutants.out` (`missed.txt`, `caught.txt`, `timeout.txt` and a log per mutant).
+
+It never blocks a merge. On a pull request that changes `src/`, the `Mutants` workflow mutates the changed lines and keeps one comment listing what no test caught; the comment goes away once everything is caught. Each one is a lead for a follow-up PR, unless the change doesn't alter behavior. A pull request that changes the mutation setup also runs part 0 of 64, so a broken setup shows before the weekly run. Every Saturday it runs a quarter of all mutants, 16 of the 64 parts, and lists what survived in the open "Missed mutants" issue.
+
 </details>
 
 <details>

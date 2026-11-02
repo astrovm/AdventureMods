@@ -166,6 +166,7 @@ jobs:
           sh build-aux/test-cargo-version.sh
           sh build-aux/test-steam-manifest.sh
           sh build-aux/test-upload-snaps.sh
+          bash scripts/test-mutants.sh
 
   flatpak:
     # Packaging starts right away instead of waiting for the test job; the

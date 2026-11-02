@@ -40,3 +40,6 @@ docs/superpowers/
 
 # Generated from Cargo.lock by build-aux/flatpak/cargo-sources.sh
 build-aux/flatpak/cargo-sources.json
+
+# Mutation testing (scripts/mutants.sh)
+/build/
