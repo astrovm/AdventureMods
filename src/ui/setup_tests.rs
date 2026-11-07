@@ -322,6 +322,11 @@ fn sa2_setup_walks_choices_then_installs_and_finishes() {
     run_until(&mut harness, "setup finished", |state| {
         step_id(state) == StepId::Complete
     });
+    // The finish screen tells the player what to do next.
+    harness.get_by_label("Ready to Play");
+    harness.get_by_label(
+        "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing.",
+    );
     let installed = std::fs::read_to_string(dir.path().join("installed.txt")).unwrap();
     assert!(!installed.starts_with("SA2 Render Fix"), "{installed}");
     assert!(
@@ -1375,19 +1380,48 @@ fn setup_reports_the_game_it_is_for() {
 }
 
 #[test]
-fn the_real_mod_installer_reports_pipeline_errors() {
+fn the_real_mod_installer_writes_the_mod_manager_config() {
+    // No mods means nothing to download, so this runs offline on a fake game folder.
     let dir = game_dir(&[]);
-    let result = install_mods_with_pipeline(
+    let mut generating = 0;
+    install_mods_with_pipeline(
         dir.path(),
         GameKind::SA2,
         &[],
         1280,
         800,
         LanguageSelection::defaults_for(GameKind::SA2),
-        &mut |_| Ok(()),
-    );
-    // Without a mod loader in place, writing the config fails.
-    let _ = result;
+        &mut |progress| {
+            generating += usize::from(matches!(progress, InstallProgress::GeneratingConfig));
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(generating, 1);
+    assert!(dir.path().join("SAManager/Manager.json").is_file());
+    let profile =
+        std::fs::read_to_string(dir.path().join("mods/.modloader/profiles/Default.json")).unwrap();
+    let profile: serde_json::Value = serde_json::from_str(&profile).unwrap();
+    assert_eq!(profile["EnabledMods"], serde_json::json!([]));
+}
+
+#[test]
+fn the_real_mod_installer_reports_pipeline_errors() {
+    let dir = game_dir(&[]);
+    let error = install_mods_with_pipeline(
+        dir.path(),
+        GameKind::SA2,
+        &[],
+        1280,
+        800,
+        LanguageSelection::defaults_for(GameKind::SA2),
+        &mut |_| anyhow::bail!("stopped by the test"),
+    )
+    .unwrap_err();
+
+    assert_eq!(error.to_string(), "stopped by the test");
+    assert!(!dir.path().join("SAManager/Manager.json").exists());
 }
 
 #[test]
