@@ -903,3 +903,27 @@ fn the_eframe_app_quits_after_one_frame_when_asked() {
     assert!(app.quit_after_first_frame);
     assert!(!EframeApp::new(fixture.app()).quit_after_first_frame);
 }
+
+fn repaint_delay(harness: &Harness<'_, AdventureModsApp>) -> Duration {
+    harness.output().viewport_output[&egui::ViewportId::ROOT].repaint_delay
+}
+
+#[test]
+fn background_work_keeps_the_window_repainting() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.run_steps(5);
+    assert_eq!(repaint_delay(&harness), Duration::MAX, "idle");
+
+    // Waiting for the folder dialog, the app checks the answer every 100 ms.
+    let (answer, receiver) = std::sync::mpsc::channel();
+    harness.state_mut().granting = Some((fixture.library.clone(), receiver));
+    harness.run_steps(2);
+    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
+
+    // The answer ends the wait.
+    answer.send(None).unwrap();
+    harness.run_steps(5);
+    assert_eq!(repaint_delay(&harness), Duration::MAX);
+}
