@@ -838,10 +838,52 @@ fn the_window_state_follows_the_viewport() {
     step_window(&mut harness, window);
     step_window(&mut harness, window);
     assert_eq!(harness.state().window_state().size, window);
+}
 
-    // F11 toggles fullscreen; the harness ignores the request.
-    harness.key_press(egui::Key::F11);
-    harness.run_steps(2);
+fn fullscreen_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<bool> {
+    harness.output().viewport_output[&egui::ViewportId::ROOT]
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            egui::ViewportCommand::Fullscreen(on) => Some(*on),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Press F11 and step only the frame that sees the key going down, so its
+/// commands are the harness's output.
+fn press_f11(harness: &mut Harness<'_, AdventureModsApp>) {
+    harness.event(egui::Event::Key {
+        key: egui::Key::F11,
+        physical_key: Some(egui::Key::F11),
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    harness.step();
+}
+
+#[test]
+fn f11_toggles_fullscreen() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    harness.step();
+    assert!(fullscreen_commands(&harness).is_empty());
+
+    // In a window, F11 asks for fullscreen.
+    press_f11(&mut harness);
+    assert_eq!(fullscreen_commands(&harness), [true]);
+
+    // Fullscreen already, it asks to leave.
+    harness
+        .input_mut()
+        .viewports
+        .get_mut(&egui::ViewportId::ROOT)
+        .unwrap()
+        .fullscreen = Some(true);
+    press_f11(&mut harness);
+    assert_eq!(fullscreen_commands(&harness), [false]);
 }
 
 #[test]
@@ -860,4 +902,34 @@ fn the_eframe_app_quits_after_one_frame_when_asked() {
     unsafe { std::env::remove_var("ADVENTURE_MODS_QUIT_AFTER_FIRST_FRAME") };
     assert!(app.quit_after_first_frame);
     assert!(!EframeApp::new(fixture.app()).quit_after_first_frame);
+}
+
+fn repaint_delay(harness: &Harness<'_, AdventureModsApp>) -> Duration {
+    harness.output().viewport_output[&egui::ViewportId::ROOT].repaint_delay
+}
+
+#[test]
+fn background_work_keeps_the_window_repainting() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.run_steps(5);
+    assert_eq!(repaint_delay(&harness), Duration::MAX, "idle");
+
+    // Waiting for the folder dialog, the app checks the answer every 100 ms.
+    let (answer, receiver) = std::sync::mpsc::channel();
+    harness.state_mut().granting = Some((fixture.library.clone(), receiver));
+    harness.run_steps(2);
+    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
+
+    // The answer ends the wait.
+    answer.send(None).unwrap();
+    harness.run_steps(5);
+    assert_eq!(repaint_delay(&harness), Duration::MAX);
+
+    // So does a restore that is still running.
+    let (_report, receiver) = std::sync::mpsc::channel();
+    harness.state_mut().restoring = Some((GameKind::SA2, receiver));
+    harness.run_steps(2);
+    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
 }

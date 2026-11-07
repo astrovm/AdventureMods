@@ -77,6 +77,7 @@ pub fn key(value: impl std::hash::Hash + std::fmt::Debug) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn ease_out_starts_fast_and_ends_at_one() {
@@ -105,6 +106,52 @@ mod tests {
         assert_eq!(progress[1], 0.0, "a new screen starts hidden");
         assert!(progress[2] > 0.0 && progress[2] < 1.0);
         assert_eq!(progress[3], 1.0);
+    }
+
+    #[test]
+    fn a_fading_screen_keeps_repainting_until_it_settles() {
+        let ctx = Context::default();
+        let mut transition = ScreenTransition::default();
+        let mut input = egui::RawInput::default();
+        // How long egui waits before the next frame, once `frames` ran.
+        let mut repaint_delay = |time: f64, key: u64, frames: usize| {
+            let mut delay = Duration::ZERO;
+            for step in 0..frames {
+                input.time = Some(time + step as f64 * 0.001);
+                let mut output = ctx.run_ui(input.clone(), |ui| {
+                    transition.progress(ui.ctx(), key);
+                });
+                output.textures_delta.clear();
+                delay = output.viewport_output[&egui::ViewportId::ROOT].repaint_delay;
+            }
+            delay
+        };
+
+        // Nothing is moving, so egui can sleep until something happens.
+        assert_eq!(repaint_delay(0.0, 1, 4), Duration::MAX);
+        // A new screen fades in, frame after frame...
+        assert_eq!(repaint_delay(0.05, 2, 1), Duration::ZERO);
+        assert_eq!(repaint_delay(0.1, 2, 4), Duration::ZERO);
+        // ...until it is settled.
+        assert_eq!(repaint_delay(1.0, 2, 4), Duration::MAX);
+    }
+
+    #[test]
+    fn a_screen_is_settled_the_moment_its_fade_is_over() {
+        let ctx = Context::default();
+        let mut transition = ScreenTransition::default();
+        let mut input = egui::RawInput::default();
+        let mut last = Duration::ZERO;
+        // The new screen starts at time 0 and its fade ends at exactly SCREEN.
+        for (time, key) in [(0.0, 1), (0.0, 2), (SCREEN, 2), (SCREEN, 2), (SCREEN, 2)] {
+            input.time = Some(time);
+            let mut output = ctx.run_ui(input.clone(), |ui| {
+                transition.progress(ui.ctx(), key);
+            });
+            output.textures_delta.clear();
+            last = output.viewport_output[&egui::ViewportId::ROOT].repaint_delay;
+        }
+        assert_eq!(last, Duration::MAX);
     }
 
     #[test]
