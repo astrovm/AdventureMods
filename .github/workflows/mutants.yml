@@ -79,7 +79,7 @@ jobs:
         # A change to the setup itself gets a real run of part 0 of 64. Its
         # findings aren't in the comment: they aren't this pull request's.
         run: |
-          if git diff --quiet HEAD^1 -- .cargo/mutants.toml scripts/mutants.sh scripts/mutants-comment.sh scripts/mutants-post.sh .github/workflows/mutants.yml; then
+          if git diff --quiet HEAD^1 -- .cargo/mutants.toml scripts/mutants.sh scripts/mutants-comment.sh scripts/mutants-post.sh scripts/mutants-post.test.sh scripts/test-mutants.sh .github/workflows/mutants.yml; then
             echo "The setup didn't change."
           else
             status=0

@@ -141,4 +141,19 @@ if command -v prlimit >/dev/null; then
     expect_code 0 mutants scripts/mutants.sh shard 0/64
     grep -q 'prlimit --as=8589934592$' "$work/calls.runner" || fail 'tests run without a memory limit'
 fi
+# Every mutation setup helper in the workflow's path filter must also trigger
+# its setup trial, including a change to a test alone.
+trial_paths=$(sed -n 's/^[[:space:]]*if git diff --quiet HEAD\^1 -- \(.*\); then$/\1/p' "$root/.github/workflows/mutants.yml")
+[[ -n $trial_paths ]] || fail 'setup trial path filter not found'
+for helper in mutants-post.test.sh test-mutants.sh; do
+    printf 'changed\n' >"$repo/scripts/$helper"
+    git -C "$repo" add "scripts/$helper"
+    # The paths come from the workflow's shell command, where they are words.
+    read -r -a paths <<<"$trial_paths"
+    if git -C "$repo" diff --cached --quiet HEAD -- "${paths[@]}"; then
+        fail "$helper alone skips the setup trial"
+    fi
+    git -C "$repo" reset -q HEAD -- "scripts/$helper"
+    rm "$repo/scripts/$helper"
+done
 echo 'PASS mutation helper scripts'
