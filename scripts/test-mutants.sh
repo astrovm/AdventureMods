@@ -33,7 +33,7 @@ CARGO
 chmod +x "$work/bin/cargo"
 git -C "$repo" init -q -b main
 git -C "$repo" add -A
-git -C "$repo" -c user.name=t -c user.email=t@example.com commit -q -m base
+git -C "$repo" -c user.name=t -c user.email=t@example.com -c core.hooksPath=/dev/null commit -q -m base
 git -C "$repo" checkout -q -b change
 mutants() {
     : >"$work/calls"
@@ -43,7 +43,7 @@ mutants() {
 # Nothing changed in src/: nothing to mutate.
 printf 'fn t() { 1; }\n' >"$repo/tests/t.rs"
 printf 'more notes\n' >>"$repo/src/notes.md"
-git -C "$repo" -c user.name=t -c user.email=t@example.com commit -q -am other
+git -C "$repo" -c user.name=t -c user.email=t@example.com -c core.hooksPath=/dev/null commit -q -am other
 expect_code 0 mutants scripts/mutants.sh diff main
 grep -q 'No source changes to mutate' "$work/output" || fail 'no message for an empty diff'
 [[ ! -s $work/calls ]] || fail 'cargo ran with nothing to mutate'
@@ -51,7 +51,7 @@ grep -q 'No source changes to mutate' "$work/output" || fail 'no message for an 
 # Only changed Rust files of src/ go to cargo-mutants, nested ones included.
 printf 'fn a() { 1; }\n' >"$repo/src/a.rs"
 printf 'fn n() { 2; }\n' >"$repo/src/nested/n.rs"
-git -C "$repo" -c user.name=t -c user.email=t@example.com commit -q -am core
+git -C "$repo" -c user.name=t -c user.email=t@example.com -c core.hooksPath=/dev/null commit -q -am core
 expect_code 0 mutants scripts/mutants.sh diff main
 grep -Fq 'mutants --test-tool nextest' "$work/calls" || fail 'not run with nextest'
 grep -Fq -- '--in-diff build/mutants/changes.diff' "$work/calls" || fail 'no --in-diff'

@@ -6,7 +6,10 @@
 set -euo pipefail
 results=${1:?Usage: scripts/mutants-comment.sh RESULTS}
 marker='<!-- mutants -->'
-lived=$(cat "$results/missed.txt" "$results/timeout.txt" 2>/dev/null | sort -u || true)
+# Sorted by file, then line, the same in every locale, so a cut list always
+# keeps the first rows.
+lived=$(cat "$results/missed.txt" "$results/timeout.txt" 2>/dev/null |
+    LC_ALL=C sort -u | LC_ALL=C sort -s -t: -k1,1 -k2,2n -k3,3n || true)
 # No results (nothing to mutate) counts as every mutant caught.
 caught=$(grep -c . "$results/caught.txt" 2>/dev/null || true)
 caught=${caught:-0}
