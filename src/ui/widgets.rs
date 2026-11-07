@@ -1,5 +1,7 @@
 //! Big, controller-friendly building blocks shared by every screen.
 
+use std::sync::Arc;
+
 use egui::{
     Align2, Color32, CornerRadius, FontSelection, Frame, Margin, Response, RichText, Role, Sense,
     Stroke, TextStyle, Ui, Vec2, WidgetInfo, WidgetText,
@@ -64,13 +66,29 @@ pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Re
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     response.widget_info(|| WidgetInfo::labeled(Role::Button, enabled, galley.text()));
 
+    paint_button(ui, rect, &response, galley, text_color, kind);
+    focus_ring(ui, &response);
+    response
+}
+
+/// Paints a [`button_sized`]: shadow, lip, fill and label. Painting only, so
+/// mutation testing skips it (`.cargo/mutants.toml`).
+fn paint_button(
+    ui: &Ui,
+    rect: egui::Rect,
+    response: &Response,
+    galley: Arc<egui::Galley>,
+    text_color: Color32,
+    kind: ButtonKind,
+) {
+    let enabled = ui.is_enabled();
     let (fill, lit) = match kind {
         ButtonKind::Suggested => (theme::ACCENT, theme::ACCENT_BRIGHT),
         ButtonKind::Normal => (Color32::from_white_alpha(30), Color32::from_white_alpha(56)),
         ButtonKind::Destructive => (theme::DESTRUCTIVE, theme::ERROR),
     };
-    let highlight = motion::highlight(ui, &response);
-    let press = motion::press(ui, &response);
+    let highlight = motion::highlight(ui, response);
+    let press = motion::press(ui, response);
     // Pressing pushes the button down onto its lip.
     let lip = if kind == ButtonKind::Normal { 0.0 } else { 3.0 };
     let body = rect
@@ -100,8 +118,6 @@ pub fn button_sized(ui: &mut Ui, text: &str, kind: ButtonKind, width: f32) -> Re
     }
     painter.rect_filled(body, radius, fill.lerp_to_gamma(lit, highlight * 0.7));
     painter.galley(body.center() - galley.size() / 2.0, galley, text_color);
-    focus_ring(ui, &response);
-    response
 }
 
 /// A round button showing only `icon`; `label` names it for hover text and
@@ -259,11 +275,14 @@ pub fn caption(ui: &mut Ui, text: &str) -> Response {
     )
 }
 
+/// Where the texts of a [`toggle_row`] start, right of the check box.
+const TOGGLE_TEXT_LEFT: f32 = 64.0;
+
 /// A full-width row with a check box, a title and a description. Pressing it
 /// flips `checked`.
 pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) -> Response {
     let width = ui.available_width();
-    let text_left = 64.0;
+    let text_left = TOGGLE_TEXT_LEFT;
     let wrap = (width - text_left - 16.0).max(40.0);
     let title_galley = WidgetText::from(RichText::new(title).strong()).into_galley(
         ui,
@@ -293,67 +312,82 @@ pub fn toggle_row(ui: &mut Ui, checked: &mut bool, title: &str, subtitle: &str) 
     response.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, value, title));
 
     if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact(&response);
-        let highlight = motion::highlight(ui, &response);
-        let on = ui.ctx().animate_bool_with_time_and_easing(
-            response.id.with("checked"),
-            value,
-            motion::QUICK,
-            motion::ease_out,
-        );
-        let fill = theme::CARD.lerp_to_gamma(theme::CARD_RAISED, highlight);
-        let painter = ui.painter();
-        painter.rect(
-            rect,
-            CornerRadius::same(14),
-            fill,
-            if response.has_focus() {
-                Stroke::new(3.0, theme::ACCENT_BRIGHT)
-            } else {
-                Stroke::NONE
-            },
-            egui::StrokeKind::Inside,
-        );
-        let check = egui::Rect::from_center_size(
-            egui::pos2(rect.left() + 32.0, rect.center().y),
-            Vec2::splat(28.0),
-        );
-        painter.rect(
-            check,
-            CornerRadius::same(8),
-            theme::BACKGROUND.lerp_to_gamma(theme::ACCENT, on),
-            Stroke::new(
-                2.0,
-                visuals.fg_stroke.color.lerp_to_gamma(theme::ACCENT, on),
-            ),
-            egui::StrokeKind::Inside,
-        );
-        if on > 0.0 {
-            // The check mark grows from the box's center.
-            let mark = |point: egui::Pos2| check.center() + (point - check.center()) * on;
-            let points = [
-                mark(check.left_center() + Vec2::new(6.0, 0.0)),
-                mark(check.center_bottom() + Vec2::new(-2.0, -7.0)),
-                mark(check.right_top() + Vec2::new(-6.0, 7.0)),
-            ];
-            painter.line(
-                points.to_vec(),
-                Stroke::new(3.0, theme::TEXT.gamma_multiply(on)),
-            );
-        }
-        let top = rect.top() + (height - title_galley.size().y - subtitle_galley.size().y) / 2.0;
-        painter.galley(
-            egui::pos2(rect.left() + text_left, top),
-            title_galley.clone(),
-            theme::TEXT,
-        );
-        painter.galley(
-            egui::pos2(rect.left() + text_left, top + title_galley.size().y + 2.0),
-            subtitle_galley,
-            theme::TEXT_DIM,
-        );
+        paint_toggle_row(ui, rect, &response, value, &title_galley, &subtitle_galley);
     }
     response
+}
+
+/// Paints a [`toggle_row`]: card, check box and both texts. Painting only, so
+/// mutation testing skips it (`.cargo/mutants.toml`).
+fn paint_toggle_row(
+    ui: &Ui,
+    rect: egui::Rect,
+    response: &Response,
+    value: bool,
+    title_galley: &Arc<egui::Galley>,
+    subtitle_galley: &Arc<egui::Galley>,
+) {
+    let text_left = TOGGLE_TEXT_LEFT;
+    let height = rect.height();
+    let visuals = ui.style().interact(response);
+    let highlight = motion::highlight(ui, response);
+    let on = ui.ctx().animate_bool_with_time_and_easing(
+        response.id.with("checked"),
+        value,
+        motion::QUICK,
+        motion::ease_out,
+    );
+    let fill = theme::CARD.lerp_to_gamma(theme::CARD_RAISED, highlight);
+    let painter = ui.painter();
+    painter.rect(
+        rect,
+        CornerRadius::same(14),
+        fill,
+        if response.has_focus() {
+            Stroke::new(3.0, theme::ACCENT_BRIGHT)
+        } else {
+            Stroke::NONE
+        },
+        egui::StrokeKind::Inside,
+    );
+    let check = egui::Rect::from_center_size(
+        egui::pos2(rect.left() + 32.0, rect.center().y),
+        Vec2::splat(28.0),
+    );
+    painter.rect(
+        check,
+        CornerRadius::same(8),
+        theme::BACKGROUND.lerp_to_gamma(theme::ACCENT, on),
+        Stroke::new(
+            2.0,
+            visuals.fg_stroke.color.lerp_to_gamma(theme::ACCENT, on),
+        ),
+        egui::StrokeKind::Inside,
+    );
+    if on > 0.0 {
+        // The check mark grows from the box's center.
+        let mark = |point: egui::Pos2| check.center() + (point - check.center()) * on;
+        let points = [
+            mark(check.left_center() + Vec2::new(6.0, 0.0)),
+            mark(check.center_bottom() + Vec2::new(-2.0, -7.0)),
+            mark(check.right_top() + Vec2::new(-6.0, 7.0)),
+        ];
+        painter.line(
+            points.to_vec(),
+            Stroke::new(3.0, theme::TEXT.gamma_multiply(on)),
+        );
+    }
+    let top = rect.top() + (height - title_galley.size().y - subtitle_galley.size().y) / 2.0;
+    painter.galley(
+        egui::pos2(rect.left() + text_left, top),
+        title_galley.clone(),
+        theme::TEXT,
+    );
+    painter.galley(
+        egui::pos2(rect.left() + text_left, top + title_galley.size().y + 2.0),
+        subtitle_galley.clone(),
+        theme::TEXT_DIM,
+    );
 }
 
 /// A full-width row naming a setting and its value, like "Voices  Japanese ›".
@@ -422,6 +456,23 @@ pub fn progress_bar(ui: &mut Ui, fraction: f32, text: &str, pulse: bool) -> Resp
         fraction.clamp(0.0, 1.0),
         0.35,
     );
+    paint_progress(ui, rect, shown, pulse);
+    if pulse {
+        ui.ctx().request_repaint();
+    }
+    ui.painter().text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        text,
+        TextStyle::Body.resolve(ui.style()),
+        theme::TEXT,
+    );
+    response
+}
+
+/// Paints a [`progress_bar`]: track, fill and the moving shimmer. Painting
+/// only, so mutation testing skips it (`.cargo/mutants.toml`).
+fn paint_progress(ui: &Ui, rect: egui::Rect, shown: f32, pulse: bool) {
     let radius = CornerRadius::same(18);
     let painter = ui.painter();
     painter.rect_filled(rect, radius, theme::CARD);
@@ -445,16 +496,7 @@ pub fn progress_bar(ui: &mut Ui, fraction: f32, text: &str, pulse: bool) -> Resp
         if sweep.width() > 0.0 {
             painter.rect_filled(sweep, radius, Color32::from_white_alpha(28));
         }
-        ui.ctx().request_repaint();
     }
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        text,
-        TextStyle::Body.resolve(ui.style()),
-        theme::TEXT,
-    );
-    response
 }
 
 /// A controller button glyph, such as a green "A", followed by what it does.

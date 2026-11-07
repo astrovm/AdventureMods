@@ -1251,11 +1251,7 @@ impl SetupFlow {
         centered(ui, |ui| {
             ui.set_max_width(560.0);
             if let Some(texture) = images.get(ui.ctx(), cover_resource(self.game.kind)) {
-                ui.add(
-                    egui::Image::new(&texture)
-                        .fit_to_exact_size(Vec2::new(380.0, 380.0 * 215.0 / 460.0))
-                        .corner_radius(theme::CARD_RADIUS),
-                );
+                show_cover(ui, &texture);
             }
             ui.label(
                 RichText::new(step.title)
@@ -1517,6 +1513,16 @@ fn step_progress(
     Box::new(move |downloaded, total| {
         publish_step_bytes(&tx, &samples, downloaded, total, tr!("Downloading…"));
     })
+}
+
+/// The game's cover on the finish screen. Sizing only, so mutation testing
+/// skips it (`.cargo/mutants.toml`).
+fn show_cover(ui: &mut Ui, texture: &egui::TextureHandle) {
+    ui.add(
+        egui::Image::new(texture)
+            .fit_to_exact_size(Vec2::new(380.0, 380.0 * 215.0 / 460.0))
+            .corner_radius(theme::CARD_RADIUS),
+    );
 }
 
 /// A spinner of `size` in the middle of `rect`. Painted only, so the widgets
