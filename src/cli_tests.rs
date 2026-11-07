@@ -1347,33 +1347,65 @@ fn run_from_args_uses_color_for_terminal_output_by_default() {
     assert!(String::from_utf8(output).unwrap().contains("\x1b["));
 }
 
+/// The output of `list-mods --game sa2` with `NO_COLOR` set to `no_color_env`
+/// (or unset) and colors forced on, as on a real terminal.
+fn list_mods_output(
+    extra_args: &[&str],
+    is_terminal: bool,
+    no_color_env: Option<&std::ffi::OsStr>,
+) -> String {
+    let _guard = crate::test_env::lock();
+    let had_no_color = std::env::var_os("NO_COLOR");
+    crate::test_env::set_var("NO_COLOR", no_color_env);
+    let previous = console::colors_enabled();
+    console::set_colors_enabled(true);
+
+    let mut args = vec!["adventure-mods".to_string()];
+    args.extend(extra_args.iter().map(|arg| arg.to_string()));
+    args.extend(["list-mods", "--game", "sa2"].map(String::from));
+    let mut output = Vec::new();
+    let result = run_from_args_with_io(args, || Ok(()), &mut output, is_terminal);
+
+    console::set_colors_enabled(previous);
+    crate::test_env::set_var("NO_COLOR", had_no_color);
+    assert!(result.unwrap());
+    String::from_utf8(output).unwrap()
+}
+
 #[test]
 fn run_from_args_disables_color_with_no_color_env() {
-    let _guard = crate::test_env::lock();
-    unsafe {
-        std::env::set_var("NO_COLOR", "1");
-    }
+    let output = list_mods_output(&[], true, Some("1".as_ref()));
+    assert!(output.contains("Mods:"));
+    assert!(!output.contains("\x1b["));
+}
 
-    let mut output = Vec::new();
-    let result = run_from_args_with_io(
-        vec![
-            "adventure-mods".to_string(),
-            "list-mods".to_string(),
-            "--game".to_string(),
-            "sa2".to_string(),
-        ],
-        || Ok(()),
-        &mut output,
-        true,
-    );
+#[test]
+fn run_from_args_ignores_an_empty_no_color_env() {
+    // no-color.org: only a non-empty value turns color off.
+    let output = list_mods_output(&[], true, Some("".as_ref()));
+    assert!(output.contains("\x1b["));
+}
 
-    unsafe {
-        std::env::remove_var("NO_COLOR");
-    }
+#[cfg(unix)]
+#[test]
+fn run_from_args_treats_a_non_utf8_no_color_env_as_set() {
+    use std::os::unix::ffi::OsStrExt;
+    let output = list_mods_output(&[], true, Some(std::ffi::OsStr::from_bytes(b"\xff\xfe")));
+    assert!(!output.contains("\x1b["));
+}
 
-    let handled = result.unwrap();
-    assert!(handled);
-    assert!(!String::from_utf8(output).unwrap().contains("\x1b["));
+#[test]
+fn run_from_args_disables_color_with_the_no_color_flag_on_a_terminal() {
+    let output = list_mods_output(&["--no-color"], true, None);
+    assert!(output.contains("Mods:"));
+    assert!(!output.contains("\x1b["));
+}
+
+#[test]
+fn run_from_args_uses_no_color_when_output_is_not_a_terminal() {
+    let output = list_mods_output(&[], false, None);
+    assert!(output.contains("Mods:"));
+    assert!(!output.contains("\x1b["));
 }
 
 #[test]
