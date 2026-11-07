@@ -1,3 +1,25 @@
 # cargo-mutants settings, used by scripts/mutants.sh.
 # Build and test with the lock file, as CI does.
 additional_cargo_args = ["--locked"]
+
+# Functions that only paint or size pixels. The tests read the UI through
+# accessibility, which cannot see a color, a shadow or an offset, so every
+# mutant here would live and bury the real findings in the weekly issue.
+# Anything with logic (clicks, values, labels, repaint decisions) stays out of
+# these functions, so it is still mutated.
+exclude_re = [
+    # src/ui/widgets.rs
+    "\\bpaint_button\\b",
+    "\\bpaint_toggle_row\\b",
+    "\\bpaint_progress\\b",
+    # src/ui/welcome.rs
+    "\\bpaint_tile\\b",
+    # src/ui/theme.rs
+    "\\bpaint_background\\b",
+    # src/ui/motion.rs: the button press offset
+    "in press$",
+    # src/ui/setup.rs
+    "\\bshow_cover\\b",
+    "\\bspinner\\b",
+    "in icon$",
+]

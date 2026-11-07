@@ -122,4 +122,17 @@ grep -q '0 of 1 changes caught by a test' "$work/calls" || fail 'no caught list 
 rm -r "$results"
 comment 99
 grep -q '^api -X DELETE repos/o/r/issues/comments/99$' "$work/calls" || fail 'comment kept with no results'
+# A list too long for one comment is cut between lines and says where the rest is.
+rm -rf "$results"
+mkdir -p "$results"
+for i in $(seq 1 2000); do printf 'src/some/long/path/file.rs:%d:5: replace a with b in some_function_name\n' "$i"; done >"$results/missed.txt"
+comment ''
+grep -qF 'api repos/o/r/issues/7/comments' "$work/calls" || fail 'no comment for a long list'
+[[ $(LC_ALL=C wc -c <"$work/calls") -le 60500 ]] || fail 'long comment over 60,000 bytes'
+[[ $(grep -c '^```' "$work/calls") == 2 ]] || fail 'long comment fence unbalanced'
+grep -q 'more are not shown here' "$work/calls" || fail 'no note about the cut'
+grep -q 'file.rs:1:5: replace a with b' "$work/calls" || fail 'first row lost'
+grep -q '\[Full report\](https://run)' "$work/calls" || fail 'no link to the full report'
+last=$(grep -E '^src/some' "$work/calls" | tail -n 1)
+[[ $last == *'in some_function_name' ]] || fail 'a row was cut in the middle'
 echo 'PASS mutation helper scripts'
