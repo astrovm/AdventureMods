@@ -27,6 +27,7 @@ cat >"$work/bin/cargo" <<'CARGO'
 #!/bin/bash
 if [[ $1 == mutants && $2 == --version ]]; then echo "cargo-mutants ${FAKE_VERSION:-27.1.0}"; exit 0; fi
 printf '%s\n' "$*" >>"$CARGO_CALLS"
+env | grep '_RUNNER=' >"$CARGO_CALLS.runner"
 [[ $1 == mutants ]] && exit "${FAKE_STATUS:-0}"
 exit 0
 CARGO
@@ -135,4 +136,9 @@ grep -q 'file.rs:1:5: replace a with b' "$work/calls" || fail 'first row lost'
 grep -q '\[Full report\](https://run)' "$work/calls" || fail 'no link to the full report'
 last=$(grep -E '^src/some' "$work/calls" | tail -n 1)
 [[ $last == *'in some_function_name' ]] || fail 'a row was cut in the middle'
+# A test that allocates forever must abort, not take the runner down with it.
+if command -v prlimit >/dev/null; then
+    expect_code 0 mutants scripts/mutants.sh shard 0/64
+    grep -q 'prlimit --as=8589934592$' "$work/calls.runner" || fail 'tests run without a memory limit'
+fi
 echo 'PASS mutation helper scripts'
