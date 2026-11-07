@@ -1811,3 +1811,49 @@ fn interactive_setup_can_choose_mods_manually_via_tty() {
         "terminal was: {terminal}"
     );
 }
+
+/// Whether the real program prints colors on a real terminal (a pty from
+/// `script`), with only `envs` set of the variables that decide it. Tests that
+/// call the CLI in-process force colors on, so they can't see what the console
+/// crate decides on its own.
+#[cfg(target_os = "linux")]
+fn colors_on_a_terminal(envs: &[(&str, &str)]) -> bool {
+    let program = env!("CARGO_BIN_EXE_adventure-mods");
+    let output = Command::new("script")
+        .args([
+            "-qfec",
+            &format!("{program} list-mods --game sa2"),
+            "/dev/null",
+        ])
+        .env_remove("NO_COLOR")
+        .env_remove("CLICOLOR")
+        .env_remove("CLICOLOR_FORCE")
+        .env("TERM", "xterm-256color")
+        .envs(envs.iter().copied())
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Mods:"), "{stdout}");
+    stdout.contains("\x1b[")
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn a_terminal_gets_colors_unless_something_turns_them_off() {
+    assert!(colors_on_a_terminal(&[]));
+    // no-color.org: an empty NO_COLOR is the same as none.
+    assert!(colors_on_a_terminal(&[("NO_COLOR", "")]));
+    assert!(!colors_on_a_terminal(&[("NO_COLOR", "1")]));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn an_empty_no_color_keeps_the_other_ways_to_turn_colors_off() {
+    assert!(!colors_on_a_terminal(&[("NO_COLOR", ""), ("TERM", "dumb")]));
+    assert!(!colors_on_a_terminal(&[
+        ("NO_COLOR", ""),
+        ("CLICOLOR", "0")
+    ]));
+}

@@ -1315,6 +1315,13 @@ pub fn looks_like_cli(args: &[String]) -> bool {
 }
 
 pub fn run_from_args(args: Vec<String>) -> Result<bool> {
+    // The console crate counts any NO_COLOR as set, even an empty one, and
+    // reads it the first time it styles text. Removing the empty one lets it
+    // still decide from TERM and CLICOLOR.
+    if std::env::var_os("NO_COLOR").is_some_and(|value| value.is_empty()) {
+        // SAFETY: main calls this first, before any thread starts.
+        unsafe { std::env::remove_var("NO_COLOR") };
+    }
     let is_terminal = std::io::stdout().is_terminal();
     run_from_args_with_io(
         args,
