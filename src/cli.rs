@@ -1351,12 +1351,23 @@ pub fn run_from_args_with_io(
         },
     };
 
-    let use_color = !cli.no_color && std::env::var("NO_COLOR").is_err() && is_terminal;
+    let use_color = wants_color(cli.no_color, std::env::var_os("NO_COLOR"), is_terminal);
 
     initialize_runtime()?;
 
     run_with_io(cli, use_color, output)?;
     Ok(true)
+}
+
+/// Whether CLI output gets colors. Per no-color.org, `NO_COLOR` turns them off
+/// only when it is not empty; a value that is not UTF-8 counts as set.
+fn wants_color(
+    no_color_flag: bool,
+    no_color_env: Option<std::ffi::OsString>,
+    is_terminal: bool,
+) -> bool {
+    let env_disables = no_color_env.is_some_and(|value| !value.is_empty());
+    !no_color_flag && !env_disables && is_terminal
 }
 
 fn detect_resolution() -> (u32, u32) {
