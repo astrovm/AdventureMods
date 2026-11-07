@@ -137,6 +137,24 @@ mod tests {
     }
 
     #[test]
+    fn a_screen_is_settled_the_moment_its_fade_is_over() {
+        let ctx = Context::default();
+        let mut transition = ScreenTransition::default();
+        let mut input = egui::RawInput::default();
+        let mut last = Duration::ZERO;
+        // The new screen starts at time 0 and its fade ends at exactly SCREEN.
+        for (time, key) in [(0.0, 1), (0.0, 2), (SCREEN, 2), (SCREEN, 2), (SCREEN, 2)] {
+            input.time = Some(time);
+            let mut output = ctx.run_ui(input.clone(), |ui| {
+                transition.progress(ui.ctx(), key);
+            });
+            output.textures_delta.clear();
+            last = output.viewport_output[&egui::ViewportId::ROOT].repaint_delay;
+        }
+        assert_eq!(last, Duration::MAX);
+    }
+
+    #[test]
     fn keys_are_stable_and_distinct() {
         assert_eq!(key(("setup", 2)), key(("setup", 2)));
         assert_ne!(key(("setup", 2)), key(("setup", 3)));
