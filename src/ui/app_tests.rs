@@ -838,10 +838,52 @@ fn the_window_state_follows_the_viewport() {
     step_window(&mut harness, window);
     step_window(&mut harness, window);
     assert_eq!(harness.state().window_state().size, window);
+}
 
-    // F11 toggles fullscreen; the harness ignores the request.
-    harness.key_press(egui::Key::F11);
-    harness.run_steps(2);
+fn fullscreen_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<bool> {
+    harness.output().viewport_output[&egui::ViewportId::ROOT]
+        .commands
+        .iter()
+        .filter_map(|command| match command {
+            egui::ViewportCommand::Fullscreen(on) => Some(*on),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Press F11 and step only the frame that sees the key going down, so its
+/// commands are the harness's output.
+fn press_f11(harness: &mut Harness<'_, AdventureModsApp>) {
+    harness.event(egui::Event::Key {
+        key: egui::Key::F11,
+        physical_key: Some(egui::Key::F11),
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    });
+    harness.step();
+}
+
+#[test]
+fn f11_toggles_fullscreen() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    harness.step();
+    assert!(fullscreen_commands(&harness).is_empty());
+
+    // In a window, F11 asks for fullscreen.
+    press_f11(&mut harness);
+    assert_eq!(fullscreen_commands(&harness), [true]);
+
+    // Fullscreen already, it asks to leave.
+    harness
+        .input_mut()
+        .viewports
+        .get_mut(&egui::ViewportId::ROOT)
+        .unwrap()
+        .fullscreen = Some(true);
+    press_f11(&mut harness);
+    assert_eq!(fullscreen_commands(&harness), [false]);
 }
 
 #[test]
