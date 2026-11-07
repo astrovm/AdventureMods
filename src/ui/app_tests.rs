@@ -926,4 +926,10 @@ fn background_work_keeps_the_window_repainting() {
     answer.send(None).unwrap();
     harness.run_steps(5);
     assert_eq!(repaint_delay(&harness), Duration::MAX);
+
+    // So does a restore that is still running.
+    let (_report, receiver) = std::sync::mpsc::channel();
+    harness.state_mut().restoring = Some((GameKind::SA2, receiver));
+    harness.run_steps(2);
+    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
 }
