@@ -321,6 +321,9 @@ fn find_all_games_in_libraries(
     let app_id = kind.app_id().to_string();
     let mut paths = vec![];
     let mut inaccessible = vec![];
+    // Listed libraries that don't exist: on a drive that isn't mounted, or
+    // deleted.
+    let mut missing = vec![];
     let mut manifest_found = false;
 
     let folders = match libraries.get("libraryfolders").and_then(|v| v.as_map()) {
@@ -339,33 +342,34 @@ fn find_all_games_in_libraries(
             .get("apps")
             .and_then(|v| v.as_map())
             .is_some_and(|apps| apps.contains_key(&app_id));
+        let has_manifest = has_app_manifest(lib_path, kind);
 
         if !lib_path.exists() {
             if listed {
-                inaccessible.push(InaccessibleGame {
+                missing.push(InaccessibleGame {
                     kind,
                     library_path: lib_path.to_path_buf(),
                 });
             }
-        } else if (listed || has_app_manifest(lib_path, kind))
+        } else if (listed || has_manifest)
             && let Some(game_path) = find_game_in_library_path(lib_path, kind)
         {
+            manifest_found |= has_manifest;
             if snap_blocks_writes(&game_path) {
                 inaccessible.push(InaccessibleGame {
                     kind,
                     library_path: lib_path.to_path_buf(),
                 });
             } else {
-                manifest_found |= has_app_manifest(lib_path, kind);
                 paths.push(game_path);
             }
         }
     }
 
     // One Steam install keeps a game in one library, so when its manifest
-    // shows where it is, other listings of it are stale.
-    if manifest_found {
-        inaccessible.clear();
+    // shows where it is, listings of it in libraries that are gone are stale.
+    if !manifest_found {
+        inaccessible.append(&mut missing);
     }
 
     (paths, inaccessible)

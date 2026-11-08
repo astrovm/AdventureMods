@@ -174,6 +174,56 @@ fn detect_reports_inaccessible_libraries_from_explicit_vdf() {
     assert!(output.contains(&display_path(&missing_library)));
 }
 
+/// Steam's library list can still name a library the game moved out of, and
+/// skip the one it's in. The app manifest says where it really is.
+#[test]
+fn detect_finds_games_steam_moved_despite_a_stale_library_list() {
+    let tmp = tempfile::tempdir().unwrap();
+    let steam = tmp.path().join("Steam");
+    let deleted_library = tmp.path().join("DeletedSteamLibrary");
+    let mut game_paths = vec![];
+    for (app_id, install_dir, executable) in [
+        ("71250", "Sonic Adventure DX", "Sonic Adventure DX.exe"),
+        ("213610", "Sonic Adventure 2", "sonic2app.exe"),
+    ] {
+        let game = steam.join("steamapps/common").join(install_dir);
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join(executable), "").unwrap();
+        std::fs::write(
+            steam.join(format!("steamapps/appmanifest_{app_id}.acf")),
+            format!("\"AppState\" {{ \"appid\" \"{app_id}\" }}"),
+        )
+        .unwrap();
+        game_paths.push(game);
+    }
+    let vdf_path = steam.join("steamapps/libraryfolders.vdf");
+    std::fs::write(
+        &vdf_path,
+        format!(
+            "\"libraryfolders\"\n{{\n    \"0\" {{ \"path\" \"{}\" \"apps\" {{ }} }}\n    \"1\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }}\n}}\n",
+            steam.display(),
+            deleted_library.display(),
+        ),
+    )
+    .unwrap();
+
+    let cli = Cli::parse_from([
+        "adventure-mods",
+        "detect",
+        "--libraryfolders-vdf",
+        vdf_path.to_str().unwrap(),
+    ]);
+    let mut output = Vec::new();
+
+    run_with_io(cli, false, &mut output).unwrap();
+
+    let output = String::from_utf8(output).unwrap();
+    for game in &game_paths {
+        assert!(output.contains(&display_path(game)), "{output}");
+    }
+    assert!(!output.contains("Inaccessible"), "{output}");
+}
+
 #[test]
 fn detect_reports_games_from_explicit_vdf() {
     let fixture = create_sadx_fixture();
