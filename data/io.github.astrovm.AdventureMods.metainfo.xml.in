@@ -55,6 +55,16 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.4" date="2026-11-08">
+      <description>
+        <p>Games Steam moved to another library are found again.</p>
+        <ul>
+          <li>Games are found from Steam's own install records, even when its library list is out of date</li>
+          <li>A library that was deleted no longer asks for Grant Access when the game is installed elsewhere</li>
+          <li>An empty NO_COLOR setting no longer turns off colors in the terminal</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.3.3" date="2026-11-01">
       <description>
         <p>GE-Proton and other custom Proton builds are recognized.</p>
