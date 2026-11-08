@@ -1767,3 +1767,133 @@ fn a_game_folder_without_a_manifest_or_listing_is_not_installed() {
     assert!(paths.is_empty());
     assert!(inaccessible.is_empty());
 }
+
+/// A `libraryfolders.vdf` listing each library with the app ids in its `apps`
+/// list, or with no `apps` list at all for `None`.
+fn library_folders_vdf(libraries: &[(&Path, Option<&[&str]>)]) -> String {
+    let mut text = String::from("\"libraryfolders\" {\n");
+    for (index, (path, apps)) in libraries.iter().enumerate() {
+        let apps = apps.map_or(String::new(), |ids| {
+            let ids: String = ids.iter().map(|id| format!(" \"{id}\" \"0\"")).collect();
+            format!(" \"apps\" {{{ids} }}")
+        });
+        text.push_str(&format!(
+            "  \"{index}\" {{ \"path\" \"{}\"{apps} }}\n",
+            path.display()
+        ));
+    }
+    text.push('}');
+    text
+}
+
+fn write_app_manifest(library: &Path, kind: GameKind) {
+    let steamapps = library.join("steamapps");
+    std::fs::create_dir_all(&steamapps).unwrap();
+    std::fs::write(
+        steamapps.join(format!("appmanifest_{}.acf", kind.app_id())),
+        "\"AppState\" {}",
+    )
+    .unwrap();
+}
+
+fn parse_library_folders(libraries: &[(&Path, Option<&[&str]>)]) -> vdf::VdfValue {
+    vdf::parse(&library_folders_vdf(libraries)).unwrap()
+}
+
+#[test]
+fn a_library_without_an_apps_list_is_found_by_its_manifest() {
+    let tmp = tempfile::tempdir().unwrap();
+    let game_dir = make_steam_library(tmp.path(), GameKind::SA2);
+    write_app_manifest(tmp.path(), GameKind::SA2);
+
+    let root = parse_library_folders(&[(tmp.path(), None)]);
+    let (paths, inaccessible) = find_all_games_in_libraries(&root, GameKind::SA2);
+
+    assert_eq!(paths, vec![game_dir]);
+    assert!(inaccessible.is_empty());
+}
+
+/// A manifest without the game, as Steam leaves while it downloads, proves
+/// nothing, so a listing on a drive that isn't mounted still asks for access.
+#[test]
+fn a_manifest_without_the_game_keeps_other_listings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let downloading = tmp.path().join("downloading");
+    write_app_manifest(&downloading, GameKind::SADX);
+    let unmounted = tmp.path().join("unmounted");
+
+    let root = parse_library_folders(&[(&downloading, Some(&[])), (&unmounted, Some(&["71250"]))]);
+    let (paths, inaccessible) = find_all_games_in_libraries(&root, GameKind::SADX);
+
+    assert!(paths.is_empty());
+    let libraries: Vec<_> = inaccessible.iter().map(|game| &game.library_path).collect();
+    assert_eq!(libraries, vec![&unmounted]);
+}
+
+/// Native Steam and Flatpak Steam are separate installs, each with its own
+/// copy, so finding one doesn't make the other's listing stale.
+#[test]
+fn another_steam_install_keeps_its_listing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let native = tmp.path().join("native");
+    let game_dir = make_steam_library(&native, GameKind::SADX);
+    write_app_manifest(&native, GameKind::SADX);
+    let unmounted = tmp.path().join("unmounted");
+
+    let native_root = parse_library_folders(&[(&native, Some(&[]))]);
+    let flatpak_root = parse_library_folders(&[(&unmounted, Some(&["71250"]))]);
+    let result = detect_games_from_parsed_vdfs(&[native_root, flatpak_root], &[]);
+
+    let found: Vec<_> = result.games.iter().map(|game| &game.path).collect();
+    assert_eq!(found, vec![&game_dir]);
+    let libraries: Vec<_> = result
+        .inaccessible
+        .iter()
+        .map(|game| &game.library_path)
+        .collect();
+    assert_eq!(libraries, vec![&unmounted]);
+}
+
+/// `~/.steam/steam` usually links to `~/.local/share/Steam`, so both Steam
+/// folders name the same library.
+#[test]
+fn a_library_reached_through_a_link_is_found_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let real = tmp.path().join("real");
+    let link = tmp.path().join("link");
+    let game_dir = make_steam_library(&real, GameKind::SA2);
+    write_app_manifest(&real, GameKind::SA2);
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+
+    let roots = [
+        parse_library_folders(&[(&real, Some(&[]))]),
+        parse_library_folders(&[(&link, None)]),
+    ];
+    let result = detect_games_from_parsed_vdfs(&roots, &[]);
+
+    let found: Vec<_> = result.games.iter().map(|game| &game.path).collect();
+    assert_eq!(found, vec![&game_dir]);
+    assert!(result.inaccessible.is_empty());
+}
+
+/// When the snap can't change the library the manifest points to, that
+/// library asks for access, and the stale listing of a deleted one doesn't.
+#[test]
+fn a_snap_blocked_library_with_the_manifest_drops_stale_listings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let blocked = tmp.path().join("blocked");
+    let game_dir = make_steam_library(&blocked, GameKind::SADX);
+    write_app_manifest(&blocked, GameKind::SADX);
+    let deleted = tmp.path().join("deleted");
+    set_mode(&game_dir, 0o555);
+
+    let root = parse_library_folders(&[(&blocked, Some(&[])), (&deleted, Some(&["71250"]))]);
+    let (paths, inaccessible) = in_a_snap(tmp.path(), || {
+        find_all_games_in_libraries(&root, GameKind::SADX)
+    });
+    set_mode(&game_dir, 0o755);
+
+    assert!(paths.is_empty());
+    let libraries: Vec<_> = inaccessible.iter().map(|game| &game.library_path).collect();
+    assert_eq!(libraries, vec![&blocked]);
+}
