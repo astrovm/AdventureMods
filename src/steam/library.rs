@@ -321,6 +321,7 @@ fn find_all_games_in_libraries(
     let app_id = kind.app_id().to_string();
     let mut paths = vec![];
     let mut inaccessible = vec![];
+    let mut manifest_found = false;
 
     let folders = match libraries.get("libraryfolders").and_then(|v| v.as_map()) {
         Some(f) => f,
@@ -328,37 +329,53 @@ fn find_all_games_in_libraries(
     };
 
     for folder in folders.values() {
-        let apps = match folder.get("apps").and_then(|v| v.as_map()) {
-            Some(a) => a,
-            None => continue,
+        let lib_path = match folder.get("path").and_then(|v| v.as_str()) {
+            Some(p) if !p.trim().is_empty() => Path::new(p),
+            _ => continue,
         };
+        // Steam rewrites these lists only now and then, so a game it moved
+        // can still be listed under its old library, or under none.
+        let listed = folder
+            .get("apps")
+            .and_then(|v| v.as_map())
+            .is_some_and(|apps| apps.contains_key(&app_id));
 
-        if apps.contains_key(&app_id) {
-            let lib_path = match folder.get("path").and_then(|v| v.as_str()) {
-                Some(p) if !p.trim().is_empty() => Path::new(p),
-                None => continue,
-                Some(_) => continue,
-            };
-
-            if !lib_path.exists() {
+        if !lib_path.exists() {
+            if listed {
                 inaccessible.push(InaccessibleGame {
                     kind,
                     library_path: lib_path.to_path_buf(),
                 });
-            } else if let Some(game_path) = find_game_in_library_path(lib_path, kind) {
-                if snap_blocks_writes(&game_path) {
-                    inaccessible.push(InaccessibleGame {
-                        kind,
-                        library_path: lib_path.to_path_buf(),
-                    });
-                } else {
-                    paths.push(game_path);
-                }
+            }
+        } else if (listed || has_app_manifest(lib_path, kind))
+            && let Some(game_path) = find_game_in_library_path(lib_path, kind)
+        {
+            if snap_blocks_writes(&game_path) {
+                inaccessible.push(InaccessibleGame {
+                    kind,
+                    library_path: lib_path.to_path_buf(),
+                });
+            } else {
+                manifest_found |= has_app_manifest(lib_path, kind);
+                paths.push(game_path);
             }
         }
     }
 
+    // One Steam install keeps a game in one library, so when its manifest
+    // shows where it is, other listings of it are stale.
+    if manifest_found {
+        inaccessible.clear();
+    }
+
     (paths, inaccessible)
+}
+
+/// Whether Steam's own record of `kind` being installed sits in `lib_path`.
+fn has_app_manifest(lib_path: &Path, kind: GameKind) -> bool {
+    lib_path
+        .join(format!("steamapps/appmanifest_{}.acf", kind.app_id()))
+        .is_file()
 }
 
 /// Whether `lib_path` holds an installed copy of `kind`, without logging.
