@@ -1719,3 +1719,51 @@ fn a_snap_finds_the_portal_outside_its_own_runtime_folder() {
     );
     assert_eq!(found, None);
 }
+
+/// Steam only rewrites `libraryfolders.vdf` now and then, so its `apps` lists
+/// go stale when a game moves or a library is deleted. Each game's
+/// `appmanifest_<id>.acf` is what Steam itself trusts.
+#[test]
+fn detect_games_trusts_app_manifests_over_stale_library_lists() {
+    let home = tempfile::tempdir().unwrap();
+    let native = home.path().join(".local/share/Steam");
+    let sadx = make_steam_library(&native, GameKind::SADX);
+    let sa2 = make_steam_library(&native, GameKind::SA2);
+    for kind in [GameKind::SADX, GameKind::SA2] {
+        std::fs::write(
+            native.join(format!("steamapps/appmanifest_{}.acf", kind.app_id())),
+            "\"AppState\" {}",
+        )
+        .unwrap();
+    }
+    // The library SADX moved out of is gone, and SA2 is listed nowhere.
+    let deleted = home.path().join("deleted-library");
+    std::fs::write(
+        native.join("steamapps/libraryfolders.vdf"),
+        format!(
+            "\"libraryfolders\" {{\n  \"0\" {{ \"path\" \"{}\" \"apps\" {{ }} }}\n  \"1\" {{ \"path\" \"{}\" \"apps\" {{ \"71250\" \"0\" }} }}\n}}",
+            native.display(),
+            deleted.display()
+        ),
+    )
+    .unwrap();
+
+    let result = with_environment("HOME", Some(home.path()), || {
+        detect_games_with_extra_libraries(&[])
+    });
+
+    let found: Vec<_> = result.games.iter().map(|game| &game.path).collect();
+    assert_eq!(found, vec![&sadx, &sa2]);
+    assert!(result.inaccessible.is_empty(), "{:?}", result.inaccessible);
+}
+
+#[test]
+fn a_game_folder_without_a_manifest_or_listing_is_not_installed() {
+    let tmp = tempfile::tempdir().unwrap();
+    make_steam_library(tmp.path(), GameKind::SADX);
+
+    let vdf = mock_vdf(tmp.path().to_str().unwrap(), &[]);
+    let (paths, inaccessible) = find_all_games_in_libraries(&vdf, GameKind::SADX);
+    assert!(paths.is_empty());
+    assert!(inaccessible.is_empty());
+}
