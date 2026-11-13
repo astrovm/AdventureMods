@@ -23,7 +23,7 @@ dialoguer = "0.12"
 eframe = { version = "0.37", default-features = false, features = ["accesskit", "clipboard", "default_fonts", "glow", "wayland", "x11"] }
 egui = { version = "0.37", features = ["monochrome_emoji_fonts"] }
 gilrs = "0.11"
-rfd = "0.17"
+rfd = "0.18"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 winit = { version = "0.30", default-features = false, features = ["x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita", "rwh_06"] }
 
