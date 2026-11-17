@@ -904,6 +904,75 @@ fn the_eframe_app_quits_after_one_frame_when_asked() {
     assert!(!EframeApp::new(fixture.app()).quit_after_first_frame);
 }
 
+#[test]
+fn a_normal_frame_stays_open_and_the_test_frame_requests_close() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = Harness::new_ui_state(
+        |ui, app: &mut EframeApp| {
+            eframe::App::ui(app, ui, &mut eframe::Frame::_new_kittest());
+        },
+        EframeApp {
+            app: fixture.app(),
+            quit_after_first_frame: false,
+        },
+    );
+    harness.run_steps(2);
+    let closes = |harness: &Harness<'_, EframeApp>| {
+        harness.output().viewport_output[&egui::ViewportId::ROOT]
+            .commands
+            .contains(&egui::ViewportCommand::Close)
+    };
+    assert!(!closes(&harness));
+    harness.state_mut().quit_after_first_frame = true;
+    harness.step();
+    assert!(closes(&harness));
+}
+
+#[test]
+fn unrelated_controller_actions_do_not_start_a_scan() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.state_mut().pad_presses.push(PadButton::Confirm);
+    harness.state_mut().handle_pad_presses();
+    assert!(!harness.state().scanning());
+    assert!(harness.state().setup.is_none());
+    assert!(harness.state().pad_presses.is_empty());
+}
+
+#[test]
+fn a_busy_setup_has_no_controller_continue_hint() -> anyhow::Result<()> {
+    let fixture = Fixture::new(&["sa2"]);
+    let game = fixture.library.join("sa2");
+    std::fs::write(game.join("proton-ready"), "")?;
+    std::fs::write(game.join("hold-mods"), "")?;
+    let (_sender, receiver) = std::sync::mpsc::channel();
+    let mut app = fixture.app();
+    app.set_gamepad(Gamepad::fake(receiver, true));
+    let mut harness = harness(app);
+    run_until(&mut harness, "scan", scanned);
+    harness.state_mut().open_setup(Game {
+        kind: GameKind::SA2,
+        path: game.clone(),
+    });
+    if let Some(setup) = &mut harness.state_mut().setup {
+        setup.on_next();
+        setup.on_next();
+        setup.on_next();
+    }
+    harness.run_steps(2);
+    assert!(harness.state().setup.as_ref().is_some_and(SetupFlow::busy));
+    assert!(harness.query_by_label("Continue").is_none());
+    assert!(harness.query_by_label("Install").is_none());
+    assert!(harness.query_by_label("Done").is_none());
+    harness.get_by_label("Select");
+    std::fs::remove_file(game.join("hold-mods"))?;
+    run_until(&mut harness, "finished", |app| {
+        app.setup.as_ref().is_some_and(|setup| !setup.busy())
+    });
+    Ok(())
+}
+
 fn repaint_delay(harness: &Harness<'_, AdventureModsApp>) -> Duration {
     harness.output().viewport_output[&egui::ViewportId::ROOT].repaint_delay
 }

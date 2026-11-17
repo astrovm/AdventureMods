@@ -3,7 +3,8 @@ FROM docker.io/library/rust:1.100.0-slim-trixie@sha256:4b68057dc8c103af4fa66b5cd
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates curl g++ git libegl1 libgl1-mesa-dri libudev-dev \
-       libxkbcommon-x11-0 pkg-config util-linux xauth xvfb \
+       libxcursor1 libxi6 libxinerama1 libxkbcommon-x11-0 libxrandr2 \
+       pkg-config util-linux xauth xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rustup component add clippy rustfmt llvm-tools-preview

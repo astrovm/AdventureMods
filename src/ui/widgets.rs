@@ -548,6 +548,51 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_progress_pulse_starts_outside_the_track() {
+        let ctx = egui::Context::default();
+        let render = |time| {
+            ctx.run(
+                egui::RawInput {
+                    time: Some(time),
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        paint_progress(
+                            ui,
+                            egui::Rect::from_min_size(
+                                egui::pos2(20.0, 20.0),
+                                Vec2::new(200.0, 36.0),
+                            ),
+                            0.0,
+                            true,
+                        );
+                    });
+                },
+            )
+        };
+        let rectangles = |output: egui::FullOutput| {
+            output
+                .shapes
+                .into_iter()
+                .filter_map(|clipped| match clipped.shape {
+                    egui::Shape::Rect(rect) if rect.rect.min == egui::pos2(20.0, 20.0) => {
+                        Some(rect)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+        };
+        let start = rectangles(render(0.0));
+        assert_eq!(start.len(), 1);
+        assert_eq!(start[0].fill, theme::CARD);
+        let moving = rectangles(render(0.1));
+        assert_eq!(moving.len(), 2);
+        assert!(moving[1].rect.width() > 0.0);
+        assert!(moving[1].rect.right() <= start[0].rect.right());
+    }
+
+    #[test]
     fn tones_have_distinct_colors() {
         let colors: Vec<_> = [
             Tone::Accent,
