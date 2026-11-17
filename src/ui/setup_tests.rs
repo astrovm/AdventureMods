@@ -195,6 +195,120 @@ fn flow(kind: GameKind, path: &Path, work: SetupWork) -> SetupFlow {
     )
 }
 
+#[test]
+fn advancing_past_the_finish_screen_keeps_the_finish_screen() {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    setup.current = setup.steps.len() - 2;
+    setup.advance_step();
+    let current = setup.current;
+    setup.advance_step();
+    assert_eq!(setup.current, current);
+    assert_eq!(setup.step().map(|step| step.id), Some(StepId::Complete));
+    assert!(!setup.busy());
+}
+
+#[test]
+fn cancelling_without_a_worker_does_not_start_work() {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    setup.cancel_download();
+    assert!(setup.cancelling);
+    assert!(!setup.busy());
+    assert!(!dir.path().join("installed.txt").exists());
+}
+
+#[test]
+fn worker_errors_are_reported_without_an_install_view() -> anyhow::Result<()> {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    let (sender, result) = mpsc::channel();
+    let (_progress_sender, progress) = async_channel::bounded(1);
+    // Inject a missing view to verify that it cannot hide a worker failure.
+    setup.task = Some(RunningTask {
+        cancel: Arc::new(AtomicBool::new(false)),
+        result,
+        progress,
+        samples: Arc::new(ProgressSamples::default()),
+    });
+    setup.poll();
+    assert!(setup.busy());
+    assert!(setup.install.is_none());
+    sender.send(Err(anyhow::anyhow!("worker stopped")))?;
+    setup.poll();
+    assert!(!setup.busy());
+    assert_eq!(setup.error.as_deref(), Some("worker stopped"));
+    Ok(())
+}
+
+#[test]
+fn unsupported_picker_answers_keep_the_saved_languages() {
+    for (target, count) in [
+        (
+            Picker::Subtitles,
+            SubtitleLanguage::supported_for(GameKind::SA2).len(),
+        ),
+        (Picker::Voices, VoiceLanguage::all().len()),
+    ] {
+        let dir = game_dir(&[]);
+        let mut setup = flow(GameKind::SA2, dir.path(), work());
+        let languages = setup.languages;
+        let mut options: Vec<_> = (0..count).map(|index| format!("Option {index}")).collect();
+        // Inject a malformed option list. A rejected answer must still close it.
+        options.push("Unsupported language".to_owned());
+        setup.picker = Some((
+            target,
+            ChoiceDialog::new("unsupported", "Languages", options, Some(count)),
+        ));
+        let mut harness = harness(setup);
+        harness.key_press(egui::Key::Enter);
+        harness.run_steps(4);
+        assert_eq!(harness.state().flow.languages, languages);
+        assert!(!harness.state().flow.has_dialog());
+        assert!(!harness.state().flow.busy());
+    }
+}
+
+#[test]
+fn an_unrecognized_info_step_does_not_show_language_controls() {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    setup.steps[0].id = StepId::LanguageOptions;
+    let mut harness = harness(setup);
+    harness.run_steps(2);
+    harness.get_by_label("Voices");
+    harness.get_by_label("Subtitles");
+    // A malformed info step must not expose the language choices.
+    harness.state_mut().flow.steps[0].id = StepId::Complete;
+    harness.run_steps(2);
+    assert!(harness.query_by_label("Voices").is_none());
+    assert!(harness.query_by_label("Subtitles").is_none());
+    assert_eq!(harness.state().flow.current, 0);
+    assert!(!harness.state().flow.busy());
+}
+
+#[test]
+fn the_finish_screen_keeps_its_instructions_when_the_cover_fails() {
+    let dir = game_dir(&[]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    setup.skip_to_the_last_step();
+    let mut harness = Harness::new_ui_state(
+        |ui, flow: &mut SetupFlow| {
+            super::super::theme::apply_ui(ui);
+            let mut images = ImageCache::with_decoder(ui.ctx(), |_| anyhow::bail!("invalid image"));
+            flow.show_body(ui, &mut images);
+            assert!(images.failed(cover_resource(GameKind::SA2)));
+        },
+        setup,
+    );
+    harness.run_steps(2);
+    harness.get_by_label("Ready to Play");
+    harness.get_by_label(
+        "Start Sonic Adventure 2 from Steam. The mod manager opens first, so you can turn mods on or off before playing.",
+    );
+    assert!(!harness.state().busy());
+}
+
 fn harness(flow: SetupFlow) -> Harness<'static, State> {
     Harness::builder()
         .with_size(egui::vec2(1280.0, 800.0))

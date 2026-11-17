@@ -57,27 +57,54 @@ fn probe_display_server() -> Option<(u32, u32)> {
 
     // Tests and the CLI may not run on the main thread.
     let mut event_loop = EventLoop::builder().with_any_thread(true).build().ok()?;
-    let mut resolution = None;
     // A closure instead of an `ApplicationHandler`: the probe opens no window,
     // so a handler's required `window_event` would never run.
-    #[allow(deprecated)]
-    event_loop
-        .run_on_demand(|event, event_loop| {
+    probe_resolution(|resolution| {
+        #[allow(deprecated)]
+        event_loop.run_on_demand(|event, event_loop| {
             if let Event::Resumed = event {
-                resolution = preferred_resolution(event_loop.available_monitors().map(|monitor| {
-                    let size = monitor.size();
-                    (size.width, size.height)
-                }));
+                *resolution =
+                    preferred_resolution(event_loop.available_monitors().map(|monitor| {
+                        let size = monitor.size();
+                        (size.width, size.height)
+                    }));
                 event_loop.exit();
             }
         })
-        .ok()?;
+    })
+}
+
+/// Discard a partial answer when the display server fails during the probe.
+fn probe_resolution(
+    run: impl FnOnce(&mut Option<(u32, u32)>) -> Result<(), winit::error::EventLoopError>,
+) -> Option<(u32, u32)> {
+    let mut resolution = None;
+    run(&mut resolution).ok()?;
     resolution
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_display_probes_discard_partial_answers() {
+        assert_eq!(probe_resolution(|_| Ok(())), None);
+        assert_eq!(
+            probe_resolution(|resolution| {
+                *resolution = Some((1280, 720));
+                Ok(())
+            }),
+            Some((1280, 720))
+        );
+        assert_eq!(
+            probe_resolution(|resolution| {
+                *resolution = Some((1280, 720));
+                Err(winit::error::EventLoopError::ExitFailure(1))
+            }),
+            None
+        );
+    }
 
     #[test]
     fn viewport_resolution_applies_the_scale_and_logs_both_sizes() {

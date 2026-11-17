@@ -548,6 +548,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_progress_pulse_starts_outside_the_track() {
+        let ctx = egui::Context::default();
+        let render = |time| {
+            ctx.run_ui(
+                egui::RawInput {
+                    time: Some(time),
+                    ..Default::default()
+                },
+                |ui| {
+                    paint_progress(
+                        ui,
+                        egui::Rect::from_min_size(egui::pos2(20.0, 20.0), Vec2::new(200.0, 36.0)),
+                        0.0,
+                        true,
+                    );
+                },
+            )
+        };
+        let shapes = |mut output: egui::FullOutput| {
+            // This paint test inspects shapes without a texture renderer.
+            output.textures_delta.clear();
+            output
+                .shapes
+                .into_iter()
+                .map(|clipped| clipped.shape)
+                .collect::<Vec<_>>()
+        };
+        let track = egui::Shape::rect_filled(
+            egui::Rect::from_min_size(egui::pos2(20.0, 20.0), Vec2::new(200.0, 36.0)),
+            CornerRadius::same(18),
+            theme::CARD,
+        );
+        assert_eq!(shapes(render(0.0)).as_slice(), std::slice::from_ref(&track));
+        let highlight = egui::Shape::rect_filled(
+            egui::Rect::from_min_max(egui::pos2(20.0, 20.0), egui::pos2(35.625, 56.0)),
+            CornerRadius::same(18),
+            Color32::from_white_alpha(28),
+        );
+        assert_eq!(shapes(render(0.1)), [track, highlight]);
+    }
+
+    #[test]
     fn tones_have_distinct_colors() {
         let colors: Vec<_> = [
             Tone::Accent,
