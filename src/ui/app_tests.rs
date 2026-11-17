@@ -964,7 +964,11 @@ fn a_busy_setup_has_no_controller_continue_hint() -> anyhow::Result<()> {
     assert!(harness.state().setup.as_ref().is_some_and(SetupFlow::busy));
     assert!(harness.query_by_label("Continue").is_none());
     assert!(harness.query_by_label("Install").is_none());
-    assert!(harness.query_by_label("Done").is_none());
+    assert!(
+        harness
+            .query_by_role_and_label(egui::accesskit::Role::Button, "Done")
+            .is_none()
+    );
     harness.get_by_label("Select");
     std::fs::remove_file(game.join("hold-mods"))?;
     run_until(&mut harness, "finished", |app| {

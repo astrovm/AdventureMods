@@ -12,6 +12,7 @@ fi
 
 task_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 image=localhost/adventuremods-coverage:rust1.100.0
+mkdir -p "$task_root/target/agent"
 nice -n 10 "$engine" build --tag "$image" \
     --file "$task_root/scripts/coverage.Containerfile" "$task_root/scripts"
 
@@ -30,7 +31,8 @@ fi
 
 # The container has no host sockets, credentials, devices or home directory.
 # It cannot test host integration or a physical controller.
-exec nice -n 10 "$@" "$image" sh -ec '
+exec nice -n 10 "$@" "$image" flock --nonblock --conflict-exit-code 75 \
+    --verbose /workspace/target/agent/coverage.lock sh -ec '
     mkdir -p "$CARGO_HOME" "$HOME"
     cargo fmt --check
     cargo clippy --locked --all-targets -- -D warnings

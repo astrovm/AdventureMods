@@ -258,10 +258,11 @@ fn unsupported_picker_answers_keep_the_saved_languages() {
         options.push("Unsupported language".to_owned());
         setup.picker = Some((
             target,
-            ChoiceDialog::new("unsupported", "Languages", options, None),
+            ChoiceDialog::new("unsupported", "Languages", options, Some(count)),
         ));
         let mut harness = harness(setup);
-        press(&mut harness, "Unsupported language");
+        harness.key_press(egui::Key::Enter);
+        harness.run_steps(4);
         assert_eq!(harness.state().flow.languages, languages);
         assert!(!harness.state().flow.has_dialog());
         assert!(!harness.state().flow.busy());
@@ -293,6 +294,7 @@ fn the_finish_screen_keeps_its_instructions_when_the_cover_fails() {
     setup.skip_to_the_last_step();
     let mut harness = Harness::new_ui_state(
         |ui, flow: &mut SetupFlow| {
+            super::super::theme::apply_ui(ui);
             let mut images = ImageCache::with_decoder(ui.ctx(), |_| anyhow::bail!("invalid image"));
             flow.show_body(ui, &mut images);
             assert!(images.failed(cover_resource(GameKind::SA2)));

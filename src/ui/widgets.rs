@@ -566,7 +566,9 @@ mod tests {
                 },
             )
         };
-        let rectangles = |output: egui::FullOutput| {
+        let rectangles = |mut output: egui::FullOutput| {
+            // This paint test inspects shapes without a texture renderer.
+            output.textures_delta.clear();
             output
                 .shapes
                 .into_iter()
