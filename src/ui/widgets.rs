@@ -566,27 +566,27 @@ mod tests {
                 },
             )
         };
-        let rectangles = |mut output: egui::FullOutput| {
+        let shapes = |mut output: egui::FullOutput| {
             // This paint test inspects shapes without a texture renderer.
             output.textures_delta.clear();
             output
                 .shapes
                 .into_iter()
-                .filter_map(|clipped| match clipped.shape {
-                    egui::Shape::Rect(rect) if rect.rect.min == egui::pos2(20.0, 20.0) => {
-                        Some(rect)
-                    }
-                    _ => None,
-                })
+                .map(|clipped| clipped.shape)
                 .collect::<Vec<_>>()
         };
-        let start = rectangles(render(0.0));
-        assert_eq!(start.len(), 1);
-        assert_eq!(start[0].fill, theme::CARD);
-        let moving = rectangles(render(0.1));
-        assert_eq!(moving.len(), 2);
-        assert!(moving[1].rect.width() > 0.0);
-        assert!(moving[1].rect.right() <= start[0].rect.right());
+        let track = egui::Shape::rect_filled(
+            egui::Rect::from_min_size(egui::pos2(20.0, 20.0), Vec2::new(200.0, 36.0)),
+            CornerRadius::same(18),
+            theme::CARD,
+        );
+        assert_eq!(shapes(render(0.0)), [track.clone()]);
+        let highlight = egui::Shape::rect_filled(
+            egui::Rect::from_min_max(egui::pos2(20.0, 20.0), egui::pos2(35.625, 56.0)),
+            CornerRadius::same(18),
+            Color32::from_white_alpha(28),
+        );
+        assert_eq!(shapes(render(0.1)), [track, highlight]);
     }
 
     #[test]
