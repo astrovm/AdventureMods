@@ -580,7 +580,7 @@ mod tests {
             CornerRadius::same(18),
             theme::CARD,
         );
-        assert_eq!(shapes(render(0.0)), [track.clone()]);
+        assert_eq!(shapes(render(0.0)).as_slice(), std::slice::from_ref(&track));
         let highlight = egui::Shape::rect_filled(
             egui::Rect::from_min_max(egui::pos2(20.0, 20.0), egui::pos2(35.625, 56.0)),
             CornerRadius::same(18),
