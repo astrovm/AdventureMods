@@ -199,7 +199,8 @@ fn flow(kind: GameKind, path: &Path, work: SetupWork) -> SetupFlow {
 fn advancing_past_the_finish_screen_keeps_the_finish_screen() {
     let dir = game_dir(&[]);
     let mut setup = flow(GameKind::SA2, dir.path(), work());
-    setup.skip_to_the_last_step();
+    setup.current = setup.steps.len() - 2;
+    setup.advance_step();
     let current = setup.current;
     setup.advance_step();
     assert_eq!(setup.current, current);
@@ -223,6 +224,7 @@ fn worker_errors_are_reported_without_an_install_view() -> anyhow::Result<()> {
     let mut setup = flow(GameKind::SA2, dir.path(), work());
     let (sender, result) = mpsc::channel();
     let (_progress_sender, progress) = async_channel::bounded(1);
+    // Inject a missing view to verify that it cannot hide a worker failure.
     setup.task = Some(RunningTask {
         cancel: Arc::new(AtomicBool::new(false)),
         result,
@@ -252,6 +254,7 @@ fn unsupported_picker_answers_keep_the_saved_languages() {
         let mut setup = flow(GameKind::SA2, dir.path(), work());
         let languages = setup.languages;
         let mut options: Vec<_> = (0..count).map(|index| format!("Option {index}")).collect();
+        // Inject a malformed option list. A rejected answer must still close it.
         options.push("Unsupported language".to_owned());
         setup.picker = Some((
             target,
@@ -269,8 +272,13 @@ fn unsupported_picker_answers_keep_the_saved_languages() {
 fn an_unrecognized_info_step_does_not_show_language_controls() {
     let dir = game_dir(&[]);
     let mut setup = flow(GameKind::SA2, dir.path(), work());
-    setup.steps[0].id = StepId::Complete;
+    setup.steps[0].id = StepId::LanguageOptions;
     let mut harness = harness(setup);
+    harness.run_steps(2);
+    harness.get_by_label("Voices");
+    harness.get_by_label("Subtitles");
+    // A malformed info step must not expose the language choices.
+    harness.state_mut().flow.steps[0].id = StepId::Complete;
     harness.run_steps(2);
     assert!(harness.query_by_label("Voices").is_none());
     assert!(harness.query_by_label("Subtitles").is_none());

@@ -93,6 +93,13 @@ mod tests {
         assert_eq!(
             probe_resolution(|resolution| {
                 *resolution = Some((1280, 720));
+                Ok(())
+            }),
+            Some((1280, 720))
+        );
+        assert_eq!(
+            probe_resolution(|resolution| {
+                *resolution = Some((1280, 720));
                 Err(winit::error::EventLoopError::ExitFailure(1))
             }),
             None

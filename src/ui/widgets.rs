@@ -557,15 +557,12 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                        paint_progress(
-                            ui,
-                            egui::Rect::from_min_size(
-                                egui::pos2(20.0, 20.0),
-                                Vec2::new(200.0, 36.0),
-                            ),
-                            0.0,
-                            true,
-                        );
+                    paint_progress(
+                        ui,
+                        egui::Rect::from_min_size(egui::pos2(20.0, 20.0), Vec2::new(200.0, 36.0)),
+                        0.0,
+                        true,
+                    );
                 },
             )
         };

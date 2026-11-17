@@ -21,6 +21,8 @@ set -- "$engine" run --rm --memory 4g --memory-swap 4g \
     --env CARGO_HOME=/workspace/target/agent/cargo-home \
     --env CARGO_TARGET_DIR=/workspace/target/agent \
     --env CARGO_BUILD_JOBS=2 \
+    --env HOME=/tmp/coverage-home \
+    --env XDG_CONFIG_HOME=/tmp/coverage-home/config \
     --env LIBGL_ALWAYS_SOFTWARE=1
 if [ "$engine" = podman ]; then
     set -- "$@" --userns keep-id
@@ -29,7 +31,7 @@ fi
 # The container has no host sockets, credentials, devices or home directory.
 # It cannot test host integration or a physical controller.
 exec nice -n 10 "$@" "$image" sh -ec '
-    mkdir -p "$CARGO_HOME"
+    mkdir -p "$CARGO_HOME" "$HOME"
     cargo fmt --check
     cargo clippy --locked --all-targets -- -D warnings
     xvfb-run cargo llvm-cov nextest --locked --workspace --all-targets \
