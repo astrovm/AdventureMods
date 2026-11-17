@@ -551,13 +551,12 @@ mod tests {
     fn the_progress_pulse_starts_outside_the_track() {
         let ctx = egui::Context::default();
         let render = |time| {
-            ctx.run(
+            ctx.run_ui(
                 egui::RawInput {
                     time: Some(time),
                     ..Default::default()
                 },
-                |ctx| {
-                    egui::CentralPanel::default().show(ctx, |ui| {
+                |ui| {
                         paint_progress(
                             ui,
                             egui::Rect::from_min_size(
@@ -567,7 +566,6 @@ mod tests {
                             0.0,
                             true,
                         );
-                    });
                 },
             )
         };
