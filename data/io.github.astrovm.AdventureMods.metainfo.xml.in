@@ -55,6 +55,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.5" date="2026-11-17">
+      <description>
+        <p>Added checks for setup, controller input and display detection.</p>
+      </description>
+    </release>
     <release version="1.3.4" date="2026-11-08">
       <description>
         <p>Games Steam moved to another library are found again.</p>
