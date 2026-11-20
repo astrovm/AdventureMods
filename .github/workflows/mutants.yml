@@ -56,7 +56,7 @@ jobs:
       - name: Install system dependencies
         run: sh build-aux/ci-apt-install.sh libudev-dev libegl1 libgl1-mesa-dri libxkbcommon-x11-0 xvfb xauth
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       # Pull requests can only restore caches saved on main, so the weekly run
       # saves it and a pull request never does.
       - name: Cache Cargo build
@@ -65,7 +65,7 @@ jobs:
           shared-key: mutants
           save-if: 'false'
       - name: Install cargo-mutants and cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-mutants@27.1.0,cargo-nextest@0.9.150
       - name: Mutate the changed code
@@ -136,13 +136,13 @@ jobs:
       - name: Install system dependencies
         run: sh build-aux/ci-apt-install.sh libudev-dev libegl1 libgl1-mesa-dri libxkbcommon-x11-0 xvfb xauth
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Cache Cargo build
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           shared-key: mutants
       - name: Install cargo-mutants and cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-mutants@27.1.0,cargo-nextest@0.9.150
       - name: Mutate part ${{ matrix.part }}
