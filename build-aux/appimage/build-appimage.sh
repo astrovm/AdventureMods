@@ -56,14 +56,28 @@ HOOK
 
 echo "==> Bundling libraries and creating the AppImage"
 cd "$BUILD_DIR"
-# OpenGL, Vulkan, Wayland and xkbcommon are loaded at runtime from the host,
-# so they match its graphics drivers and are not bundled.
+# winit opens the X11 and Wayland libraries at runtime, so linuxdeploy can't
+# see them. OpenGL, EGL, libX11, libxcb and libwayland-client come from the
+# host: they are on the AppImage exclude list, because they must match its
+# graphics drivers and display server. These are not on it, and minimal
+# systems don't have them, so the AppImage brings them. linuxdeploy adds
+# what they need in turn, such as libxcb-xkb and libXrender.
+runtime_libs=()
+for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libXcursor.so.1 libXi.so.6; do
+	path="$(/sbin/ldconfig -p | awk -v lib="$lib" '$1 == lib { print $NF; exit }')"
+	if [ -z "$path" ]; then
+		echo "Missing $lib on the build system. Install it in build-container.sh." >&2
+		exit 1
+	fi
+	runtime_libs+=(--library "$path")
+done
 export NO_STRIP=1
 export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|AdventureMods-v*-${APPIMAGE_ARCH}.AppImage.zsync"
 ./linuxdeploy --appimage-extract-and-run \
 	--appdir "$APPDIR" \
 	--desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
 	--icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg" \
+	"${runtime_libs[@]}" \
 	--output appimage
 
 # An AppImage uses the host's glibc, so it only starts where that glibc is at

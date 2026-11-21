@@ -260,12 +260,12 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
         run: bash build-aux/appimage/build-container.sh
 
-      # The AppImage catalog tests on the oldest Ubuntu LTS in standard
-      # support. Loading the app there proves its glibc needs are old enough.
-      - name: Start AppImage on Ubuntu 22.04
-        run: |
-          docker run --rm -v "$PWD/appimage-build:/appimage:ro" ubuntu:22.04 \
-            sh -euc '/appimage/AdventureMods-*.AppImage --appimage-extract-and-run --version'
+      # The AppImage catalog opens the app on the oldest Ubuntu LTS in
+      # standard support, with only a virtual X server. The window there
+      # proves that its glibc needs are old enough and that it brings the
+      # libraries it opens at runtime.
+      - name: Open AppImage window on Ubuntu 22.04
+        run: bash build-aux/appimage/test-window.sh appimage-build/AdventureMods-*.AppImage
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

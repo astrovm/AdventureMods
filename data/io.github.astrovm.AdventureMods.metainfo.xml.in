@@ -55,6 +55,11 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
+    <release version="1.3.6" date="2026-11-21">
+      <description>
+        <p>The AppImage opens its window on systems without some X11 keyboard and cursor libraries, such as a minimal Ubuntu 22.04.</p>
+      </description>
+    </release>
     <release version="1.3.5" date="2026-11-21">
       <description>
         <p>The AppImage now starts on older systems, such as Ubuntu 22.04.</p>
