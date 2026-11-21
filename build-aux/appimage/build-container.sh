@@ -32,6 +32,7 @@ fi
 	-w /src \
 	docker.io/library/ubuntu:22.04 \
 	bash -c '
+		set -euo pipefail
 		apt-get update -qq
 		apt-get install -y -qq \
 			build-essential pkg-config ninja-build python3-pip gettext \

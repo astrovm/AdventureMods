@@ -75,11 +75,16 @@ needed_glibc="$(
 	find "$APPDIR" -type f -print0 |
 		while IFS= read -r -d '' file; do
 			if [ "$(head -c 4 "$file" | od -An -c | tr -d ' ')" = '177ELF' ]; then
-				objdump -T "$file"
+				# A static program or object file has no dynamic symbols.
+				objdump -T "$file" || true
 			fi
 		done |
-		grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -n 1
+		{ grep -o 'GLIBC_[0-9.]*' || true; } | sed 's/GLIBC_//' | sort -uV | tail -n 1
 )"
+if [ -z "$needed_glibc" ]; then
+	echo "Found no glibc symbols in $APPDIR. The check cannot work." >&2
+	exit 1
+fi
 if [ "$(printf '%s\n%s\n' "$needed_glibc" "$MAX_GLIBC" | sort -V | tail -n 1)" != "$MAX_GLIBC" ]; then
 	echo "The AppImage needs glibc $needed_glibc, newer than $MAX_GLIBC. Build it on Ubuntu 22.04." >&2
 	exit 1
