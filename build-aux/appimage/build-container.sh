@@ -43,8 +43,9 @@ fi
 		export PATH="$HOME/.cargo/bin:$PATH"
 		bash build-aux/appimage/build-appimage.sh
 		# Wait for the cache uploads, then show how many crates it reused.
+		# A server that already stopped when idle is not a build failure.
 		if [ -n "${RUSTC_WRAPPER:-}" ]; then
-			sccache --stop-server
+			sccache --stop-server || true
 		fi
 		# Hand the output to whoever owns the checkout. Under rootless podman
 		# that is the container root, which already maps to the host user.
