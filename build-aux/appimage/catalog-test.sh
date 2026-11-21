@@ -6,17 +6,33 @@
 # catalog uses one). A rootless container is not enough; for a quick local
 # check, use test-window.sh.
 #
+# It also changes the host as root, as the catalog's runner does: it installs
+# packages and copies firejail into /lib, /usr and /etc. So it runs only on
+# GitHub Actions, or with ALLOW_HOST_CHANGES=1 on a throwaway machine.
+#
 # Usage: catalog-test.sh <AppImage> <catalog entry name>
 # It writes log.txt, findings.txt and the screenshot to $CATALOG_RESULT
-# (default: appimage-catalog-result). It fails when the catalog test fails or
-# when the catalog would not mark the screenshot as good.
+# (default: appimage-catalog-result). It fails when the catalog test fails,
+# makes no screenshot, or finds a warning or error that is not in $known.
 set -euo pipefail
 
 # The catalog changes its test often. Update this commit on purpose.
 CATALOG_COMMIT="ba37bcf481d0e8429b4a5ef67d095c279dac7aa2"
 
+# The findings this app is known to have. Any other warning or error fails,
+# so that a fixed warning, such as the icon format, cannot come back.
+# - No appdata file present: the catalog looks only for *appdata.xml, and its
+#   old appstreamcli fails on the current file under that name.
+# - The window is mostly dark: the app's blue design. The catalog ignores it
+#   for its screenshot-ok label.
+known='^WARNING: (No appdata file present|The window is mostly dark)'
+
 if [ ! -f "${1:-}" ] || [ -z "${2:-}" ]; then
 	echo "Usage: $0 <AppImage> <catalog entry name>" >&2
+	exit 2
+fi
+if [ "${GITHUB_ACTIONS:-}" != true ] && [ "${ALLOW_HOST_CHANGES:-}" != 1 ]; then
+	echo "This test changes the host as root. Run it on GitHub Actions, or set ALLOW_HOST_CHANGES=1 on a throwaway machine." >&2
 	exit 2
 fi
 appimage="$(readlink -f "$1")"
@@ -33,6 +49,8 @@ cleanup() {
 	if [ "${#pids[@]}" -gt 0 ]; then
 		kill "${pids[@]}" 2>/dev/null || true
 	fi
+	# worker.sh extracts firejail into the work folder as root.
+	sudo rm -rf "$work"
 }
 trap cleanup EXIT
 
@@ -54,8 +72,8 @@ sudo apt-get install -y -qq --no-install-recommends $packages >/dev/null
 sudo gem install dupervisor -v 1.0.5 >/dev/null
 bash code/fetch-deps.sh >/dev/null
 cp -a deps/. .
-# The catalog workflow goes on when this fails, too.
-sudo bash code/prep-dummy-soundcard.sh >/dev/null 2>&1 || true
+# The catalog workflow stops when this fails, so this test stops too.
+sudo bash code/prep-dummy-soundcard.sh >/dev/null
 
 # The catalog downloads the AppImage from the link in data/<name>. Serve this
 # one under its own file name, so that the name checks see the real name.
@@ -115,15 +133,14 @@ if [ "$status" -ne 0 ]; then
 	tail -n 40 log.txt >&2
 	exit 1
 fi
-# The catalog's screenshot-ok rule from its test.yml: a screenshot, and no
-# remark about the window or the screenshot except a dark window.
 if [ ! -f "$result/screenshot.png" ]; then
 	echo "The catalog test made no screenshot." >&2
 	exit 1
 fi
-if grep -E '^(WARNING|ERROR): The (window|screenshot)' "$result/findings.txt" |
-	grep -qv '^WARNING: The window is mostly dark'; then
-	echo "The catalog would not mark the screenshot as good." >&2
+unknown="$(grep -E '^(WARNING|ERROR): ' "$result/findings.txt" | grep -Ev "$known" || true)"
+if [ -n "$unknown" ]; then
+	echo "The catalog test found new warnings or errors:" >&2
+	echo "$unknown" >&2
 	exit 1
 fi
 echo "The catalog test passed."
