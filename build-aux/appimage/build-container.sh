@@ -37,6 +37,7 @@ fi
 		apt-get install -y -qq \
 			build-essential pkg-config ninja-build python3-pip gettext \
 			libudev-dev desktop-file-utils appstream \
+			libxkbcommon-x11-0 libxcursor1 libxi6 librsvg2-bin \
 			wget unzip file libfuse2 curl git sudo zsync
 		pip3 install --quiet --no-cache-dir -r build-aux/appimage/requirements.txt
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet

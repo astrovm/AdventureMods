@@ -260,18 +260,47 @@ jobs:
           SCCACHE_GHA_ENABLED: "true"
         run: bash build-aux/appimage/build-container.sh
 
-      # The AppImage catalog tests on the oldest Ubuntu LTS in standard
-      # support. Loading the app there proves its glibc needs are old enough.
-      - name: Start AppImage on Ubuntu 22.04
-        run: |
-          docker run --rm -v "$PWD/appimage-build:/appimage:ro" ubuntu:22.04 \
-            sh -euc '/appimage/AdventureMods-*.AppImage --appimage-extract-and-run --version'
+      # The AppImage catalog opens the app on the oldest Ubuntu LTS in
+      # standard support, with only a virtual X server. The window there
+      # proves that its glibc needs are old enough and that it brings the
+      # libraries it opens at runtime.
+      - name: Open AppImage window on Ubuntu 22.04
+        timeout-minutes: 10
+        run: bash build-aux/appimage/test-window.sh appimage-build/AdventureMods-*.AppImage
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: AdventureMods-AppImage-${{ matrix.arch }}
           path: appimage-build/*.AppImage*
+
+  # The AppImage catalog (appimage.github.io) runs its own test on every
+  # entry: lint, firejail, a screenshot and checks on it. This runs that test
+  # on its runner, so that a release does not fail there.
+  appimage-catalog:
+    needs: appimage
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download AppImage
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: AdventureMods-AppImage-x86_64
+          path: appimage-build
+
+      - name: Run the AppImage catalog test
+        run: bash build-aux/appimage/catalog-test.sh appimage-build/AdventureMods-*-x86_64.AppImage Adventure_Mods
+
+      - name: Upload catalog test result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Outside the AdventureMods-AppImage-* pattern the release job downloads.
+          name: appimage-catalog-test
+          path: appimage-catalog-result
+          if-no-files-found: ignore
 
   snap:
     needs: changes
@@ -333,7 +362,7 @@ jobs:
   ci:
     name: CI / Required
     if: always()
-    needs: [changes, test, translations, coverage, flatpak, appimage, snap]
+    needs: [changes, test, translations, coverage, flatpak, appimage, appimage-catalog, snap]
     runs-on: ubuntu-26.04
     steps:
       - name: Check job results
@@ -390,7 +419,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [test, coverage, appimage, snap, flatpak, create-release]
+    needs: [test, coverage, appimage, appimage-catalog, snap, flatpak, create-release]
     runs-on: ubuntu-26.04
     permissions:
       contents: write
