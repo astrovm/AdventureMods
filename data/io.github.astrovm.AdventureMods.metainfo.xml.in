@@ -55,10 +55,9 @@
     <color type="primary" scheme_preference="dark">#1a5fb4</color>
   </branding>
   <releases translate="no">
-    <release version="1.3.5" date="2026-11-17">
+    <release version="1.3.5" date="2026-11-21">
       <description>
-        <p>Added checks for setup, controller input and display detection.</p>
-        <p>The AppImage starts on older systems again, such as Ubuntu 22.04.</p>
+        <p>The AppImage now starts on older systems, such as Ubuntu 22.04.</p>
       </description>
     </release>
     <release version="1.3.4" date="2026-11-08">
