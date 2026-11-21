@@ -265,6 +265,7 @@ jobs:
       # proves that its glibc needs are old enough and that it brings the
       # libraries it opens at runtime.
       - name: Open AppImage window on Ubuntu 22.04
+        timeout-minutes: 10
         run: bash build-aux/appimage/test-window.sh appimage-build/AdventureMods-*.AppImage
 
       - name: Upload artifact
