@@ -1,0 +1,2 @@
+# Ubuntu 22.04 ships Meson 0.61, older than meson.build allows.
+meson==1.12.1

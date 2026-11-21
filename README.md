@@ -138,7 +138,7 @@ Production manifest: `make flatpak FLATPAK_MANIFEST=build-aux/io.github.astrovm.
 
 It builds offline, like Flathub: `build-aux/flatpak/cargo-sources.sh` first lists every crate in `Cargo.lock` (it needs `uv`), and 7-Zip and HDiffPatch build from source.
 
-**AppImage** (Podman + `ubuntu:26.04`, matching the CI runner)
+**AppImage** (Podman + `ubuntu:22.04`, matching CI, so it runs on any distro with glibc 2.35 or newer)
 
 ```sh
 make appimage

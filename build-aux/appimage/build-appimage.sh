@@ -44,16 +44,6 @@ DESTDIR="$APPDIR" meson install -C "$BUILD_DIR/meson"
 
 bash "$PROJECT_DIR/build-aux/build-tools.sh" "$APPDIR/usr/bin"
 
-# An AppImage can't bundle glibc, so it only starts where the host's is at
-# least as new as the one it was built against.
-MAX_GLIBC="2.39"
-needed_glibc="$(objdump -T "$APPDIR"/usr/bin/* | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -n 1)"
-if [ "$(printf '%s\n%s\n' "$needed_glibc" "$MAX_GLIBC" | sort -V | tail -n 1)" != "$MAX_GLIBC" ]; then
-	echo "The AppImage needs glibc $needed_glibc, newer than $MAX_GLIBC. Build it on Ubuntu 24.04." >&2
-	exit 1
-fi
-echo "==> Needs glibc $needed_glibc (at most $MAX_GLIBC)"
-
 echo "==> Downloading linuxdeploy"
 wget -q -O "$BUILD_DIR/linuxdeploy" "$LINUXDEPLOY_URL"
 chmod +x "$BUILD_DIR/linuxdeploy"
@@ -75,6 +65,31 @@ export LDAI_UPDATE_INFORMATION="gh-releases-zsync|astrovm|AdventureMods|latest|A
 	--desktop-file "$APPDIR/usr/share/applications/io.github.astrovm.AdventureMods.desktop" \
 	--icon-file "$APPDIR/usr/share/icons/hicolor/scalable/apps/io.github.astrovm.AdventureMods.svg" \
 	--output appimage
+
+# An AppImage uses the host's glibc, so it only starts where that glibc is at
+# least as new as the newest one any bundled file needs. Ubuntu 22.04, the
+# oldest Ubuntu LTS in standard support, has glibc 2.35. The AppImage catalog
+# tests on it. This checks the app and the libraries linuxdeploy bundled.
+MAX_GLIBC="2.35"
+needed_glibc="$(
+	find "$APPDIR" -type f -print0 |
+		while IFS= read -r -d '' file; do
+			if [ "$(head -c 4 "$file" | od -An -c | tr -d ' ')" = '177ELF' ]; then
+				# A static program or object file has no dynamic symbols.
+				objdump -T "$file" || true
+			fi
+		done |
+		{ grep -o 'GLIBC_[0-9.]*' || true; } | sed 's/GLIBC_//' | sort -uV | tail -n 1
+)"
+if [ -z "$needed_glibc" ]; then
+	echo "Found no glibc symbols in $APPDIR. The check cannot work." >&2
+	exit 1
+fi
+if [ "$(printf '%s\n%s\n' "$needed_glibc" "$MAX_GLIBC" | sort -V | tail -n 1)" != "$MAX_GLIBC" ]; then
+	echo "The AppImage needs glibc $needed_glibc, newer than $MAX_GLIBC. Build it on Ubuntu 22.04." >&2
+	exit 1
+fi
+echo "==> Needs glibc $needed_glibc (at most $MAX_GLIBC)"
 
 generated_name="Adventure_Mods-${APPIMAGE_ARCH}.AppImage"
 version="$(sh "$PROJECT_DIR/build-aux/cargo-version.sh")"
