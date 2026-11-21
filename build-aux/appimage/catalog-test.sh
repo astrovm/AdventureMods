@@ -49,6 +49,9 @@ fi
 sudo apt-get update -qq
 # shellcheck disable=SC2086 # The list is space-separated.
 sudo apt-get install -y -qq --no-install-recommends $packages >/dev/null
+# worker.sh converts the desktop file with dv (dupervisor), as the catalog
+# workflow installs it. It skips asar, which only Electron apps need.
+sudo gem install dupervisor -v 1.0.5 >/dev/null
 bash code/fetch-deps.sh >/dev/null
 cp -a deps/. .
 # The catalog workflow goes on when this fails, too.

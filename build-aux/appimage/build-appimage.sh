@@ -54,6 +54,15 @@ cat >"$APPDIR/apprun-hooks/adventure-mods.sh" <<'HOOK'
 export PATH="$APPDIR/usr/bin:$PATH"
 HOOK
 
+# File managers and the AppImage catalog show .DirIcon as the thumbnail, and
+# the catalog wants a PNG. linuxdeploy links it to the SVG, unless it exists.
+icon_name="io.github.astrovm.AdventureMods"
+icon_png="usr/share/icons/hicolor/256x256/apps/$icon_name.png"
+mkdir -p "$APPDIR/$(dirname "$icon_png")"
+rsvg-convert -w 256 -h 256 -o "$APPDIR/$icon_png" \
+	"$APPDIR/usr/share/icons/hicolor/scalable/apps/$icon_name.svg"
+ln -sfn "$icon_png" "$APPDIR/.DirIcon"
+
 echo "==> Bundling libraries and creating the AppImage"
 cd "$BUILD_DIR"
 # winit opens the X11 and Wayland libraries at runtime, so linuxdeploy can't
