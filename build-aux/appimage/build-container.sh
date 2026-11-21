@@ -6,8 +6,10 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$PROJECT_DIR"
 
-# Ubuntu 24.04 keeps the AppImage's glibc needs at 2.39, so it runs on
-# distros that old and newer. CI builds it the same way.
+# An AppImage uses the host's glibc, so it only starts where that glibc is at
+# least as new as the build system's. Ubuntu 22.04 is the oldest Ubuntu LTS in
+# standard support, and the AppImage catalog tests on it. Its glibc 2.35 sets
+# the minimum. CI builds it the same way.
 engine="$(command -v podman || command -v docker)"
 
 # CI hands in sccache to reuse crates compiled by earlier runs.
@@ -28,13 +30,14 @@ fi
 	-e DEBIAN_FRONTEND=noninteractive \
 	-v "$PROJECT_DIR:/src" \
 	-w /src \
-	docker.io/library/ubuntu:24.04 \
+	docker.io/library/ubuntu:22.04 \
 	bash -c '
 		apt-get update -qq
 		apt-get install -y -qq \
-			build-essential pkg-config meson gettext libudev-dev \
-			desktop-file-utils appstream \
-			wget unzip file libfuse2t64 curl git sudo zsync
+			build-essential pkg-config ninja-build python3-pip gettext \
+			libudev-dev desktop-file-utils appstream \
+			wget unzip file libfuse2 curl git sudo zsync
+		pip3 install --quiet --no-cache-dir -r build-aux/appimage/requirements.txt
 		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
 		export PATH="$HOME/.cargo/bin:$PATH"
 		bash build-aux/appimage/build-appimage.sh
