@@ -60,13 +60,27 @@ sudo bash code/prep-dummy-soundcard.sh >/dev/null 2>&1 || true
 # The catalog downloads the AppImage from the link in data/<name>. Serve this
 # one under its own file name, so that the name checks see the real name.
 cp "$appimage" "$serve/"
-python3 -m http.server 8765 --bind 127.0.0.1 --directory "$serve" >/dev/null 2>&1 &
+# GitHub runners have Node.js.
+node -e '
+const http = require("http"), fs = require("fs"), path = require("path");
+const dir = process.argv[1];
+http.createServer((request, response) => {
+    const file = path.join(dir, path.basename(decodeURIComponent(request.url.split("?")[0])));
+    fs.stat(file, (error, stat) => {
+        if (error || !stat.isFile()) { response.writeHead(404); return response.end(); }
+        response.writeHead(200, { "Content-Length": stat.size });
+        if (request.method === "HEAD") return response.end();
+        fs.createReadStream(file).pipe(response);
+    });
+}).listen(8765, "127.0.0.1");
+' "$serve" &
 pids+=($!)
+url="http://127.0.0.1:8765/$(basename "$appimage")"
 for _ in $(seq 20); do
-	curl -fsI "http://127.0.0.1:8765/" >/dev/null 2>&1 && break
+	curl -fsI "$url" >/dev/null 2>&1 && break
 	sleep 0.5
 done
-echo "http://127.0.0.1:8765/$(basename "$appimage")" >"data/$name"
+echo "$url" >"data/$name"
 
 mkdir -p "$HOME/.icewm"
 cat >"$HOME/.icewm/preferences" <<'EOF'
