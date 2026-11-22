@@ -656,7 +656,14 @@ fn a_toast_stays_for_a_few_seconds_and_keeps_the_window_repainting() {
     harness.state_mut().toast(&ctx, "Hello");
     assert_eq!(harness.state().toasts[0].until, now + TOAST_SECONDS);
     harness.run_steps(2);
-    harness.get_by_label("Hello");
+    // It sits above the footer, inside the window.
+    let toast = harness.get_by_label("Hello").rect();
+    let window = harness.ctx.content_rect();
+    assert!(
+        toast.bottom() <= window.bottom() + TOAST_OFFSET.y,
+        "{toast:?} in {window:?}"
+    );
+    assert!(window.contains_rect(toast), "{toast:?} in {window:?}");
     // The fade animates on every frame.
     assert_eq!(repaint_delay(&harness), Duration::ZERO);
 }

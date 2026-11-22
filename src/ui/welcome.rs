@@ -620,6 +620,10 @@ mod tests {
         assert_eq!((small, large), (400.0, 500.0));
         assert_eq!(small + large + TILE_GAP, 924.0);
         assert_eq!(tile_widths(4000.0, 2), (560.0, 700.0));
+        // Any count: the tiles and the gaps between them fill the row.
+        assert_eq!(tile_widths(500.0, 1), (400.0, 500.0));
+        assert_eq!(tile_widths(698.0, 3), (200.0, 250.0));
+        assert_eq!(200.0 * 2.0 + 250.0 + TILE_GAP * 2.0, 698.0);
         assert_eq!(tile_size(460.0), Vec2::new(460.0, 215.0));
     }
 
