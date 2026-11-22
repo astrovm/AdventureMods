@@ -1,17 +1,14 @@
 use super::*;
 
 #[test]
-fn downloads_are_cached_in_the_app_folder_of_the_cache_dir() {
+fn unit_tests_cache_downloads_in_their_own_temporary_folder() {
     let _guard = crate::test_env::lock();
     let base = std::env::temp_dir().join("adventure-mods-tests");
 
-    assert_eq!(default_cache_dir(), Some(base.join("adventure-mods")));
+    assert_eq!(default_cache_dir(), Some(base.clone()));
     // SAFETY: the lock keeps other tests from reading the environment now.
     unsafe { std::env::remove_var("ADVENTURE_MODS_CACHE_DIR") };
-    assert_eq!(
-        download_cache_dir(),
-        base.join("adventure-mods").join("downloads")
-    );
+    assert_eq!(download_cache_dir(), base.join("downloads"));
 }
 
 #[test]
