@@ -660,7 +660,7 @@ fn a_toast_stays_for_a_few_seconds_and_keeps_the_window_repainting() {
     let toast = harness.get_by_label("Hello").rect();
     let window = harness.ctx.content_rect();
     assert!(
-        toast.bottom() <= window.bottom() + TOAST_OFFSET.y,
+        window.bottom() - toast.bottom() >= 100.0,
         "{toast:?} in {window:?}"
     );
     assert!(window.contains_rect(toast), "{toast:?} in {window:?}");

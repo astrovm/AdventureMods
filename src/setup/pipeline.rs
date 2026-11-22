@@ -222,13 +222,16 @@ fn install_mods_and_generate_config(
                             mod_entry,
                             Some(&mut download_progress),
                         );
-                        if result.is_ok()
-                            || attempt == MAX_MOD_INSTALL_ATTEMPTS
-                            || cancelled.load(Ordering::Relaxed)
-                        {
-                            break;
+                        match &result {
+                            Ok(()) => break,
+                            Err(_)
+                                if attempt == MAX_MOD_INSTALL_ATTEMPTS
+                                    || cancelled.load(Ordering::Relaxed) =>
+                            {
+                                break;
+                            }
+                            Err(_) => std::thread::sleep(RETRY_PAUSE),
                         }
-                        std::thread::sleep(RETRY_PAUSE);
                     }
 
                     match result {
