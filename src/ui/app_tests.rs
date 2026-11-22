@@ -657,7 +657,8 @@ fn a_toast_stays_for_a_few_seconds_and_keeps_the_window_repainting() {
     assert_eq!(harness.state().toasts[0].until, now + TOAST_SECONDS);
     harness.run_steps(2);
     harness.get_by_label("Hello");
-    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
+    // The fade animates on every frame.
+    assert_eq!(repaint_delay(&harness), Duration::ZERO);
 }
 
 fn inner_size_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<Vec2> {

@@ -1252,10 +1252,12 @@ fn a_step_without_a_download_shows_no_progress_bar() {
         step_id(state) == StepId::Dotnet && state.flow.busy()
     });
     harness.run_steps(2);
-    assert!(
+    // Only the spinner of the running task: no progress bar under the list.
+    assert_eq!(
         harness
-            .query_by_role(egui::accesskit::Role::ProgressIndicator)
-            .is_none()
+            .query_all_by_role(egui::accesskit::Role::ProgressIndicator)
+            .count(),
+        1
     );
 
     std::fs::remove_file(dir.path().join("hold-dotnet")).unwrap();

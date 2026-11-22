@@ -557,7 +557,7 @@ mod tests {
     fn a_button_grows_with_its_label_and_padding() {
         let ctx = egui::Context::default();
         crate::ui::theme::apply(&ctx);
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
             let label = "A label much wider than the smallest button";
             let text_width = WidgetText::from(label)
                 .into_galley(
@@ -578,6 +578,8 @@ mod tests {
             let wide = button_sized(ui, "OK", ButtonKind::Normal, 300.0);
             assert_eq!(wide.rect.width(), 300.0);
         });
+        // This test measures widgets without a texture renderer.
+        output.textures_delta.clear();
     }
 
     #[test]

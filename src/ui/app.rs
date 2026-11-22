@@ -601,8 +601,7 @@ impl AdventureModsApp {
         let busy = self.scan.is_some()
             || self.restoring.is_some()
             || self.granting.is_some()
-            || self.setup.as_ref().is_some_and(SetupFlow::busy)
-            || !self.toasts.is_empty();
+            || self.setup.as_ref().is_some_and(SetupFlow::busy);
         if busy {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
