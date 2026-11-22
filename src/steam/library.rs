@@ -61,7 +61,7 @@ pub(crate) fn document_portal_host_path(path: &Path) -> Option<PathBuf> {
             return None;
         }
         buf.truncate(len as usize);
-        while buf.last() == Some(&0) {
+        while let Some(&0) = buf.last() {
             buf.pop();
         }
         if buf.is_empty() {

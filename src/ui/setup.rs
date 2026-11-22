@@ -709,16 +709,16 @@ impl SetupFlow {
         let skippable = |step: &SetupStep| {
             matches!(step.kind, StepKind::Auto) || (self.work.is_step_complete)(step.id, &self.game)
         };
-        let mut previous = self.current - 1;
-        while previous > 0 && skippable(&self.steps[previous]) {
-            previous -= 1;
-        }
-        // Everything before here could be skipped: leave setup.
-        if skippable(&self.steps[previous]) {
-            self.exit();
-        } else {
-            self.current = previous;
-            self.enter_step();
+        let previous = (0..self.current)
+            .rev()
+            .find(|&index| !skippable(&self.steps[index]));
+        match previous {
+            Some(previous) => {
+                self.current = previous;
+                self.enter_step();
+            }
+            // Everything before here could be skipped: leave setup.
+            None => self.exit(),
         }
     }
 
@@ -1266,12 +1266,7 @@ impl SetupFlow {
         let mods = common::recommended_mods_for_game(self.game.kind);
         let presets = common::presets_for_game(self.game.kind);
         let preset = self.matching_preset().map(|index| &presets[index]);
-        let wide = ui.available_width() >= 900.0;
-        let column_width = if wide {
-            (ui.available_width() - 72.0) / 2.0
-        } else {
-            ui.available_width() - 48.0
-        };
+        let (wide, column_width) = mod_columns(ui.available_width());
         let mut open_preset = false;
         let mut focused = None;
         let mut hovered = None;
@@ -1295,10 +1290,9 @@ impl SetupFlow {
                         widgets::caption(ui, i18n::translate(preset.description));
                     }
                 }
-                let list_height = ui.available_height() - 40.0;
                 egui::ScrollArea::vertical()
                     .id_salt("mod-list")
-                    .max_height(list_height.max(120.0))
+                    .max_height(mod_list_height(ui.available_height()))
                     .auto_shrink([false, true])
                     .show(ui, |ui| {
                         ui.spacing_mut().item_spacing.y = 8.0;
@@ -1370,9 +1364,7 @@ impl SetupFlow {
         if let Some(picture) = pages.get(self.preview.page) {
             // In a wide window the picture would grow taller than the room
             // under it allows, so it stays within a share of the height.
-            let width = ui.available_width();
-            let height = (width * 9.0 / 16.0).min(ui.available_height() * PICTURE_SHARE);
-            let size = Vec2::new(height * 16.0 / 9.0, height);
+            let size = picture_size(ui.available_width(), ui.available_height());
             let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
             ui.painter()
                 .rect_filled(rect, theme::CARD_RADIUS, theme::CARD);
@@ -1505,6 +1497,34 @@ fn prefetch_order(mods: &[ModEntry], index: Option<usize>, page: usize) -> Vec<&
 /// the layout's window size, where the description and links fit under it.
 const PICTURE_SHARE: f32 = 0.47;
 
+/// Whether the mod list and its preview fit side by side in `width`, and how
+/// wide each column is: 24 points at both sides, and 24 between two columns.
+fn mod_columns(width: f32) -> (bool, f32) {
+    if width >= 900.0 {
+        (true, (width - 72.0) / 2.0)
+    } else {
+        (false, width - 48.0)
+    }
+}
+
+/// The mod list leaves 40 points under it, but is never shorter than 120.
+fn mod_list_height(room: f32) -> f32 {
+    (room - 40.0).max(120.0)
+}
+
+/// A 16:9 preview picture as wide as `width`, unless that makes it taller
+/// than [`PICTURE_SHARE`] of the `height` below it.
+fn picture_size(width: f32, height: f32) -> Vec2 {
+    let height = (width * 9.0 / 16.0).min(height * PICTURE_SHARE);
+    Vec2::new(height * 16.0 / 9.0, height)
+}
+
+/// Space above content `content` tall that centers it in `room`, with at
+/// least 24 points.
+fn centering_space(room: f32, content: f32) -> f32 {
+    ((room - content) / 2.0).max(24.0)
+}
+
 /// A download progress callback that updates the install screen's bar.
 fn step_progress(
     tx: async_channel::Sender<ProgressMsg>,
@@ -1553,7 +1573,7 @@ fn centered(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
             // Centering needs the content's height, so use last frame's.
             let id = ui.scope_id().with("content-height");
             let last = ui.data(|data| data.get_temp::<f32>(id)).unwrap_or(0.0);
-            ui.add_space(((ui.available_height() - last) / 2.0).max(24.0));
+            ui.add_space(centering_space(ui.available_height(), last));
             let height = ui.vertical_centered(add).response.rect.height();
             if (height - last).abs() > 0.5 {
                 ui.data_mut(|data| data.insert_temp(id, height));

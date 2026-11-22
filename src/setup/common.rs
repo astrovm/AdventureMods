@@ -883,15 +883,14 @@ fn download_cache_dir() -> std::path::PathBuf {
         .join("downloads")
 }
 
-#[cfg(not(test))]
 fn default_cache_dir() -> Option<std::path::PathBuf> {
-    dirs::cache_dir().map(|dir| dir.join("adventure-mods"))
-}
-
-/// Tests must not write to the user's real download cache.
-#[cfg(test)]
-fn default_cache_dir() -> Option<std::path::PathBuf> {
-    Some(std::env::temp_dir().join("adventure-mods-tests"))
+    // Tests must not write to the user's real download cache.
+    let base = if cfg!(test) {
+        Some(std::env::temp_dir().join("adventure-mods-tests"))
+    } else {
+        dirs::cache_dir()
+    };
+    base.map(|dir| dir.join("adventure-mods"))
 }
 
 fn cached_archive_path(url: &str) -> std::path::PathBuf {

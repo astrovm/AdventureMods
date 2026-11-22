@@ -22,6 +22,8 @@ use crate::steam::library::{DetectionResult, resolve_granted_steam_library};
 use crate::{tr, trf};
 
 const TOAST_SECONDS: f64 = 4.0;
+/// Toasts sit this far above the bottom of the window, clear of the footer.
+const TOAST_OFFSET: Vec2 = Vec2::new(0.0, -110.0);
 const ISSUES_URL: &str = "https://github.com/astrovm/AdventureMods/issues";
 
 /// Everything the app does outside itself. Tests swap these for fakes.
@@ -122,6 +124,16 @@ enum Dialog {
 struct Toast {
     text: String,
     until: f64,
+}
+
+impl Toast {
+    /// From 0 to 1 while it appears, 1 while shown, and back to 0 as it
+    /// leaves.
+    fn fade(&self, now: f64) -> f32 {
+        let shown = now - (self.until - TOAST_SECONDS);
+        let left = self.until - now;
+        (shown.min(left) / motion::SCREEN).clamp(0.0, 1.0) as f32
+    }
 }
 
 /// A scan of the Steam libraries running in the background.
@@ -744,15 +756,11 @@ impl AdventureModsApp {
         }
         let now = ctx.input(|input| input.time);
         egui::Area::new(egui::Id::unique("toasts"))
-            .anchor(Align2::CENTER_BOTTOM, Vec2::new(0.0, -110.0))
+            .anchor(Align2::CENTER_BOTTOM, TOAST_OFFSET)
             .interactable(false)
             .show(ctx, |ui| {
                 for toast in &self.toasts {
-                    // Fade in when shown and out before leaving.
-                    let shown = now - (toast.until - TOAST_SECONDS);
-                    let left = toast.until - now;
-                    let fade = (shown.min(left) / motion::SCREEN).clamp(0.0, 1.0) as f32;
-                    ui.set_opacity(motion::ease_out(fade));
+                    ui.set_opacity(motion::ease_out(toast.fade(now)));
                     egui::Frame::new()
                         .fill(theme::CARD_RAISED)
                         .corner_radius(24)

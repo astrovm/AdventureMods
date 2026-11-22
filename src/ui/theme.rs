@@ -246,6 +246,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bold_and_heavy_are_their_own_rubik_weights() {
+        let fonts = fonts();
+        assert_eq!(fonts.families[&bold()][0], "rubik-bold");
+        assert_eq!(fonts.families[&heavy()][0], "rubik-extrabold");
+        assert_eq!(fonts.families[&FontFamily::Proportional][0], "rubik-medium");
+    }
+
+    #[test]
     fn theme_uses_large_text_and_targets() {
         let ctx = egui::Context::default();
         apply(&ctx);

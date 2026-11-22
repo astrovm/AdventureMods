@@ -140,11 +140,8 @@ impl ImageCache {
         ctx: &egui::Context,
         decode: fn(&str) -> anyhow::Result<egui::ColorImage>,
     ) -> Self {
-        // Leave a core for the UI.
-        let workers = std::thread::available_parallelism()
-            .map_or(1, |cores| cores.get() - 1)
-            .clamp(1, MAX_WORKERS);
-        Self::with_workers(ctx, decode, workers)
+        let cores = std::thread::available_parallelism().map_or(1, usize::from);
+        Self::with_workers(ctx, decode, worker_count(cores))
     }
 
     fn with_workers(
@@ -318,11 +315,28 @@ fn is_cover(resource: &str) -> bool {
     resource.contains("/covers/")
 }
 
+/// Decoding threads for a machine with `cores`: one core stays for the UI,
+/// but there is always at least one worker.
+fn worker_count(cores: usize) -> usize {
+    cores.saturating_sub(1).clamp(1, MAX_WORKERS)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn one_core_is_left_for_the_ui() {
+        assert_eq!(worker_count(1), 1);
+        assert_eq!(worker_count(2), 1);
+        assert_eq!(worker_count(3), 2);
+        assert_eq!(worker_count(64), MAX_WORKERS);
+    }
+
     const SCREENSHOT: &str = "/io/github/astrovm/AdventureMods/resources/images/sadx/dreamcast_conversion/dreamcast_conversion_before.jpg";
+    /// 1600 pixels wide, more than [`MAX_WIDTH`].
+    const WIDE_SCREENSHOT: &str =
+        "/io/github/astrovm/AdventureMods/resources/images/sadx/super_sonic/sadx-super-sonic_5.jpg";
 
     /// Move on to the next frame, which may upload more screenshots.
     fn next_frame(ctx: &egui::Context) {
@@ -384,9 +398,11 @@ mod tests {
 
     #[test]
     fn large_screenshots_are_shrunk_when_decoded() {
-        let image = decode(SCREENSHOT).unwrap();
-        assert!(image.size[0] <= MAX_WIDTH as usize);
+        let image = decode(WIDE_SCREENSHOT).unwrap();
+        assert_eq!(image.size[0], MAX_WIDTH as usize);
         assert!(image.size[1] > 0);
+        // A narrower one keeps its size.
+        assert_eq!(decode(SCREENSHOT).unwrap().size[0], 1024);
 
         let cover = decode(cover_resource(GameKind::SA2)).unwrap();
         assert_eq!(cover.size, [460, 215]);
@@ -450,9 +466,10 @@ mod tests {
         assert!(cache.get(&ctx, next).is_some(), "no wait when shown");
         assert!(cache.get(&ctx, SCREENSHOT).is_some());
 
-        // Asking again keeps what is decoded.
+        // Asking again keeps what is decoded, even what is not asked for.
         cache.prefetch(&ctx, &[next]);
         assert!(matches!(cache.slots.get(next), Some(Slot::Ready(_))));
+        assert!(matches!(cache.slots.get(SCREENSHOT), Some(Slot::Ready(_))));
     }
 
     #[test]

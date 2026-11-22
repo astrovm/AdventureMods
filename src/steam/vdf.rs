@@ -61,23 +61,18 @@ impl<'a> Parser<'a> {
 
     fn parse_quoted_string(&mut self) -> Option<String> {
         self.skip_whitespace();
-        if self.pos >= self.input.len() || self.input.as_bytes()[self.pos] != b'"' {
-            return None;
-        }
-        self.pos += 1;
-
+        let mut chars = self.input[self.pos..].strip_prefix('"')?.chars();
         let mut result = String::new();
-        let mut start = self.pos;
 
-        while self.pos < self.input.len() {
-            let ch = self.input.as_bytes()[self.pos];
-            if ch == b'\\' && self.pos + 1 < self.input.len() {
-                result.push_str(&self.input[start..self.pos]);
-                self.pos += 1;
-                // The escaped character may be several bytes long, so step
-                // over all of it to stay on a character boundary.
-                let escaped = self.input[self.pos..].chars().next()?;
-                match escaped {
+        // The iterator always moves forward, so the loop ends at the closing
+        // quote or at the end of the input.
+        while let Some(ch) = chars.next() {
+            match ch {
+                '"' => {
+                    self.pos = self.input.len() - chars.as_str().len();
+                    return Some(result);
+                }
+                '\\' => match chars.next()? {
                     'n' => result.push('\n'),
                     't' => result.push('\t'),
                     '\\' => result.push('\\'),
@@ -86,15 +81,8 @@ impl<'a> Parser<'a> {
                         result.push('\\');
                         result.push(other);
                     }
-                }
-                self.pos += escaped.len_utf8();
-                start = self.pos;
-            } else if ch == b'"' {
-                result.push_str(&self.input[start..self.pos]);
-                self.pos += 1;
-                return Some(result);
-            } else {
-                self.pos += 1;
+                },
+                other => result.push(other),
             }
         }
         None

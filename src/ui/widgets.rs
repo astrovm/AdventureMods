@@ -401,8 +401,15 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
         info
     });
 
+    paint_choice_row(ui, rect, &response, title, value);
+    response
+}
+
+/// Paints a [`choice_row`]: card, title, value and chevron. Painting only, so
+/// mutation testing skips it (`.cargo/mutants.toml`).
+fn paint_choice_row(ui: &Ui, rect: egui::Rect, response: &Response, title: &str, value: &str) {
     // Painting is clipped, so off-screen rows cost little.
-    let highlight = motion::highlight(ui, &response);
+    let highlight = motion::highlight(ui, response);
     let painter = ui.painter();
     let fill = theme::CARD.lerp_to_gamma(theme::CARD_RAISED, highlight);
     painter.rect(
@@ -442,7 +449,6 @@ pub fn choice_row(ui: &mut Ui, title: &str, value: &str) -> Response {
         title,
         theme::TEXT,
     );
-    response
 }
 
 /// A rounded progress bar with `text` on it. The fill glides to `fraction`;
@@ -546,6 +552,33 @@ mod tests {
     use egui_kittest::kittest::Queryable;
 
     use super::*;
+
+    #[test]
+    fn a_button_grows_with_its_label_and_padding() {
+        let ctx = egui::Context::default();
+        crate::ui::theme::apply(&ctx);
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let label = "A label much wider than the smallest button";
+            let text_width = WidgetText::from(label)
+                .into_galley(
+                    ui,
+                    Some(egui::TextWrapMode::Extend),
+                    f32::INFINITY,
+                    TextStyle::Button,
+                )
+                .size()
+                .x;
+            let padding = ui.spacing().button_padding.x;
+
+            let long = button_sized(ui, label, ButtonKind::Normal, 0.0);
+            assert_eq!(long.rect.width(), text_width + 2.0 * padding);
+            assert_eq!(long.rect.height(), theme::TARGET_HEIGHT);
+            let short = button_sized(ui, "OK", ButtonKind::Normal, 0.0);
+            assert_eq!(short.rect.width(), 120.0);
+            let wide = button_sized(ui, "OK", ButtonKind::Normal, 300.0);
+            assert_eq!(wide.rect.width(), 300.0);
+        });
+    }
 
     #[test]
     fn the_progress_pulse_starts_outside_the_track() {

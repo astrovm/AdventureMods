@@ -1180,6 +1180,39 @@ fn library_detection_logs_found_stale_and_unmounted_libraries() {
 }
 
 #[test]
+fn only_a_game_that_is_nowhere_is_logged_as_not_found() {
+    let tmp = tempfile::tempdir().unwrap();
+    let library = tmp.path().join("library");
+    let unmounted = tmp.path().join("unmounted");
+    make_steam_library(&library, GameKind::SA2);
+    let text = format!(
+        "\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" \"apps\" {{ \"{}\" \"0\" }} }} }}",
+        library.display(),
+        GameKind::SA2.app_id()
+    );
+    let only_sa2 = vdf::parse(&text).unwrap();
+    // SADX is listed too, but on a drive that is not there.
+    let text = format!(
+        "\"libraryfolders\" {{ \"0\" {{ \"path\" \"{}\" \"apps\" {{ \"{}\" \"0\" }} }} }}",
+        unmounted.display(),
+        GameKind::SADX.app_id()
+    );
+    let unmounted_sadx = vdf::parse(&text).unwrap();
+    let not_found = |kind: GameKind| format!("{} not found", kind.name());
+
+    let (result, logs) =
+        capture_logs(|| detect_games_from_parsed_vdfs(std::slice::from_ref(&only_sa2), &[]));
+    assert_eq!(result.games.len(), 1);
+    assert!(logs.contains(&not_found(GameKind::SADX)), "{logs}");
+    assert!(!logs.contains(&not_found(GameKind::SA2)), "{logs}");
+
+    let (result, logs) =
+        capture_logs(|| detect_games_from_parsed_vdfs(&[only_sa2, unmounted_sadx], &[]));
+    assert_eq!(result.inaccessible.len(), 1);
+    assert!(!logs.contains(&not_found(GameKind::SADX)), "{logs}");
+}
+
+#[test]
 fn home_scan_logs_unreadable_library_file() {
     let home = tempfile::tempdir().unwrap();
     let steamapps = home.path().join(".local/share/Steam/steamapps");
@@ -1625,6 +1658,43 @@ fn a_blocked_steam_folder_lists_each_game_once() {
     assert_eq!(result.blocked_steam_folders, vec![steam.clone()]);
     assert_eq!(result.inaccessible.len(), 1);
     assert_eq!(result.inaccessible[0].library_path, steam);
+}
+
+#[test]
+fn a_blocked_steam_folder_offers_a_game_another_list_missed() {
+    let home = tempfile::tempdir().unwrap();
+    let steam = home_with_blocked_steam(home.path());
+    make_steam_library(&steam, GameKind::SA2);
+    // The Flatpak's Steam lists the folder with SADX only, so only SADX comes
+    // from a library list.
+    let flatpak = home
+        .path()
+        .join(".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps");
+    std::fs::create_dir_all(&flatpak).unwrap();
+    std::fs::write(
+        flatpak.join("libraryfolders.vdf"),
+        format!(
+            "\"libraryfolders\"\n{{\n\"0\"\n{{\n\"path\" \"{}\"\n\"apps\"\n{{\n\"71250\" \"0\"\n}}\n}}\n}}\n",
+            steam.display()
+        ),
+    )
+    .unwrap();
+    let game_dir = steam.join("steamapps/common/Sonic Adventure DX");
+    set_mode(&game_dir, 0o555);
+
+    let result = in_a_snap(home.path(), || detect_games_with_extra_libraries(&[]));
+    set_mode(&game_dir, 0o755);
+    set_mode(&steam.join("steamapps/libraryfolders.vdf"), 0o644);
+
+    let listed: Vec<_> = result
+        .inaccessible
+        .iter()
+        .map(|game| (game.kind, game.library_path.clone()))
+        .collect();
+    assert_eq!(
+        listed,
+        vec![(GameKind::SADX, steam.clone()), (GameKind::SA2, steam)]
+    );
 }
 
 #[cfg(target_os = "linux")]

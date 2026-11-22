@@ -613,6 +613,53 @@ fn the_window_size_is_saved_unless_maximized() {
     without.save_window_state();
 }
 
+#[test]
+fn a_window_size_counts_as_saved_only_with_both_sides() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut settings = Settings::load_from(dir.path(), &|| None);
+    settings.set(WINDOW_WIDTH_KEY, Value::Int(1111));
+
+    let half = WindowState::load(Some(&settings));
+    assert_eq!(half.size, Vec2::new(1111.0, super::super::DEFAULT_HEIGHT));
+    assert!(!half.saved);
+
+    settings.set(WINDOW_HEIGHT_KEY, Value::Int(777));
+    assert!(WindowState::load(Some(&settings)).saved);
+}
+
+#[test]
+fn a_toast_fades_in_stays_and_fades_out() {
+    let toast = Toast {
+        text: String::new(),
+        until: 10.0 + TOAST_SECONDS,
+    };
+    let half = motion::SCREEN / 2.0;
+    let near = |a: f32, b: f32| (a - b).abs() < 1e-3;
+
+    assert_eq!(toast.fade(10.0), 0.0);
+    assert!(near(toast.fade(10.0 + half), 0.5));
+    assert_eq!(toast.fade(12.0), 1.0);
+    assert!(near(toast.fade(10.0 + TOAST_SECONDS - half), 0.5));
+    assert_eq!(toast.fade(10.0 + TOAST_SECONDS), 0.0);
+}
+
+#[test]
+fn a_toast_stays_for_a_few_seconds_and_keeps_the_window_repainting() {
+    let fixture = Fixture::new(&[]);
+    let mut harness = fixture.harness();
+    run_until(&mut harness, "scan", scanned);
+    harness.run_steps(5);
+    assert_eq!(repaint_delay(&harness), Duration::MAX, "idle");
+
+    let ctx = harness.ctx.clone();
+    let now = ctx.input(|input| input.time);
+    harness.state_mut().toast(&ctx, "Hello");
+    assert_eq!(harness.state().toasts[0].until, now + TOAST_SECONDS);
+    harness.run_steps(2);
+    harness.get_by_label("Hello");
+    assert_eq!(repaint_delay(&harness), Duration::from_millis(100));
+}
+
 fn inner_size_commands(harness: &Harness<'_, AdventureModsApp>) -> Vec<Vec2> {
     harness.output().viewport_output[&egui::ViewportId::ROOT]
         .commands
