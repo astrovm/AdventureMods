@@ -360,7 +360,7 @@ impl WelcomeScreen {
                         motion::QUICK * 2.0,
                         motion::ease_out,
                     );
-                    let width = small + (large - small) * grow;
+                    let width = egui::lerp(small..=large, grow);
                     let size = tile_size(width);
                     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
                     let name = card.kind.name();

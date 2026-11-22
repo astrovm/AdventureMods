@@ -1525,6 +1525,12 @@ fn centering_space(room: f32, content: f32) -> f32 {
     ((room - content) / 2.0).max(24.0)
 }
 
+/// Whether content `height` differs from `last` frame's by more than half a
+/// point, so centering has to measure it again.
+fn height_changed(height: f32, last: f32) -> bool {
+    (height - last).abs() > 0.5
+}
+
 /// A download progress callback that updates the install screen's bar.
 fn step_progress(
     tx: async_channel::Sender<ProgressMsg>,
@@ -1575,7 +1581,7 @@ fn centered(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
             let last = ui.data(|data| data.get_temp::<f32>(id)).unwrap_or(0.0);
             ui.add_space(centering_space(ui.available_height(), last));
             let height = ui.vertical_centered(add).response.rect.height();
-            if (height - last).abs() > 0.5 {
+            if height_changed(height, last) {
                 ui.data_mut(|data| data.insert_temp(id, height));
                 ui.ctx().request_repaint();
             }

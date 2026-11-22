@@ -1301,6 +1301,11 @@ fn layout_sizes_fit_the_window() {
     assert!((short.x - short.y * 16.0 / 9.0).abs() < 1e-3);
     assert_eq!(centering_space(500.0, 300.0), 100.0);
     assert_eq!(centering_space(300.0, 290.0), 24.0);
+    // Centering measures again only when the height really changed.
+    assert!(height_changed(300.0, 0.0));
+    assert!(height_changed(300.0, 301.0));
+    assert!(!height_changed(300.0, 300.0));
+    assert!(!height_changed(300.0, 300.4));
 }
 
 #[test]
