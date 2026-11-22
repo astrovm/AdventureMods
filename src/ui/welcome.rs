@@ -357,7 +357,7 @@ impl WelcomeScreen {
                     let grow = ui.ctx().animate_bool_with_time_and_easing(
                         egui::Id::unique(("tile-grow", card.kind)),
                         index == self.selected,
-                        motion::QUICK * 2.0,
+                        motion::TILE_GROW,
                         motion::ease_out,
                     );
                     let width = egui::lerp(small..=large, grow);

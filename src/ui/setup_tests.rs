@@ -1306,6 +1306,7 @@ fn layout_sizes_fit_the_window() {
     assert!(height_changed(300.0, 301.0));
     assert!(!height_changed(300.0, 300.0));
     assert!(!height_changed(300.0, 300.4));
+    assert!(!height_changed(300.0, 300.5));
 }
 
 #[test]

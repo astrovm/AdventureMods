@@ -5,6 +5,8 @@ use egui::{Context, Id, Response, Ui};
 
 /// How long hover, focus and press effects take, in seconds.
 pub const QUICK: f32 = 0.12;
+/// How long a game tile takes to grow when it is selected, in seconds.
+pub const TILE_GROW: f32 = 0.24;
 /// How long a screen takes to fade and slide in, in seconds.
 pub const SCREEN: f64 = 0.22;
 /// How far a new screen slides up while it fades in, in points.
