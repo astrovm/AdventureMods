@@ -295,13 +295,19 @@ impl WelcomeScreen {
     /// The selected game's blurred cover fills the window, fading between
     /// games, with the bottom darkened so text stays readable. Call it before
     /// anything else is drawn, as it paints over the whole window.
+    /// Only the selected game has its cover behind the screen, and only when
+    /// the game is there: a missing game has nothing to show yet.
+    fn has_backdrop(&self, index: usize) -> bool {
+        index == self.selected && self.cards[index].state != CardState::Missing
+    }
+
     pub fn paint_backdrops(&mut self, ctx: &egui::Context) {
         let screen = ctx.content_rect();
         let painter = ctx.layer_painter(egui::LayerId::background());
         for (index, card) in self.cards.iter().enumerate() {
             let shown = ctx.animate_bool_with_time_and_easing(
                 egui::Id::unique(("backdrop", card.kind)),
-                index == self.selected && card.state != CardState::Missing,
+                self.has_backdrop(index),
                 motion::SCREEN as f32 * 2.0,
                 motion::ease_out,
             );
@@ -661,6 +667,23 @@ mod tests {
                     actions: Vec::new(),
                 },
             )
+    }
+
+    #[test]
+    fn only_the_selected_game_that_is_there_has_a_backdrop() {
+        let mut screen = WelcomeScreen::default();
+        // SADX is missing, SA2 is found.
+        screen.set_result(DetectionResult {
+            games: vec![game(GameKind::SA2, "/games/sa2")],
+            ..Default::default()
+        });
+        assert_eq!(screen.selected, 1);
+        assert!(!screen.has_backdrop(0));
+        assert!(screen.has_backdrop(1));
+
+        screen.selected = 0;
+        assert!(!screen.has_backdrop(0), "missing");
+        assert!(!screen.has_backdrop(1), "not selected");
     }
 
     #[test]

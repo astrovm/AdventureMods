@@ -126,8 +126,8 @@ mod tests {
 
     #[test]
     fn either_gamescope_or_the_steam_gamepad_ui_means_game_mode() {
-        // nextest runs each test in its own process, so the variables do not
-        // leak into other tests.
+        // No other test in this binary reads these variables, and the test
+        // leaves both unset.
         let set = |gamescope: bool, gamepad_ui: bool| {
             for (name, on) in [
                 ("GAMESCOPE_WAYLAND_DISPLAY", gamescope),
@@ -146,5 +146,6 @@ mod tests {
         assert!(set(true, false));
         assert!(set(false, true));
         assert!(set(true, true));
+        set(false, false);
     }
 }

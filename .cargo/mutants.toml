@@ -17,6 +17,7 @@ exclude_re = [
     "\\bback_button\\b",
     # src/ui/welcome.rs
     "\\bpaint_tile\\b",
+    # Which game has a backdrop is in has_backdrop, which is tested.
     "\\bpaint_backdrops\\b",
     # src/ui/theme.rs
     "\\bpaint_background\\b",

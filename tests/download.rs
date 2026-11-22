@@ -51,6 +51,8 @@ fn download_truncates_http_error_body_snippet() {
     assert!(!message.contains(&"x".repeat(250)));
 }
 
+// XDG_CACHE_HOME moves the user's cache folder only on Linux.
+#[cfg(target_os = "linux")]
 #[test]
 fn a_prefetched_mod_waits_in_the_app_folder_of_the_users_cache() {
     let _ = rustls::crypto::ring::default_provider().install_default();
