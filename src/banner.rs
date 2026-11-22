@@ -50,12 +50,18 @@ mod tests {
 
     #[test]
     fn print_banner_formats_each_line_when_color_is_enabled() {
+        // console leaves out the colors when stdout is not a terminal, as in
+        // tests.
+        let previous = console::colors_enabled();
+        console::set_colors_enabled(true);
         let mut output = Vec::new();
 
         print_banner(&mut output, true).unwrap();
+        console::set_colors_enabled(previous);
 
         let output = String::from_utf8(output).unwrap();
-        assert!(!output.is_empty());
+        assert_eq!(output.lines().count(), SONIC_BANNER.lines().count());
+        assert!(output.lines().all(|line| line.starts_with('\x1b')));
     }
 
     #[test]

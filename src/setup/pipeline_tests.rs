@@ -454,6 +454,26 @@ fn failing_mods_are_retried_then_reported_by_name() {
 }
 
 #[test]
+fn a_mod_that_fails_once_installs_on_the_second_try() {
+    let env = DownloadEnv::new();
+    let requests = std::sync::atomic::AtomicUsize::new(0);
+    let (base, log) = serve(move |_| match requests.fetch_add(1, Ordering::SeqCst) {
+        0 => Reply::ok("busy").status("503 Service Unavailable"),
+        _ => Reply::ok("Name=Retry Mod"),
+    });
+    let entry = served_mod("Retry Mod", "RetryMod", format!("{base}/retry.7z"));
+
+    install(&env.game(), &[&entry], |_| Ok(())).unwrap();
+
+    // It stops after the try that works.
+    assert_eq!(gets(&log), 2);
+    assert_eq!(
+        std::fs::read_to_string(env.game().join("mods/RetryMod/mod.ini")).unwrap(),
+        "Name=Retry Mod"
+    );
+}
+
+#[test]
 fn cancelling_during_a_download_stops_without_retrying() {
     let env = DownloadEnv::new();
     // The server answers slowly, so the cancellation lands mid-download.

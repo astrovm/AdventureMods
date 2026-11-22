@@ -289,7 +289,7 @@ async fn download_attempt(
     loop {
         if tokio::time::Instant::now() >= window_end {
             let window_bytes = downloaded - window_start_bytes;
-            if may_switch_mirror && window_bytes < SLOW_WINDOW_BYTES {
+            if may_switch_mirror && too_slow(window_bytes) {
                 tracing::info!(
                     "{mirror} sent only {window_bytes} bytes of {url} in {} seconds, asking for another mirror",
                     SPEED_WINDOW.as_secs()
@@ -321,6 +321,12 @@ async fn download_attempt(
         .with_context(|| format!("Failed to finish download to {}", dest.display()))?;
     let _ = std::fs::remove_file(&validator_path);
     Ok(Attempt::Done(validator))
+}
+
+/// Whether a mirror that sent `window_bytes` in one [`SPEED_WINDOW`] is too
+/// slow to keep. [`SLOW_WINDOW_BYTES`] itself is fast enough.
+fn too_slow(window_bytes: u64) -> bool {
+    window_bytes < SLOW_WINDOW_BYTES
 }
 
 /// Whether the server says it can send part of the file.
@@ -566,6 +572,34 @@ mod tests {
         let (part, validator_path) = partial_paths(&dest);
         assert!(!part.exists() && !validator_path.exists());
         assert_eq!(log.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn an_empty_partial_file_starts_over_without_asking_for_a_range() {
+        init();
+        let ranges = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = ranges.clone();
+        let (base, _) = serve(move |request| {
+            seen.lock()
+                .unwrap()
+                .push(request.header("Range").map(str::to_owned));
+            ranged_file(request, "\"v1\"")
+        });
+        let tmp = tempfile::tempdir().unwrap();
+        let dest = tmp.path().join("file.7z");
+        seed_partial(&dest, b"", Some("\"v1\""));
+
+        download_file_resumable(&format!("{base}/file"), &dest, None).unwrap();
+
+        assert_eq!(std::fs::read(&dest).unwrap(), BODY);
+        assert_eq!(*ranges.lock().unwrap(), [None]);
+    }
+
+    #[test]
+    fn a_mirror_is_slow_only_below_the_window_minimum() {
+        assert!(too_slow(0));
+        assert!(too_slow(SLOW_WINDOW_BYTES - 1));
+        assert!(!too_slow(SLOW_WINDOW_BYTES));
     }
 
     /// Long enough to look slow, short enough not to count as a stall.

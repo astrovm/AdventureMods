@@ -1,6 +1,17 @@
 use super::*;
 
 #[test]
+fn unit_tests_cache_downloads_in_their_own_temporary_folder() {
+    let _guard = crate::test_env::lock();
+    let base = std::env::temp_dir().join("adventure-mods-tests");
+
+    assert_eq!(default_cache_dir(), Some(base.clone()));
+    // SAFETY: the lock keeps other tests from reading the environment now.
+    unsafe { std::env::remove_var("ADVENTURE_MODS_CACHE_DIR") };
+    assert_eq!(download_cache_dir(), base.join("downloads"));
+}
+
+#[test]
 fn gamebanana_item_dl_base_override() {
     use std::io::{Read, Write};
     use std::net::TcpListener;

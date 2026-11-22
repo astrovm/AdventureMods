@@ -912,6 +912,13 @@ mod tests {
         assert!(state.display.as_ref().unwrap().pulse);
 
         samples.clear_mod("Alpha");
+        let mut one_left = ProgressState::default();
+        samples.apply_to(&mut one_left);
+        assert_eq!(
+            one_left.active_downloads.keys().collect::<Vec<_>>(),
+            ["Beta"]
+        );
+
         samples.clear();
         let mut cleared = ProgressState::default();
         samples.apply_to(&mut cleared);

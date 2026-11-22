@@ -424,10 +424,10 @@ fn proton_tag_major(text: &str) -> Option<u32> {
 
 /// Split leading ASCII digits off `text`.
 fn split_number(text: &str) -> (Option<u32>, &str) {
-    let end = text
-        .find(|c: char| !c.is_ascii_digit())
-        .unwrap_or(text.len());
-    (text[..end].parse().ok(), &text[end..])
+    // The rest always starts after the digits, so callers that loop on it
+    // move forward.
+    let rest = text.trim_start_matches(|c: char| c.is_ascii_digit());
+    (text[..text.len() - rest.len()].parse().ok(), rest)
 }
 
 fn configured_tool_from_config(
@@ -456,9 +456,8 @@ fn configured_tool_from_config(
                 best_failure = ConfiguredToolLookup::ConfiguredToolUnavailable { name };
             }
             Err(other) => {
-                if failure_priority(&other) > failure_priority(&best_failure) {
-                    best_failure = other;
-                }
+                // On a tie the two are the same failure.
+                best_failure = std::cmp::max_by_key(best_failure, other, failure_priority);
             }
         }
     }
@@ -888,6 +887,14 @@ fn parse_proton_dir_name(name: &str) -> Option<ProtonVersion> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn split_number_splits_off_the_leading_digits() {
+        assert_eq!(split_number("10.0-4b"), (Some(10), ".0-4b"));
+        assert_eq!(split_number("11"), (Some(11), ""));
+        assert_eq!(split_number("x10"), (None, "x10"));
+        assert_eq!(split_number(""), (None, ""));
+    }
 
     #[test]
     fn major_from_label_reads_dotted_versions_and_numbered_tags() {

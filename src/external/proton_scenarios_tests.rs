@@ -360,6 +360,38 @@ fn switching_to_a_wine_11_build_on_another_drive_is_caught_before_launch() {
 }
 
 #[test]
+fn switching_to_proton_hotfix_is_caught_before_launch() {
+    let steam = Steam::new();
+    let game = steam.install_game(&steam.root);
+    let proton = steam.install(&steam.root, PROTON_10);
+    steam.install(&steam.root, PROTON_HOTFIX);
+    steam.launch(&game, PROTON_10, &proton);
+    // Steam stores `proton_hotfix`, but the folder is `Proton Hotfix`.
+    steam.force(PROTON_HOTFIX);
+
+    assert_eq!(
+        steam.state(&game),
+        PrefixState::UnsupportedConfiguredProton {
+            tool_name: "Proton Hotfix".to_owned(),
+            major: 11,
+        }
+    );
+}
+
+#[test]
+fn a_proton_10_steam_still_has_to_download_is_not_refused() {
+    let steam = Steam::new();
+    let game = steam.install_game(&steam.root);
+    let ge = steam.install(&steam.root, GE_PROTON_10);
+    steam.launch(&game, GE_PROTON_10, &ge);
+    // Forced, but not installed anywhere yet. Proton 10 is supported.
+    steam.force(PROTON_10);
+
+    let state = steam.state(&game);
+    assert_eq!(state, PrefixState::Ready);
+}
+
+#[test]
 fn a_custom_tool_is_found_by_its_registered_name_not_its_folder() {
     let steam = Steam::new();
     let game = steam.install_game(&steam.root);

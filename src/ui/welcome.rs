@@ -261,7 +261,7 @@ impl WelcomeScreen {
                 let free = ui.available_height() - self.content_height;
                 ui.add_space((free / 2.0).max(16.0));
                 let content = ui.vertical(|ui| {
-                    let margin = (ui.available_width() * 0.05).clamp(16.0, 48.0);
+                    let margin = side_margin(ui.available_width());
                     egui::Frame::new()
                         .inner_margin(egui::Margin::symmetric(margin as i8, 0))
                         .show(ui, |ui| {
@@ -295,13 +295,19 @@ impl WelcomeScreen {
     /// The selected game's blurred cover fills the window, fading between
     /// games, with the bottom darkened so text stays readable. Call it before
     /// anything else is drawn, as it paints over the whole window.
+    /// Only the selected game has its cover behind the screen, and only when
+    /// the game is there: a missing game has nothing to show yet.
+    fn has_backdrop(&self, index: usize) -> bool {
+        index == self.selected && self.cards[index].state != CardState::Missing
+    }
+
     pub fn paint_backdrops(&mut self, ctx: &egui::Context) {
         let screen = ctx.content_rect();
         let painter = ctx.layer_painter(egui::LayerId::background());
         for (index, card) in self.cards.iter().enumerate() {
             let shown = ctx.animate_bool_with_time_and_easing(
                 egui::Id::unique(("backdrop", card.kind)),
-                index == self.selected && card.state != CardState::Missing,
+                self.has_backdrop(index),
                 motion::SCREEN as f32 * 2.0,
                 motion::ease_out,
             );
@@ -342,25 +348,20 @@ impl WelcomeScreen {
 
     /// One tile per game; the selected one is larger and outlined in gold.
     fn show_tiles(&mut self, ui: &mut Ui, images: &mut ImageCache) {
-        let gap = 24.0;
-        let count = self.cards.len() as f32;
-        let room = ui.available_width() - gap * (count - 1.0);
-        // The selected tile takes a bigger share of the row.
-        let small = (room / (count + 0.25)).min(560.0);
-        let large = small * 1.25;
+        let (small, large) = tile_widths(ui.available_width(), self.cards.len());
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = gap;
+            ui.spacing_mut().item_spacing.x = TILE_GAP;
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Max), |ui| {
                 for index in 0..self.cards.len() {
                     let card = &self.cards[index];
                     let grow = ui.ctx().animate_bool_with_time_and_easing(
                         egui::Id::unique(("tile-grow", card.kind)),
                         index == self.selected,
-                        motion::QUICK * 2.0,
+                        motion::TILE_GROW,
                         motion::ease_out,
                     );
-                    let width = small + (large - small) * grow;
-                    let size = Vec2::new(width, width * 215.0 / 460.0);
+                    let width = egui::lerp(small..=large, grow);
+                    let size = tile_size(width);
                     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
                     let name = card.kind.name();
                     response
@@ -449,6 +450,29 @@ impl WelcomeScreen {
     fn card(&self, kind: GameKind) -> &GameCard {
         self.cards.iter().find(|card| card.kind == kind).unwrap()
     }
+}
+
+/// Points between game tiles.
+const TILE_GAP: f32 = 24.0;
+
+/// The welcome screen's side margins: 5% of `width`, from 16 to 48 points.
+fn side_margin(width: f32) -> f32 {
+    (width * 0.05).clamp(16.0, 48.0)
+}
+
+/// Widths of an unselected and of the selected tile, when `count` tiles share
+/// a row `width` wide. The selected one is a quarter wider, and the row
+/// always fits.
+fn tile_widths(width: f32, count: usize) -> (f32, f32) {
+    let count = count as f32;
+    let room = width - TILE_GAP * (count - 1.0);
+    let small = (room / (count + 0.25)).min(560.0);
+    (small, small * 1.25)
+}
+
+/// A tile `width` wide, with the shape of a Steam cover (460 by 215).
+fn tile_size(width: f32) -> Vec2 {
+    Vec2::new(width, width * 215.0 / 460.0)
 }
 
 /// A game's cover, dimmed unless selected, outlined in gold as it grows.
@@ -585,6 +609,24 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn tiles_and_margins_fit_the_window() {
+        assert_eq!(side_margin(200.0), 16.0);
+        assert_eq!(side_margin(600.0), 30.0);
+        assert_eq!(side_margin(2000.0), 48.0);
+
+        // Two tiles: one small, one a quarter wider, and the gap between.
+        let (small, large) = tile_widths(924.0, 2);
+        assert_eq!((small, large), (400.0, 500.0));
+        assert_eq!(small + large + TILE_GAP, 924.0);
+        assert_eq!(tile_widths(4000.0, 2), (560.0, 700.0));
+        // Any count: the tiles and the gaps between them fill the row.
+        assert_eq!(tile_widths(500.0, 1), (400.0, 500.0));
+        assert_eq!(tile_widths(698.0, 3), (200.0, 250.0));
+        assert_eq!(200.0 * 2.0 + 250.0 + TILE_GAP * 2.0, 698.0);
+        assert_eq!(tile_size(460.0), Vec2::new(460.0, 215.0));
+    }
+
     fn game(kind: GameKind, path: &str) -> Game {
         Game {
             kind,
@@ -629,6 +671,23 @@ mod tests {
                     actions: Vec::new(),
                 },
             )
+    }
+
+    #[test]
+    fn only_the_selected_game_that_is_there_has_a_backdrop() {
+        let mut screen = WelcomeScreen::default();
+        // SADX is missing, SA2 is found.
+        screen.set_result(DetectionResult {
+            games: vec![game(GameKind::SA2, "/games/sa2")],
+            ..Default::default()
+        });
+        assert_eq!(screen.selected, 1);
+        assert!(!screen.has_backdrop(0));
+        assert!(screen.has_backdrop(1));
+
+        screen.selected = 0;
+        assert!(!screen.has_backdrop(0), "missing");
+        assert!(!screen.has_backdrop(1), "not selected");
     }
 
     #[test]
@@ -920,6 +979,8 @@ mod tests {
         screen.set_result(result.clone());
         screen.cards[0].select(1);
         screen.cards[0].select(9);
+        // Two installs: the third does not exist.
+        screen.cards[0].select(2);
         screen.set_result(result);
         assert_eq!(screen.card(GameKind::SADX).selected, 1);
 

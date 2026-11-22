@@ -99,8 +99,7 @@ fn prefetch_with_retries(
     report: &(dyn Fn(&'static str, PrefetchEvent) + Sync),
 ) {
     let name = mod_entry.name;
-    let mut attempt = 1;
-    loop {
+    for attempt in 1..=MAX_MOD_INSTALL_ATTEMPTS {
         let mut progress = |downloaded: u64, total: Option<u64>| {
             ensure_not_cancelled(cancelled)?;
             report(name, PrefetchEvent::Downloading { downloaded, total });
@@ -119,8 +118,12 @@ fn prefetch_with_retries(
             return report(name, PrefetchEvent::Failed);
         }
         tracing::info!("Prefetching '{name}' failed, trying again: {err:#}");
-        attempt += 1;
-        report(name, PrefetchEvent::Retrying { attempt });
+        report(
+            name,
+            PrefetchEvent::Retrying {
+                attempt: attempt + 1,
+            },
+        );
         thread::sleep(RETRY_PAUSE);
     }
 }
@@ -198,8 +201,8 @@ fn install_mods_and_generate_config(
                     let mod_entry = selected_mods[job_index];
                     let _ = tx.send(WorkerMessage::InstallingMod { job_index });
 
-                    let mut attempt = 0;
-                    let result = loop {
+                    let mut result = Ok(());
+                    for attempt in 1..=MAX_MOD_INSTALL_ATTEMPTS {
                         let mut download_progress = |downloaded: u64, total_bytes: Option<u64>| {
                             ensure_not_cancelled(&cancelled)?;
 
@@ -214,24 +217,22 @@ fn install_mods_and_generate_config(
                             ensure_not_cancelled(&cancelled)
                         };
 
-                        let result = common::install_mod_with_progress(
+                        result = common::install_mod_with_progress(
                             game_path,
                             mod_entry,
                             Some(&mut download_progress),
                         );
-
-                        attempt += 1;
-                        match result {
-                            Ok(()) => break Ok(()),
-                            Err(e) if attempt < MAX_MOD_INSTALL_ATTEMPTS => {
-                                if cancelled.load(Ordering::Relaxed) {
-                                    break Err(e);
-                                }
-                                std::thread::sleep(RETRY_PAUSE);
+                        match &result {
+                            Ok(()) => break,
+                            Err(_)
+                                if attempt == MAX_MOD_INSTALL_ATTEMPTS
+                                    || cancelled.load(Ordering::Relaxed) =>
+                            {
+                                break;
                             }
-                            Err(e) => break Err(e),
+                            Err(_) => std::thread::sleep(RETRY_PAUSE),
                         }
-                    };
+                    }
 
                     match result {
                         Ok(()) => {

@@ -122,6 +122,30 @@ mod tests {
         assert_eq!(options.viewport.fullscreen, Some(true));
         assert_eq!(options.viewport.clamp_size_to_monitor_size, Some(false));
         assert_eq!(options.viewport.app_id.as_deref(), Some(config::APP_ID));
-        let _ = in_game_mode();
+    }
+
+    #[test]
+    fn either_gamescope_or_the_steam_gamepad_ui_means_game_mode() {
+        // No other test in this binary reads these variables, and the test
+        // leaves both unset.
+        let set = |gamescope: bool, gamepad_ui: bool| {
+            for (name, on) in [
+                ("GAMESCOPE_WAYLAND_DISPLAY", gamescope),
+                ("SteamGamepadUI", gamepad_ui),
+            ] {
+                if on {
+                    unsafe { std::env::set_var(name, "1") };
+                } else {
+                    unsafe { std::env::remove_var(name) };
+                }
+            }
+            in_game_mode()
+        };
+
+        assert!(!set(false, false));
+        assert!(set(true, false));
+        assert!(set(false, true));
+        assert!(set(true, true));
+        set(false, false);
     }
 }

@@ -485,9 +485,17 @@ fn run_setup(args: SetupArgs, out: &mut CliOutput) -> Result<()> {
 }
 
 fn use_rich_prompts(args: &SetupArgs) -> bool {
-    std::io::stdin().is_terminal()
-        && std::io::stdout().is_terminal()
-        && !setup_is_fully_specified(args)
+    rich_prompts_fit(
+        std::io::stdin().is_terminal(),
+        std::io::stdout().is_terminal(),
+        args,
+    )
+}
+
+/// Menus need a person at a terminal on both ends, and only when the flags
+/// leave a choice open.
+fn rich_prompts_fit(stdin_is_terminal: bool, stdout_is_terminal: bool, args: &SetupArgs) -> bool {
+    stdin_is_terminal && stdout_is_terminal && !setup_is_fully_specified(args)
 }
 
 fn setup_is_fully_specified(args: &SetupArgs) -> bool {

@@ -9,7 +9,7 @@ use super::{
     detect_games_with_saved_libraries, not_detected_error, parse_xrandr_resolution,
     persist_cli_language_selection, resolve_game_kind_rich, resolve_game_path_rich,
     resolve_mods_flag, resolve_setup_languages, resolve_setup_mods, resolve_setup_mods_rich,
-    run_from_args_with_io, run_with_io, setup_is_fully_specified,
+    rich_prompts_fit, run_from_args_with_io, run_with_io, setup_is_fully_specified,
 };
 use crate::config::APP_ID;
 use crate::settings::{Settings, Value};
@@ -810,6 +810,40 @@ fn setup_is_fully_specified_with_explicit_flags() {
 }
 
 #[test]
+fn a_preset_or_all_mods_alone_is_a_mod_choice() {
+    let chosen = |preset: Option<&str>, all_mods: bool| SetupArgs {
+        game: Some("sa2".to_string()),
+        game_path: Some(PathBuf::from("/tmp/sa2")),
+        preset: preset.map(str::to_string),
+        all_mods,
+        ..empty_setup_args()
+    };
+
+    assert!(!setup_is_fully_specified(&chosen(None, false)));
+    assert!(setup_is_fully_specified(&chosen(
+        Some("recommended"),
+        false
+    )));
+    assert!(setup_is_fully_specified(&chosen(None, true)));
+}
+
+#[test]
+fn rich_prompts_need_a_terminal_on_both_ends_and_an_open_choice() {
+    let open = empty_setup_args();
+    let full = SetupArgs {
+        game: Some("sa2".to_string()),
+        game_path: Some(PathBuf::from("/tmp/sa2")),
+        all_mods: true,
+        ..empty_setup_args()
+    };
+
+    assert!(rich_prompts_fit(true, true, &open));
+    assert!(!rich_prompts_fit(false, true, &open));
+    assert!(!rich_prompts_fit(true, false, &open));
+    assert!(!rich_prompts_fit(true, true, &full));
+}
+
+#[test]
 fn setup_is_not_fully_specified_without_mod_choice() {
     let args = SetupArgs {
         game: Some("sa2".to_string()),
@@ -1539,7 +1573,12 @@ fn game_resolution_handles_detection_errors_and_cardinality() {
         ..empty_setup_args()
     };
     assert!(super::resolve_game_kind(&empty).is_err());
-    assert!(super::resolve_game_path(&empty, GameKind::SA2).is_err());
+    assert_eq!(
+        super::resolve_game_path(&empty, GameKind::SA2)
+            .unwrap_err()
+            .to_string(),
+        "Sonic Adventure 2 was not detected. Pass --game-path."
+    );
 
     let mut output = Vec::new();
     run_with_io(
@@ -1652,10 +1691,14 @@ fn download_progress_and_summary_cover_cli_output_paths() {
 }
 
 #[test]
-fn detect_resolution_uses_a_safe_fallback() {
-    let (width, height) = super::detect_resolution();
-    assert!(width > 0);
-    assert!(height > 0);
+fn detect_resolution_asks_the_display_server_then_xrandr() {
+    let mut xrandr = ProcessCommand::new("xrandr");
+    xrandr.arg("--current");
+    let expected =
+        super::detect_resolution_with(crate::display::resolution_from_display_server, xrandr);
+
+    assert_eq!(super::detect_resolution(), expected);
+    assert!(expected.0 > 1 && expected.1 > 1);
 }
 
 #[test]

@@ -18,6 +18,9 @@ fn fake_runtimes(path: &Path, _app_id: u32) -> anyhow::Result<()> {
     if marker(path, "panic-dotnet") {
         panic!("runtime installer exploded");
     }
+    while marker(path, "hold-dotnet") {
+        std::thread::sleep(Duration::from_millis(5));
+    }
     if marker(path, "fail-dotnet") {
         anyhow::bail!("dotnet failed");
     }
@@ -872,6 +875,8 @@ fn sadx_converts_and_shows_download_progress() {
                 .is_some_and(|install| install.progress.display.is_some())
     });
     harness.get_by_label_contains("Downloading… - ");
+    // Only the mod download can be cancelled.
+    assert_eq!(harness.state().flow.pad_action_label(), None);
     assert!(dir.path().join("converted").exists());
     assert_eq!(harness.state().flow.title().0, "Installing");
     assert!(!harness.state().flow.can_go_back());
@@ -1211,6 +1216,97 @@ fn the_preview_follows_the_focused_mod_and_turns_pages() {
         harness.state().events,
         vec![SetupEvent::OpenUri(link.url.to_owned())]
     );
+}
+
+#[test]
+fn the_previous_page_button_turns_back() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut setup = flow(GameKind::SADX, dir.path(), work());
+    let mods = common::recommended_mods_for_game(GameKind::SADX);
+    let index = mods
+        .iter()
+        .position(|mod_entry| mod_entry.pictures.len() > 2)
+        .unwrap();
+    let pages = mods[index].pictures.len();
+    setup.preview = Preview {
+        index: Some(index),
+        page: 1,
+    };
+
+    setup.handle_pad(PadButton::PreviousPage);
+    assert_eq!(setup.preview.page, 0);
+    setup.handle_pad(PadButton::PreviousPage);
+    assert_eq!(setup.preview.page, pages - 1);
+}
+
+#[test]
+fn a_step_without_a_download_shows_no_progress_bar() {
+    let dir = game_dir(&["proton-ready", "hold-dotnet"]);
+    let mut harness = harness(flow(GameKind::SA2, dir.path(), work()));
+    act(&mut harness, |flow| {
+        flow.on_next();
+        flow.on_next();
+        flow.on_next();
+    });
+    run_until(&mut harness, ".NET step", |state| {
+        step_id(state) == StepId::Dotnet && state.flow.busy()
+    });
+    harness.run_steps(2);
+    // Only the spinner of the running task: no progress bar under the list.
+    assert_eq!(
+        harness
+            .query_all_by_role(egui::accesskit::Role::ProgressIndicator)
+            .count(),
+        1
+    );
+
+    std::fs::remove_file(dir.path().join("hold-dotnet")).unwrap();
+    run_until(&mut harness, "finished", |state| {
+        step_id(state) == StepId::Complete
+    });
+}
+
+#[test]
+fn each_question_has_its_own_screen_and_the_work_shares_one() {
+    let dir = game_dir(&["proton-ready"]);
+    let mut setup = flow(GameKind::SA2, dir.path(), work());
+    let position =
+        |setup: &SetupFlow, id: StepId| setup.steps.iter().position(|step| step.id == id).unwrap();
+    let key_at = |setup: &mut SetupFlow, id: StepId| {
+        setup.current = position(setup, id);
+        setup.screen_key()
+    };
+
+    let mods = key_at(&mut setup, StepId::SelectMods);
+    let languages = key_at(&mut setup, StepId::LanguageOptions);
+    let dotnet = key_at(&mut setup, StepId::Dotnet);
+    let manager = key_at(&mut setup, StepId::InstallModManager);
+
+    assert_ne!(mods, languages);
+    assert_ne!(languages, dotnet);
+    assert_eq!(dotnet, manager);
+}
+
+#[test]
+fn layout_sizes_fit_the_window() {
+    // Two columns from 900 points on, each with 24 points around it.
+    assert_eq!(mod_columns(899.0), (false, 851.0));
+    assert_eq!(mod_columns(1000.0), (true, 464.0));
+    assert_eq!(mod_list_height(500.0), 460.0);
+    assert_eq!(mod_list_height(100.0), 120.0);
+    // 16:9 at the full width, unless the room below is short.
+    assert_eq!(picture_size(320.0, 1000.0), Vec2::new(320.0, 180.0));
+    let short = picture_size(1600.0, 200.0);
+    assert!((short.y - 200.0 * PICTURE_SHARE).abs() < 1e-3);
+    assert!((short.x - short.y * 16.0 / 9.0).abs() < 1e-3);
+    assert_eq!(centering_space(500.0, 300.0), 100.0);
+    assert_eq!(centering_space(300.0, 290.0), 24.0);
+    // Centering measures again only when the height really changed.
+    assert!(height_changed(300.0, 0.0));
+    assert!(height_changed(300.0, 301.0));
+    assert!(!height_changed(300.0, 300.0));
+    assert!(!height_changed(300.0, 300.4));
+    assert!(!height_changed(300.0, 300.5));
 }
 
 #[test]

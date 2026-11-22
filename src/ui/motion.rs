@@ -5,6 +5,8 @@ use egui::{Context, Id, Response, Ui};
 
 /// How long hover, focus and press effects take, in seconds.
 pub const QUICK: f32 = 0.12;
+/// How long a game tile takes to grow when it is selected, in seconds.
+pub const TILE_GROW: f32 = 0.24;
 /// How long a screen takes to fade and slide in, in seconds.
 pub const SCREEN: f64 = 0.22;
 /// How far a new screen slides up while it fades in, in points.
@@ -64,9 +66,15 @@ impl ScreenTransition {
     pub fn show<R>(&mut self, ui: &mut Ui, key: u64, add: impl FnOnce(&mut Ui) -> R) -> R {
         let t = self.progress(ui.ctx(), key);
         ui.multiply_opacity(t);
-        ui.add_space((1.0 - t) * SCREEN_SLIDE);
+        ui.add_space(slide(t));
         add(ui)
     }
+}
+
+/// How far below its place a screen is at progress `t`: all of
+/// [`SCREEN_SLIDE`] at first, none once settled.
+fn slide(t: f32) -> f32 {
+    (1.0 - t) * SCREEN_SLIDE
 }
 
 /// A stable key for `value`, for [`ScreenTransition`].
@@ -78,6 +86,13 @@ pub fn key(value: impl std::hash::Hash + std::fmt::Debug) -> u64 {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn a_new_screen_slides_up_into_place() {
+        assert_eq!(slide(0.0), SCREEN_SLIDE);
+        assert_eq!(slide(0.5), SCREEN_SLIDE / 2.0);
+        assert_eq!(slide(1.0), 0.0);
+    }
 
     #[test]
     fn ease_out_starts_fast_and_ends_at_one() {

@@ -10,10 +10,15 @@ additional_cargo_args = ["--locked"]
 exclude_re = [
     # src/ui/widgets.rs
     "\\bpaint_button\\b",
+    "\\bpaint_choice_row\\b",
     "\\bpaint_toggle_row\\b",
     "\\bpaint_progress\\b",
+    # The chevron of the Back button.
+    "\\bback_button\\b",
     # src/ui/welcome.rs
     "\\bpaint_tile\\b",
+    # Which game has a backdrop is in has_backdrop, which is tested.
+    "\\bpaint_backdrops\\b",
     # src/ui/theme.rs
     "\\bpaint_background\\b",
     # src/ui/motion.rs: the button press offset
@@ -22,4 +27,8 @@ exclude_re = [
     "\\bshow_cover\\b",
     "\\bspinner\\b",
     "in icon$",
+    # Equivalent mutants: no test can tell them apart from the real code.
+    # src/ui/images.rs: an image exactly MAX_WIDTH wide is resized to the
+    # same size.
+    "replace > with >= in decode$",
 ]
