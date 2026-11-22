@@ -6,5 +6,15 @@
   "minimumReleaseAge": "3 days",
   "minimumReleaseAgeBehaviour": "timestamp-optional",
   "groupSingleUpdates": true,
-  "semanticCommits": "enabled"
+  "semanticCommits": "enabled",
+  "packageRules": [
+    {
+      "description": "The AppImage catalog test job copies appimage.github.io's own test, which runs on Ubuntu 22.04. Keep that runner, so the job finds what the catalog finds.",
+      "matchFileNames": [".github/workflows/ci.yml"],
+      "matchDatasources": ["github-runners"],
+      "matchDepNames": ["ubuntu"],
+      "matchCurrentValue": "22.04",
+      "enabled": false
+    }
+  ]
 }
