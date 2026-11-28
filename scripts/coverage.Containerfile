@@ -1,4 +1,4 @@
-FROM docker.io/library/rust:1.100.0-slim-trixie@sha256:4b68057dc8c103af4fa66b5cd29f21b18afec79fadfcd8fb91e295e939f0690c
+FROM docker.io/library/rust:1.100.0-slim-trixie@sha256:6014030547c3168bb80e700b7aaf653fbb92e5ac1e2712c49a1c9ec1beea49d8
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
